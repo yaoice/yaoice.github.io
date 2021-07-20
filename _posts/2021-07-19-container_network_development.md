@@ -644,7 +644,7 @@ https://github.com/contiv/netplugin
 
 
 
-# 3.3.9 Weave Net
+#### 3.3.9 Weave Net
 
 Weave Net是一个多主机容器网络方案，支持去中心化的控制平面，各个host上的wRouter间通过建立Full Mesh的TCP链接，并通过Gossip协议来同步控制信息。这种方式省去了集中式的K/V Store，能够在一定程度上减低部署的复杂性，Weave将其称为“data centric”
 
