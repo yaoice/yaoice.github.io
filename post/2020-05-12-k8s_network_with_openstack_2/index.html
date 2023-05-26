@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="k8s、OpenStack网络打通(二)" />
+    <meta property="og:title" content="k8s、OpenStack网络打通(二)" />
+    <meta property="twitter:title" content="k8s、OpenStack网络打通(二)" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>k8s、OpenStack网络打通(二) | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-05-12-k8s_network_with_openstack_2/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>k8s、OpenStack网络打通(二)</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Tuesday, May 12, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <p>继上篇<a href="http://www.iceyao.com.cn/2020/05/06/k8s%E7%BD%91%E7%BB%9C%E5%BC%80%E5%8F%91-k8s-OpenStack%E7%BD%91%E7%BB%9C%E6%89%93%E9%80%9A%E4%B8%80/">k8s、OpenStack网络打通(一)</a>,
+已经实现了一个neutron-ipam, 接下来就是具体cni插件实现容器添加/卸载网卡的功能.</p>
+<h3 id="ipvlan模式">ipvlan模式</h3>
+<h4 id="原理">原理</h4>
+<p>这种模式是同时加载了两种cni插件，ipvlan和veth-host，即pod有两种网卡；一张是ipvlan的子网卡，另一张是veth网卡，veth另一端在宿主机上，与宿主机构成veth对</p>
+<p>以下两种场景中的ipvlan工作在l2模式，实际上ipvlan是有三种模式的</p>
+<ul>
+<li>L2模式下入出流量不会经过host namespace网络，无法支持kube-proxy，不会经过host namespace的netfilter chains</li>
+<li>L3模式下入流量不经过host namespace网络，无法支持kube-proxy，只有出流量经过host namespace的netfilter POSTROUTING/OUTPUT chains</li>
+<li>L3S模式下出入流量均经过host namespace的三层网络，出入流量均经过host namespace的netfilter chains，但又会带来以下新的问题：
+<ul>
+<li>当service的client和server POD在一个master时，server的response报文会走ipvlan datapath, service访问失败</li>
+<li>L3S模式下流量从4层进入interface，无法支持kata等安全容器</li>
+<li>当client和server在同一node时，导致同一方向流量多次进出host conntrack，datapath复杂，和iptables/ipvs也存在兼容性问题</li>
+</ul>
+</li>
+</ul>
+<p>l2: ipvlan L2模式和macvlan bridge模式工作原理很相似，父接口作为交换机来转发子接口的数据。
+同一个网络的子接口可以通过父接口来转发数据，而如果想发送到其他网络，报文则会通过父接口的路由转发出去。</p>
+<p>l3: ipvlan有点像路由器的功能，它在各个虚拟网络和主机网络之间进行不同网络报文的路由转发工作。
+只要父接口相同，即使虚拟机/容器不在同一个网络，也可以互相ping通对方，因为ipvlan会在中间做报文的转发工作。
+L3模式下的虚拟接口不会接收到多播或者广播的报文，所有的 ARP 过程或者其他多播报文都是在底层的父接口完成的</p>
+<p>Note: 如果使用L3模式，pod会ping不通网关，因为arp过程都是在父接口完成的，你需要在其宿主机上手动发起arp请求<code>arping -c 2 -U -I eth0 &lt;pod-ip&gt;</code>，经测试过一段时间后，
+arp也会失效. 网上还有一种方式是在外部路由器上配置到达pod的路由(受限于硬件，这种方式待验证).</p>
+<h4 id="openstack与k8s独立部署场景">OpenStack与K8s独立部署场景</h4>
+<p>
+  <img src="/img/posts/2020-05-06/k8s_openstack_separate.png" alt="">
+
+</p>
+<ol>
+<li>pod路由，pod内部有两条路由；一条是默认路由，下一跳地址是neutron网络的二层网关，流量从ipvlan子接口出；
+另一条是目的地址是k8s service网段，流量从veth网卡出(与宿主机构成veth对)，然后再经过宿主机命名空间的iptables/ipset，这样service就可以生效了</li>
+<li>宿主机上有目的地址为pod ip的直通路由，流量从与pod构成veth对的网卡出</li>
+<li>同主机pod通信，流量通过宿主机上的直通路由(目的地址为pod ip)进行转发</li>
+<li>跨主机pod通信，pod之间处于同cidr的话，二层可达就可以；不同cidr，pod间的默认网关均指向neutron网络的二层网关地址，依靠上层物理路由转发</li>
+</ol>
+<h4 id="openstack与k8s融合部署场景">OpenStack与K8s融合部署场景</h4>
+<p>
+  <img src="/img/posts/2020-06-19/ipvlan-l2-veth.png" alt="">
+
+</p>
+<p>融合场景下的pod/宿主机路由，同主机/跨主机通信原理一致</p>
+<p>cni ipam虽然已经实现了从neutron分配ip, 但是在K8s、OpenStack融合的场景下(即k8s部署在OpenStack VM中)，受制于neutron port的ip-mac绑定；
+neutron port是跟VM关联的，要实现VM下的pod之间能够互相通信，就必须让cni-ipam-neutron支持这种场景，有两种方式：</p>
+<ol>
+<li>
+<p>开启pod宿主机(即VM)的allow_address_pairs</p>
+<p>有点走偏门的感觉，在neutron那边创建的port只是占用了这个ip，避免被其它使用，实质上没有任何作用；
+配置allow_address_pairs只是让这个ip在虚拟机内部能够通行</p>
+</li>
+<li>
+<p>neutron port可以绑定多个ip, 更新维护port的ip列表</p>
+<p>比较正规的操作，看port的ip列表就知道pod运行在哪台虚拟机下</p>
+</li>
+</ol>
+<p>无论是哪种方式，都要能获取到neutron port的id，然后进行port更新操作. 在虚拟机内部如何获取port id?</p>
+<ol>
+<li>
+<p>把port信息塞到元数据服务器里</p>
+<pre tabindex="0"><code>curl http://169.254.169.254/2007-01-19/meta-data/
+</code></pre><p>需要在OpenStack层面做点开发</p>
+</li>
+<li>
+<p>通过port的ip反向查询，找出对应的port id</p>
+<p>通过cni配置文件可以加个变量参数hostInterface宿主机的网卡，抓取对应的IP，然后调用neutron api获得
+对应的port id. hostInterface默认值为默认网关所在的那张网卡的IP.</p>
+</li>
+</ol>
+<p>选择2这种方式获取port id后，考虑到创建和删除操作都需要对这个vm port的ip列表进行update操作；如何保证原子操作？</p>
+<p>考虑分布式锁？分布式锁肯定可以解决问题，但结合VM的性质，一个本地文件锁就可以解决问题. 因为如果是更新同一个vm port的ip
+列表的话，即创建/删除宿主机的pod，创建/删除操作都是由宿主机的ipam插件发起，也就是在同一台VM上.</p>
+<p>go-filemutex用于多进程间的同步</p>
+<pre tabindex="0"><code>import (
+    &quot;log&quot;
+    &quot;github.com/alexflint/go-filemutex&quot;
+)
+
+func main() {
+    m, err := filemutex.New(&quot;/tmp/foo.lock&quot;)
+    if err != nil {
+        log.Fatalln(&quot;Directory did not exist or file could not created&quot;)
+    }
+
+    m.Lock()  // Will block until lock can be acquired
+
+    // Code here is protected by the mutex
+
+    m.Unlock()
+}
+</code></pre><p>一旦某个进程获得文件锁，未释放文件锁前其它进程在尝试获得锁的时候将会阻塞</p>
+<p>调用neutron port-update的时候，返回的port ip列表是乱序排列的</p>
+<pre tabindex="0"><code>neutron port-update \
+    --fixed-ip subnet_id=3088e889-5a39-4e0b-81e6-90fcc71bd2fb,ip_address=192.168.53.48 \
+    --fixed-ip subnet_id=3088e889-5a39-4e0b-81e6-90fcc71bd2fb,ip_address=192.168.53.81 \
+    --fixed-ip subnet_id=3088e889-5a39-4e0b-81e6-90fcc71bd2fb,ip_address=192.168.53.92 \
+    --fixed-ip subnet_id=3088e889-5a39-4e0b-81e6-90fcc71bd2fb e2a14f58-f6e2-4f44-b43c-03cc50e14b8b 
+</code></pre><p>要解决ip列表乱序排列不是很困难的事，可以在neutron api那边修改或在本地获取前后两次ip列表，对比差异得到的那个ip就是pod新分配的ip地址；同时把ip和container-id的映射关系写入本地存储.</p>
+<p>新的调用流程图：</p>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">sequenceDiagram
+    ipam cni -&gt;&gt; +FileLock: cmdAdd，Lock()获取文件锁
+    FileLock --&gt;&gt; -ipam cni: 
+    ipam cni -&gt;&gt; + neutron: 追加vm port ip列表
+    neutron -&gt;&gt; - ipam cni: 返回vm port新ip列表信息
+    ipam cni -&gt;&gt; ipam cni: 本地过滤对比，得到新ip
+    ipam cni -&gt;&gt; +local storae: ip和container id的映射关系写入本地存储
+    local storae --&gt;&gt; -ipam cni :写入成功 
+    ipam cni -&gt;&gt; +FileLock: Unlock()释放文件锁
+    FileLock --&gt;&gt; -ipam cni: 
+    ipam cni -&gt;&gt; +FileLock: cmdDel，Lock()获取文件锁
+    FileLock --&gt;&gt; -ipam cni: 
+    ipam cni -&gt;&gt; +local storae: 查询本地存储ip和container id的映射关系
+    local storae -&gt;&gt; -ipam cni: 返回container id对应的ip 
+    ipam cni -&gt;&gt; +neutron: 减少vm port ip列表
+    neutron --&gt;&gt; -ipam cni: 
+    ipam cni -&gt;&gt; +local storage: 删除本地存储ip和container id的映射关系
+    local storage -&gt;&gt; -ipam cni: 
+    ipam cni -&gt;&gt; +FileLock: Unlock()释放文件锁
+    FileLock --&gt;&gt; -ipam cni: `
+</code></pre><h3 id="网卡直通模式">网卡直通模式</h3>
+<p>弹性网卡直通模式, 基于host-device cni插件改造的host-device-plus插件+veth-host插件组成的pod双网卡模式；nova支持给vm挂载多张网卡，网卡数量受限于pci上限，
+实际上CentOS 7系统单vm pci设备数量上限是32</p>
+<h4 id="手动实践">手动实践</h4>
+<p>默认docker实例被创建出来后，ip netns(从/var/run/netns读取)无法看到容器实例对应的namespace.</p>
+<p>查找容器的主进程ID</p>
+<pre tabindex="0"><code># docker inspect --format '{{.State.Pid}}' &lt;docker实例名字或ID&gt;
+# docker inspect --format '{{.State.Pid}}' ae06166543d7
+</code></pre><p>创建/var/run/netns 目录以及符号连接</p>
+<pre tabindex="0"><code># mkdir /var/run/netns
+# ln -s /proc/&lt;容器的主进程ID&gt;/ns/net /var/run/netns/&lt;docker实例名字或ID&gt;
+# ln -s /proc/21944/ns/net /var/run/netns/ae06166543d7
+# ip netns
+ae06166543d7 (id: 1)
+</code></pre><p>进入namespace查看</p>
+<pre tabindex="0"><code># ip netns exec ae06166543d7 ip a
+1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+3: veth0@if26: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default 
+    link/ether a2:f9:57:16:c2:6d brd ff:ff:ff:ff:ff:ff link-netnsid 0
+25: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether fa:16:3e:4d:76:00 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.52.30/24 brd 192.168.52.255 scope global eth0
+       valid_lft forever preferred_lft forever
+</code></pre><p>把宿主机网卡设备添加到namespace</p>
+<pre tabindex="0"><code># ip link set dev23 netns ae06166543d7
+# ip netns exec ae06166543d7 ip a
+1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+3: veth0@if26: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default 
+    link/ether a2:f9:57:16:c2:6d brd ff:ff:ff:ff:ff:ff link-netnsid 0
+23: dev23: &lt;BROADCAST,MULTICAST&gt; mtu 1500 qdisc noop state DOWN group default qlen 1000
+    link/ether fa:16:3e:95:e5:b5 brd ff:ff:ff:ff:ff:ff
+25: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether fa:16:3e:4d:76:00 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.52.30/24 brd 192.168.52.255 scope global eth0
+       valid_lft forever preferred_lft forever
+</code></pre><p>从namespace中移除宿主机网卡设备</p>
+<pre tabindex="0"><code># ip netns exec ae06166543d7 ip link set dev23 netns 1
+# ip netns exec ae06166543d7 ip a
+1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+3: veth0@if26: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default 
+    link/ether a2:f9:57:16:c2:6d brd ff:ff:ff:ff:ff:ff link-netnsid 0
+25: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether fa:16:3e:4d:76:00 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.52.30/24 brd 192.168.52.255 scope global eth0
+       valid_lft forever preferred_lft forever
+</code></pre><h4 id="原理-1">原理</h4>
+<p>ipvlan模式使用的ipvlan有内核版本要求，采用网卡直通模式，理论上网络隔离，性能都是最佳的</p>
+<pre tabindex="0"><code>        +---------------------------------------------------------------------------------------------------------------+
+        |                                                                                                               |
+        |  +----------------------------------+                       +----------------------------------+              |
+        |  |            pod1                  |                       |              pod2                |              |
+        |  |                                  |                       |                                  |              |
+        |  |                                  |                       |                                  |              |
+        |  |                                  |                       |                                  |              |
+        |  |                                  |                       |                                  |              |
+        |  |   +----------+    +----------+   |                       |   +----------+    +----------+   |              |
+        |  |   |   eth0   |    |   veth0  |   |                       |   |   eth0   |    |   veth0  |   |              |
+        |  |   | 1.1.1.6  |    |    +     |   |                       |   | 1.1.1.7  |    |    +     |   |              |
+        |  |   +----------+    +----------+   |                       |   +----------+    +----------+   |              |
+        |  +----------------------------------+                       +----------------------------------+              |
+        |   default gw -&gt; eth0      | service cidr -&gt; veth0            default gw -&gt; eth0      | service cidr -&gt; veth0  |
+        |                           |                                                          |                        |
+        |                           |                                                          |                        |
+        |                           |                                                          |                        |
+        |                           |                                                          |                        |
+        |                      +----+-----+                                               +----+-----+                  |
+        |                      |   veth1  |                                               |  veth2   |                  |
+        |                      |          |                                               |          |                  |
+        |                      +----------+                                               +----------+                  |
+        |                   +---------------------------------------------------------------------------+               |
+        |                   |                         iptables/ipset/route                              |               |
+        |                   +---------------------------------------------------------------------------+               |
+        |                                                                                                               |
+        |                                                                            宿主机路由                           |
+        |                                                                           +---------------------------------+ |
+        |                                                                           |                                 | |
+        |                                                                           |  default via 1.1.1.254 dev eth0 | |
+        |                                                                           |  1.1.1.6 dev veth1              | |
+        |                                    映射给pod1             映射给pod2        |                                 | |
+        |           +------------+         +------------+         +------------+    |  1.1.1.7 dev veth2              | |
+        |           |            |         |            |         |            |    |                                 | |
+        |           |   eth0     |         |   eth1     |         |   eth2     |    +---------------------------------+ |
+        |           |  1.1.1.2   |         |            |         |            |                                        |
+        |  VM       +------------+         +------------+         +------------+                                        |
+        +---------------------------------------------------------------------------------------------------------------+
+                         |                       |                       |
+                         |                       |                       |
+                         |                       |                       |
+        +----------------+-----------------------+-----------------------+----------------------------------------------+
+Neutron |                                          vpc cidr: 1.1.1.0/24                                                 |
+        +---------------------------------------------------------------------------------------------------------------+
+
+</code></pre><p>VM绑定了三张网卡，分别为eth0,eth1,eth2; eth1映射给pod1；
+使用网卡直通模式时，cni-ipam-neutron需要支持和OpenStack nova联动，为VM添加新的网卡；然后host-device-plus插件自动把宿主机的网卡映射给pod，其它跟上面ipvlan模式一致</p>
+<h3 id="veth路由模式">veth路由模式</h3>
+<p>ipvlan模式有内核版本要求，网卡直通模式有pci设备数量限制要求，有没一种通用的模式呢？
+有的，veth路由模式，流量通过宿主机上的路由和vrouter内部的路由进行转发.</p>
+<h4 id="手动实践-1">手动实践</h4>
+<p>容器的地址是neutron port的多IP中的IP，必须有vrouter存在；
+容器发送出去的包通过VM的网卡出，回来的包需要在vrouter和宿主机设置静态路由</p>
+<pre tabindex="0"><code>(10.10.10.8)vm -&gt; vrouter(10.10.10.1)
+           /  \
+          /    \
+         /      \
+       容器      容器
+(10.10.10.19)   (10.10.10.20) 
+</code></pre><p>虚拟机vm ip为10.10.10.8，默认网关指向的vrouter地址是10.10.10.1</p>
+<p>容器与宿主机通过veth对和路由进行通信</p>
+<pre tabindex="0"><code>ip netns add test
+CNI_PATH=/opt/cni/bin NETCONFPATH=/etc/cni/net.d /usr/local/bin/cnitool add cni0 /var/run/netns/test
+
+[root@test-tcnp ~]# ip netns exec test ip a
+1: lo: &lt;LOOPBACK&gt; mtu 65536 qdisc noop state DOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+3: eth0@if46: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default 
+    link/ether 72:96:91:d4:58:36 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 10.10.10.19/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::7096:91ff:fed4:5836/64 scope link 
+       valid_lft forever preferred_lft forever
+
+[root@test-tcnp ~]# ip netns exec test ip route
+default via 169.254.1.1 dev eth0 
+169.254.1.1 dev eth0 scope link 
+</code></pre><p>eth0与宿主机 id为46的网卡构成veth对，在命名空间里默认网关指向169.254.1.1(宿主机dummy网卡)</p>
+<p>宿主机的veth网卡和路由</p>
+<pre tabindex="0"><code>4: dummy0: &lt;BROADCAST,NOARP,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether f2:37:21:fc:93:8d brd ff:ff:ff:ff:ff:ff
+    inet 169.254.1.1/32 scope global dummy0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f037:21ff:fefc:938d/64 scope link 
+       valid_lft forever preferred_lft forever
+
+46: veth7c1b453d@if3: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default 
+    link/ether 0e:12:32:5b:a7:f9 brd ff:ff:ff:ff:ff:ff link-netnsid 18
+    inet6 fe80::c12:32ff:fe5b:a7f9/64 scope link 
+       valid_lft forever preferred_lft forever
+</code></pre><p>和容器的eth0网卡构成veth对，通过id和@if3可以看出来</p>
+<p>宿主机到容器的路由</p>
+<pre tabindex="0"><code>[root@test-tcnp ~]# ip route
+default via 10.10.10.1 dev eth0 
+10.10.10.0/24 dev eth0 proto kernel scope link src 10.10.10.8 
+10.10.10.19 dev veth7c1b453d
+</code></pre><p>路由scope采用global(默认不显示)</p>
+<pre tabindex="0"><code>SCOPE := [ host | link | global | NUMBER ]
+</code></pre><ul>
+<li>Global: 可以转发，例如从一个端口收到的包，可以查询global的路由条目，如果目的地址在另外一个网卡，那么该路由条目可以匹配转发的要求，进行路由转发</li>
+<li>Link: scope路由条目是不会转发任何匹配的数据包到其他的硬件网口的，link是在链路上才有效，这个链路是指同一个端口，也就是说接收和发送都是走的同一个端口的时候，这条路由才会生效（也就是说在同一个二层）</li>
+<li>Host: 表示这是一条本地路由，典型的是回环端口，loopback设备使用这种路由条目，该路由条目比link类型的还要严格，约定了都是本机内部的转发，不可能转发到外部</li>
+<li>NUMBER: ipv6专用的路由scope</li>
+</ul>
+<p>vrouter的内部路由</p>
+<pre tabindex="0"><code>[root@ ~]# ip a
+1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+29: qr-6382d00a-11: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1450 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:08:c0:4d brd ff:ff:ff:ff:ff:ff
+    inet 10.10.10.1/24 brd 10.10.10.255 scope global qr-6382d00a-11
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe08:c04d/64 scope link 
+       valid_lft forever preferred_lft forever
+94: qg-5560d7d3-dc: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:35:9a:a6 brd ff:ff:ff:ff:ff:ff
+    ......
+
+[root@ ~]# ip route
+default via 10.125.224.1 dev qg-5560d7d3-dc 
+10.10.10.0/24 dev qr-6382d00a-11 proto kernel scope link src 10.10.10.1 
+10.10.10.19 via 10.10.10.8 dev qr-6382d00a-11 
+10.125.224.0/26 dev qg-5560d7d3-dc proto kernel scope link src 10.125.224.34 
+</code></pre><p>一个vrouter实际上就是一个namespace，告诉vrouter，到容器地址10.10.10.19路由的下一跳是其宿主机地址10.10.10.8; 调用neutron接口可以往vrouter里注入静态路由,
+还可以绑定浮动ip直接映射到10.10.10.19(因为这也是neutron port多IP的合法IP)</p>
+<p>销毁容器</p>
+<pre tabindex="0"><code>CNI_PATH=/opt/cni/bin NETCONFPATH=/etc/cni/net.d /usr/local/bin/cnitool del cni0 /var/run/netns/test
+ip netns del test
+</code></pre><p>限制：vrouter的静态路由默认最大是30条</p>
+<pre tabindex="0"><code>The number of routes exceeds the maximum 30.&quot;, &quot;type&quot;: &quot;RoutesExhausted&quot;, &quot;detail&quot;: &quot;&quot;}}
+</code></pre><h4 id="原理-2">原理</h4>
+<pre tabindex="0"><code>            
+                +------------------------------+                       +----------------------------------+
+                |        pod1                  |                       |              pod2                |
+                |                              |                       |                                  |
+                |                              |                       |                                  |
+                |                              |                       |                                  |
+                |                              |                       |                                  |
+                |               +----------+   |                       |  +----------+                    |
+                |               |   eth0   |   |                       |  |   eth0   |                    |
+                |               | 1.1.1.6  |   |                       |  | 1.1.1.7  |                    |
+                |               +----------+   |                       |  +----------+                    |
+                +------------------------------+                       +----------------------------------+
+                                     |                                         |
+pod路由：                             |                                         |   pod路由：
+default via 169.254.1.1 dev eth0     |                                         |   default via 169.254.1.1 dev eth0
+169.254.1.1 dev eth0 scope link      |                                         |   169.254.1.1 dev eth0 scope link
+                                     |                                         |
+                                +----+-----+                              +----+-----+
+                                |   veth1  |                              |  veth2   |
+                                |          |                              |          |
+                                +----------+                              +----------+
+                       +---------------------------------------------------------------------------+
+                       |             |           iptables/ipset/route           |                  |
+                       +---------------------------------------------------------------------------+
+                                     |                                          |
+                                     |               +------------+             |
+                                     |               |            |             |
+                                     +---------------+   dummy0   +-------------+
+                                                     | 169.254.1.1|
+                                                     +------------+
+                                                                         宿主机路由
+                                                     +------------+     +--------------------------------+
+                                                     |            |     | default via 1.1.1.1 dev eth0   |
+       vrouter路由                                    |   eth0     | &lt;---+ 1.1.1.6 dev veth1              |
+       +-------------------------------------+       |  1.1.1.2   |     |                                |
+       | default via xxx.xxx.xxx.1 dev qg+xxx|       +-----+------+     | 1.1.1.7 dev veth2              |
+       | 1.1.1.6 via 1.1.1.2 dev qr+xxx      |             |            |                                |
+       | 1.1.1.7 via 1.1.1.2 dev qr+xxx      |             |            +--------------------------------+
+       |                                     |             |
+       +-------------------------------------+------+      |
+                                                    |      |
+                                                    |      | 1.1.1.1                      xxx.xxx.xxx.1
+             +----------------------+             +-+------+--------+                     +-------------+
+             |                      |   更新路由    |                 |xxx.xxx.xxx.24       |             |
+             | veth+route+controller+-----------&gt; |     vrouter     +---------------------+  Internet   |
+             |                      |             |                 |                     |             |
+             +----------^-----------+             +-----------------+                     +-------------+
+                        |
+                        | 监听pod事件
+                        |
+              +--------------------+
+              |         +          |
+              |   kube+apiserver   |
+              |                    |
+              +--------------------+
+
+</code></pre><ol>
+<li>pod路由，只有一张网卡，只有一条默认网关路由，下一跳地址为169.254.1.1(宿主机的dummy0设备)</li>
+<li>宿主机上有目的地址为pod ip的直通路由，流量从与pod构成veth对的网卡出</li>
+<li>同主机pod通信，流量通过宿主机上的直通路由(目的地址为pod ip)进行转发</li>
+<li>跨主机pod通信，pod之间处于同cidr的话，pod间的默认网关均指向169.254.1.1, 流量经过宿主机的路由, 到达vrouter命名空间，再经过vrouter内部的静态路由，
+到达对应的pod的宿主机，再由pod宿主机上的pod地址直通路由到达pod; 不同cidr的话，流量走的过程差不多，只是在vrouter内部，多了一条跨网段的路由转发.</li>
+<li>pod要访问Internet的话，通过vrouter的默认网关出去；外部要访问pod的话，可通过绑定浮动IP映射到对应的pod IP上，浮动IP作用在vrouter命名空间内部.</li>
+</ol>
+<p>cni-ipam-neutron无需做改动，还是基于neutron port多辅助IP来实现；vrouter内部到达pod地址的静态路由可以通过veth-route-controller来自动化更新</p>
+<h3 id="参考链接">参考链接</h3>
+<ul>
+<li><a href="https://kubernetes.io/docs/concepts/architecture/cloud-controller/#service-controller">https://kubernetes.io/docs/concepts/architecture/cloud-controller/#service-controller</a></li>
+<li><a href="https://kernel.taobao.org/2019/11/ipvlan-for-kubernete-net/">Kubernetes网络的IPVlan方案</a></li>
+<li><a href="https://www.cnblogs.com/menkeyi/p/11374023.html">ipvlan l2 vs l3区别</a></li>
+<li><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/system_design_guide/getting-started-with-ipvlan_system-design-guide">ipvlan l2 vs l3 vs l3s定义</a></li>
+<li><a href="https://www.kernel.org/doc/Documentation/networking/ipvlan.txt">https://www.kernel.org/doc/Documentation/networking/ipvlan.txt</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2020-05-06-k8s_network_with_openstack_1/" data-toggle="tooltip" data-placement="top" title="k8s、OpenStack网络打通(一)">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-05-20-k8s-hpa-implement_principle/" data-toggle="tooltip" data-placement="top" title="K8s HPA介绍(翻译)">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

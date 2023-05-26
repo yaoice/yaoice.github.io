@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="K8s HPA kube-metric-adapter源码阅读笔记" />
+    <meta property="og:title" content="K8s HPA kube-metric-adapter源码阅读笔记" />
+    <meta property="twitter:title" content="K8s HPA kube-metric-adapter源码阅读笔记" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>K8s HPA kube-metric-adapter源码阅读笔记 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-07-21-kube-metric-adapter_readnote/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>K8s HPA kube-metric-adapter源码阅读笔记</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Tuesday, July 21, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h3 id="kube-metrics-adapter简介">kube-metrics-adapter简介</h3>
+<p>Kube Metrics Adapter是Kubernetes的通用指标适配器，可以收集和提供用于水平Pod自动缩放的自定义指标和外部指标。</p>
+<p>它支持基于<a href="https://prometheus.io/">Prometheus度量标准</a>，<a href="https://aws.amazon.com/sqs/">SQS队列</a>和其他现成的扩展。</p>
+<p>它会发现Horizo​​ntal Pod Autoscaling资源，并开始收集请求的指标并将其存储在内存中。它是使用custom-metrics-apiserver库实现的。</p>
+<h3 id="sample示例">sample示例</h3>
+<p>这是一个Horizo​​ntalPodAutoscaler资源的示例，该资源配置为从部署myapp的每个pod中获取每秒请求数。</p>
+<pre tabindex="0"><code>apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: myapp-hpa
+  annotations:
+    # metric-config.&lt;metricType&gt;.&lt;metricName&gt;.&lt;collectorName&gt;/&lt;configKey&gt;
+    metric-config.pods.requests-per-second.json-path/json-key: &quot;$.http_server.rps&quot;
+    metric-config.pods.requests-per-second.json-path/path: /metrics
+    metric-config.pods.requests-per-second.json-path/port: &quot;9090&quot;
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: myapp
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Pods
+    pods:
+      metric:
+        name: requests-per-second
+      target:
+        averageValue: 1k
+        type: AverageValue
+</code></pre><p>autoscaling/v2beta2 api在k8s 1.12+版本中可用</p>
+<h3 id="collectors">Collectors</h3>
+<p>收集器是用于获取HPA资源请求的指标的不同实现。它们基于HPA资源进行配置，并由kube-metrics-adapter按需启动，以仅收集扩展应用程序所需的度量。</p>
+<p>可以仅基于HPA资源中定义的指标来配置收集器，也可以通过HPA资源上的其他注释来配置收集器。</p>
+<h4 id="prometheus-collector">Prometheus collector</h4>
+<p>这里只分析Prometheus collector, 它与k8s-prometheus-adapter的区别在前面的文章介绍过了；</p>
+<p>支持的metrics有:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Type</th>
+<th>Kind</th>
+<th>K8s Versions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>prometheus-query</code></td>
+<td>Generic metric which requires a user defined query.</td>
+<td>External</td>
+<td></td>
+<td><code>&gt;=1.12</code></td>
+</tr>
+<tr>
+<td><em>custom</em></td>
+<td>No predefined metrics. Metrics are generated from user defined queries.</td>
+<td>Object</td>
+<td><em>any</em></td>
+<td><code>&gt;=1.12</code></td>
+</tr>
+</tbody>
+</table>
+<p>Object metric已废弃，未来会被淘汰.</p>
+<h3 id="源码分析">源码分析</h3>
+<p>启动函数</p>
+<pre tabindex="0"><code>func main() {
+    logs.InitLogs()
+    defer logs.FlushLogs()
+    
+    if len(os.Getenv(&quot;GOMAXPROCS&quot;)) == 0 {
+        runtime.GOMAXPROCS(runtime.NumCPU())
+    }
+
+    cmd := server.NewCommandStartAdapterServer(wait.NeverStop)
+    cmd.Flags().AddGoFlagSet(flag.CommandLine)
+    if err := cmd.Execute(); err != nil {
+        panic(err)
+    }
+}
+</code></pre><ol>
+<li>日志初始化</li>
+<li>设置Runtime Scheduler 中 Processor（简称P）的数量</li>
+<li>初始化cobra Command对象，设置RunE运行函数-&gt;RunCustomMetricsAdapterServer</li>
+<li>启动kube-metric-adapter api(custom-metrics-apiserver库实现)</li>
+</ol>
+<p>NewCommandStartAdapterServer函数中比较重要的一个步骤，初始化AdapterServerOptions对象</p>
+<pre tabindex="0"><code>    // 初始化CustomMetricsAdapterServerOptions对象, 涉及安全监听、认证、授权、特性启动
+    baseOpts := server.NewCustomMetricsAdapterServerOptions()
+    // 默认启动CustomMetricsAPI和ExternalMetricsAPI
+    o := AdapterServerOptions{
+        CustomMetricsAdapterServerOptions: baseOpts,
+        EnableCustomMetricsAPI:            true,
+        EnableExternalMetricsAPI:          true,
+        MetricsAddress:                    &quot;:7979&quot;,
+        ZMONTokenName:                     &quot;zmon&quot;,
+        CredentialsDir:                    &quot;/meta/credentials&quot;,
+    }
+</code></pre><p>AdapterServerOptions结构体</p>
+<pre tabindex="0"><code>type AdapterServerOptions struct {
+    *server.CustomMetricsAdapterServerOptions
+
+    // RemoteKubeConfigFile is the config used to list pods from the master API server
+    RemoteKubeConfigFile string
+    // EnableCustomMetricsAPI switches on sample apiserver for Custom Metrics API
+    EnableCustomMetricsAPI bool
+    // EnableExternalMetricsAPI switches on sample apiserver for External Metrics API
+    EnableExternalMetricsAPI bool
+    // PrometheusServer enables prometheus queries to the specified
+    // server
+    PrometheusServer string
+    // InfluxDBAddress enables Flux queries to the specified InfluxDB instance
+    InfluxDBAddress string
+    // InfluxDBToken is the token used for querying InfluxDB
+    InfluxDBToken string
+    // InfluxDBOrg is the organization ID used for querying InfluxDB
+    InfluxDBOrg string
+    // ZMONKariosDBEndpoint enables ZMON check queries to the specified
+    // kariosDB endpoint
+    ZMONKariosDBEndpoint string
+    // ZMONTokenName is the name of the token used to query ZMON
+    ZMONTokenName string
+    // Token is an oauth2 token used to authenticate with services like
+    // ZMON.
+    Token string
+    // CredentialsDir is the path to the dir where tokens are stored
+    CredentialsDir string
+    // SkipperIngressMetrics switches on support for skipper ingress based
+    // metric collection.
+    SkipperIngressMetrics bool
+    // AWSExternalMetrics switches on support for getting external metrics
+    // from AWS.
+    AWSExternalMetrics bool
+    // AWSRegions the AWS regions which are supported for monitoring.
+    AWSRegions []string
+    // MetricsAddress is the address where to serve prometheus metrics.
+    MetricsAddress string
+    // SkipperBackendWeightAnnotation is the annotation on the ingress indicating the backend weights
+    SkipperBackendWeightAnnotation []string
+    // Whether to disregard failing to create collectors for incompatible HPAs - such as when using
+    // kube-metrics-adapter beside another Metrics Provider
+    DisregardIncompatibleHPAs bool
+}
+</code></pre><p>执行Command对象中的RunE</p>
+<pre tabindex="0"><code>func (o AdapterServerOptions) RunCustomMetricsAdapterServer(stopCh &lt;-chan struct{}) error {
+    // 暴露metrics给prometheus
+    go func() {
+        http.Handle(&quot;/metrics&quot;, promhttp.Handler())
+        klog.Fatal(http.ListenAndServe(o.MetricsAddress, nil))
+    }()
+    // 构造apiserver的config
+    config, err := o.Config()
+    if err != nil {
+        return err
+    }
+    // 构造获取clientSet的clientConfig
+    var clientConfig *rest.Config
+    if len(o.RemoteKubeConfigFile) &gt; 0 {
+        // 集群外访问
+        loadingRules := &amp;clientcmd.ClientConfigLoadingRules{ExplicitPath: o.RemoteKubeConfigFile}
+        loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &amp;clientcmd.ConfigOverrides{})
+
+        clientConfig, err = loader.ClientConfig()
+    } else {
+        // 集群内访问
+        clientConfig, err = rest.InClusterConfig()
+    }
+    if err != nil {
+        return fmt.Errorf(&quot;unable to construct lister client config to initialize provider: %v&quot;, err)
+    }
+
+    // convert stop channel to a context
+    ctx, cancel := context.WithCancel(context.Background())
+    go func() {
+        &lt;-stopCh
+        cancel()
+    }()
+    // 设置clientSet超时时间
+    clientConfig.Timeout = defaultClientGOTimeout
+
+    client, err := kubernetes.NewForConfig(clientConfig)
+    if err != nil {
+        return fmt.Errorf(&quot;failed to initialize new client: %v&quot;, err)
+    }
+    // 获取一个collector工厂对象
+    collectorFactory := collector.NewCollectorFactory()
+
+    // 注册prometheus collector
+    if o.PrometheusServer != &quot;&quot; {
+        promPlugin, err := collector.NewPrometheusCollectorPlugin(client, o.PrometheusServer)
+        if err != nil {
+            return fmt.Errorf(&quot;failed to initialize prometheus collector plugin: %v&quot;, err)
+        }
+
+        err = collectorFactory.RegisterObjectCollector(&quot;&quot;, &quot;prometheus&quot;, promPlugin)
+        if err != nil {
+            return fmt.Errorf(&quot;failed to register prometheus object collector plugin: %v&quot;, err)
+        }
+
+        collectorFactory.RegisterExternalCollector([]string{collector.PrometheusMetricName}, promPlugin)
+        
+        // 注册Skipper collector
+        // skipper collector can only be enabled if prometheus is.
+        if o.SkipperIngressMetrics {
+            skipperPlugin, err := collector.NewSkipperCollectorPlugin(client, promPlugin, o.SkipperBackendWeightAnnotation)
+            if err != nil {
+                return fmt.Errorf(&quot;failed to initialize skipper collector plugin: %v&quot;, err)
+            }
+
+            err = collectorFactory.RegisterObjectCollector(&quot;Ingress&quot;, &quot;&quot;, skipperPlugin)
+            if err != nil {
+                return fmt.Errorf(&quot;failed to register skipper collector plugin: %v&quot;, err)
+            }
+        }
+    }
+    // 注册InfluxDB collector
+    if o.InfluxDBAddress != &quot;&quot; {
+        influxdbPlugin, err := collector.NewInfluxDBCollectorPlugin(client, o.InfluxDBAddress, o.InfluxDBToken, o.InfluxDBOrg)
+        if err != nil {
+            return fmt.Errorf(&quot;failed to initialize InfluxDB collector plugin: %v&quot;, err)
+        }
+        collectorFactory.RegisterExternalCollector([]string{collector.InfluxDBMetricName}, influxdbPlugin)
+    }
+    // 注册HTTP collector
+    plugin, _ := collector.NewHTTPCollectorPlugin()
+    collectorFactory.RegisterExternalCollector([]string{collector.HTTPMetricName}, plugin)
+    // 注册pod collector
+    // register generic pod collector
+    err = collectorFactory.RegisterPodsCollector(&quot;&quot;, collector.NewPodCollectorPlugin(client))
+    if err != nil {
+        return fmt.Errorf(&quot;failed to register pod collector plugin: %v&quot;, err)
+    }
+
+    // 注册ZMON collector
+    // enable ZMON based metrics
+    if o.ZMONKariosDBEndpoint != &quot;&quot; {
+        var tokenSource oauth2.TokenSource
+        if o.Token != &quot;&quot; {
+            tokenSource = oauth2.StaticTokenSource(&amp;oauth2.Token{AccessToken: o.Token})
+        } else {
+            tokenSource = platformiam.NewTokenSource(o.ZMONTokenName, o.CredentialsDir)
+        }
+
+        httpClient := newOauth2HTTPClient(ctx, tokenSource)
+
+        zmonClient := zmon.NewZMONClient(o.ZMONKariosDBEndpoint, httpClient)
+
+        zmonPlugin, err := collector.NewZMONCollectorPlugin(zmonClient)
+        if err != nil {
+            return fmt.Errorf(&quot;failed to initialize ZMON collector plugin: %v&quot;, err)
+        }
+
+        collectorFactory.RegisterExternalCollector([]string{collector.ZMONCheckMetric}, zmonPlugin)
+    }
+
+    awsSessions := make(map[string]*session.Session, len(o.AWSRegions))
+    for _, region := range o.AWSRegions {
+        awsSessions[region], err = session.NewSession(&amp;aws.Config{Region: aws.String(region)})
+        if err != nil {
+            return fmt.Errorf(&quot;unabled to create aws session for region: %s&quot;, region)
+        }
+    }
+    // 注册aws collector
+    if o.AWSExternalMetrics {
+        collectorFactory.RegisterExternalCollector([]string{collector.AWSSQSQueueLengthMetric}, collector.NewAWSCollectorPlugin(awsSessions))
+    }
+    
+    // 初始化provider对象, 实现了MetricsProvider接口(github.com/kubernetes-incubator/custom-metrics-apiserver库)
+    hpaProvider := provider.NewHPAProvider(client, 30*time.Second, 1*time.Minute, collectorFactory, o.DisregardIncompatibleHPAs)
+    // 运行HPA资源发现和metric收集
+    go hpaProvider.Run(ctx)
+
+    customMetricsProvider := hpaProvider
+    externalMetricsProvider := hpaProvider
+
+    // var externalMetricsProvider := nil
+    if !o.EnableCustomMetricsAPI {
+        customMetricsProvider = nil
+    }
+    if !o.EnableExternalMetricsAPI {
+        externalMetricsProvider = nil
+    }
+
+    informer := informers.NewSharedInformerFactory(client, 0)
+    // 封装得比较好，k8s聚合API方式启动
+    // In this example, the same provider implements both Custom Metrics API and External Metrics API
+    server, err := config.Complete(informer).New(&quot;kube-metrics-adapter&quot;, customMetricsProvider, externalMetricsProvider)
+    if err != nil {
+        return err
+    }
+    return server.GenericAPIServer.PrepareRun().Run(ctx.Done())
+}
+</code></pre><h4 id="collector工厂">Collector工厂</h4>
+<p>CollectorFactory结构体定义</p>
+<pre tabindex="0"><code>// collector分三种类型：pods、object、external
+type CollectorFactory struct {
+    podsPlugins     pluginMap
+    // objectPluginMap的数据结构有点特殊，嵌套pluginMap，作用？
+    objectPlugins   objectPluginMap
+    // externalPlugins就一个map数据结构
+    externalPlugins map[string]CollectorPlugin
+}
+
+type objectPluginMap struct {
+    Any   pluginMap
+    Named map[string]*pluginMap
+}
+
+type pluginMap struct {
+    Any   CollectorPlugin
+    Named map[string]CollectorPlugin
+}
+
+// 所有Collector插件都要实现CollectorPlugin接口定义的NewCollector方法，其返回的对象也要实现Collector接口定义的GetMetrics和Interval方法
+type CollectorPlugin interface {
+    NewCollector(hpa *autoscalingv2.HorizontalPodAutoscaler, config *MetricConfig, interval time.Duration) (Collector, error)
+}
+
+type Collector interface {
+    // 获取metrics
+    GetMetrics() ([]CollectedMetric, error)
+    // 收集间隔
+    Interval() time.Duration
+}
+
+type CollectedMetric struct {
+    // autoscalingv2 metric源类型
+    // 有Object、Pods、Resource、External, 代码里有注释说明
+    Type     autoscalingv2.MetricSourceType
+    // 自定义metric的值
+    Custom   custom_metrics.MetricValue
+    // 外部metric的值
+    External external_metrics.ExternalMetricValue
+}
+</code></pre><p>Collector工厂函数，返回一个CollectorFactory对象</p>
+<pre tabindex="0"><code>func NewCollectorFactory() *CollectorFactory {
+    return &amp;CollectorFactory{
+        // pluginMap的Named是map数据结构，key是metricCollector的名称，形如prometheus、influxdb、json-path等
+        podsPlugins: pluginMap{Named: map[string]CollectorPlugin{}},
+        objectPlugins: objectPluginMap{
+            Any:   pluginMap{},
+            // map数据结构，key是Object的类型kind，形如Ingress等
+            Named: map[string]*pluginMap{},
+        },
+        // externalPlugins也是map数据结构，key是metricName，形如prometheus-query
+        externalPlugins: map[string]CollectorPlugin{},
+    }
+}
+</code></pre><h4 id="prometheus-collector插件实现">Prometheus Collector插件实现</h4>
+<p>Prometheus Collector插件的实现过程，其它插件类似的过程</p>
+<pre tabindex="0"><code>+------------------------------------+            +------------------------------+
+|                                    | 初始化对象   |                              |
+|     NewPrometheusCollectorPlugin   +------------+ PrometheusCollectorPlugin对象 |
+|                                    |            |                              |
++------------------------------------+            +-------------+----------------+
+                                                                |
+                                                                |
+                                                                |实现了CollectorPlugin接口
+                                                                |
+                                                                |
+                                                    +-----------+----------+
+                                                    |                      |
+                                                    |   NewCollector方法    |
+                                                    |                      |
+                                                    +-----------+----------+
+                                                                |
+                                                                |
+                                                                |
+                                                                |
+                                                    +-----------+-------------+
+                                                    |                         |
+                                                    |  NewPrometheusCollector |
+                                                    |                         |
+                                                    +------------+------------+
+                                                                 |
+                                                                 |
+                                                                 |初始化对象
+                                                                 |
+                                                     +-----------+------------+
+                                                     |                        |
+                                                     | PrometheusCollector对象 |
+                                                     |                        |
+                                                     +-----------+------------+
+                                                                 |
+                                                                 |
+                                                                 |实现了Collector接口
+                                                                 |
+                                           +----------------+    |    +---------------+
+                                           |                |    |    |               |
+                                           | GetMetrics方法  +----+----+  Interval方法  |
+                                           |                |         |               |
+                                           +----------------+         +---------------+
+
+</code></pre><p>具体代码分析</p>
+<pre tabindex="0"><code>const (
+    PrometheusMetricName          = &quot;prometheus-query&quot;
+    prometheusQueryNameLabelKey   = &quot;query-name&quot;
+    prometheusServerAnnotationKey = &quot;prometheus-server&quot;
+)
+
+// 自定义错误类型
+type NoResultError struct {
+    query string
+}
+
+func (r NoResultError) Error() string {
+    return fmt.Sprintf(&quot;query '%s' did not result a valid response&quot;, r.query)
+}
+
+// PrometheusCollectorPlugin结构体定义
+type PrometheusCollectorPlugin struct {
+    // 与prometheus api交互
+    promAPI promv1.API
+    // 与k8s api交互(client-go库的clientSet对象)
+    client  kubernetes.Interface
+}
+
+// 初始化PrometheusCollectorPlugin对象
+func NewPrometheusCollectorPlugin(client kubernetes.Interface, prometheusServer string) (*PrometheusCollectorPlugin, error) {
+    cfg := api.Config{
+        Address:      prometheusServer,
+        RoundTripper: http.DefaultTransport,
+    }
+    // 根据prometheus server地址，获取一个跟prometheus api交互的client对象
+    promClient, err := api.NewClient(cfg)
+    if err != nil {
+        return nil, err
+    }
+
+    return &amp;PrometheusCollectorPlugin{
+        client:  client,
+        promAPI: promv1.NewAPI(promClient),
+    }, nil
+}
+
+// CollectorPlugin接口定义的方法
+func (p *PrometheusCollectorPlugin) NewCollector(hpa *autoscalingv2.HorizontalPodAutoscaler, config *MetricConfig, interval time.Duration) (Collector, error) {
+    return NewPrometheusCollector(p.client, p.promAPI, hpa, config, interval)
+}
+
+// 这里autoscaling使用的是v2beta2的API
+type PrometheusCollector struct {
+    client          kubernetes.Interface
+    promAPI         promv1.API
+    query           string
+    metric          autoscalingv2.MetricIdentifier
+    metricType      autoscalingv2.MetricSourceType
+    objectReference custom_metrics.ObjectReference
+    interval        time.Duration
+    perReplica      bool
+    hpa             *autoscalingv2.HorizontalPodAutoscaler
+}
+
+// metric-config.&lt;metricType&gt;.&lt;metricName&gt;.&lt;collectorName&gt;/&lt;configKey&gt;
+// &lt;configKey&gt; == query-name
+// External metric类型：metric-config.external.prometheus-query.prometheus/processed-events-per-second: |
+//         scalar(sum(rate(event-service_events_count{application=&quot;event-service&quot;,processed=&quot;true&quot;}[1m])))
+// Object metric类型：metric-config.object.processed-events-per-second.prometheus/per-replica: &quot;true&quot;
+func NewPrometheusCollector(client kubernetes.Interface, promAPI promv1.API, hpa *autoscalingv2.HorizontalPodAutoscaler, config *MetricConfig, interval time.Duration) (*PrometheusCollector, error) {
+    c := &amp;PrometheusCollector{
+        client:     client,
+        promAPI:    promAPI,
+        interval:   interval,
+        hpa:        hpa,
+        metric:     config.Metric,
+        metricType: config.Type,
+    }
+
+    switch config.Type {
+    // Object metric类型
+    case autoscalingv2.ObjectMetricSourceType:
+        c.objectReference = config.ObjectReference
+        c.perReplica = config.PerReplica
+
+        if v, ok := config.Config[&quot;query&quot;]; ok {
+            // TODO: validate query
+            c.query = v
+        } else {
+            return nil, fmt.Errorf(&quot;no prometheus query defined&quot;)
+        }
+    // External metric类型
+    case autoscalingv2.ExternalMetricSourceType:
+        // 必须设置Selector匹配labels
+        if config.Metric.Selector == nil {
+            return nil, fmt.Errorf(&quot;selector for prometheus query is not specified&quot;)
+        }
+        // 获取metric-config.&lt;metricType&gt;.&lt;metricName&gt;.&lt;collectorName&gt;/&lt;configKey&gt;格式中的configKey
+        queryName, ok := config.Config[prometheusQueryNameLabelKey]
+        if !ok {
+            return nil, fmt.Errorf(&quot;query name not specified on metric&quot;)
+        }
+        // 根据configKey获取对应的值，也就是prom sql语句，形如scalar(sum(rate(event-service_events_count{application=&quot;event-service&quot;,processed=&quot;true&quot;}[1m])))
+        if v, ok := config.Config[queryName]; ok {
+            // TODO: validate query
+            c.query = v
+        } else {
+            return nil, fmt.Errorf(&quot;no prometheus query defined for metric&quot;)
+        }
+        // 可以为每个HPA对象设置独立的prometheus server url, 会覆盖全局配置的prometheus server
+        // Use custom Prometheus URL if defined in HPA annotation.
+        if promServer, ok := config.Config[prometheusServerAnnotationKey]; ok {
+            cfg := api.Config{
+                Address:      promServer,
+                RoundTripper: http.DefaultTransport,
+            }
+
+            promClient, err := api.NewClient(cfg)
+            if err != nil {
+                return nil, err
+            }
+            c.promAPI = promv1.NewAPI(promClient)
+        }
+    }
+
+    return c, nil
+}
+
+// Collector接口定义的方法
+func (c *PrometheusCollector) GetMetrics() ([]CollectedMetric, error) {
+    // 调用prometheus api查询
+    // TODO: use real context
+    value, _, err := c.promAPI.Query(context.Background(), c.query, time.Now().UTC())
+    if err != nil {
+        return nil, err
+    }
+
+    var sampleValue model.SampleValue
+    // 查询返回的数据类型有：matrix、vector、scalar、string，对应的格式见这里：https://zhuanlan.zhihu.com/p/121104877
+    switch value.Type() {
+    // 根据不同的响应类型进行数据处理
+    case model.ValVector:
+        samples := value.(model.Vector)
+        if len(samples) == 0 {
+            return nil, &amp;NoResultError{query: c.query}
+        }
+
+        sampleValue = samples[0].Value
+    case model.ValScalar:
+        scalar := value.(*model.Scalar)
+        sampleValue = scalar.Value
+    }
+    // 判断NaN非数，一般用于表示无效的除法操作结果0/0或Sqrt(-1)
+    if math.IsNaN(float64(sampleValue)) {
+        return nil, &amp;NoResultError{query: c.query}
+    }
+
+    if c.perReplica {
+        // get current replicas for the targeted scale object. This is used to
+        // calculate an average metric instead of total.
+        // targetAverageValue will be available in Kubernetes v1.12
+        // https://github.com/kubernetes/kubernetes/pull/64097
+        // 获取当前Deployment/StatefulSet的副本数
+        replicas, err := targetRefReplicas(c.client, c.hpa)
+        if err != nil {
+            return nil, err
+        }
+        // 除以副本数，算平均值
+        sampleValue = model.SampleValue(float64(sampleValue) / float64(replicas))
+    }
+
+    var metricValue CollectedMetric
+    // metric类型判断处理
+    switch c.metricType {
+    case autoscalingv2.ObjectMetricSourceType:
+        metricValue = CollectedMetric{
+            Type: c.metricType,
+            Custom: custom_metrics.MetricValue{
+                DescribedObject: c.objectReference,
+                Metric:          custom_metrics.MetricIdentifier{Name: c.metric.Name, Selector: c.metric.Selector},
+                Timestamp:       metav1.Time{Time: time.Now().UTC()},
+                Value:           *resource.NewMilliQuantity(int64(sampleValue*1000), resource.DecimalSI),
+            },
+        }
+    case autoscalingv2.ExternalMetricSourceType:
+        metricValue = CollectedMetric{
+            Type: c.metricType,
+            External: external_metrics.ExternalMetricValue{
+                MetricName:   c.metric.Name,
+                MetricLabels: c.metric.Selector.MatchLabels,
+                Timestamp:    metav1.Time{Time: time.Now().UTC()},
+                Value:        *resource.NewMilliQuantity(int64(sampleValue*1000), resource.DecimalSI),
+            },
+        }
+    }
+    // 只有一个metric，返回竟然是一个slice？
+    return []CollectedMetric{metricValue}, nil
+}
+
+// Collector接口定义的方法
+func (c *PrometheusCollector) Interval() time.Duration {
+    return c.interval
+}
+</code></pre><p>插件实现完后，还要注册到collectorFactory</p>
+<pre tabindex="0"><code>// 写入CollectorFactory的objectPlugins.Any.Named map
+err = collectorFactory.RegisterObjectCollector(&quot;&quot;, &quot;prometheus&quot;, promPlugin)
+        if err != nil {
+            return fmt.Errorf(&quot;failed to register prometheus object collector plugin: %v&quot;, err)
+        }
+// 写入externalPlugins map
+collectorFactory.RegisterExternalCollector([]string{collector.PrometheusMetricName}, promPlugin)
+</code></pre><h4 id="hpa-provider">HPA Provider</h4>
+<p>成为一个HPA Provider，就要实现MetricsProvider的接口</p>
+<p>MetricsProvider的接口定义</p>
+<pre tabindex="0"><code>// CustomMetricInfo describes a metric for a particular
+// fully-qualified group resource.
+type CustomMetricInfo struct {
+    GroupResource schema.GroupResource
+    Namespaced    bool
+    Metric        string
+}
+
+// ExternalMetricInfo describes a metric.
+type ExternalMetricInfo struct {
+    Metric string
+}
+
+// CustomMetricsProvider is a source of custom metrics
+// which is able to supply a list of available metrics,
+// as well as metric values themselves on demand.
+//
+// Note that group-resources are provided  as GroupResources,
+// not GroupKinds.  This is to allow flexibility on the part
+// of the implementor: implementors do not necessarily need
+// to be aware of all existing kinds and their corresponding
+// REST mappings in order to perform queries.
+//
+// For queries that use label selectors, it is up to the
+// implementor to decide how to make use of the label selector --
+// they may wish to query the main Kubernetes API server, or may
+// wish to simply make use of stored information in their TSDB.
+// CustomMetricsProvider接口
+type CustomMetricsProvider interface {
+    // GetMetricByName fetches a particular metric for a particular object.
+    // The namespace will be empty if the metric is root-scoped.
+    GetMetricByName(name types.NamespacedName, info CustomMetricInfo, metricSelector labels.Selector) (*custom_metrics.MetricValue, error)
+
+    // GetMetricBySelector fetches a particular metric for a set of objects matching
+    // the given label selector.  The namespace will be empty if the metric is root-scoped.
+    GetMetricBySelector(namespace string, selector labels.Selector, info CustomMetricInfo, metricSelector labels.Selector) (*custom_metrics.MetricValueList, error)
+
+    // ListAllMetrics provides a list of all available metrics at
+    // the current time.  Note that this is not allowed to return
+    // an error, so it is reccomended that implementors cache and
+    // periodically update this list, instead of querying every time.
+    ListAllMetrics() []CustomMetricInfo
+}
+
+// ExternalMetricsProvider is a source of external metrics.
+// Metric is normally identified by a name and a set of labels/tags. It is up to a specific
+// implementation how to translate metricSelector to a filter for metric values.
+// Namespace can be used by the implemetation for metric identification, access control or ignored.
+// ExternalMetricsProvider接口
+type ExternalMetricsProvider interface {
+    GetExternalMetric(namespace string, metricSelector labels.Selector, info ExternalMetricInfo) (*external_metrics.ExternalMetricValueList, error)
+
+    ListAllExternalMetrics() []ExternalMetricInfo
+}
+
+// MetricsProvider接口包含CustomMetricsProvider和ExternalMetricsProvider两个接口
+type MetricsProvider interface {
+    CustomMetricsProvider
+    ExternalMetricsProvider
+}
+</code></pre><p>NewHPAProvider初始化HPAProvider对象</p>
+<pre tabindex="0"><code>// metricCollection is a container for sending collected metrics across a
+// channel.
+type metricCollection struct {
+    Values []collector.CollectedMetric
+    Error  error
+}
+
+// NewHPAProvider initializes a new HPAProvider.
+func NewHPAProvider(client kubernetes.Interface, interval, collectorInterval time.Duration, collectorFactory *collector.CollectorFactory, disregardIncompatibleHPAs bool) *HPAProvider {
+    // channel中发送[]collector.CollectedMetric
+    metricsc := make(chan metricCollection)
+    // HPAProvider对象
+    return &amp;HPAProvider{
+        client:            client,
+        interval:          interval,
+        collectorInterval: collectorInterval,
+        metricSink:        metricsc,
+        metricStore: NewMetricStore(func() time.Time {
+            // 匿名函数，当前时间+15分钟的Time对象
+            return time.Now().UTC().Add(15 * time.Minute)
+        }),
+        collectorFactory:          collectorFactory,
+        recorder:                  recorder.CreateEventRecorder(client),
+        logger:                    log.WithFields(log.Fields{&quot;provider&quot;: &quot;hpa&quot;}),
+        disregardIncompatibleHPAs: disregardIncompatibleHPAs,
+    }
+}
+</code></pre><p>HPAProvider对象实现了MetricsProvider接口定义的所有方法，实际上是metricStore实现了上述方法，</p>
+<pre tabindex="0"><code>// GetMetricByName gets a single metric by name.
+func (p *HPAProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo, metricSelector labels.Selector) (*custom_metrics.MetricValue, error) {
+    metric := p.metricStore.GetMetricsByName(name, info)
+    if metric == nil {
+        return nil, provider.NewMetricNotFoundForError(info.GroupResource, info.Metric, name.Name)
+    }
+    return metric, nil
+}
+
+// GetMetricBySelector returns metrics for namespaced resources by
+// label selector.
+func (p *HPAProvider) GetMetricBySelector(namespace string, selector labels.Selector, info provider.CustomMetricInfo, metricSelector labels.Selector) (*custom_metrics.MetricValueList, error) {
+    return p.metricStore.GetMetricsBySelector(namespace, selector, info), nil
+}
+
+// ListAllMetrics list all available metrics from the provicer.
+func (p *HPAProvider) ListAllMetrics() []provider.CustomMetricInfo {
+    return p.metricStore.ListAllMetrics()
+}
+
+func (p *HPAProvider) GetExternalMetric(namespace string, metricSelector labels.Selector, info provider.ExternalMetricInfo) (*external_metrics.ExternalMetricValueList, error) {
+    return p.metricStore.GetExternalMetric(namespace, metricSelector, info)
+}
+
+func (p *HPAProvider) ListAllExternalMetrics() []provider.ExternalMetricInfo {
+    return p.metricStore.ListAllExternalMetrics()
+}
+</code></pre><p>NewMetricStore初始化MetricStore对象，用map数据结构来存储metric值</p>
+<pre tabindex="0"><code>// customMetricsStoredMetric is a wrapper around custom_metrics.MetricValue with a metricsTTL used
+// to clean up stale metrics from the customMetricsStore.
+type customMetricsStoredMetric struct {
+    Value custom_metrics.MetricValue
+    TTL   time.Time
+}
+
+type externalMetricsStoredMetric struct {
+    Value external_metrics.ExternalMetricValue
+    TTL   time.Time
+}
+
+// MetricStore is a simple in-memory Metrics Store for HPA metrics.
+type MetricStore struct {
+    customMetricsStore   map[string]map[schema.GroupResource]map[string]map[string]customMetricsStoredMetric
+    externalMetricsStore map[string]map[string]externalMetricsStoredMetric
+    metricsTTLCalculator func() time.Time
+    sync.RWMutex
+}
+
+// NewMetricStore initializes an empty Metrics Store.
+func NewMetricStore(ttlCalculator func() time.Time) *MetricStore {
+    return &amp;MetricStore{
+        // 4层map嵌套数据结构？
+        customMetricsStore:   make(map[string]map[schema.GroupResource]map[string]map[string]customMetricsStoredMetric, 0),
+        // 2层map嵌套数据结构
+        externalMetricsStore: make(map[string]map[string]externalMetricsStoredMetric, 0),
+        metricsTTLCalculator: ttlCalculator,
+    }
+}
+</code></pre><p>核心部分，HPA资源发现和metric收集</p>
+<pre tabindex="0"><code>// Run runs the HPA resource discovery and metric collection.
+func (p *HPAProvider) Run(ctx context.Context) {
+    // initialize collector table
+    // 初始化CollectorScheduler对象
+    p.collectorScheduler = NewCollectorScheduler(ctx, p.metricSink)
+    // 从collector收集所有的metric, 写入metricStore
+    go p.collectMetrics(ctx)
+
+    for {
+        // 解析集群中所有的HPA对象，根据HPA对象中的配置构建Collector
+        err := p.updateHPAs()
+        if err != nil {
+            p.logger.Error(err)
+            UpdateErrors.Inc()
+        } else {
+            UpdateSuccesses.Inc()
+        }
+
+        select {
+        // 间隔30s
+        case &lt;-time.After(p.interval):
+        case &lt;-ctx.Done():
+            p.logger.Info(&quot;Stopped HPA provider.&quot;)
+            return
+        }
+    }
+}
+
+// NewCollectorScheudler initializes a new CollectorScheduler.
+func NewCollectorScheduler(ctx context.Context, metricsc chan&lt;- metricCollection) *CollectorScheduler {
+    return &amp;CollectorScheduler{
+        ctx:        ctx,
+        table:      map[resourceReference]map[collector.MetricTypeName]context.CancelFunc{},
+        metricSink: metricsc,
+    }
+}
+
+// CollectorScheduler is a scheduler for running metric collection jobs.
+// It keeps track of all running collectors and stops them if they are to be
+// removed.
+type CollectorScheduler struct {
+    ctx        context.Context
+    // hap资源与metric指标的映射关系；第一层map数据结构，key是hap资源，value是第二层map，存放metric与ctx的自定义CancelFunc
+    table      map[resourceReference]map[collector.MetricTypeName]context.CancelFunc
+    metricSink chan&lt;- metricCollection
+    sync.RWMutex
+}
+</code></pre><p>从collector收集所有的metric</p>
+<pre tabindex="0"><code>// collectMetrics collects all metrics from collectors and manages a central
+// metric store.
+func (p *HPAProvider) collectMetrics(ctx context.Context) {
+    // run garbage collection every 10 minutes
+    go func(ctx context.Context) {
+        for {
+            select {
+            case &lt;-time.After(10 * time.Minute):
+                // 间隔10分钟，移除MetricStore中customMetricsStore/externalMetricsStore中ttl过期的metric(ttl时间15分钟)
+                p.metricStore.RemoveExpired()
+            case &lt;-ctx.Done():
+                p.logger.Info(&quot;Stopped metrics store garbage collection.&quot;)
+                return
+            }
+        }
+    }(ctx)
+
+    for {
+        select {
+        // 从metricSink channel中取值
+        case collection := &lt;-p.metricSink:
+            if collection.Error != nil {
+                p.logger.Errorf(&quot;Failed to collect metrics: %v&quot;, collection.Error)
+                CollectionErrors.Inc()
+            } else {
+                CollectionSuccesses.Inc()
+            }
+
+            p.logger.Infof(&quot;Collected %d new metric(s)&quot;, len(collection.Values))
+            // 根据CollectedMetric的类型来处理
+            for _, value := range collection.Values {
+                switch value.Type {
+                case autoscalingv2.ObjectMetricSourceType, autoscalingv2.PodsMetricSourceType:
+                    p.logger.Infof(&quot;Collected new custom metric '%s' (%s) for %s %s/%s&quot;,
+                        value.Custom.Metric.Name,
+                        value.Custom.Value.String(),
+                        value.Custom.DescribedObject.Kind,
+                        value.Custom.DescribedObject.Namespace,
+                        value.Custom.DescribedObject.Name,
+                    )
+                case autoscalingv2.ExternalMetricSourceType:
+                    p.logger.Infof(&quot;Collected new external metric '%s' (%s) [%s]&quot;,
+                        value.External.MetricName,
+                        value.External.Value.String(),
+                        labels.Set(value.External.MetricLabels).String(),
+                    )
+                }
+                // metric是Object、Pods类型，写入customMetricsStore
+                // metric是External类型，写入externalMetricsStore
+                p.metricStore.Insert(value)
+            }
+        case &lt;-ctx.Done():
+            p.logger.Info(&quot;Stopped metrics collection.&quot;)
+            return
+        }
+    }
+}
+</code></pre><p>// 解析HPA对象，构建Collector</p>
+<pre tabindex="0"><code>// updateHPAs discovers all HPA resources and sets up metric collectors for new
+// HPAs.
+func (p *HPAProvider) updateHPAs() error {
+    p.logger.Info(&quot;Looking for HPAs&quot;)
+    // 获取集群所有的HPA对象(v2beta2 api)
+    hpas, err := p.client.AutoscalingV2beta2().HorizontalPodAutoscalers(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+    if err != nil {
+        return err
+    }
+    // HPA map缓存
+    newHPACache := make(map[resourceReference]autoscalingv2.HorizontalPodAutoscaler, len(hpas.Items))
+
+    newHPAs := 0
+
+    for _, hpa := range hpas.Items {
+        resourceRef := resourceReference{
+            Name:      hpa.Name,
+            Namespace: hpa.Namespace,
+        }
+        // 先从缓存里获取
+        cachedHPA, ok := p.hpaCache[resourceRef]
+        hpaUpdated := !equalHPA(cachedHPA, hpa)
+        if !ok || hpaUpdated {
+            // if the hpa has changed then remove the previous
+            // scheduled collector.
+            if hpaUpdated {
+                p.logger.Infof(&quot;Removing previously scheduled metrics collector: %s&quot;, resourceRef)
+                p.collectorScheduler.Remove(resourceRef)
+            }
+            // 解析HPA对象里的以metric-config为前缀的annotation，返回[]*MetricConfig；可以设置两个特殊的annotation
+            // metric-config.*.*.*/per-replica，会自动把metric值除以副本数
+            // metric-config.*.*.*/interval，可设置局部的收集间隔，覆盖全局的metric收集间隔collectorInterval
+            metricConfigs, err := collector.ParseHPAMetrics(&amp;hpa)
+            if err != nil {
+                p.logger.Errorf(&quot;Failed to parse HPA metrics: %v&quot;, err)
+                continue
+            }
+
+            cache := true
+            for _, config := range metricConfigs {
+                interval := config.Interval
+                if interval == 0 {
+                    interval = p.collectorInterval
+                }
+                // 从collector工厂里，根据HPA里面定义的metricType调用对应的collector插件返回Collector对象
+                // 这里以prometheus collector插件为例
+                c, err := p.collectorFactory.NewCollector(&amp;hpa, config, interval)
+                if err != nil {
+
+                    // Only log when it's not a PluginNotFoundError AND flag disregardIncompatibleHPAs is true
+                    if !(errors.Is(err, &amp;collector.PluginNotFoundError{}) &amp;&amp; p.disregardIncompatibleHPAs) {
+                        p.recorder.Eventf(&amp;hpa, apiv1.EventTypeWarning, &quot;CreateNewMetricsCollector&quot;, &quot;Failed to create new metrics collector: %v&quot;, err)
+                    }
+
+                    cache = false
+                    continue
+                }
+
+                p.logger.Infof(&quot;Adding new metrics collector: %T&quot;, c)
+                // 添加collector到CollectorScheduler的table，重复添加的话就先停止旧的collector
+                // 每隔上面collector间隔时间就调用collector插件实现的GetMetrics()获取指标值写入metricCollection channel                
+                p.collectorScheduler.Add(resourceRef, config.MetricTypeName, c)
+            }
+            newHPAs++
+
+            // if we get an error setting up the collectors for the
+            // HPA, don't cache it, but try again later.
+            if !cache {
+                continue
+            }
+        }
+        // 写入新的HPA Cache中
+        newHPACache[resourceRef] = hpa
+    }
+
+    for ref := range p.hpaCache {
+        if _, ok := newHPACache[ref]; ok {
+            continue
+        }
+
+        p.logger.Infof(&quot;Removing previously scheduled metrics collector: %s&quot;, ref)
+        p.collectorScheduler.Remove(ref)
+    }
+
+    p.logger.Infof(&quot;Found %d new/updated HPA(s)&quot;, newHPAs)
+    // 更新缓存
+    p.hpaCache = newHPACache
+    return nil
+}
+</code></pre><p>一个HPA Provider的运行过程分析就是这样了</p>
+<h4 id="hpa-controller生成customexternalmetricsk8sio">HPA Controller生成custom/external.metrics.k8s.io</h4>
+<p>HPA对象的指标转化为custom/external.metrics.k8s.io API可获取的指标；这部分工作是由kube-controller-manager的HPA controller实现的</p>
+<pre tabindex="0"><code>HPA Controller -&gt; Metrics Aggregator -&gt; Kube-metric-adapter -&gt; Prometheus
+</code></pre><p>Horizo​​ntalPodAutoscaler通常从一系列聚合的API（metrics.k8s.io，custom.metrics.k8s.io和external.metrics.k8s.io）中获取指标.</p>
+<h3 id="参考链接">参考链接</h3>
+<ul>
+<li><a href="https://github.com/zalando-incubator/kube-metrics-adapter/blob/master/README.md">https://github.com/zalando-incubator/kube-metrics-adapter/blob/master/README.md</a></li>
+<li><a href="https://github.com/kubernetes-sigs/custom-metrics-apiserver/blob/master/test-adapter/main.go">https://github.com/kubernetes-sigs/custom-metrics-apiserver/blob/master/test-adapter/main.go</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2020-07-18-second_day_of_training/" data-toggle="tooltip" data-placement="top" title="练车(第二天)">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-08-02-training_day_three/" data-toggle="tooltip" data-placement="top" title="练车(第三天)">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

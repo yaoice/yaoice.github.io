@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="TKEStack tke-installer源码阅读笔记" />
+    <meta property="og:title" content="TKEStack tke-installer源码阅读笔记" />
+    <meta property="twitter:title" content="TKEStack tke-installer源码阅读笔记" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>TKEStack tke-installer源码阅读笔记 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-07-14-tke-installer_source_code_readnote/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                    </div>
+                    <h1>TKEStack tke-installer源码阅读笔记</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Tuesday, July 14, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h3 id="简介">简介</h3>
+<p>通过tke-installer安装TKEStack，tke-install以docker方式运行，包含所有安装所需要的资源，并且提供web ui来引导部署.</p>
+<h3 id="架构">架构</h3>
+<p>
+  <img src="/img/posts/2020-07-14/TKEStackHighLevelArchitecture@2x.png" alt="">
+
+</p>
+<p><a href="https://github.com/tkestack/tke/blob/master/docs/user/tke-installer/normal-installation.md">tke-installer安装</a></p>
+<h3 id="tke-installer编译">tke-installer编译</h3>
+<p>克隆tke仓库</p>
+<pre tabindex="0"><code>git clone https://github.com/tkestack/tke.git
+git checkout v1.3.0
+</code></pre><p>tke-installer Dockerfile目录结构</p>
+<pre tabindex="0"><code>$ tree -a build/docker/tools/tke-installer
+build/docker/tools/tke-installer
+├── .docker
+│   └── config.json
+├── Dockerfile
+├── build.sh
+├── certs
+│   ├── server.crt
+│   └── server.key
+├── daemon.json
+├── init_installer.sh
+├── install.sh
+└── release.sh
+</code></pre><p>查看Makefile中的release部分</p>
+<pre tabindex="0"><code>## release: Release tke
+.PHONY: release
+release:
+    build/docker/tools/tke-installer/release.sh
+</code></pre><p>脚本间的调用关系链</p>
+<pre tabindex="0"><code>release.sh -----&gt; build.sh --&gt; init_installer.sh --&gt; install.sh
+           |
+           |
+           ----&gt; Dockfile 
+</code></pre><h3 id="tke-installer源码">tke-installer源码</h3>
+<p>入口函数</p>
+<pre tabindex="0"><code>// cmd/tke-installer/installer.go
+func main() {
+    rand.Seed(time.Now().UTC().UnixNano())
+    if len(os.Getenv(&quot;GOMAXPROCS&quot;)) == 0 {
+        runtime.GOMAXPROCS(runtime.NumCPU())
+    }
+
+    app.NewApp(&quot;tke-installer&quot;).Run()
+}
+
+// Config结构体
+// Config is the running configuration structure of the TKE controller manager.
+type Config struct {
+    ServerName                 string
+    ListenAddr                 string
+    NoUI                       bool
+    Config                     string
+    Force                      bool
+    SyncProjectsWithNamespaces bool
+    Replicas                   int
+}
+
+// 调用到此处的Run函数
+// New的是一个TKE对象
+// Run runs the specified TKE installer. This should never exit.
+func Run(cfg *config.Config) error {
+    installer.New(cfg).Run()
+
+    return nil
+}
+</code></pre><p>TKE结构体</p>
+<pre tabindex="0"><code>type TKE struct {
+    Config  *config.Config           `json:&quot;config&quot;`
+    Para    *types.CreateClusterPara `json:&quot;para&quot;`
+    Cluster *v1.Cluster              `json:&quot;cluster&quot;`
+    Step    int                      `json:&quot;step&quot;`
+    // IncludeSelf means installer is using one of cluster's machines
+    IncludeSelf bool `json:&quot;includeSelf&quot;`
+
+    log             log.Logger
+    steps           []types.Handler
+    progress        *types.ClusterProgress
+    strategy        *clusterstrategy.Strategy
+    clusterProvider clusterprovider.Provider
+    isFromRestore   bool
+
+    docker *docker.Docker
+
+    globalClient kubernetes.Interface
+    servers      []string
+    namespace    string
+}
+</code></pre><p>New函数，创建TKE对象</p>
+<pre tabindex="0"><code>func New(config *config.Config) *TKE {
+    // new一个TKE对象
+    c := new(TKE)
+    // 初始化参数
+    c.Config = config
+    c.Para = new(types.CreateClusterPara)
+    c.Cluster = new(v1.Cluster)
+    c.progress = new(types.ClusterProgress)
+    c.progress.Status = types.StatusUnknown
+    // baremental provider的init函数实现注册Baremetal provider
+    clusterProvider, err := clusterprovider.GetProvider(&quot;Baremetal&quot;)
+    if err != nil {
+        panic(err)
+    }
+    c.clusterProvider = clusterProvider
+    // 日志初始化
+    _ = os.MkdirAll(path.Dir(constants.ClusterLogFile), 0755)
+    logOptions := log.NewOptions()
+    logOptions.DisableColor = true
+    logOptions.OutputPaths = []string{constants.ClusterLogFile}
+    logOptions.ErrorOutputPaths = logOptions.OutputPaths
+    log.Init(logOptions)
+    c.log = log.WithName(&quot;tke-installer&quot;)
+    // 初始化docker客户端
+    c.docker = new(docker.Docker)
+    c.docker.Stdout = c.log
+    c.docker.Stderr = c.log
+    // 解析tke.json
+    if !config.Force {
+        data, err := ioutil.ReadFile(constants.ClusterFile)
+        if err == nil {
+            log.Infof(&quot;read %q success&quot;, constants.ClusterFile)
+            err = json.Unmarshal(data, c)
+            if err != nil {
+                log.Warnf(&quot;load tke data error:%s&quot;, err)
+            }
+            log.Infof(&quot;load tke data success&quot;)
+            c.isFromRestore = true
+            c.progress.Status = types.StatusDoing
+        }
+    }
+
+    return c
+}
+</code></pre><p>New完TKE对象，调用Run函数</p>
+<pre tabindex="0"><code>func (t *TKE) Run() {
+    var err error
+    // 支持无UI方式
+    if t.Config.NoUI {
+        err = t.run()
+    // 支持UI方式
+    } else {
+        err = t.runWithUI()
+    }
+    if err != nil {
+        log.Error(err.Error())
+    }
+}
+
+func (t *TKE) runWithUI() error {
+    // 设置静态资源的接口路由
+    a := NewAssertsResource()
+    restful.Add(a.WebService())
+    // 设置处理集群资源的接口路由
+    restful.Add(t.WebService())
+    // 设置处理SSH资源的接口路由, 测试ssh是否通畅
+    s := NewSSHResource()
+    restful.Add(s.WebService())
+    // 类似middleware, 在分发请求到后端的webService前调用
+    // globalLogging记录请求的时间
+    restful.Filter(globalLogging)
+
+    if t.isFromRestore {
+        // isFromRestore为true, 调用do()
+        go t.do()
+    }
+    // Server监听
+    log.Infof(&quot;Starting %s at http://%s&quot;, t.Config.ServerName, t.Config.ListenAddr)
+    return http.ListenAndServe(t.Config.ListenAddr, nil)
+}
+
+func (t *TKE) do() {
+    start := time.Now()
+    ctx := t.log.WithContext(context.Background())
+    // 设置Registry地址和镜像仓库名, 可以为第三方镜像仓库或自带的
+    containerregistry.Init(t.Para.Config.Registry.Domain(), t.Para.Config.Registry.Namespace())
+    // 初始化部署阶段
+    t.initSteps()
+    // 准备开始进入部署
+    if t.Step == 0 {
+        t.log.Info(&quot;===&gt;starting install task&quot;)
+        t.progress.Status = types.StatusDoing
+    }
+    // 如果集群状态为Running的话
+    if t.runAfterClusterReady() {
+        // 初始化TKE对象的globalClient、servers、namespace变量
+        t.initDataForDeployTKE()
+    }
+    // 遍历调用t.steps里面的Handler
+    for t.Step &lt; len(t.steps) {
+        // Handler之间间隔10s
+        wait.PollInfinite(10*time.Second, func() (bool, error) {
+            t.log.Infof(&quot;%d.%s doing&quot;, t.Step, t.steps[t.Step].Name)
+            start := time.Now()
+            err := t.steps[t.Step].Func(ctx)
+            if err != nil {
+                t.progress.Status = types.StatusFailed
+                t.log.Errorf(&quot;%d.%s [Failed] [%fs] error %s&quot;, t.Step, t.steps[t.Step].Name, time.Since(start).Seconds(), err)
+                return false, nil
+            }
+            t.log.Infof(&quot;%d.%s [Success] [%fs]&quot;, t.Step, t.steps[t.Step].Name, time.Since(start).Seconds())
+
+            t.Step++
+            // 把集群配置写入到/opt/tke-installer/data/tke.json
+            t.backup()
+
+            return true, nil
+        })
+    }
+    // 更新集群部署状态
+    t.progress.Status = types.StatusSuccess
+    // 赋值TKE对象的progress变量
+    if t.Para.Config.Gateway != nil {
+        var host string
+        if t.Para.Config.Gateway.Domain != &quot;&quot; {
+            host = t.Para.Config.Gateway.Domain
+        } else if t.Para.Config.HA != nil {
+            host = t.Para.Config.HA.VIP()
+        } else {
+            host = t.Para.Cluster.Spec.Machines[0].IP
+        }
+        t.progress.URL = fmt.Sprintf(&quot;http://%s&quot;, host)
+
+        t.progress.Username = t.Para.Config.Basic.Username
+        t.progress.Password = t.Para.Config.Basic.Password
+
+        if t.Para.Config.Gateway.Cert.SelfSignedCert != nil {
+            t.progress.CACert, _ = ioutil.ReadFile(constants.CACrtFile)
+        }
+
+        if t.Para.Config.Gateway.Domain != &quot;&quot; {
+            t.progress.Hosts = append(t.progress.Hosts, t.Para.Config.Gateway.Domain)
+        }
+
+        cfg, _ := t.getKubeconfig()
+        t.progress.Kubeconfig, _ = runtime.Encode(clientcmdlatest.Codec, cfg)
+    }
+
+    if t.Para.Config.Registry.TKERegistry != nil {
+        t.progress.Hosts = append(t.progress.Hosts, t.Para.Config.Registry.TKERegistry.Domain)
+    }
+
+    t.progress.Servers = t.servers
+    if t.Para.Config.HA != nil {
+        t.progress.Servers = append(t.progress.Servers, t.Para.Config.HA.VIP())
+    }
+    // 部署完成
+    t.log.Infof(&quot;===&gt;install task [Sucesss] [%fs]&quot;, time.Since(start).Seconds())
+}
+</code></pre><p>初始化部署阶段</p>
+<pre tabindex="0"><code>func (t *TKE) initSteps() {
+    // 1. 在安装集群之前，是否触发hooks目录下的pre-install脚本
+    t.steps = append(t.steps, []types.Handler{
+        {
+            Name: &quot;Execute pre install hook&quot;,
+            Func: t.preInstallHook,
+        },
+    }...)
+
+    // UseDockerHub, no need load images, start local tcr and push images
+    // TKERegistry load images &amp;&amp; start local registry &amp;&amp; push images to local registry
+    // &amp;&amp; deploy tke-registry-api &amp;&amp; push images to tke-registry
+    // ThirdPartyRegistry load images &amp;&amp; push images
+    // 2. 执行Load images(如果不用dockerHub), load镜像并修改tag
+    if !t.Para.Config.Registry.IsOfficial() {
+        t.steps = append(t.steps, []types.Handler{
+            {
+                Name: &quot;Load images&quot;,
+                Func: t.loadImages,
+            },
+        }...)
+    }
+
+    // if both set, don't setup local registry
+    // 3. 运行本地的registry docker实例(如果使用TKE自带的registry), ，并把域名写入/etc/hosts
+    if t.Para.Config.Registry.ThirdPartyRegistry == nil &amp;&amp;
+        t.Para.Config.Registry.TKERegistry != nil {
+        t.steps = append(t.steps, []types.Handler{
+            {
+                Name: &quot;Setup local registry&quot;,
+                Func: t.setupLocalRegistry,
+            },
+        }...)
+    }
+    // 4. Push images(如果不用dockerHub), push镜像/manifest到local registry
+    if !t.Para.Config.Registry.IsOfficial() {
+        t.steps = append(t.steps, []types.Handler{
+            {
+                Name: &quot;Push images&quot;,
+                Func: t.pushImages,
+            },
+        }...)
+    }
+        
+    t.steps = append(t.steps, []types.Handler{
+        // 5. 根据使用到的域名/IP为TKE组件产生证书(本地data/目录下)
+        {
+            Name: &quot;Generate certificates for TKE components&quot;,
+            Func: t.generateCertificates,
+        },
+        // 6. 创建global集群
+        {
+            Name: &quot;Create global cluster&quot;,
+            Func: t.createGlobalCluster,
+        },
+        // 7. 创建Kubeconfig(/root/.kube/config,data/admin.kubeconfig)
+        {
+            Name: &quot;Write kubeconfig&quot;,
+            Func: t.writeKubeconfig,
+        },
+        // 8. 集群Ready后，是否触发hooks目录下的post-cluster-ready脚本
+        {
+            Name: &quot;Execute post deploy hook&quot;,
+            Func: t.postClusterReadyHook,
+        },
+        // 9. 保存front-proxy-ca.crt到data/目录下
+        {
+            Name: &quot;Prepare front proxy certificates&quot;,
+            Func: t.prepareFrontProxyCertificates,
+        },
+        // 10. 创建tke k8s namespace
+        {
+            Name: &quot;Create namespace for install TKE&quot;,
+            Func: t.createNamespace,
+        },
+        // 11. 读取本地data/目录下的证书相关文件，还生成password.csv、token.csv，并把内容作为global集群上的certs configmap
+        {
+            Name: &quot;Prepare certificates&quot;,
+            Func: t.prepareCertificates,
+        },
+        // 12. 初始化providerConfig对象，
+        //     修改registry ip, audit address，PlatformAPIClientConfig、AuthzWebhook endpoint变量，回写到provider/baremetal/conf/config.yaml
+        //     并在global集群创建provider-config、docker、kubelet、kubeadm、gpu-manifests、gpu-manager-manifests、csi-operator-manifests、keepalived-manifests configmap
+        {
+            Name: &quot;Prepare baremetal provider config&quot;,
+            Func: t.prepareBaremetalProviderConfig,
+        },
+        // 13. 安装etcd
+        {
+            Name: &quot;Install etcd&quot;,
+            Func: t.installETCD,
+        },
+    }...)
+
+    if t.Para.Config.Auth.TKEAuth != nil {
+        t.steps = append(t.steps, []types.Handler{
+            // 14. 部署tke-auth-api(如果用的是TKE认证)
+            {
+                Name: &quot;Install tke-auth-api&quot;,
+                Func: t.installTKEAuthAPI,
+            }, 
+            // 15. 部署tke-auth-controller(如果用的是TKE认证)
+            {
+                Name: &quot;Install tke-auth-controller&quot;,
+                Func: t.installTKEAuthController,
+            },
+        }...)
+    }
+
+    if t.auditEnabled() {
+        t.steps = append(t.steps, []types.Handler{
+            // 16. 部署tke audit，开启审计功能的话
+            {
+                Name: &quot;Install tke audit&quot;,
+                Func: t.installTKEAudit,
+            },
+        }...)
+    }
+
+    t.steps = append(t.steps, []types.Handler{
+        // 17. 部署tke platform api
+        {
+            Name: &quot;Install tke-platform-api&quot;,
+            Func: t.installTKEPlatformAPI,
+        },
+        // 18. 部署tke platform controller
+        {
+            Name: &quot;Install tke-platform-controller&quot;,
+            Func: t.installTKEPlatformController,
+        },
+    }...)
+
+    if t.Para.Config.Registry.TKERegistry != nil {
+        t.steps = append(t.steps, []types.Handler{
+            // 19. 部署tke registry api
+            {
+                Name: &quot;Install tke-registry-api&quot;,
+                Func: t.installTKERegistryAPI,
+            },
+        }...)
+    }
+
+    if t.Para.Config.Business != nil {
+        t.steps = append(t.steps, []types.Handler{
+            // 20. 部署tke business api
+            {
+                Name: &quot;Install tke-business-api&quot;,
+                Func: t.installTKEBusinessAPI,
+            },
+            // 21. 部署tke business controller
+            {
+                Name: &quot;Install tke-business-controller&quot;,
+                Func: t.installTKEBusinessController,
+            },
+        }...)
+    }
+
+    if t.Para.Config.Monitor != nil {
+        if t.Para.Config.Monitor.InfluxDBMonitor != nil &amp;&amp;
+            t.Para.Config.Monitor.InfluxDBMonitor.LocalInfluxDBMonitor != nil {
+            t.steps = append(t.steps, []types.Handler{
+                // 22. 部署influxdb
+                {
+                    Name: &quot;Install InfluxDB&quot;,
+                    Func: t.installInfluxDB,
+                },
+            }...)
+        }
+        t.steps = append(t.steps, []types.Handler{
+            // 23. 部署tke monitor api
+            {
+                Name: &quot;Install tke-monitor-api&quot;,
+                Func: t.installTKEMonitorAPI,
+            },
+            // 24. 部署tke monitor controller
+            {
+                Name: &quot;Install tke-monitor-controller&quot;,
+                Func: t.installTKEMonitorController,
+            },
+            // 25. 部署tke notify api
+            {
+                Name: &quot;Install tke-notify-api&quot;,
+                Func: t.installTKENotifyAPI,
+            },
+            // 25. 部署tke notify controller
+            {
+                Name: &quot;Install tke-notify-controller&quot;,
+                Func: t.installTKENotifyController,
+            },
+        }...)
+    }
+
+    if t.Para.Config.Logagent != nil {
+        t.steps = append(t.steps, []types.Handler{
+            // 25. 部署tke logagent api
+            {
+                Name: &quot;Install tke-logagent-api&quot;,
+                Func: t.installTKELogagentAPI,
+            },
+            // 25. 部署tke logagent controller
+            {
+                Name: &quot;Install tke-logagent-controller&quot;,
+                Func: t.installTKELogagentController,
+            },
+        }...)
+    }
+
+    // others
+    // 在此处添加其它组件
+
+    // Add more tke component before THIS!!!
+    if t.Para.Config.Gateway != nil {
+        // tke-installer和global集群是否同台机器
+        if t.IncludeSelf {
+            t.steps = append(t.steps, []types.Handler{
+                // 26. 运行的是tke-gateway pod, 这个pod会去拉镜像？
+                // 监听这个pod的MODIFIED event, 然后删除这个pod
+                {
+                    Name: &quot;Prepare images before stop local registry&quot;,
+                    Func: t.prepareImages,
+                },
+                // 27. 移除registry-http, registry-https容器
+                {
+                    Name: &quot;Stop local registry to give up 80/443 for tke-gateway&quot;,
+                    Func: t.stopLocalRegistry,
+                },
+            }...)
+        }
+        t.steps = append(t.steps, []types.Handler{
+            // 28. 部署tke-gateway
+            {
+                Name: &quot;Install tke-gateway&quot;,
+                Func: t.installTKEGateway,
+            },
+        }...)
+    }
+
+    t.steps = append(t.steps, []types.Handler{
+        // 29. 注册TKE api到global集群
+        {
+            Name: &quot;Register tke api into global cluster&quot;,
+            Func: t.registerAPI,
+        },
+        // 30. 创建global集群的ClusterCredentials、Cluster资源(有点纳管global集群的味道)
+        {
+            Name: &quot;Import resource to TKE platform&quot;,
+            Func: t.importResource,
+        },
+    }...)
+
+    // 没使用第三方仓库，且用的是tke自带的registry
+    if t.Para.Config.Registry.ThirdPartyRegistry == nil &amp;&amp;
+        t.Para.Config.Registry.TKERegistry != nil {
+        t.steps = append(t.steps, []types.Handler{
+            // 31. docker login到镜像仓库
+            {
+                Name: &quot;Prepare push images to TKE registry&quot;,
+                Func: t.preparePushImagesToTKERegistry,
+            },
+            // 32. push镜像到镜像仓库
+            {
+                Name: &quot;Push images to registry&quot;,
+                Func: t.pushImages,
+            },
+            // 33. 设置registry地址的静态主机解析，映射地址为global集群Machines字段的第一个节点
+            {
+                Name: &quot;Set global cluster hosts&quot;,
+                Func: t.setGlobalClusterHosts,
+            },
+        }...)
+    }
+
+    t.steps = append(t.steps, []types.Handler{
+        // 34. 在安装集群之后，是否触发hooks目录下的post-install脚本
+        {
+            Name: &quot;Execute post deploy hook&quot;,
+            Func: t.postInstallHook,
+        },
+    }...)
+
+    // 过滤steps, 可以定义SkipSteps，跳过特定步骤运行
+    t.steps = funk.Filter(t.steps, func(step types.Handler) bool {
+        return !funk.ContainsString(t.Para.Config.SkipSteps, step.Name)
+    }).([]types.Handler)
+
+    t.log.Info(&quot;Steps:&quot;)
+    for i, step := range t.steps {
+        t.log.Infof(&quot;%d %s&quot;, i, step.Name)
+    }
+}
+</code></pre><h4 id="创建global集群的handler">创建global集群的handler</h4>
+<pre tabindex="0"><code>func (t *TKE) createGlobalCluster(ctx context.Context) error {
+    // registry的prefix和IP回写进provider/baremetal/conf/config.yaml
+    // update provider config and recreate
+    err := t.completeProviderConfigForRegistry()
+    if err != nil {
+        return err
+    }
+    // 初始化Baremetal provider对象，集群创建/修改/删除对应的Handlers都定义在此处
+    // 设置registry的domain和namespace
+    // 初始化provider对象的platformClient变量
+    t.completeWithProvider()
+    // 初始化credential
+    if t.Cluster.Spec.ClusterCredentialRef == nil {
+        credential := &amp;platformv1.ClusterCredential{
+            ObjectMeta: metav1.ObjectMeta{
+                Name: fmt.Sprintf(&quot;cc-%s&quot;, t.Cluster.Name),
+            },
+            TenantID:    t.Cluster.Spec.TenantID,
+            ClusterName: t.Cluster.Name,
+        }
+        t.Cluster.ClusterCredential = credential
+        t.Cluster.Spec.ClusterCredentialRef = &amp;corev1.LocalObjectReference{Name: credential.Name}
+    }
+    // 集群状态判断，是否为Initalizing
+    for t.Cluster.Status.Phase == platformv1.ClusterInitializing {
+        // 集群处于Initializing状态
+        err := t.clusterProvider.OnCreate(ctx, t.Cluster)
+        if err != nil {
+            return err
+        }
+        // 把集群配置写入到/opt/tke-installer/data/tke.json
+        t.backup()
+    }
+    // 初始化TKE对象的globalClient、servers、namespace变量
+    err = t.initDataForDeployTKE()
+    if err != nil {
+        return fmt.Errorf(&quot;init data for deploy tke error: %w&quot;, err)
+    }
+
+    return nil
+}
+</code></pre><p>初始化provider对象，创建global集群里面还定义了很多子任务</p>
+<pre tabindex="0"><code>func (t *TKE) completeWithProvider() {
+	clusterProvider, err := baremetalcluster.NewProvider()
+	if err != nil {
+		panic(err)
+	}
+	t.clusterProvider = clusterProvider
+}
+
+func NewProvider() (*Provider, error) {
+	p := new(Provider)
+
+	p.DelegateProvider = &amp;clusterprovider.DelegateProvider{
+		ProviderName: name,
+
+		CreateHandlers: []clusterprovider.Handler{
+		    //以下执行的目标都是：集群内的所有节点
+		    //拷贝文件(包含钩子脚本)
+			p.EnsureCopyFiles,
+			//赋予安装前的钩子执行权限并执行
+			p.EnsurePreInstallHook,
+
+			// configure system
+			//配置静态hosts，用于拉取镜像
+			p.EnsureRegistryHosts,
+			//加载内核模块，有iptable_nat,ip_vs,ip_vs_rr,ip_vs_wrr,ip_vs_sh，br_netfilter
+			p.EnsureKernelModule,
+			//sysctl设置内核参数优化
+			p.EnsureSysctl,
+			//禁用swap
+			p.EnsureDisableSwap,
+            //预检查
+			p.EnsurePreflight, // wait basic setting done
+            //更新集群的serviceCIDR,nodeCIDRMaskSize,DNSIP,Addresses,Credential,Annotations增加galaxy、gpu相关的标签，
+			p.EnsureClusterComplete,
+
+			// install packages
+			//如果节点打上&quot;nvidia-device-enable&quot;: &quot;enable&quot;的label, 安装Nvidia驱动
+			p.EnsureNvidiaDriver,
+			//如果节点打上&quot;nvidia-device-enable&quot;: &quot;enable&quot;的label, 安装Nvidia容器运行时
+			p.EnsureNvidiaContainerRuntime,
+			//安装docker
+			p.EnsureDocker,
+			//拉取k8s镜像
+			p.EnsureKubernetesImages,
+			//安装kubelet
+			p.EnsureKubelet,
+			//安装cni插件包
+			p.EnsureCNIPlugins,
+			//安装conntrack-tools
+			p.EnsureConntrackTools,
+			//安装kubeadm
+			p.EnsureKubeadm,
+			//在第一个节点安装keepalived
+			p.EnsureKeepalivedInit,
+			//在第一个节点上接入第三方的HA, 实际上是往nat表OUTPUT链插入iptables规则
+			p.EnsureThirdPartyHAInit,
+			//安装authz webhook
+			p.EnsureAuthzWebhook,
+			//生成k8s控制平面的其它配置文件，如tokenFile, scheduler-policy-config，audit-policy-config等
+			p.EnsurePrepareForControlplane,
+            //在第一个节点上执行kubeadm init phase kubelet-start阶段
+			p.EnsureKubeadmInitPhaseKubeletStart,
+			//在第一个节点上执行kubeadm init phase certs all
+			p.EnsureKubeadmInitPhaseCerts,
+			//读取第一个节点上的证书相关内容写入ClusterCredential资源对象
+			p.EnsureStoreCredential,
+			//生成/root/.kube/config
+			p.EnsureKubeconfig, // for upload
+			//在第一个节点上执行kubeadm init phase kubeconfig all
+			p.EnsureKubeadmInitPhaseKubeConfig,
+			//在第一个节点上执行kubeadm init phase control-plane all
+			p.EnsureKubeadmInitPhaseControlPlane,
+			//在第一个节点上执行kubeadm init phase etcd local
+			p.EnsureKubeadmInitPhaseETCD,
+			//检测apiserver的/healthz接口，每隔5s检测一次，5min超时
+			p.EnsureKubeadmInitPhaseWaitControlPlane,
+			//在第一个节点上执行kubeadm init phase upload-config all
+			p.EnsureKubeadmInitPhaseUploadConfig,
+			//在第一个节点上执行kubeadm init phase upload-certs --upload-certs
+			p.EnsureKubeadmInitPhaseUploadCerts,
+			//在第一个节点上执行kubeadm init phase bootstrap-token 
+			p.EnsureKubeadmInitPhaseBootstrapToken,
+			//在第一个节点上执行kubeadm init phase addon all
+			p.EnsureKubeadmInitPhaseAddon,
+            //安装flannel、galaxy
+			p.EnsureGalaxy,
+            //除第一个节点外的后面节点，执行预检查
+			p.EnsureJoinPhasePreflight,
+			//除第一个节点外的后面节点，生成k8s控制平面的配置
+			p.EnsureJoinPhaseControlPlanePrepare,
+			//除第一个节点外的后面节点，启动kubelet
+			p.EnsureJoinPhaseKubeletStart,
+			//除第一个节点外的后面节点，加入etcd集群
+			p.EnsureJoinPhaseControlPlaneJoinETCD,
+			//除第一个节点外的后面节点，kubeadm join phase control-plane-join update-status
+			p.EnsureJoinPhaseControlPlaneJoinUpdateStatus,
+            //替换k8s核心组件的annotation，prometheus.io/port，prometheus的抓取端口
+			p.EnsurePatchAnnotation, // wait rest master ready
+			//给节点打标签，或者去污点
+			p.EnsureMarkControlPlane,
+			//如果启用内置HA，所有节点都安装keepalived，并在nat表的PREROUTING和OUTPUT链插入iptables DNAT规则
+			p.EnsureKeepalivedWithLB,
+			//如果启用第三方HA，所有节点nat表的OUTPUT链插入iptables DNAT规则
+			p.EnsureThirdPartyHA,
+			// deploy apps
+			//如果配置了Cluster.Spec.Features.GPUType=Physical的话，部署nvida device plugin
+			p.EnsureNvidiaDevicePlugin,
+			//如果配置了Cluster.Spec.Features.GPUType=Virtual的话，部署gpu-manager
+			p.EnsureGPUManager,
+			//如果配置了Cluster.Spec.Features.CSIOperator的话，部署csi-operator
+			p.EnsureCSIOperator,
+			//安装metric-server
+			p.EnsureMetricsServer,
+            //清除函数，实际上啥都没做？
+			p.EnsureCleanup,
+			//在kube-system命名空间下创建tke configmap
+			p.EnsureCreateClusterMark,
+			//赋予安装后的钩子执行权限并执行
+			p.EnsurePostInstallHook,
+		},
+		UpdateHandlers: []clusterprovider.Handler{
+			p.EnsureUpgradeControlPlaneNode,
+
+			p.EnsureRenewCerts,
+			p.EnsureAPIServerCert,
+			p.EnsureStoreCredential,
+			p.EnsureKeepalivedWithLB,
+			p.EnsureThirdPartyHA,
+		},
+		DeleteHandlers: []clusterprovider.Handler{
+			p.EnsureCleanClusterMark,
+		},
+	}
+
+	cfg, err := config.New(constants.ConfigFile)
+	if err != nil {
+		return nil, err
+	}
+	p.config = cfg
+    //registry初始化
+	containerregistry.Init(cfg.Registry.Domain, cfg.Registry.Namespace)
+
+	// Run for compatibility with installer.
+	// TODO: Installer reuse platform components
+	//初始化platformClient对象
+	if cfg.PlatformAPIClientConfig != &quot;&quot; {
+		restConfig, err := clientcmd.BuildConfigFromFlags(&quot;&quot;, cfg.PlatformAPIClientConfig)
+		if err != nil {
+			log.Errorf(&quot;read PlatformAPIClientConfig error: %w&quot;, err)
+		} else {
+			p.platformClient, err = platformv1client.NewForConfig(restConfig)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return p, nil
+}
+</code></pre><h3 id="参考链接">参考链接</h3>
+<ul>
+<li><a href="https://github.com/tkestack/tke">https://github.com/tkestack/tke</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2020-07-03-galaxy_source_code_readnote/" data-toggle="tooltip" data-placement="top" title="TKEStack galaxy源码阅读笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-07-18-second_day_of_training/" data-toggle="tooltip" data-placement="top" title="练车(第二天)">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="kubelet源码阅读笔记" />
+    <meta property="og:title" content="kubelet源码阅读笔记" />
+    <meta property="twitter:title" content="kubelet源码阅读笔记" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>kubelet源码阅读笔记 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-04-10-kubelet_readnote/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>kubelet源码阅读笔记</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Friday, April 10, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <p>kubelet是k8s核心组件中最复杂的一个组件，它跟网络、存储、docker都得打交道.
+它是每个节点的主要节点agent，向apiserver注册节点.</p>
+<h3 id="环境">环境</h3>
+<ul>
+<li>Kubernetes v1.14.6</li>
+<li>Etcd 3.3.12</li>
+<li>Docker 18.09.9</li>
+</ul>
+<h3 id="kubelet代码">kubelet代码</h3>
+<p>启动函数</p>
+<pre tabindex="0"><code>k8s.io/kubernetes/cmd/kubelet/kubelet.go -&gt; NewKubeletCommand(初始化命令行对象) -&gt; Run
+</code></pre><p>NewKubeletCommand中包括默认参数、默认flag</p>
+<pre tabindex="0"><code>kubeletFlags := options.NewKubeletFlags() // 默认值定义在k8s.io/kubernetes/cmd/kubelet/app/options/options.go
+kubeletConfig, err := options.NewKubeletConfiguration() // 默认值定义在k8s.io/kubernetes/pkg/kubelet/apis/config/v1beta1/defaults.go
+</code></pre><p>Run函数：</p>
+<ol>
+<li>
+<p>设置featrueGate；</p>
+</li>
+<li>
+<p>校验命令行参数；</p>
+</li>
+<li>
+<p>加载kubelet配置文件；</p>
+</li>
+<li>
+<p>校验kubelet配置；</p>
+</li>
+<li>
+<p>是否启用动态kubelet配置</p>
+</li>
+<li>
+<p>构建默认kubelet运行依赖</p>
+<ul>
+<li>有dockerClientConfig，跟docker通信；</li>
+<li>mounter/subpather用于volume挂载；</li>
+<li>初始化oomAdjuster对象；</li>
+<li>初始化RealOS对象，用于系统级别操作；</li>
+<li>检测要被使用的一系列volume插件 // ProbeVolumePlugins()</li>
+<li>flexvolume方式动态检测volume插件</li>
+</ul>
+</li>
+<li>
+<p>是否运行dockershim（为kubelet调用提供grpc接口，转化grpc请求为docker的方式）</p>
+</li>
+<li>
+<p>运行kubelet</p>
+<ul>
+<li>
+<p>操作系统初始化(针对windows平台)</p>
+</li>
+<li>
+<p>尝试获取kubelet本地文件锁(需要启动时加&ndash;exit-on-lock-contention、&ndash;lock-file参数)</p>
+</li>
+<li>
+<p>注册当前kubelet配置到/configz，可通过如下命令获取</p>
+<pre tabindex="0"><code>curl -k  -X GET -H 'Authorization: Bearer 1aYiwwOnSN4Yk5oNm7fov0ohBbk' \
+       https://127.0.0.1:10250/configz
+</code></pre></li>
+<li>
+<p>初始化cloudProvider</p>
+</li>
+<li>
+<p>初始化eventClientConfig、heartbeatClientConfig</p>
+</li>
+<li>
+<p>初始化Auth，初始化一个authn、authz对象</p>
+</li>
+<li>
+<p>初始化cadvisor</p>
+</li>
+<li>
+<p>初始化ContainerManager</p>
+</li>
+<li>
+<p>检查运行的uid是否为0</p>
+</li>
+<li>
+<p>设置0号进程的oom_score_adj，默认为-999；范围是[-1000,1000]; 值越大越容易被OOM kill</p>
+</li>
+<li>
+<p>进入RunKubelet函数(下面重点)</p>
+</li>
+<li>
+<p>设置/healthz路由，可通过下面命令验证</p>
+<pre tabindex="0"><code>curl -k  -X GET -H 'Authorization: Bearer 1aYiwwOnSN4Yk5oNm7fov0ohBbk' \
+    https://127.0.0.1:10250/healthz   
+</code></pre></li>
+<li>
+<p>如果是sytemd方式启动，通知systemd</p>
+</li>
+</ul>
+</li>
+</ol>
+<p>RunKubelet函数</p>
+<pre><code>1. 获取nodeName，可以通过kubelet配置文件进行override
+2. 获取特权模式的资源HostNetworkSources、HostPIDSources、HostIPCSources，默认都是*
+3. 初始化一个Capabilities对象(单例)，AllowPrivileged为true
+4. 设置RootDirectory(默认为/var/lib/kubelet)为.docker/config.json的可能存放路径目录
+5. 初始化kubelet对象, createAndInitKubelet（下面重点）
+6. 设置能打开的最大文件数，MaxOpenFiles默认为1000000
+7. startKubelet
+</code></pre>
+<p>createAndInitKubelet函数</p>
+<pre tabindex="0"><code>func createAndInitKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
+    kubeDeps *kubelet.Dependencies,
+    crOptions *config.ContainerRuntimeOptions,
+    containerRuntime string,
+    runtimeCgroups string,
+    hostnameOverride string,
+    nodeIP string,
+    providerID string,
+    cloudProvider string,
+    certDirectory string,
+    rootDirectory string,
+    registerNode bool,
+    registerWithTaints []api.Taint,
+    allowedUnsafeSysctls []string,
+    remoteRuntimeEndpoint string,
+    remoteImageEndpoint string,
+    experimentalMounterPath string,
+    experimentalKernelMemcgNotification bool,
+    experimentalCheckNodeCapabilitiesBeforeMount bool,
+    experimentalNodeAllocatableIgnoreEvictionThreshold bool,
+    minimumGCAge metav1.Duration,
+    maxPerPodContainerCount int32,
+    maxContainerCount int32,
+    masterServiceNamespace string,
+    registerSchedulable bool,
+    nonMasqueradeCIDR string,
+    keepTerminatedPodVolumes bool,
+    nodeLabels map[string]string,
+    seccompProfileRoot string,
+    bootstrapCheckpointPath string,
+    nodeStatusMaxImages int32) (k kubelet.Bootstrap, err error) {
+    // TODO: block until all sources have delivered at least one update to the channel, or break the sync loop
+    // up into &quot;per source&quot; synchronizations
+
+    // 进入NewMainKubelet，返回一个带有所有内部必需内部模块的kubelet对象
+    k, err = kubelet.NewMainKubelet(kubeCfg,
+        kubeDeps,
+        crOptions,
+        containerRuntime,
+        runtimeCgroups,
+        hostnameOverride,
+        nodeIP,
+        providerID,
+        cloudProvider,
+        certDirectory,
+        rootDirectory,
+        registerNode,
+        registerWithTaints,
+        allowedUnsafeSysctls,
+        remoteRuntimeEndpoint,
+        remoteImageEndpoint,
+        experimentalMounterPath,
+        experimentalKernelMemcgNotification,
+        experimentalCheckNodeCapabilitiesBeforeMount,
+        experimentalNodeAllocatableIgnoreEvictionThreshold,
+        minimumGCAge,
+        maxPerPodContainerCount,
+        maxContainerCount,
+        masterServiceNamespace,
+        registerSchedulable,
+        nonMasqueradeCIDR,
+        keepTerminatedPodVolumes,
+        nodeLabels,
+        seccompProfileRoot,
+        bootstrapCheckpointPath,
+        nodeStatusMaxImages)
+    if err != nil {
+        return nil, err
+    }
+    // 发送一个事件&quot;Starting kubelet&quot;
+    k.BirthCry()
+    // container gc，每隔一分钟执行一次
+    // image gc, 每隔5分钟执行一次
+    // image gc有上限阀值/下限阀值配置，上限阀值默认85，大等于上限阀值就触发；下限阀值默认80，用于计算要释放的空间
+    // 要释放的空间 = 总容量*（100-下限阀值）/100 - 剩余可用
+    k.StartGarbageCollection()
+
+    return k, nil
+}
+</code></pre><p>NewMainKubelet</p>
+<ol>
+<li>判断rootDirectory、SyncFrequency.Duration、MakeIPTablesUtilChains、IPTablesMasqueradeBit、IPTablesDropBit值的合法性</li>
+<li>获取nodeName</li>
+<li>初始化PodConfig
+<pre tabindex="0"><code>// 如何加载static pod的呢？
+if kubeDeps.PodConfig == nil {
+        var err error
+        kubeDeps.PodConfig, err = makePodSourceConfig(kubeCfg, kubeDeps, nodeName, bootstrapCheckpointPath)
+        if err != nil {
+            return nil, err
+        }
+    }
+
+// makePodSourceConfig creates a config.PodConfig from the given
+// KubeletConfiguration or returns an error.
+func makePodSourceConfig(kubeCfg *kubeletconfiginternal.KubeletConfiguration, kubeDeps *Dependencies, nodeName types.NodeName, bootstrapCheckpointPath string) (*config.PodConfig, error) {
+    // 是否有设置StaticPodURLHeader
+    manifestURLHeader := make(http.Header)
+    if len(kubeCfg.StaticPodURLHeader) &gt; 0 {
+        for k, v := range kubeCfg.StaticPodURLHeader {
+            for i := range v {
+                manifestURLHeader.Add(k, v[i])
+            }
+        }
+    }
+    // 初始化一个PodConfig对象
+    // source of all configuration
+    cfg := config.NewPodConfig(config.PodConfigNotificationIncremental, kubeDeps.Recorder)
+
+    // define file config source
+    if kubeCfg.StaticPodPath != &quot;&quot; {
+        klog.Infof(&quot;Adding pod path: %v&quot;, kubeCfg.StaticPodPath)
+        // 默认间隔20s, 读取static_path下的所有内容
+        config.NewSourceFile(kubeCfg.StaticPodPath, nodeName, kubeCfg.FileCheckFrequency.Duration, cfg.Channel(kubetypes.FileSource))
+    }
+
+    // define url config source
+    if kubeCfg.StaticPodURL != &quot;&quot; {
+        klog.Infof(&quot;Adding pod url %q with HTTP header %v&quot;, kubeCfg.StaticPodURL, manifestURLHeader)
+        config.NewSourceURL(kubeCfg.StaticPodURL, manifestURLHeader, nodeName, kubeCfg.HTTPCheckFrequency.Duration, cfg.Channel(kubetypes.HTTPSource))
+    }
+
+    // Restore from the checkpoint path
+    // NOTE: This MUST happen before creating the apiserver source
+    // below, or the checkpoint would override the source of truth.
+
+    var updatechannel chan&lt;- interface{}
+    if bootstrapCheckpointPath != &quot;&quot; {
+        klog.Infof(&quot;Adding checkpoint path: %v&quot;, bootstrapCheckpointPath)
+        updatechannel = cfg.Channel(kubetypes.ApiserverSource)
+        err := cfg.Restore(bootstrapCheckpointPath, updatechannel)
+        if err != nil {
+            return nil, err
+        }
+    }
+
+    if kubeDeps.KubeClient != nil {
+        klog.Infof(&quot;Watching apiserver&quot;)
+        if updatechannel == nil {
+            updatechannel = cfg.Channel(kubetypes.ApiserverSource)
+        }
+        // watch apiserver获取该节点下所有的pod信息，传入cfg.Channel(kubetypes.ApiserverSource)
+        config.NewSourceApiserver(kubeDeps.KubeClient, nodeName, updatechannel)
+    }
+    return cfg, nil
+}
+// 后面交给podManager处理
+</code></pre></li>
+<li>初始化containerGCPolicy, 容器垃圾回收的策略</li>
+<li>初始化daemonEndpoints,  kubelet运行监听的端口</li>
+<li>初始化imageGCPolicy，镜像垃圾回收的策略</li>
+<li>初始化evictionConfig，包含驱散操作的相关参数</li>
+<li>初始化一个Kubelet对象</li>
+<li>初始化一个cloudResourceSyncManager对象，用于处理跟cloud provider交互的请求</li>
+<li>初始化secretManager、configMapManager对象，默认ConfigMapAndSecretChangeDetectionStrategy是Watch</li>
+<li>初始化machineInfo，内置cadvisor收集的节点信息</li>
+<li>初始化一个流控对象imageBackOff，用于镜像失败重试(默认间隔10s，总时长为5分钟)</li>
+<li>初始化livenessManager、checkpointManager、podManager、statusManager对象</li>
+<li>初始化NetworkPluginSettings对象，看着是把cni相关信息传给container runtime shim</li>
+<li>初始化resourceAnalyzer对象，收集pod磁盘使用量</li>
+<li>启动cri shim，作为grpc server, 判断cri是否支持logging driver</li>
+<li>初始化kubeGenericRuntimeManager对象</li>
+<li>初始化StatsProvider对象，根据runtime为docker且os为linux的话来判断选择不同的statsProvider</li>
+<li>初始化PodLifecycleEventGenerator对象</li>
+<li>初始化containerGC、imageManager、containerLogManager、serverCertificateManager对象</li>
+<li>初始化probeManager、tokenManager、volumePluginMgr、volumeManager、evictionManager、evictionAdmitHandler对象</li>
+<li>初始化admitHandlers、softAdmitHandlers</li>
+</ol>
+<p>看到很多地方都用了Backoff对象用于失败重试</p>
+<pre tabindex="0"><code>        backoff := wait.Backoff{
+            Duration: 2 * time.Second,
+            Factor:   2,
+            Jitter:   0.1,
+            Steps:    5,
+        }
+        if err := wait.ExponentialBackoff(backoff, m.rotateCerts); err != nil {
+            utilruntime.HandleError(fmt.Errorf(&quot;Reached backoff limit, still unable to rotate certs: %v&quot;, err))
+            wait.PollInfinite(32*time.Second, m.rotateCerts)
+        }
+</code></pre><p>每次backOff近似等于Duration*Factor，实际上比这个大，steps控制次数</p>
+<p>执行完createAndInitKubelet后，接下来到startKubelet</p>
+<ol>
+<li>启动kubelet中的各种xxxManager
+<ul>
+<li>启动cloudResourceSyncManager, 根据cloudProvider的后端，获得节点的地址</li>
+<li>启动imageGCManager,</li>
+<li>启动serverCertificateManager</li>
+<li>启动oomWatcher, 记录cadvisor监测到的oom</li>
+<li>启动resourceAnalyzer, 实际上是调用fsResourceAnalyzer</li>
+<li>启动volumeManager</li>
+<li>syncNodeStatus, 往apiserver注册node(默认间隔10s)</li>
+<li>updateRuntimeUp(间隔5s), 设置node的ready状态，启动containerManager、evictionManager、containerLogManager、pluginWatcher(CSIPlugin/DevicePlugin Registration)</li>
+<li>syncNetworkUtil(间隔1m), 同步nat表的KUBE-MARK-DROP和KUBE-MARK-MASQ链的规则</li>
+<li>podKiller(间隔1s), 监听kill pod的channel</li>
+<li>启动statusManager、probeManager、runtimeClassManager</li>
+<li>启动pleg(pod lifecycle event generator)</li>
+<li>进入syncLoop(监听来自三种方式pod的变化file、apiserver、http)</li>
+</ul>
+</li>
+<li>启动kubelet server</li>
+</ol>
+<h3 id="参考链接">参考链接</h3>
+<ul>
+<li><a href="https://blog.tianfeiyu.com/source-code-reading-notes/kubernetes/kubelet_init.html">https://blog.tianfeiyu.com/source-code-reading-notes/kubernetes/kubelet_init.html</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2020-02-19-kube-proxy_readnote/" data-toggle="tooltip" data-placement="top" title="kube-proxy源码阅读笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-04-25-%E9%BE%99%E8%8A%AFk8s%E4%B9%8B%E6%97%85/" data-toggle="tooltip" data-placement="top" title="容器国产化适配">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

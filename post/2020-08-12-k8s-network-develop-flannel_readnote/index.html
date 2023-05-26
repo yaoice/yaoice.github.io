@@ -1,0 +1,2029 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="flannel源码阅读笔记" />
+    <meta property="og:title" content="flannel源码阅读笔记" />
+    <meta property="twitter:title" content="flannel源码阅读笔记" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>flannel源码阅读笔记 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-08-12-k8s-network-develop-flannel_readnote/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>flannel源码阅读笔记</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Wednesday, August 12, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h3 id="环境">环境</h3>
+<p>flannel版本: v0.12.0</p>
+<h3 id="外部网卡获取">外部网卡获取</h3>
+<p>外部网卡结构体</p>
+<pre tabindex="0"><code>type ExternalInterface struct {
+    // 网卡属性
+    Iface     *net.Interface
+    // 对应网卡的内部IP
+    IfaceAddr net.IP
+    // 对应网卡的外部IP(类似浮动IP)
+    ExtAddr   net.IP
+}
+</code></pre><p>主处理函数逻辑</p>
+<pre tabindex="0"><code>    // Work out which interface to use
+    var extIface *backend.ExternalInterface
+    var err error
+    // Check the default interface only if no interfaces are specified
+    // 如果flannel启动程序没有指定网卡的话，即没有传入--iface或--iface-regex
+    if len(opts.iface) == 0 &amp;&amp; len(opts.ifaceRegex) == 0 {
+        // --public-ip: 给其它节点内部访问用
+        // 根据传入的--public-ip，匹配对应的网卡，外部IP=publicIP；
+        // 如果没有--public-ip，则选择默认网关所在的网卡；外部IP=网卡IP
+        extIface, err = LookupExtIface(opts.publicIP, &quot;&quot;)
+        if err != nil {
+            log.Error(&quot;Failed to find any valid interface to use: &quot;, err)
+            os.Exit(1)
+        }
+    } else {
+        // Check explicitly specified interfaces
+        // 传入--iface参数，iface是一个string的slice
+        for _, iface := range opts.iface {
+            // 根据网卡名称匹配网卡, IP处理逻辑跟上面的一样
+            extIface, err = LookupExtIface(iface, &quot;&quot;)
+            if err != nil {
+                log.Infof(&quot;Could not find valid interface matching %s: %s&quot;, iface, err)
+            }
+            // 找到就退出循环
+            if extIface != nil {
+                break
+            }
+        }
+
+        // Check interfaces that match any specified regexes
+        if extIface == nil {
+            // ifaceRegex也是一个string的slice, 可以定义正则表达式来匹配
+            for _, ifaceRegex := range opts.ifaceRegex {
+                // 正则表达式匹配两种场景，1. 先匹配IP  2. 如果没找到，再匹配网卡名
+                extIface, err = LookupExtIface(&quot;&quot;, ifaceRegex)
+                if err != nil {
+                    log.Infof(&quot;Could not find valid interface matching %s: %s&quot;, ifaceRegex, err)
+                }
+
+                // 找到就退出循环
+                if extIface != nil {
+                    break
+                }
+            }
+        }
+        // 都没匹配到的话，退出程序
+        if extIface == nil {
+            // Exit if any of the specified interfaces do not match
+            log.Error(&quot;Failed to find interface to use that matches the interfaces and/or regexes provided&quot;)
+            os.Exit(1)
+        }
+    }
+</code></pre><h3 id="节点本地子网分配">节点本地子网分配</h3>
+<p>网络配置结构体</p>
+<pre tabindex="0"><code>type Config struct {
+    Network     ip.IP4Net
+    SubnetMin   ip.IP4
+    SubnetMax   ip.IP4
+    SubnetLen   uint
+    BackendType string          `json:&quot;-&quot;`
+    Backend     json.RawMessage `json:&quot;,omitempty&quot;`
+}
+</code></pre><pre tabindex="0"><code>func ParseConfig(s string) (*Config, error) {
+    cfg := new(Config)
+    // 这里注意Config中的Network、SubnetMin、SubnetMax自定义了MarshalJSON和UnmarshalJSON函数
+    // 例如：&quot;Network&quot;: &quot;172.28.0.0/16&quot;, PrefixLen就是16
+    err := json.Unmarshal([]byte(s), cfg)
+    if err != nil {
+        return nil, err
+    }
+    // 对SubnetLen和PrefixLen值的判断
+    if cfg.SubnetLen &gt; 0 {
+        // SubnetLen needs to allow for a tunnel and bridge device on each host.
+        if cfg.SubnetLen &gt; 30 {
+            return nil, errors.New(&quot;SubnetLen must be less than /31&quot;)
+        }
+
+        // SubnetLen needs to fit _more_ than twice into the Network.
+        // the first subnet isn't used, so splitting into two one only provide one usable host.
+        if cfg.SubnetLen &lt; cfg.Network.PrefixLen+2 {
+            return nil, errors.New(&quot;Network must be able to accommodate at least four subnets&quot;)
+        }
+    } else {
+        // If the network is smaller than a /28 then the network isn't big enough for flannel so return an error.
+        // Default to giving each host at least a /24 (as long as the network is big enough to support at least four hosts)
+        // Otherwise, if the network is too small to give each host a /24 just split the network into four.
+        if cfg.Network.PrefixLen &gt; 28 {
+            // Each subnet needs at least four addresses (/30) and the network needs to accommodate at least four
+            // since the first subnet isn't used, so splitting into two would only provide one usable host.
+            // So the min useful PrefixLen is /28
+            return nil, errors.New(&quot;Network is too small. Minimum useful network prefix is /28&quot;)
+        } else if cfg.Network.PrefixLen &lt;= 22 {
+            // Network is big enough to give each host a /24
+            // prefix为22，统一子网长度为24
+            cfg.SubnetLen = 24
+        } else {
+            // Use +2 to provide four hosts per subnet.
+            // 22 &lt; prefix &lt;= 28时, 统一子网长度=prefix+2
+            cfg.SubnetLen = cfg.Network.PrefixLen + 2
+        }
+    }
+    // subnetSize = ip.IP4(1 &lt;&lt; (32 - 24)) = 256
+    subnetSize := ip.IP4(1 &lt;&lt; (32 - cfg.SubnetLen))
+
+    // 如果没有定义SubnetMin
+    if cfg.SubnetMin == ip.IP4(0) {
+        // skip over the first subnet otherwise it causes problems. e.g.
+        // if Network is 10.100.0.0/16, having an interface with 10.0.0.0
+        // conflicts with the broadcast address.
+        // cfg.Network.IP = ParseIP4(&quot;172.28.0.0&quot;) = 2887516160
+        cfg.SubnetMin = cfg.Network.IP + subnetSize
+    } else if !cfg.Network.Contains(cfg.SubnetMin) {
+        return nil, errors.New(&quot;SubnetMin is not in the range of the Network&quot;)
+    }
+
+    // 如果没有定义SubnetMax
+    if cfg.SubnetMax == ip.IP4(0) {
+        // cfg.Network.Next().IP = 2887516160 + (1&lt;&lt;16)
+        cfg.SubnetMax = cfg.Network.Next().IP - subnetSize
+    } else if !cfg.Network.Contains(cfg.SubnetMax) {
+        return nil, errors.New(&quot;SubnetMax is not in the range of the Network&quot;)
+    }
+
+    // The SubnetMin and SubnetMax need to be aligned to a SubnetLen boundary
+    // 255.255.255.0
+    mask := ip.IP4(0xFFFFFFFF &lt;&lt; (32 - cfg.SubnetLen))
+    if cfg.SubnetMin != cfg.SubnetMin&amp;mask {
+        return nil, fmt.Errorf(&quot;SubnetMin is not on a SubnetLen boundary: %v&quot;, cfg.SubnetMin)
+    }
+
+    if cfg.SubnetMax != cfg.SubnetMax&amp;mask {
+        return nil, fmt.Errorf(&quot;SubnetMax is not on a SubnetLen boundary: %v&quot;, cfg.SubnetMax)
+    }
+
+    bt, err := parseBackendType(cfg.Backend)
+    if err != nil {
+        return nil, err
+    }
+    cfg.BackendType = bt
+
+    return cfg, nil
+}
+</code></pre><p>等初始化完subnet管理器、backend管理器后，就把subnet配置信息写入本地文件</p>
+<pre tabindex="0"><code>    if err := WriteSubnetFile(opts.subnetFile, config.Network, opts.ipMasq, bn); err != nil {
+        // Continue, even though it failed.
+        log.Warningf(&quot;Failed to write subnet file: %s&quot;, err)
+    } else {
+        log.Infof(&quot;Wrote subnet file to %s&quot;, opts.subnetFile)
+    }
+</code></pre><h3 id="子网管理器">子网管理器</h3>
+<p>子网管理器有两种：一种是基于k8s实现的子网管理器，另一种是基于etcd实现的子网管理器</p>
+<p>管理器的接口定义</p>
+<pre tabindex="0"><code>type Manager interface {
+    GetNetworkConfig(ctx context.Context) (*Config, error)
+    AcquireLease(ctx context.Context, attrs *LeaseAttrs) (*Lease, error)
+    RenewLease(ctx context.Context, lease *Lease) error
+    WatchLease(ctx context.Context, sn ip.IP4Net, cursor interface{}) (LeaseWatchResult, error)
+    WatchLeases(ctx context.Context, cursor interface{}) (LeaseWatchResult, error)
+
+    Name() string
+}
+</code></pre><h4 id="k8s子网管理器">k8s子网管理器</h4>
+<p>如果启用了<code>--kube-subnet-mgr</code>, 集群中的每个节点子网分配取决于kube-controller-manager的<code>--node-cidr-mask-size-ipv4=24</code>和<code>--node-cidr-mask-size-ipv6=64</code>,
+默认&ndash;node-cidr-mask-size-ipv4的值是24，&ndash;node-cidr-mask-size-ipv6的值是64，这两个值会影响到node.spec.podCidrs；没有使用到节点本地子网分配逻辑</p>
+<pre tabindex="0"><code>type kubeSubnetManager struct {
+    // 节点的annotaions记录子网分配信息
+    annotations    annotations
+    // k8s clientSet
+    client         clientset.Interface
+    // 节点名称
+    nodeName       string
+    // nodeLister
+    nodeStore      listers.NodeLister
+    // Controller实例
+    nodeController cache.Controller
+    // 子网配置
+    subnetConf     *subnet.Config
+    // Event channel，用于Backend类型与Controller之间通信
+    events         chan subnet.Event
+}
+</code></pre><p>实际上这是一个监听Node事件的控制器, 估计是比较早期实现的，跟最新的sample-controller写法有异</p>
+<pre tabindex="0"><code>func newKubeSubnetManager(c clientset.Interface, sc *subnet.Config, nodeName, prefix string) (*kubeSubnetManager, error) {
+    var err error
+    var ksm kubeSubnetManager
+    // 初始化annotations对象，用于标注在K8s Node对象上
+    ksm.annotations, err = newAnnotations(prefix)
+    if err != nil {
+        return nil, err
+    }
+    ksm.client = c
+    ksm.nodeName = nodeName
+    ksm.subnetConf = sc
+    ksm.events = make(chan subnet.Event, 5000)
+    // 初始化Indexer, Infromer对象
+    indexer, controller := cache.NewIndexerInformer(
+        // 定义List/Watch函数
+        &amp;cache.ListWatch{
+            ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+                return ksm.client.CoreV1().Nodes().List(options)
+            },
+            WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+                return ksm.client.CoreV1().Nodes().Watch(options)
+            },
+        },
+        &amp;v1.Node{},
+        resyncPeriod,
+        // Add/Delete/Update Node事件对应的回调处理函数
+        cache.ResourceEventHandlerFuncs{
+            AddFunc: func(obj interface{}) {
+                ksm.handleAddLeaseEvent(subnet.EventAdded, obj)
+            },
+            UpdateFunc: ksm.handleUpdateLeaseEvent,
+            DeleteFunc: func(obj interface{}) {
+                node, isNode := obj.(*v1.Node)
+                // We can get DeletedFinalStateUnknown instead of *api.Node here and we need to handle that correctly.
+                if !isNode {
+                    deletedState, ok := obj.(cache.DeletedFinalStateUnknown)
+                    if !ok {
+                        glog.Infof(&quot;Error received unexpected object: %v&quot;, obj)
+                        return
+                    }
+                    node, ok = deletedState.Obj.(*v1.Node)
+                    if !ok {
+                        glog.Infof(&quot;Error deletedFinalStateUnknown contained non-Node object: %v&quot;, deletedState.Obj)
+                        return
+                    }
+                    obj = node
+                }
+                ksm.handleAddLeaseEvent(subnet.EventRemoved, obj)
+            },
+        },
+        cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+    )
+    ksm.nodeController = controller
+    ksm.nodeStore = listers.NewNodeLister(indexer)
+    return &amp;ksm, nil
+}
+</code></pre><p>Add/Update Node事件的处理函数逻辑差不多</p>
+<pre tabindex="0"><code>func (ksm *kubeSubnetManager) handleAddLeaseEvent(et subnet.EventType, obj interface{}) {
+    n := obj.(*v1.Node)
+    // 校验节点annotations中flannel.alpha.coreos.com/kube-subnet-manager 
+    if s, ok := n.Annotations[ksm.annotations.SubnetKubeManaged]; !ok || s != &quot;true&quot; {
+        return
+    }
+    // 解析节点Node annotaions中的子网信息赋值给Lease对象
+    l, err := ksm.nodeToLease(*n)
+    if err != nil {
+        glog.Infof(&quot;Error turning node %q to lease: %v&quot;, n.ObjectMeta.Name, err)
+        return
+    }
+    // 塞到events channel中
+    ksm.events &lt;- subnet.Event{et, l}
+}
+
+func (ksm *kubeSubnetManager) handleUpdateLeaseEvent(oldObj, newObj interface{}) {
+    o := oldObj.(*v1.Node)
+    n := newObj.(*v1.Node)
+    // 校验节点annotations中flannel.alpha.coreos.com/kube-subnet-manager
+    if s, ok := n.Annotations[ksm.annotations.SubnetKubeManaged]; !ok || s != &quot;true&quot; {
+        return
+    }
+    // 新旧Node对象的这些annotations是否一样
+    if o.Annotations[ksm.annotations.BackendData] == n.Annotations[ksm.annotations.BackendData] &amp;&amp;
+        o.Annotations[ksm.annotations.BackendType] == n.Annotations[ksm.annotations.BackendType] &amp;&amp;
+        o.Annotations[ksm.annotations.BackendPublicIP] == n.Annotations[ksm.annotations.BackendPublicIP] {
+        return // No change to lease
+    }
+
+    // 解析节点Node annotaions中的子网信息赋值给Lease对象
+    l, err := ksm.nodeToLease(*n)
+    if err != nil {
+        glog.Infof(&quot;Error turning node %q to lease: %v&quot;, n.ObjectMeta.Name, err)
+        return
+    }
+    // 塞到events channel中
+    ksm.events &lt;- subnet.Event{subnet.EventAdded, l}
+}
+</code></pre><p>在哪里从events channel取呢？ 在backend Manager那端获取，backend类型有：alivpc、alloc、awsvpc、extension、gce、hostgw、ipip、ipsec、udp、vxlan</p>
+<p>每种backend类型在main启动函数开始时就进行了注册</p>
+<pre tabindex="0"><code>    // Backends need to be imported for their init() to get executed and them to register
+    &quot;github.com/coreos/flannel/backend&quot;
+    _ &quot;github.com/coreos/flannel/backend/alivpc&quot;
+    _ &quot;github.com/coreos/flannel/backend/alloc&quot;
+    _ &quot;github.com/coreos/flannel/backend/awsvpc&quot;
+    _ &quot;github.com/coreos/flannel/backend/extension&quot;
+    _ &quot;github.com/coreos/flannel/backend/gce&quot;
+    _ &quot;github.com/coreos/flannel/backend/hostgw&quot;
+    _ &quot;github.com/coreos/flannel/backend/ipip&quot;
+    _ &quot;github.com/coreos/flannel/backend/ipsec&quot;
+    _ &quot;github.com/coreos/flannel/backend/udp&quot;
+    _ &quot;github.com/coreos/flannel/backend/vxlan&quot;
+</code></pre><pre tabindex="0"><code>// constructors维护backend类型名称-&gt;初始化backend对象函数的map结构
+var constructors = make(map[string]BackendCtor)
+
+// 注册函数
+func Register(name string, ctor BackendCtor) {
+    constructors[name] = ctor
+}
+</code></pre><p>以hostgw类型为例</p>
+<pre tabindex="0"><code>// hostgw backend类型注册到constructors
+func init() {
+    backend.Register(&quot;host-gw&quot;, New)
+}
+
+// hostgw backend结构体定义
+type HostgwBackend struct {
+    // 子网管理器
+    sm       subnet.Manager
+    // 外部网卡属性
+    extIface *backend.ExternalInterface
+}
+
+// 初始化hostgw Backend对象函数
+func New(sm subnet.Manager, extIface *backend.ExternalInterface) (backend.Backend, error) {
+    // 不支持映射IP场景
+    if !extIface.ExtAddr.Equal(extIface.IfaceAddr) {
+        return nil, fmt.Errorf(&quot;your PublicIP differs from interface IP, meaning that probably you're on a NAT, which is not supported by host-gw backend&quot;)
+    }
+
+    be := &amp;HostgwBackend{
+        sm:       sm,
+        extIface: extIface,
+    }
+    return be, nil
+}
+
+// 每种backend类型都会调用RegisterNetwork这个函数, 每种类型都需要一个新的网络对象，比如操作静态路由、vxlan隧道、udp隧道、ipip隧道等；
+// 这些网络对象抽象成一个公共接口Network，返回结果是一个实现了Network接口的对象
+type Network interface {
+    Lease() *subnet.Lease
+    MTU() int
+    Run(ctx context.Context)
+}
+
+func (be *HostgwBackend) RegisterNetwork(ctx context.Context, wg sync.WaitGroup, config *subnet.Config) (backend.Network, error) {
+    // 初始化RouteNetwork对象
+    n := &amp;backend.RouteNetwork{
+        SimpleNetwork: backend.SimpleNetwork{
+            ExtIface: be.extIface,
+        },
+        SM:          be.sm,
+        BackendType: &quot;host-gw&quot;,
+        Mtu:         be.extIface.Iface.MTU,
+        LinkIndex:   be.extIface.Iface.Index,
+    }
+    // 获取路由的回调函数，就是到其它节点子网的静态路由
+    n.GetRoute = func(lease *subnet.Lease) *netlink.Route {
+        return &amp;netlink.Route{
+            // 租约节点的网段
+            Dst:       lease.Subnet.ToIPNet(),
+            // 租约节点的publicIP
+            Gw:        lease.Attrs.PublicIP.ToIP(),
+            // 本地的link
+            LinkIndex: n.LinkIndex,
+        }
+    }
+    // 初始化LeaseAttrs对象
+    attrs := subnet.LeaseAttrs{
+        PublicIP:    ip.FromIP(be.extIface.ExtAddr),
+        BackendType: &quot;host-gw&quot;,
+    }
+    // 获取租约节点的子网信息, 这里面主要有三个步骤
+    // 1. 从nodeStore中根据节点名称获取Node对象, 深拷贝复制个新对象出来
+    // 2. Patch节点的annotations, 把子网相关信息标注上
+    // 3. 启动之初，标注网络不可用到Node Condition
+    l, err := be.sm.AcquireLease(ctx, &amp;attrs)
+    switch err {
+    case nil:
+        // 正常赋值
+        n.SubnetLease = l
+
+    case context.Canceled, context.DeadlineExceeded:
+        return nil, err
+
+    default:
+        return nil, fmt.Errorf(&quot;failed to acquire lease: %v&quot;, err)
+    }
+
+    return n, nil
+}
+
+// 继续调用实现了Network接口的对象的Run函数
+func (n *RouteNetwork) Run(ctx context.Context) {
+    wg := sync.WaitGroup{}
+
+    log.Info(&quot;Watching for new subnet leases&quot;)
+    // 初始化一个存放子网event类型的channel
+    evts := make(chan []subnet.Event)
+    wg.Add(1)
+    go func() {
+        // 监听节点租约变化
+        subnet.WatchLeases(ctx, n.SM, n.SubnetLease, evts)
+        wg.Done()
+    }()
+
+    // 路由相关在下面《hostgw模式生成路由》分析
+    n.routes = make([]netlink.Route, 0, 10)
+    wg.Add(1)
+    go func() {
+        n.routeCheck(ctx)
+        wg.Done()
+    }()
+
+    defer wg.Wait()
+
+    for {
+        select {
+        // 从evts channel取event
+        case evtBatch := &lt;-evts:
+            // 处理event的函数，涉及路由的添加/删除
+            n.handleSubnetEvents(evtBatch)
+
+        case &lt;-ctx.Done():
+            return
+        }
+    }
+}
+
+// subnet.WatchLeases
+func WatchLeases(ctx context.Context, sm Manager, ownLease *Lease, receiver chan []Event) {
+    // 初始化一个leaseWatcher对象
+    lw := &amp;leaseWatcher{
+        //ownLease代表本节点的subnet lease
+        ownLease: ownLease,
+    }
+    var cursor interface{}
+
+    for {
+        // 假设subnetManager用的是KubeSubnetManager
+        // 所以调用的是SubnetManager的WatchLeases, 尝试从events channnel中取出event
+        res, err := sm.WatchLeases(ctx, cursor)
+        if err != nil {
+            if err == context.Canceled || err == context.DeadlineExceeded {
+                return
+            }
+
+            log.Errorf(&quot;Watch subnets: %v&quot;, err)
+            // 获取失败的话，间隔1秒继续尝试
+            time.Sleep(time.Second)
+            continue
+        }
+        // res.Cursor、res.Snapshot都不适用于KubeSubnetManager
+        cursor = res.Cursor
+
+        var batch []Event
+        // 从evnets channel中取出event
+        if len(res.Events) &gt; 0 {
+            // update函数处理两种event，一种是EventAdded，另一种是EventRemoved
+            // EventAdded：leaseWatcher.leases新增这个event, 如果已存在就替换
+            // EventRemoved：l = append(l[:i], l[i+1:]...)采用这种方式移除Event
+            batch = lw.update(res.Events)
+        } else {
+            // 如果events channel中没有event的话
+            // 1. 遍历lw.leases以EventRemoved事件添加到batch中, 把原先的路由都删掉. 其实len(res.Events)压根不会为0，sm.WatchLeases是一个channel select调用，没有事件产生的话，就会阻塞在这里
+            // 2. 清空lw.leases，以res.Snapshot赋值到lw.leases
+            batch = lw.reset(res.Snapshot)
+        }
+
+        if len(batch) &gt; 0 {
+            // 写入receiver channel
+            receiver &lt;- batch
+        }
+    }
+}
+</code></pre><h4 id="etcd子网管理器">etcd子网管理器</h4>
+<pre tabindex="0"><code>// 初始化连接etcd的配置信息
+cfg := &amp;etcdv2.EtcdConfig{
+        Endpoints: strings.Split(opts.etcdEndpoints, &quot;,&quot;),
+        Keyfile:   opts.etcdKeyfile,
+        Certfile:  opts.etcdCertfile,
+        CAFile:    opts.etcdCAFile,
+        Prefix:    opts.etcdPrefix,
+        Username:  opts.etcdUsername,
+        Password:  opts.etcdPassword,
+    }
+
+    // Attempt to renew the lease for the subnet specified in the subnetFile
+    // 获取先前的子网配置
+    prevSubnet := ReadCIDRFromSubnetFile(opts.subnetFile, &quot;FLANNEL_SUBNET&quot;)
+    // 返回一个etcd Manager对象
+    return etcdv2.NewLocalManager(cfg, prevSubnet)
+</code></pre><p>etcd LocalManager结构体定义</p>
+<pre tabindex="0"><code>type LocalManager struct {
+    registry       Registry
+    previousSubnet ip.IP4Net
+}
+</code></pre><p>内部还包含一个Registry内部接口定义</p>
+<pre tabindex="0"><code>type Registry interface {
+    getNetworkConfig(ctx context.Context) (string, error)
+    getSubnets(ctx context.Context) ([]Lease, uint64, error)
+    getSubnet(ctx context.Context, sn ip.IP4Net) (*Lease, uint64, error)
+    createSubnet(ctx context.Context, sn ip.IP4Net, attrs *LeaseAttrs, ttl time.Duration) (time.Time, error)
+    updateSubnet(ctx context.Context, sn ip.IP4Net, attrs *LeaseAttrs, ttl time.Duration, asof uint64) (time.Time, error)
+    deleteSubnet(ctx context.Context, sn ip.IP4Net) error
+    watchSubnets(ctx context.Context, since uint64) (Event, uint64, error)
+    watchSubnet(ctx context.Context, since uint64, sn ip.IP4Net) (Event, uint64, error)
+}
+</code></pre><p>这些函数定义简化了操作etcd registry子网配置</p>
+<h3 id="host-gw模式">host-gw模式</h3>
+<pre tabindex="0"><code>New -&gt; RegisterNetwork -&gt; RouteNetwork.Run
+</code></pre><p>更新路由的主要代码</p>
+<pre tabindex="0"><code>    // 初始化routes slice
+    n.routes = make([]netlink.Route, 0, 10)
+    wg.Add(1)
+    go func() {
+        // 间隔10s检查下子网的路由是否存在，否则加上
+        n.routeCheck(ctx)
+        wg.Done()
+    }()
+
+    defer wg.Wait()
+
+    for {
+        select {
+        case evtBatch := &lt;-evts:
+            // 处理事件的函数
+            n.handleSubnetEvents(evtBatch)
+
+        case &lt;-ctx.Done():
+            return
+        }
+    }
+</code></pre><pre tabindex="0"><code>func (n *RouteNetwork) handleSubnetEvents(batch []subnet.Event) {
+    // 遍历batch channel
+    for _, evt := range batch {
+        switch evt.Type {
+        // 添加事件
+        case subnet.EventAdded:
+            log.Infof(&quot;Subnet added: %v via %v&quot;, evt.Lease.Subnet, evt.Lease.Attrs.PublicIP)
+            // Backend类型判断
+            if evt.Lease.Attrs.BackendType != n.BackendType {
+                log.Warningf(&quot;Ignoring non-%v subnet: type=%v&quot;, n.BackendType, evt.Lease.Attrs.BackendType)
+                continue
+            }
+            // 获取到其它节点子网的路由
+            route := n.GetRoute(&amp;evt.Lease)
+            // 因为是添加事件，添加n.routes中的路由
+            n.addToRouteList(*route)
+            // Check if route exists before attempting to add it
+            // 再次检查路由是否已存在
+            routeList, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &amp;netlink.Route{Dst: route.Dst}, netlink.RT_FILTER_DST)
+            if err != nil {
+                log.Warningf(&quot;Unable to list routes: %v&quot;, err)
+            }
+
+            if len(routeList) &gt; 0 &amp;&amp; !routeEqual(routeList[0], *route) {
+                // Same Dst different Gw or different link index. Remove it, correct route will be added below.
+                log.Warningf(&quot;Replacing existing route to %v via %v dev index %d with %v via %v dev index %d.&quot;, evt.Lease.Subnet, routeList[0].Gw, routeList[0].LinkIndex, evt.Lease.Subnet, evt.Lease.Attrs.PublicIP, route.LinkIndex)
+                if err := netlink.RouteDel(&amp;routeList[0]); err != nil {
+                    log.Errorf(&quot;Error deleting route to %v: %v&quot;, evt.Lease.Subnet, err)
+                    continue
+                }
+                n.removeFromRouteList(routeList[0])
+            }
+
+            if len(routeList) &gt; 0 &amp;&amp; routeEqual(routeList[0], *route) {
+                // Same Dst and same Gw, keep it and do not attempt to add it.
+                log.Infof(&quot;Route to %v via %v dev index %d already exists, skipping.&quot;, evt.Lease.Subnet, evt.Lease.Attrs.PublicIP, routeList[0].LinkIndex)
+            } else if err := netlink.RouteAdd(route); err != nil {
+                log.Errorf(&quot;Error adding route to %v via %v dev index %d: %v&quot;, evt.Lease.Subnet, evt.Lease.Attrs.PublicIP, route.LinkIndex, err)
+                continue
+            }
+        // 删除事件
+        case subnet.EventRemoved:
+            log.Info(&quot;Subnet removed: &quot;, evt.Lease.Subnet)
+            // Backend类型不匹配的话，跳过
+            if evt.Lease.Attrs.BackendType != n.BackendType {
+                log.Warningf(&quot;Ignoring non-%v subnet: type=%v&quot;, n.BackendType, evt.Lease.Attrs.BackendType)
+                continue
+            }
+            // 获取到其它节点子网的路由
+            route := n.GetRoute(&amp;evt.Lease)
+            // Always remove the route from the route list.
+            // 因为是删除事件，删除n.routes中的路由
+            n.removeFromRouteList(*route)
+            // 因为是删除事件，所以删除宿主机上的路由
+            if err := netlink.RouteDel(route); err != nil {
+                log.Errorf(&quot;Error deleting route to %v: %v&quot;, evt.Lease.Subnet, err)
+                continue
+            }
+
+        default:
+            log.Error(&quot;Internal error: unknown event type: &quot;, int(evt.Type))
+        }
+    }
+}
+</code></pre><h4 id="galaxyflannelhost-gw手动实践">galaxy+flannel+host-gw手动实践</h4>
+<pre tabindex="0"><code>sysctl -w net.ipv4.ip_forward=1
+ip netns add test1
+ip link add veth1 type veth peer name eth0 netns test1
+ip link set up dev veth1
+ip addr add 1.1.1.1/32 dev veth1
+ip netns exec test1 ip link set eth0 up
+ip netns exec test1 ip link set lo up
+ip netns exec test1 ip addr add 1.1.1.2/32 dev eth0
+ip route add 1.1.1.2/32 dev veth1 scope link
+# 容器内部添加路由
+ip netns exec test1 ip route add 169.254.1.1 dev eth0 scope link
+ip netns exec test1 ip route add default via 169.254.1.1 dev eth0
+ip netns exec test1 ip neigh replace 169.254.1.1 dev eth0 lladdr &lt;宿主机veth1的MAC地址&gt;
+</code></pre><p>在宿主机上进行对1.1.1.2的ping连通测试，连通可达.</p>
+<h3 id="vxlan模式">vxlan模式</h3>
+<h4 id="vxlan介绍">vxlan介绍</h4>
+<blockquote>
+<p>Linux 对 VXLAN 协议的支持时间并不久，2012年Stephen Hemminger才把相关的工作合并到kernel中，并最终出现在kernel 3.7.0版本。
+为了稳定性和很多的功能，可能会看到某些软件推荐在3.9.0或者3.10.0以后版本的kernel上使用VXLAN。
+到了 kernel 3.12版本，Linux对VXLAN的支持已经完备，支持单播和组播，IPv4和IPv6。利用man查看ip的link子命令，可以查看是否有VXLAN type：</p>
+</blockquote>
+<pre tabindex="0"><code>#查看vxlan是否支持ipv6
+# lsmod |grep vxlan
+vxlan                  69632  0
+ip6_udp_tunnel         16384  1 vxlan
+udp_tunnel             16384  1 vxlan
+</code></pre><blockquote>
+<p>VXLAN的全称为Virtual eXtensible LAN，从名称看，它的目标就是扩展VLAN协议。802.1Q的VLAN TAG只占12位，只能提供4096个网络标识符。
+而在VXLAN中，标识符扩展到24位，能提供16777216个逻辑网络标识符，VXLAN的标识符称为VNI(VXLAN Network Identifier)。
+另外，VLAN只能应用在一个二层网络中，而VXLAN通过将原始二层以太网帧封装在IP协议包中，在IP基础网络之上构建overlay的逻辑大二层网络。</p>
+</blockquote>
+<p>vxlan将二层数据帧封装在UDP数据包中，包结构如下：</p>
+<p>
+  <img src="/img/posts/2020-08-12/vxlan_packet.png" alt="">
+
+</p>
+<blockquote>
+<p>从包结构上可以看到，VXLAN会额外消耗50字节的空间。
+为了防止因数据包大小超过网络设备的MTU值而被丢弃，需要将VM的MTU减少50甚至更多，或者调整中间网络设备的MTU。
+VXLAN协议中将对原始数据包进行封装和解封装的设备称为VTEP(VXLAN Tunnel End Point)，它可以由硬件设备实现，也可以由软件实现。</p>
+</blockquote>
+<blockquote>
+<p>我们来看VXLAN的通信过程。在上图的虚拟机VM1和VM2处于逻辑二层网络中。VM1发出的二层以太网帧由VTEP封装进IP数据包，之后发送到VM2所在主机。
+VM2所在主机接收到IP报文后，解封装出原始的以太网帧再转发给VM2。然而，VM1所在主机的VTEP做完数据封装后，如何知道要将封装后的数据包发到哪个VTEP呢？
+实际上，VTEP通过查询转发表来确定目标VTEP地址，而转发表通过泛洪和学习机制来构建。目标MAC地址在转发表中不存在的流量称为未知单播(Unknown unicast)。
+广播(broadcast)、未知单播(unknown unicast)和组播(multicast)一般统称为BUM流量。
+VXLAN规范要求BUM流量使用IP组播进行洪泛，将数据包发送到除源VTEP外的所有VTEP。
+目标VTEP发送回响应数据包时，源VTEP从中学习MAC地址、VNI和VTEP的映射关系，并添加到转发表中。
+后续VTEP再次发送数据包给该MAC地址时，VTEP会从转发表中直接确定目标VTEP，从而只发送单播数据到目标VTEP。</p>
+</blockquote>
+<blockquote>
+<p>OpenvSwitch没有实现IP组播，而是使用多个单播来实现洪泛。洪泛流量本身对性能有一定影响，可以通过由controller收集相应信息来填充转发表而避免洪泛。</p>
+</blockquote>
+<p>Linux环境中常用的VXLAN实现有两种:</p>
+<ul>
+<li>Linux内核实现</li>
+<li>OpenvSwitch实现</li>
+</ul>
+<p>对于大规模的VXLAN网络中，最核心的问题一般有两个:</p>
+<ul>
+<li>如何发现网络中其他VTEP</li>
+<li>如何降低BUM（Broadcast, Unknown unicast, Multicast)流量</li>
+</ul>
+<p>在对于问题一来说，解决方法是洪泛，对于问题二，则通过源地址学习来确定MAC地址的归属。
+VXLAN的转发过程主要依赖FDB(Forwarding Database)实现。二层网桥的FDB表项格式可表达为:</p>
+<pre tabindex="0"><code>&lt;MAC&gt; &lt;VLAN&gt; &lt;DEV PORT&gt;
+</code></pre><p>VXLAN设备的表项与之类似，可以表达为:</p>
+<pre tabindex="0"><code>&lt;MAC&gt; &lt;VNI&gt; &lt;REMOTE IP&gt;
+</code></pre><blockquote>
+<p>VXLAN设备根据MAC地址来查找相应的VTEP IP地址，继而将二层数据帧封装发送至相应VTEP。
+如果我们能够从集中的Controller或者存储中获取VTEP信息以及MAC地址与VTEP的对应信息，
+则问题一和问题二都可以通过根据相应信息动态更新FDB表项来解决，OpenStack的Neutron, VMware的NSX，Docker Overlay都有类似的思路。</p>
+</blockquote>
+<h4 id="手动实践">手动实践</h4>
+<p>手动更新FDB表来实现VXLAN通信，实验环境，如下图</p>
+<pre tabindex="0"><code>node1 192.168.104.111
+node2 192.168.104.128
+            
+        +-------------------------+               +-------------------------+
+        |                         |               |                         |
+        |      +------------+     |               |      +------------+     |
+        |      |            |     |               |      |            |     |
+        |      |  3.3.3.4   |     |               |      |   3.3.3.3  |     |
+        |      +------------+     |               |      +------------+     |
+        |            |eth0        |               |            |eth0        |
+        |            |            |               |            |            |
+        |            +veth0       |               |            +veth0       |
+        |      +------------+     |               |      +------------+     |
+        |      |            |     |               |      |            |     |
+        |      |    br1     |     |               |      |    br1     |     |
+        |      +-----+------+     |               |      +-----+------+     |
+        |            |            |               |            |            |
+        |            |            |               |            |            |
+        |      +-----+------+     |               |      +-----+------+     |
+        |      |   vxlan100 |     |               |      |   vxlan100 |     |
+        |      |            |     |               |      |            |     |
+        |      +-----+------+     |               |      +-----+------+     |
+        |            |            |               |            |            |
+        |            |            |               |            |            |
+node2   |            | eth0       |               |            | eth0       | node1
+        +-------------------------+               +-------------------------+
+                     | 192.168.104.128          192.168.104.111|
+                     |                                         |
+                     |                                         |
+         +-----------+-----------------------------------------+---------------+
+</code></pre><p>node1操作</p>
+<pre tabindex="0"><code>sysctl -w net.ipv4.ip_forward=1
+ip netns add test1
+ip link add veth1 type veth peer name eth0 netns test1
+ip netns exec test1 ip link set eth0 up
+ip netns exec test1 ip link set lo up
+ip netns exec test1 ip addr add 3.3.3.3/24 dev eth0
+ip link set up dev veth1
+ip link add br1 type bridge
+ip link set br1 up
+ip link set veth1 master br1
+#指定了nolearning来禁用源地址学习, 通过ip -d a可以看到设备属性
+ip link add vxlan100 type vxlan id 100 dstport 4789 local 192.168.104.111 nolearning
+ip link set vxlan100 master br1
+ip link set up vxlan100
+</code></pre><p>node2操作</p>
+<pre tabindex="0"><code>sysctl -w net.ipv4.ip_forward=1
+ip netns add test1
+ip link add veth1 type veth peer name eth0 netns test1
+ip netns exec test1 ip link set eth0 up
+ip netns exec test1 ip link set lo up
+ip netns exec test1 ip addr add 3.3.3.4/24 dev eth0
+ip link set up dev veth1
+ip link add br1 type bridge
+ip link set br1 up
+ip link set veth1 master br1 
+ip link add vxlan100 type vxlan id 100 dstport 4789 local 192.168.104.128 nolearning
+ip link set vxlan100 master br1
+ip link set up vxlan100
+</code></pre><p>node1上的test1访问不了node2的3.3.3.4</p>
+<pre tabindex="0"><code># ip netns exec test1 ping -c 2 3.3.3.4
+PING 3.3.3.4 (3.3.3.4) 56(84) bytes of data.
+From 3.3.3.3 icmp_seq=1 Destination Host Unreachable
+From 3.3.3.3 icmp_seq=2 Destination Host Unreachable
+
+--- 3.3.3.4 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 1000ms
+pipe 2
+</code></pre><p>node1上的3.3.3.3接口需要先发送arp广播查询3.3.3.4的mac地址。arp广播到达设备vxlan100后，根据FDB表没有找到VTEP地址</p>
+<p>分别查看node1、node2 test1命名空间里的接口mac地址</p>
+<pre tabindex="0"><code>#node1 test1命名空间里的接口mac地址
+# ip netns exec test1 ip a
+1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0@if42: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether ea:da:ea:f7:13:be brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 3.3.3.3/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::e8da:eaff:fef7:13be/64 scope link 
+       valid_lft forever preferred_lft forever
+</code></pre><pre tabindex="0"><code>#node2 test1命名空间里的接口mac地址
+# ip netns exec test1 ip a
+1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0@if15: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether 86:a7:37:e5:4f:e0 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 3.3.3.4/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::84a7:37ff:fee5:4fe0/64 scope link 
+       valid_lft forever preferred_lft forever
+</code></pre><p>node1上增加vxlan FDB表项</p>
+<pre tabindex="0"><code># bridge fdb append 00:00:00:00:00:00 dev vxlan100 dst 192.168.104.128
+#添加的是对端的mac地址和ip
+# bridge fdb append 86:a7:37:e5:4f:e0 dev vxlan100 dst 192.168.104.128
+
+# bridge fdb show brport vxlan100
+66:42:78:42:a4:76 vlan 1 master br1 permanent
+66:42:78:42:a4:76 master br1 permanent
+00:00:00:00:00:00 dst 192.168.104.128 self permanent
+86:a7:37:e5:4f:e0 dst 192.168.104.128 self permanent
+</code></pre><p>全零表项表示没有匹配的MAC地址时，就发送到该表项中的VTEP, 用于处理BUM流量.
+查看VXLAN设备vxlan100的FDB表项，两条表项都已成功添加而且永不老化(permanent)</p>
+<p>node2上增加vxlan FDB表项</p>
+<pre tabindex="0"><code># bridge fdb append 00:00:00:00:00:00 dev vxlan100 dst 192.168.104.111
+# bridge fdb append ea:da:ea:f7:13:be dev vxlan100 dst 192.168.104.111
+
+# bridge fdb show brport vxlan100
+36:b2:8d:92:e8:97 vlan 1 master br1 permanent
+36:b2:8d:92:e8:97 master br1 permanent
+00:00:00:00:00:00 dst 192.168.104.111 self permanent
+ea:da:ea:f7:13:be dst 192.168.104.111 self permanent
+</code></pre><p>再次ping测试，可以互相连通了</p>
+<pre tabindex="0"><code># ip netns exec test1 ping -c2 3.3.3.4
+PING 3.3.3.4 (3.3.3.4) 56(84) bytes of data.
+64 bytes from 3.3.3.4: icmp_seq=1 ttl=64 time=2.21 ms
+64 bytes from 3.3.3.4: icmp_seq=2 ttl=64 time=0.631 ms
+
+--- 3.3.3.4 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.631/1.423/2.215/0.792 ms
+</code></pre><pre tabindex="0"><code># ip netns exec test1 ping -c2 3.3.3.3
+PING 3.3.3.3 (3.3.3.3) 56(84) bytes of data.
+64 bytes from 3.3.3.3: icmp_seq=1 ttl=64 time=0.687 ms
+64 bytes from 3.3.3.3: icmp_seq=2 ttl=64 time=0.982 ms
+
+--- 3.3.3.3 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1000ms
+rtt min/avg/max/mdev = 0.687/0.834/0.982/0.150 ms
+</code></pre><p>node1节点上的test1命名空间里的eth0(3.3.3.3)访问node2节点上的test1命名空间里的eth0(3.3.3.4)时，需要发送arp广播先获得3.3.3.4的mac地址。
+在大规模vxlan环境中，arp广播非常消耗资源；其实如果能在本地获取到mac所在的VTEP，可以由vxlan设备实现arp代答，linux vxlan设备支持通过设置<code>proxy</code>参数开启arp代答，将arp广播范围控制在本地。</p>
+<p>node1上重新创建VXLAN接口、开启ARP代答并重新添加FDB表项</p>
+<pre tabindex="0"><code>ip link del vxlan100
+ip link add vxlan100 type vxlan id 100 dstport 4789 local 192.168.104.111 nolearning proxy
+ip link set vxlan100 master br1
+ip link set up vxlan100
+bridge fdb append 00:00:00:00:00:00 dev vxlan100 dst 192.168.104.128
+bridge fdb append 86:a7:37:e5:4f:e0 dev vxlan100 dst 192.168.104.128
+
+# 添加vxlan设备arp代答
+ip neighbor add 3.3.3.4 lladdr 86:a7:37:e5:4f:e0 dev vxlan100
+
+# ip neighbor show dev vxlan100
+3.3.3.4 lladdr 86:a7:37:e5:4f:e0 PERMANENT
+</code></pre><p>可以通过<code>ip neighbor</code>（可以简写为ip neigh）命令管理ARP缓存</p>
+<p>node2上同样的操作, 重新创建VXLAN接口、开启ARP代答并重新添加FDB表项</p>
+<pre tabindex="0"><code>ip link del vxlan100
+ip link add vxlan100 type vxlan id 100 dstport 4789 local 192.168.104.128 nolearning proxy
+ip link set vxlan100 master br1
+ip link set up vxlan100
+bridge fdb append 00:00:00:00:00:00 dev vxlan100 dst 192.168.104.111
+bridge fdb append ea:da:ea:f7:13:be dev vxlan100 dst 192.168.104.111
+
+# 添加vxlan设备arp代答
+ip neighbor add 3.3.3.3 lladdr ea:da:ea:f7:13:be dev vxlan100
+
+# ip neighbor show dev vxlan100
+3.3.3.3 lladdr ea:da:ea:f7:13:be PERMANENT
+</code></pre><p>再次测试连通性</p>
+<pre tabindex="0"><code># ip netns exec test1 ping -c2 3.3.3.4
+PING 3.3.3.4 (3.3.3.4) 56(84) bytes of data.
+64 bytes from 3.3.3.4: icmp_seq=1 ttl=64 time=1.16 ms
+64 bytes from 3.3.3.4: icmp_seq=2 ttl=64 time=0.619 ms
+
+--- 3.3.3.4 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.619/0.891/1.164/0.274 ms
+
+# ip netns exec test1 ping -c2 3.3.3.3
+PING 3.3.3.3 (3.3.3.3) 56(84) bytes of data.
+64 bytes from 3.3.3.3: icmp_seq=1 ttl=64 time=1.75 ms
+64 bytes from 3.3.3.3: icmp_seq=2 ttl=64 time=0.855 ms
+
+--- 3.3.3.3 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1002ms
+rtt min/avg/max/mdev = 0.855/1.303/1.751/0.448 ms
+</code></pre><p>为了支持更加灵活的维护ARP和FDB表，Linux的VXLAN设备还支持对于表项匹配MISS的消息通知。内核在发现在ARP或者FDB表项中找不到相应的表项，
+则可以通过NETLINK消息发送通知，用户态进程可以监听相应消息并补充所缺失的表项记录，从而实现动态的表项维护。</p>
+<p>VXLAN设备支持两种消息:</p>
+<ul>
+<li>L2MISS: VXLAN设备在FDB表中找不到目的MAC地址所属的VTEP IP地址。L2MISS消息的发送需要满足如下条件：
+<ul>
+<li>目的MAC地址未知，即在FDB表中没有相应条项</li>
+<li>FDB表中没有全零表项</li>
+<li>目的MAC地址不是组播或多播地址</li>
+</ul>
+</li>
+<li>L3MISS: VXLAN设备在ARP表中找不到目的IP所对应的MAC地址</li>
+</ul>
+<p>node2上删除vxlan100,重新添加开启l2miss和l3miss的vxlan100接口</p>
+<pre tabindex="0"><code>ip link del vxlan100
+ip link add vxlan100 type vxlan id 100 dstport 4789 local 192.168.104.128 nolearning proxy l2miss l3miss
+ip link set vxlan100 master br1
+ip link set up vxlan100
+
+#开另一个shell执行
+# ip monitor all dev vxlan100
+</code></pre><p>清除test1命名空间里的arp缓存, 然后ping测试</p>
+<pre tabindex="0"><code>ip netns exec test1 ip neigh flush all
+
+# ip netns exec test1 ping -c2 3.3.3.3
+PING 3.3.3.3 (3.3.3.3) 56(84) bytes of data.
+From 3.3.3.4 icmp_seq=1 Destination Host Unreachable
+From 3.3.3.4 icmp_seq=2 Destination Host Unreachable
+
+--- 3.3.3.3 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 999ms
+pipe 2
+</code></pre><p>ip monitor收到L3MISS的消息</p>
+<pre tabindex="0"><code>[NEIGH]miss 3.3.3.3  STALE
+[NEIGH]miss 3.3.3.3  STALE
+</code></pre><p>手动添加arp缓存</p>
+<pre tabindex="0"><code>ip neighbor replace 3.3.3.3 lladdr ea:da:ea:f7:13:be dev vxlan100 nud reachable
+
+# ip neighbor show dev vxlan100
+3.3.3.3 lladdr ea:da:ea:f7:13:be REACHABLE
+</code></pre><p><code>nud reachable</code>， NUD表示: Neighbour Unreachability Detection, 代表这个表项有过期时间，系统发现它无效后过一定时间会自动删除,
+之后如果再次需要内核会再次发送L3MISS消息，这样就不用自己维护这些添加的表项了</p>
+<p>再次进行ping测试，ip monitor收到L2MISS消息</p>
+<pre tabindex="0"><code># ip netns exec test1 ping -c2 3.3.3.3
+PING 3.3.3.3 (3.3.3.3) 56(84) bytes of data.
+From 3.3.3.4 icmp_seq=1 Destination Host Unreachable
+From 3.3.3.4 icmp_seq=2 Destination Host Unreachable
+
+--- 3.3.3.3 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 999ms
+pipe 2
+
+[NEIGH]miss lladdr ea:da:ea:f7:13:be STALE
+[NEIGH]miss lladdr ea:da:ea:f7:13:be STALE
+</code></pre><p>node2上继续添加FDB表项</p>
+<pre tabindex="0"><code>bridge fdb append ea:da:ea:f7:13:be dev vxlan100 dst 192.168.104.111
+</code></pre><p>再次ping测试，可以连通了</p>
+<h4 id="flannel-vxlan手动实践">flannel vxlan手动实践</h4>
+<p>Docker的libnetwork VXLAN模式以及Flannel的VXLAN模式都使用类似上述模式来实现Docker overlay网络，具体操作如下</p>
+<p>通过<code>man ip-link</code>和<code>man ip-netns</code>可以查看命令使用方式，还可以man其它子命令</p>
+<pre tabindex="0"><code>ip-address(8), ip-addrlabel(8), ip-l2tp(8), ip-link(8), ip-maddress(8), ip-monitor(8), ip-mroute(8), ip-neighbour(8), ip-netns(8), 
+ip-ntable(8), ip-route(8), ip-rule(8), ip-tcp_metrics(8), ip-token(8), ip-tunnel(8), ip-xfrm(8)
+</code></pre><p>node1操作</p>
+<pre tabindex="0"><code>sysctl -w net.ipv4.ip_forward=1
+ip netns add test1
+ip link add veth1 type veth peer name eth0 netns test1
+ip netns exec test1 ip link set eth0 up
+ip netns exec test1 ip link set lo up
+ip netns exec test1 ip addr add 3.3.1.3/24 dev eth0
+ip netns exec test1 ifconfig eth0 mtu 1450
+ip link set up dev veth1
+ip link add cni0 type bridge
+ip link set cni0 up
+ip link set veth1 master cni0
+ip link add flannel.1 type vxlan id 1 dstport 8472 local 192.168.104.111 nolearning proxy
+ip addr add 3.3.1.1/24 dev cni0
+ip addr add 3.3.1.0/32 dev flannel.1
+ip netns exec test1 ip route add 0.0.0.0/0 via 3.3.1.1
+ifconfig veth1 mtu 1450
+ifconfig flannel.1 mtu 1450
+</code></pre><p>node2操作</p>
+<pre tabindex="0"><code>sysctl -w net.ipv4.ip_forward=1
+ip netns add test1
+ip link add veth1 type veth peer name eth0 netns test1
+ip netns exec test1 ip link set eth0 up
+ip netns exec test1 ip link set lo up
+ip netns exec test1 ip addr add 3.3.2.4/24 dev eth0
+ip netns exec test1 ifconfig eth0 mtu 1450
+ip link set up dev veth1
+ip link add cni0 type bridge
+ip link set cni0 up
+ip link set veth1 master cni0
+ip link add flannel.1 type vxlan id 1 dstport 8472 local 192.168.104.128 nolearning proxy
+ip addr add 3.3.2.1/24 dev cni0
+ip addr add 3.3.2.0/32 dev flannel.1
+ip netns exec test1 ip route add 0.0.0.0/0 via 3.3.2.1
+ifconfig veth1 mtu 1450
+ifconfig flannel.1 mtu 1450
+</code></pre><p>node1路由/fdb/arp缓存设置</p>
+<pre tabindex="0"><code>ip route add 3.3.2.0/24 via 3.3.2.0 dev flannel.1 onlink
+bridge fdb append ca:d2:6d:70:20:fd dev flannel.1 dst 192.168.104.128
+ip neighbor add 3.3.2.0 lladdr ca:d2:6d:70:20:fd dev flannel.1
+</code></pre><p>node2路由/fdb/arp缓存设置</p>
+<pre tabindex="0"><code>ip route add 3.3.1.0/24 via 3.3.1.0 dev flannel.1 onlink
+bridge fdb append 42:10:c8:96:4e:e4 dev flannel.1 dst 192.168.104.111
+ip neighbor add 3.3.1.0 lladdr 42:10:c8:96:4e:e4 dev flannel.1
+</code></pre><p>通过增加<code>ip route add 3.3.2.0/24 via 3.3.2.0 dev flannel.1 onlink</code>和<code>ip route add 3.3.1.0/24 via 3.3.1.0 dev flannel.1 onlink</code>路由，
+使得访问3.3.2.0/24网段的目的IP都通过flannel.1出去，回包的路由也有。</p>
+<p>3.3.1.3到3.3.2.4的连通性，测试可达</p>
+<pre tabindex="0"><code># ip netns exec test1 ping -c2 3.3.2.4
+PING 3.3.2.4 (3.3.2.4) 56(84) bytes of data.
+64 bytes from 3.3.2.4: icmp_seq=1 ttl=62 time=1.12 ms
+64 bytes from 3.3.2.4: icmp_seq=2 ttl=62 time=0.601 ms
+
+--- 3.3.2.4 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.601/0.863/1.125/0.262 ms
+</code></pre><h4 id="代码分析">代码分析</h4>
+<p>调用流程</p>
+<pre tabindex="0"><code>New -&gt; RegisterNetwork -&gt; network.Run(flannel/backend/vxlan/vxlan_network.go)
+</code></pre><p>每种backend类型都会调用RegisterNetwork这个函数, 每种类型都需要一个新的网络对象，比如操作静态路由、vxlan隧道、udp隧道、ipip隧道等；
+这些网络对象抽象成一个公共接口Network，返回结果是一个实现了Network接口的对象</p>
+<pre tabindex="0"><code>type network struct {
+    backend.SimpleNetwork
+    dev       *vxlanDevice
+    subnetMgr subnet.Manager
+}
+
+func (be *VXLANBackend) RegisterNetwork(ctx context.Context, wg *sync.WaitGroup, config *subnet.Config) (backend.Network, error) {
+    // Parse our configuration
+    cfg := struct {
+        // vxlan id, 默认1
+        VNI           int
+        // vxlan的目的UDP端口号, 默认是0，自动分配出来的端口号是8472
+        Port          int
+        // 启用VXLAN Group Based Policy
+        GBP           bool
+        // 启用源地址学习, 也就是VXLAN的flood and learn，甚少被使用
+        Learning      bool
+        // 当主机位于同一子网中时，启用直接路由（类似host-gw）；VXLAN仅用于将数据包封装到不同子网中的主机。
+        DirectRouting bool
+    }{
+        VNI: defaultVNI,
+    }
+
+    if len(config.Backend) &gt; 0 {
+        // 解析Backend参数
+        if err := json.Unmarshal(config.Backend, &amp;cfg); err != nil {
+            return nil, fmt.Errorf(&quot;error decoding VXLAN backend config: %v&quot;, err)
+        }
+    }
+    log.Infof(&quot;VXLAN config: VNI=%d Port=%d GBP=%v Learning=%v DirectRouting=%v&quot;, cfg.VNI, cfg.Port, cfg.GBP, cfg.Learning, cfg.DirectRouting)
+
+    devAttrs := vxlanDeviceAttrs{
+        vni:       uint32(cfg.VNI),
+        name:      fmt.Sprintf(&quot;flannel.%v&quot;, cfg.VNI),
+        vtepIndex: be.extIface.Iface.Index,
+        vtepAddr:  be.extIface.IfaceAddr,
+        vtepPort:  cfg.Port,
+        gbp:       cfg.GBP,
+        learning:  cfg.Learning,
+    }
+    // 创建vxlan接口设备
+    dev, err := newVXLANDevice(&amp;devAttrs)
+    if err != nil {
+        return nil, err
+    }
+    dev.directRouting = cfg.DirectRouting
+    // 初始化LeaseAttrs对象
+    subnetAttrs, err := newSubnetAttrs(be.extIface.ExtAddr, dev.MACAddr())
+    if err != nil {
+        return nil, err
+    }
+    // 获取租约节点的子网信息 
+    lease, err := be.subnetMgr.AcquireLease(ctx, subnetAttrs)
+    switch err {
+    case nil:
+    case context.Canceled, context.DeadlineExceeded:
+        return nil, err
+    default:
+        return nil, fmt.Errorf(&quot;failed to acquire lease: %v&quot;, err)
+    }
+
+    // Ensure that the device has a /32 address so that no broadcast routes are created.
+    // This IP is just used as a source address for host to workload traffic (so
+    // the return path for the traffic has an address on the flannel network to use as the destination)
+    if err := dev.Configure(ip.IP4Net{IP: lease.Subnet.IP, PrefixLen: 32}); err != nil {
+        return nil, fmt.Errorf(&quot;failed to configure interface %s: %s&quot;, dev.link.Attrs().Name, err)
+    }
+    // 返回结果是一个实现了Network接口的对象
+    return newNetwork(be.subnetMgr, be.extIface, dev, ip.IP4Net{}, lease)
+}
+
+func newVXLANDevice(devAttrs *vxlanDeviceAttrs) (*vxlanDevice, error) {
+    link := &amp;netlink.Vxlan{
+        LinkAttrs: netlink.LinkAttrs{
+            Name: devAttrs.name,
+        },
+        VxlanId:      int(devAttrs.vni),
+        VtepDevIndex: devAttrs.vtepIndex,
+        SrcAddr:      devAttrs.vtepAddr,
+        Port:         devAttrs.vtepPort,
+        Learning:     devAttrs.learning,
+        GBP:          devAttrs.gbp,
+    }
+
+    link, err := ensureLink(link)
+    if err != nil {
+        return nil, err
+    }
+    // 禁用vxlan网卡ipv6的自动配置
+    _, _ = sysctl.Sysctl(fmt.Sprintf(&quot;net/ipv6/conf/%s/accept_ra&quot;, devAttrs.name), &quot;0&quot;)
+
+    return &amp;vxlanDevice{
+        link: link,
+    }, nil
+}
+</code></pre><p>最终会调用到network对象的Run函数</p>
+<pre tabindex="0"><code>func (nw *network) Run(ctx context.Context) {
+    wg := sync.WaitGroup{}
+
+    log.V(0).Info(&quot;watching for new subnet leases&quot;)
+    events := make(chan []subnet.Event)
+    wg.Add(1)
+    go func() {
+        subnet.WatchLeases(ctx, nw.subnetMgr, nw.SubnetLease, events)
+        log.V(1).Info(&quot;WatchLeases exited&quot;)
+        wg.Done()
+    }()
+
+    defer wg.Wait()
+
+    for {
+        select {
+        case evtBatch := &lt;-events:
+            // 处理事件的函数
+            nw.handleSubnetEvents(evtBatch)
+
+        case &lt;-ctx.Done():
+            return
+        }
+    }
+}
+
+func (nw *network) handleSubnetEvents(batch []subnet.Event) {
+    // 遍历batch channel 
+    for _, event := range batch {
+        // 获取子网信息
+        sn := event.Lease.Subnet
+        attrs := event.Lease.Attrs
+        if attrs.BackendType != &quot;vxlan&quot; {
+            log.Warningf(&quot;ignoring non-vxlan subnet(%s): type=%v&quot;, sn, attrs.BackendType)
+            continue
+        }
+
+        var vxlanAttrs vxlanLeaseAttrs
+        // 解析BackendData，形如flannel.alpha.coreos.com/backend-data: '{&quot;VtepMAC&quot;:&quot;96:11:83:87:ea:56&quot;}'
+        if err := json.Unmarshal(attrs.BackendData, &amp;vxlanAttrs); err != nil {
+            log.Error(&quot;error decoding subnet lease JSON: &quot;, err)
+            continue
+        }
+
+        // 到对端vxlan隧道的路由，形如172.20.1.0/24 via 172.20.1.0 dev flannel.1 onlink
+        // This route is used when traffic should be vxlan encapsulated
+        vxlanRoute := netlink.Route{
+            LinkIndex: nw.dev.link.Attrs().Index,
+            Scope:     netlink.SCOPE_UNIVERSE,
+            Dst:       sn.ToIPNet(),
+            Gw:        sn.IP.ToIP(),
+        }
+        // 路由onlink参数: 假装和下一跳路由器是直接相连的，即使它没有匹配任何接口前缀 (prefix)
+        vxlanRoute.SetFlag(syscall.RTNH_F_ONLINK)
+
+        // 直连的路由，下一跳是其它节点的外网网卡地址，形如172.20.1.0/24 via 192.168.104.128 dev eth0
+        // directRouting is where the remote host is on the same subnet so vxlan isn't required.
+        directRoute := netlink.Route{
+            Dst: sn.ToIPNet(),
+            Gw:  attrs.PublicIP.ToIP(),
+        }
+        var directRoutingOK = false
+        // 启用直连路由模式
+        if nw.dev.directRouting {
+            // 判断下一跳地址是否处于同一子网
+            if dr, err := ip.DirectRouting(attrs.PublicIP.ToIP()); err != nil {
+                log.Error(err)
+            } else {
+                directRoutingOK = dr
+            }
+        }
+
+        switch event.Type {
+        case subnet.EventAdded:
+            // 启用直连路由模式
+            if directRoutingOK {
+                log.V(2).Infof(&quot;Adding direct route to subnet: %s PublicIP: %s&quot;, sn, attrs.PublicIP)
+                // 创建直连路由
+                if err := netlink.RouteReplace(&amp;directRoute); err != nil {
+                    log.Errorf(&quot;Error adding route to %v via %v: %v&quot;, sn, attrs.PublicIP, err)
+                    continue
+                }
+            // 非直连路由模式下
+            } else {
+                log.V(2).Infof(&quot;adding subnet: %s PublicIP: %s VtepMAC: %s&quot;, sn, attrs.PublicIP, net.HardwareAddr(vxlanAttrs.VtepMAC))
+                // 添加vxlan设备arp代答，前面也没有设置vxlan接口proxy属性？
+                if err := nw.dev.AddARP(neighbor{IP: sn.IP, MAC: net.HardwareAddr(vxlanAttrs.VtepMAC)}); err != nil {
+                    log.Error(&quot;AddARP failed: &quot;, err)
+                    continue
+                }
+                // 添加对端VTEP FDB表项
+                if err := nw.dev.AddFDB(neighbor{IP: attrs.PublicIP, MAC: net.HardwareAddr(vxlanAttrs.VtepMAC)}); err != nil {
+                    log.Error(&quot;AddFDB failed: &quot;, err)
+
+                    // Try to clean up the ARP entry then continue
+                    if err := nw.dev.DelARP(neighbor{IP: event.Lease.Subnet.IP, MAC: net.HardwareAddr(vxlanAttrs.VtepMAC)}); err != nil {
+                        log.Error(&quot;DelARP failed: &quot;, err)
+                    }
+
+                    continue
+                }
+
+                // Set the route - the kernel would ARP for the Gw IP address if it hadn't already been set above so make sure
+                // this is done last.
+                // 创建vxlan路由
+                if err := netlink.RouteReplace(&amp;vxlanRoute); err != nil {
+                    log.Errorf(&quot;failed to add vxlanRoute (%s -&gt; %s): %v&quot;, vxlanRoute.Dst, vxlanRoute.Gw, err)
+                    // 删除arp缓存
+                    // Try to clean up both the ARP and FDB entries then continue
+                    if err := nw.dev.DelARP(neighbor{IP: event.Lease.Subnet.IP, MAC: net.HardwareAddr(vxlanAttrs.VtepMAC)}); err != nil {
+                        log.Error(&quot;DelARP failed: &quot;, err)
+                    }
+                    // 删除FDB表项
+                    if err := nw.dev.DelFDB(neighbor{IP: event.Lease.Attrs.PublicIP, MAC: net.HardwareAddr(vxlanAttrs.VtepMAC)}); err != nil {
+                        log.Error(&quot;DelFDB failed: &quot;, err)
+                    }
+
+                    continue
+                }
+            }
+        case subnet.EventRemoved:
+            if directRoutingOK {
+                log.V(2).Infof(&quot;Removing direct route to subnet: %s PublicIP: %s&quot;, sn, attrs.PublicIP)
+                // 删除直连路由
+                if err := netlink.RouteDel(&amp;directRoute); err != nil {
+                    log.Errorf(&quot;Error deleting route to %v via %v: %v&quot;, sn, attrs.PublicIP, err)
+                }
+            } else {
+                log.V(2).Infof(&quot;removing subnet: %s PublicIP: %s VtepMAC: %s&quot;, sn, attrs.PublicIP, net.HardwareAddr(vxlanAttrs.VtepMAC))
+                // 删除arp缓存
+                // Try to remove all entries - don't bail out if one of them fails.
+                if err := nw.dev.DelARP(neighbor{IP: sn.IP, MAC: net.HardwareAddr(vxlanAttrs.VtepMAC)}); err != nil {
+                    log.Error(&quot;DelARP failed: &quot;, err)
+                }
+                // 删除FDB
+                if err := nw.dev.DelFDB(neighbor{IP: attrs.PublicIP, MAC: net.HardwareAddr(vxlanAttrs.VtepMAC)}); err != nil {
+                    log.Error(&quot;DelFDB failed: &quot;, err)
+                }
+                // 删除vxlan路由
+                if err := netlink.RouteDel(&amp;vxlanRoute); err != nil {
+                    log.Errorf(&quot;failed to delete vxlanRoute (%s -&gt; %s): %v&quot;, vxlanRoute.Dst, vxlanRoute.Gw, err)
+                }
+            }
+        default:
+            log.Error(&quot;internal error: unknown event type: &quot;, int(event.Type))
+        }
+    }
+}
+</code></pre><p>建立vxlan通信的过程基本跟手动实践vxlan通信一致，只不过代码中没有看到设置vxlan接口<code>proxy</code>的属性.</p>
+<h3 id="基于flannel的固定ipmac实现">基于flannel的固定ip/mac实现</h3>
+<p>结合flannel cni二进制源码和cni配置文件中可以得出，默认情况下flannel用的ipam是host-local，创建设备插件用的是bridge.</p>
+<pre tabindex="0"><code>cni-conf.json: |
+  {
+    &quot;name&quot;: &quot;cbr0&quot;,
+    &quot;cniVersion&quot;: &quot;0.3.1&quot;,
+    &quot;plugins&quot;: [
+      {
+        &quot;type&quot;: &quot;flannel&quot;,
+        &quot;fixedIP&quot;: true,
+        &quot;delegate&quot;: {
+          &quot;hairpinMode&quot;: true,
+          &quot;isDefaultGateway&quot;: true
+        }
+      },
+      {
+        &quot;type&quot;: &quot;portmap&quot;,
+        &quot;capabilities&quot;: {
+          &quot;portMappings&quot;: true
+        }
+      }
+    ]
+}
+</code></pre><p>思考1：基于flannel实现原地pod固定ip，改造host-local插件就可以？</p>
+<blockquote>
+<p>是的，host-local是基于本地的ip分配机制，按ip递增的方式来分配，每次分配新的ip都会更新记录<code>/var/lib/cni/networks/cbr0/last_reserved_ip.0</code>
+文件中(文件锁保证多写)，在这个基础上新增逻辑：如果启动固定ip/mac开关，也一并记录&lt;pod命名空间&gt;-&lt;pod名称&gt;和ip的映射关系，每次本地重启的时候先从本地映射
+关系中获取，如果没有获取到，还是走原来的逻辑.</p>
+</blockquote>
+<p>思考2：基于flannel实现原地pod固定mac，改造bridge插件就可以？</p>
+<blockquote>
+<p>是的，如果启动固定ip/mac开关，记录&lt;pod命名空间&gt;-&lt;pod名称&gt;和mac的映射关系，每次本地重启的时候先从本地映射
+关系中获取，如果没有获取到，还是走原来的逻辑.</p>
+</blockquote>
+<p>如果是基于crd的方式，可以做到全局pod固定ip/mac，不管是否发生pod迁移，不过需要能访问到k8s apiserver，不太符合
+边缘计算场景下的离线情况。</p>
+<h3 id="代码片段">代码片段</h3>
+<p>网络开发可重复利用的代码片段</p>
+<pre tabindex="0"><code>package ip
+
+import (
+    &quot;errors&quot;
+    &quot;fmt&quot;
+    &quot;net&quot;
+    &quot;syscall&quot;
+
+    &quot;github.com/vishvananda/netlink&quot;
+)
+
+// 获取网卡IP
+func getIfaceAddrs(iface *net.Interface) ([]netlink.Addr, error) {
+    link := &amp;netlink.Device{
+        netlink.LinkAttrs{
+            Index: iface.Index,
+        },
+    }
+
+    return netlink.AddrList(link, syscall.AF_INET)
+}
+
+// 获取网卡ipv4 IP
+func GetIfaceIP4Addr(iface *net.Interface) (net.IP, error) {
+    addrs, err := getIfaceAddrs(iface)
+    if err != nil {
+        return nil, err
+    }
+
+    // prefer non link-local addr
+    var ll net.IP
+
+    for _, addr := range addrs {
+        if addr.IP.To4() == nil {
+            continue
+        }
+
+        if addr.IP.IsGlobalUnicast() {
+            return addr.IP, nil
+        }
+
+        if addr.IP.IsLinkLocalUnicast() {
+            ll = addr.IP
+        }
+    }
+
+    if ll != nil {
+        // didn't find global but found link-local. it'll do.
+        return ll, nil
+    }
+
+    return nil, errors.New(&quot;No IPv4 address found for given interface&quot;)
+}
+
+// 网卡IP匹配
+func GetIfaceIP4AddrMatch(iface *net.Interface, matchAddr net.IP) error {
+    addrs, err := getIfaceAddrs(iface)
+    if err != nil {
+        return err
+    }
+
+    for _, addr := range addrs {
+        // Attempt to parse the address in CIDR notation
+        // and assert it is IPv4
+        if addr.IP.To4() != nil {
+            if addr.IP.To4().Equal(matchAddr) {
+                return nil
+            }
+        }
+    }
+
+    return errors.New(&quot;No IPv4 address found for given interface&quot;)
+}
+
+// 获取默认网关所在的网卡
+func GetDefaultGatewayIface() (*net.Interface, error) {
+    routes, err := netlink.RouteList(nil, syscall.AF_INET)
+    if err != nil {
+        return nil, err
+    }
+
+    for _, route := range routes {
+        if route.Dst == nil || route.Dst.String() == &quot;0.0.0.0/0&quot; {
+            if route.LinkIndex &lt;= 0 {
+                return nil, errors.New(&quot;Found default route but could not determine interface&quot;)
+            }
+            return net.InterfaceByIndex(route.LinkIndex)
+        }
+    }
+
+    return nil, errors.New(&quot;Unable to find default route&quot;)
+}
+
+// 根据IP获取网卡
+func GetInterfaceByIP(ip net.IP) (*net.Interface, error) {
+    ifaces, err := net.Interfaces()
+    if err != nil {
+        return nil, err
+    }
+
+    for _, iface := range ifaces {
+        err := GetIfaceIP4AddrMatch(&amp;iface, ip)
+        if err == nil {
+            return &amp;iface, nil
+        }
+    }
+
+    return nil, errors.New(&quot;No interface with given IP found&quot;)
+}
+
+// 根据IP获取直连路由
+func DirectRouting(ip net.IP) (bool, error) {
+    routes, err := netlink.RouteGet(ip)
+    if err != nil {
+        return false, fmt.Errorf(&quot;couldn't lookup route to %v: %v&quot;, ip, err)
+    }
+    if len(routes) == 1 &amp;&amp; routes[0].Gw == nil {
+        // There is only a single route and there's no gateway (i.e. it's directly connected)
+        return true, nil
+    }
+    return false, nil
+}
+
+// 确保Link设备是ipv4地址
+// EnsureV4AddressOnLink ensures that there is only one v4 Addr on `link` and it equals `ipn`.
+// If there exist multiple addresses on link, it returns an error message to tell callers to remove additional address.
+func EnsureV4AddressOnLink(ipn IP4Net, link netlink.Link) error {
+    addr := netlink.Addr{IPNet: ipn.ToIPNet()}
+    existingAddrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
+    if err != nil {
+        return err
+    }
+
+    // flannel will never make this happen. This situation can only be caused by a user, so get them to sort it out.
+    if len(existingAddrs) &gt; 1 {
+        return fmt.Errorf(&quot;link has incompatible addresses. Remove additional addresses and try again. %#v&quot;, link)
+    }
+
+    // If the device has an incompatible address then delete it. This can happen if the lease changes for example.
+    if len(existingAddrs) == 1 &amp;&amp; !existingAddrs[0].Equal(addr) {
+        if err := netlink.AddrDel(link, &amp;existingAddrs[0]); err != nil {
+            return fmt.Errorf(&quot;failed to remove IP address %s from %s: %s&quot;, ipn.String(), link.Attrs().Name, err)
+        }
+        existingAddrs = []netlink.Addr{}
+    }
+
+    // Actually add the desired address to the interface if needed.
+    if len(existingAddrs) == 0 {
+        if err := netlink.AddrAdd(link, &amp;addr); err != nil {
+            return fmt.Errorf(&quot;failed to add IP address %s to %s: %s&quot;, ipn.String(), link.Attrs().Name, err)
+        }
+    }
+
+    return nil
+}
+</code></pre><h3 id="参考链接">参考链接</h3>
+<ul>
+<li><a href="https://github.com/coreos/flannel">https://github.com/coreos/flannel</a></li>
+<li><a href="http://just4coding.com/2017/05/21/vxlan/">VXLAN原理介绍与实例分析</a></li>
+<li><a href="http://just4coding.com/2020/04/20/vxlan-fdb/">动态维护FDB表项实现VXLAN通信</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2020-08-09-golang_knowledge/" data-toggle="tooltip" data-placement="top" title="Golang知识点大杂烩">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-08-31-k8s_scheduler_framework/" data-toggle="tooltip" data-placement="top" title="K8s scheduler framework阅读笔记">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

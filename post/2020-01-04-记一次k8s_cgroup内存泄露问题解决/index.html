@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="记一次k8s cgroup内存泄露问题修复" />
+    <meta property="og:title" content="记一次k8s cgroup内存泄露问题修复" />
+    <meta property="twitter:title" content="记一次k8s cgroup内存泄露问题修复" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>记一次k8s cgroup内存泄露问题修复 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-01-04-%E8%AE%B0%E4%B8%80%E6%AC%A1k8s_cgroup%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2%E9%97%AE%E9%A2%98%E8%A7%A3%E5%86%B3/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>记一次k8s cgroup内存泄露问题修复</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Saturday, January 4, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h3 id="环境">环境</h3>
+<p>arm ubuntu平台</p>
+<ul>
+<li>Kubernetes v1.14.6</li>
+<li>Etcd 3.3.12</li>
+<li>Docker 18.09.9</li>
+<li>Kernel 4.4.131</li>
+</ul>
+<h3 id="现象">现象</h3>
+<p>现象如这个issue里面所描述的<a href="https://github.com/kubernetes/kubernetes/issues/61937">https://github.com/kubernetes/kubernetes/issues/61937</a>
+, 还有复现方法</p>
+<p>cgroup内存泄露, 现象关键字如下</p>
+<pre tabindex="0"><code>SLUB: Unable to allocate memory on node -1
+No space left on device
+</code></pre><p>解决方法：</p>
+<ol>
+<li>重新编译runc、kubelet禁用kmem accounting</li>
+<li>内核禁用cgroup kmem(Kernel 3.10.0-1062.4.1.el7.x86_64支持)</li>
+</ol>
+<h3 id="kernel-memory-accounting机制简介">kernel memory accounting机制简介</h3>
+<p>为了防止出现“fork bomb”，社区中就有提议通过linux内核限制cgroup中的kmem容量使用从而限制恶意进程的行为，
+kernel memory accounting机制为cgroup的内存限制增加了stack pages（例如新进程创建）、
+slab pages(SLAB/SLUB分配器使用的内存)、sockets memory pressure、tcp memory pressure等</p>
+<h3 id="重编译runckubelet">重编译runc、kubelet</h3>
+<h4 id="安装go环境">安装go环境</h4>
+<p>下载go</p>
+<pre tabindex="0"><code># wget -c https://dl.google.com/go/go1.13.5.linux-arm64.tar.gz
+</code></pre><p>解压至/usr/local目录</p>
+<pre tabindex="0"><code># tar xf go1.13.5.linux-arm64.tar.gz -C /usr/local/
+</code></pre><p>设置环境变量, 追加到~/.bashrc</p>
+<pre tabindex="0"><code># vim ~/.bashrc 
+export GOPATH=&quot;/data/Documents&quot;
+export GOROOT=&quot;/usr/local/go&quot;
+export PATH=&quot;$GOROOT/bin:$GOPATH/bin:$PATH&quot;
+export GO111MODULE=off
+</code></pre><p>验证go环境是否有效</p>
+<pre tabindex="0"><code>source ~/.bashrc 
+# go env
+GO111MODULE=&quot;off&quot;
+GOARCH=&quot;arm64&quot;
+GOBIN=&quot;&quot;
+GOCACHE=&quot;/root/.cache/go-build&quot;
+GOENV=&quot;/root/.config/go/env&quot;
+GOEXE=&quot;&quot;
+GOFLAGS=&quot;&quot;
+GOHOSTARCH=&quot;arm64&quot;
+GOHOSTOS=&quot;linux&quot;
+</code></pre><h4 id="下载runckubernetes源码">下载runc、kubernetes源码</h4>
+<p>下载runc源码</p>
+<pre tabindex="0"><code># mkdir -p /data/Documents/src/github.com/opencontainers/
+# cd /data/Documents/src/github.com/opencontainers/
+# git clone https://github.com/opencontainers/runc
+# cd runc/
+# git checkout v1.0.0-rc9  # 切到v1.0.0-rc9 tag
+</code></pre><p>编译, seccomp选项默认都会带上</p>
+<pre tabindex="0"><code>apt-get install -y libseccomp-dev  pkg-config
+make BUILDTAGS='seccomp nokmem'
+</code></pre><p>runc可执行文件在当前目录, 更多编译选项查看README.md</p>
+<p>查看runc版本</p>
+<pre tabindex="0"><code># ./runc -v
+runc version 1.0.0-rc9
+commit: d736ef14f0288d6993a1845745d6756cfc9ddd5a
+spec: 1.0.1-dev
+</code></pre><p>网上说升级docker-ce 到 18.09.1以上, runc默认把kmem accounting功能关闭了, 发现18.09.9版本并没有关闭</p>
+<p>下载k8s源码</p>
+<pre tabindex="0"><code># mkdir -p /data/Documents/src/k8s.io/
+# cd /data/Documents/src/k8s.io/
+# git clone https://github.com/kubernetes/kubernetes
+</code></pre><pre tabindex="0"><code># cd kubernetes/
+# git checkout v1.14.6
+# GO111MODULE=off KUBE_GIT_TREE_STATE=clean KUBE_GIT_VERSION=v1.14.6 make kubelet GOFLAGS=&quot;-tags=nokmem&quot;
+</code></pre><p>编译v1.14.6版本的kubelet, 产物在当前目录_output/bin/kubelet</p>
+<p>跨平台编译</p>
+<pre tabindex="0"><code>make kubelet KUBE_BUILD_PLATFORMS=linux/arm64
+</code></pre><h4 id="验证">验证</h4>
+<p>备份原有runc、kubelet</p>
+<pre tabindex="0"><code>service kubelet stop
+service docker stop
+
+mv /usr/bin/kubelet /home/kubelet
+mv /usr/bin/runc /home/runc
+</code></pre><p>新版本替换</p>
+<pre tabindex="0"><code>mv kubelet /usr/bin/kubelet
+mv runc /usr/bin/runc
+</code></pre><p>启动服务</p>
+<pre tabindex="0"><code>service docker starrt
+service kubelet start
+</code></pre><p>不重启机器的话，需要删除原来所有的pod</p>
+<p>查看新创建pod的cgroup memory kmem</p>
+<p>pod uid、container id获取</p>
+<pre tabindex="0"><code>kubectl get pod `kubectl get pod|grep test-hello| awk '{print $1}'` -o yaml |egrep &quot;uid|container&quot;
+</code></pre><p>查看kmem.slabinfo</p>
+<pre tabindex="0"><code>cat /sys/fs/cgroup/memory/kubepods/burstable/pod&lt;pod-id&gt;/&lt;containerID&gt;/memory.kmem.slabinfo
+slabinfo - version: 2.1
+# name            &lt;active_objs&gt; &lt;num_objs&gt; &lt;objsize&gt; &lt;objperslab&gt; &lt;pagesperslab&gt; : tunables &lt;limit&gt; &lt;batchcount&gt; &lt;sharedfactor&gt; : slabdata &lt;active_slabs&gt; &lt;num_slabs&gt; &lt;sharedavail&gt;
+</code></pre><p>没有禁用kmem的情况下, 这下面会有数值的; 禁用kmem的情况下, 在内核3.10.0-862.11.6.el7.x86_64版本下会显示Input/output error,
+在内核4.4.131版本下显示的和内核3.10.0-862.11.6.el7.x86_64不一样, 它也没有数值</p>
+<p>所以再查看kmem.usage_in_bytes, 以这个为标准</p>
+<pre tabindex="0"><code>cat /sys/fs/cgroup/memory/kubepods/burstable/pod&lt;pod-id&gt;/&lt;containerID&gt;/memory.kmem.usage_in_bytes
+0
+</code></pre><p>显示为0, 说明有效</p>
+<h3 id="参考链接">参考链接</h3>
+<ul>
+<li><a href="https://github.com/kubernetes/kubernetes/issues/61937">https://github.com/kubernetes/kubernetes/issues/61937</a></li>
+<li><a href="https://tencentcloudcontainerteam.github.io/2018/12/29/cgroup-leaking/?nsukey=VOA6Ga0MWGzmiqZAw%2F8WzLptJWfcnMMDuP3F2KP3qm18ZVlcabhFQBnNpFnPc1V8tjh6kNsK%2Bjsw9l5Og35a6hbOobAkkJLfIAZ8blfi0keARy%2FGM6RZBd0wZvEtyMFtu0k7XYfyiuzECgizSxQER%2F4JerJEZkfd7RcBdNHCxdVps7IGcQQ9UyfM8oSYTlNUQD8wphVnSTxHJVG4I5e7Wg%3D%3D">https://tencentcloudcontainerteam.github.io/2018/12/29/cgroup-leaking/?nsukey=VOA6Ga0MWGzmiqZAw%2F8WzLptJWfcnMMDuP3F2KP3qm18ZVlcabhFQBnNpFnPc1V8tjh6kNsK%2Bjsw9l5Og35a6hbOobAkkJLfIAZ8blfi0keARy%2FGM6RZBd0wZvEtyMFtu0k7XYfyiuzECgizSxQER%2F4JerJEZkfd7RcBdNHCxdVps7IGcQQ9UyfM8oSYTlNUQD8wphVnSTxHJVG4I5e7Wg%3D%3D</a></li>
+<li><a href="https://www.jianshu.com/p/033fe2518476">https://www.jianshu.com/p/033fe2518476</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2019-12-29-helm_tiller_proxy_swift_arm%E9%95%9C%E5%83%8F%E7%BC%96%E8%AF%91/" data-toggle="tooltip" data-placement="top" title="记一次tiller proxy swift和tiller版本兼容性问题">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-01-14-kube-scheduler_readnote/" data-toggle="tooltip" data-placement="top" title="kube-scheduler源码阅读笔记">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

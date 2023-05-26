@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="k8s远程调试(开山篇)" />
+    <meta property="og:title" content="k8s远程调试(开山篇)" />
+    <meta property="twitter:title" content="k8s远程调试(开山篇)" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>k8s远程调试(开山篇) | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-04-27-k8s-network-develop_remote_debug/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>k8s远程调试(开山篇)</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Monday, April 27, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <p>本文讲述k8s各个系统组件如何进行远程调试, 适用于所有mac、windows以及不方便在本地进行调试的技术宅;
+像k8s代码量如此庞大的系统, 调试代码让你更深入地理解逻辑，代码间的跳转更易跟踪，通过打印变量映证你的猜想.
+
+  <img src="/img/posts/2020-04-27/1.png" alt="">
+
+</p>
+<h3 id="准备阶段">准备阶段</h3>
+<ol>
+<li>
+<p>Goland IDE</p>
+<p>工欲善必先利其器, Goland集成了dlv调试工具, dlv和gdb都可以用来调试golang程序，
+但是dlv相比gdb在调试goroutine方面支持更好. <a href="https://www.jetbrains.com/go/download">Goland下载地址</a></p>
+</li>
+<li>
+<p>Kubernetes开发环境+golang环境+dlv+kubernetes源码</p>
+<p>在远端linux服务器上安装一套kubernetes环境，可以用kubeadm工具安装；</p>
+<p>安装golang环境+dlv+kubernetes源码，方便重编译k8s二进制，默认k8s二进制开启了编译优化，</p>
+<p>忽略了debug信息；dlv用来启个debug server提供给本地IDE远程调试使用；</p>
+<p>环境版本：</p>
+<ul>
+<li>Kubernetes：v1.14.6</li>
+<li>Etcd：3.3.12</li>
+<li>Docker：18.09.9</li>
+<li>dlv：1.4.0</li>
+<li>Golang：1.12.7</li>
+</ul>
+</li>
+<li>
+<p>本地clone kubernetes代码</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># mkdir -p $GOPATH/src/k8s.io/</span>
+</code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># cd $GOPATH/src/k8s.io/</span>
+</code></pre></div><p>克隆kubernetes源码</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># git clone https://github.com/kubernetes/kubernetes.git</span>
+</code></pre></div><p>切换到与上面k8s环境版本相同的tag</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># git checkout v1.14.6</span>
+</code></pre></div></li>
+</ol>
+<p>
+  <img src="/img/posts/2020-04-27/2.png" alt="">
+
+</p>
+<h3 id="备战阶段">备战阶段</h3>
+<ol>
+<li>
+<p>修改编译参数</p>
+<p>在v1.14.6版本编译二进制的时候，默认编译参数写死了加上-s -w选项</p>
+<p>-s disable symbol table      禁用符号表
+-w disable DWARF generation  禁用调试信息</p>
+<p>更多编译参数帮助信息查看：go tool link</p>
+<pre tabindex="0"><code>vim k8s.io/kubernetes/hack/lib/golang.sh
+# goldflags=&quot;${GOLDFLAGS:-} -s -w $(kube::version::ldflags)&quot;
+goldflags=&quot;${GOLDFLAGS:-} $(kube::version::ldflags)&quot;
+</code></pre></li>
+<li>
+<p>重编译k8s二进制</p>
+<p>因为默认k8s二进制开启了编译优化，忽略了debug信息</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#ff79c6">[</span>root@ice /data/Documents/src/k8s.io/kubernetes<span style="color:#ff79c6">]</span><span style="color:#6272a4"># GO111MODULE=off KUBE_GIT_TREE_STATE=clean KUBE_GIT_VERSION=v1.14.6 make all GOGCFLAGS=&#34;all=-N -l&#34;</span>
++++ <span style="color:#ff79c6">[</span><span style="color:#bd93f9">0425</span> 17:34:35<span style="color:#ff79c6">]</span> Building go targets <span style="color:#ff79c6">for</span> linux/amd64:
+    cmd/kube-proxy
+    cmd/kube-apiserver
+    cmd/kube-controller-manager
+    cmd/cloud-controller-manager
+    cmd/kubelet
+    cmd/kubeadm
+    cmd/hyperkube
+    cmd/kube-scheduler
+    vendor/k8s.io/apiextensions-apiserver
+    cluster/gce/gci/mounter
+    cmd/kubectl
+    cmd/gendocs
+    cmd/genkubedocs
+    cmd/genman
+    cmd/genyaml
+    cmd/genswaggertypedocs
+    cmd/linkcheck
+    vendor/github.com/onsi/ginkgo/ginkgo
+    test/e2e/e2e.test
+    cmd/kubemark
+    vendor/github.com/onsi/ginkgo/ginkgo
+    test/e2e_node/e2e_node.test
+</code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#ff79c6">[</span>root@ice /data/Documents/src/k8s.io/kubernetes<span style="color:#ff79c6">]</span><span style="color:#6272a4"># ll _output/bin/</span>
+total <span style="color:#bd93f9">2893888</span>
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root  <span style="color:#bd93f9">62531871</span> Apr <span style="color:#bd93f9">25</span> 17:42 apiextensions-apiserver
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root <span style="color:#bd93f9">137590835</span> Apr <span style="color:#bd93f9">25</span> 17:43 cloud-controller-manager
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root   <span style="color:#bd93f9">6771616</span> Apr <span style="color:#bd93f9">22</span> 09:41 conversion-gen
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root   <span style="color:#bd93f9">6771520</span> Apr <span style="color:#bd93f9">22</span> 09:41 deepcopy-gen
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root   <span style="color:#bd93f9">6738784</span> Apr <span style="color:#bd93f9">22</span> 09:41 defaulter-gen
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root <span style="color:#bd93f9">250845049</span> Apr <span style="color:#bd93f9">25</span> 17:43 e2e.test
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root <span style="color:#bd93f9">292344015</span> Apr <span style="color:#bd93f9">25</span> 17:43 e2e_node.test
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root  <span style="color:#bd93f9">62318688</span> Apr <span style="color:#bd93f9">25</span> 17:43 gendocs
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root <span style="color:#bd93f9">321355263</span> Apr <span style="color:#bd93f9">25</span> 17:42 genkubedocs
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root <span style="color:#bd93f9">333735462</span> Apr <span style="color:#bd93f9">25</span> 17:43 genman
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root   <span style="color:#bd93f9">5956441</span> Apr <span style="color:#bd93f9">25</span> 17:43 genswaggertypedocs
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root  <span style="color:#bd93f9">62312802</span> Apr <span style="color:#bd93f9">25</span> 17:43 genyaml
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root  <span style="color:#bd93f9">12754284</span> Apr <span style="color:#bd93f9">25</span> 17:43 ginkgo
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root   <span style="color:#bd93f9">2063232</span> Apr <span style="color:#bd93f9">22</span> 09:42 go-bindata
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root   <span style="color:#bd93f9">4709220</span> Feb <span style="color:#bd93f9">21</span> 09:32 go2make
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root <span style="color:#bd93f9">326576409</span> Apr <span style="color:#bd93f9">25</span> 17:43 hyperkube
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root <span style="color:#bd93f9">194326902</span> Apr <span style="color:#bd93f9">25</span> 17:43 kube-apiserver
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root <span style="color:#bd93f9">160177458</span> Apr <span style="color:#bd93f9">25</span> 17:42 kube-controller-manager
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root  <span style="color:#bd93f9">54119344</span> Apr <span style="color:#bd93f9">25</span> 17:43 kube-proxy
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root  <span style="color:#bd93f9">58112547</span> Apr <span style="color:#bd93f9">25</span> 17:43 kube-scheduler
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root  <span style="color:#bd93f9">58810053</span> Apr <span style="color:#bd93f9">25</span> 17:43 kubeadm
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root  <span style="color:#bd93f9">63338080</span> Apr <span style="color:#bd93f9">25</span> 17:43 kubectl
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root <span style="color:#bd93f9">231795512</span> Apr <span style="color:#bd93f9">25</span> 17:42 kubelet
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root <span style="color:#bd93f9">224980977</span> Apr <span style="color:#bd93f9">25</span> 17:43 kubemark
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root   <span style="color:#bd93f9">8100012</span> Apr <span style="color:#bd93f9">25</span> 17:43 linkcheck
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root   <span style="color:#bd93f9">2462303</span> Apr <span style="color:#bd93f9">25</span> 17:42 mounter
+-rwxr-xr-x <span style="color:#bd93f9">1</span> root root  <span style="color:#bd93f9">11642368</span> Apr <span style="color:#bd93f9">22</span> 09:42 openapi-gen
+</code></pre></div><p>重编译的产物在当前位置的_output/bin/目录下
+
+  <img src="/img/posts/2020-04-27/3.png" alt="">
+
+</p>
+</li>
+</ol>
+<h3 id="实战阶段">实战阶段</h3>
+<h4 id="kube-apiserver调试">kube-apiserver调试</h4>
+<p>kubeadm安装的k8s集群，kube-apiserver是以k8s static pod启动的，要调试它，就得停掉以容器运行的kube-apiserver，转而以命令行启动；通过查看kube-apiserver的manifest文件可以得知kube-apiserver启动带的参数.</p>
+<p>默认k8s的static pod目录是/etc/kubernetes/manifests/</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#ff79c6">[</span>root@ice ~<span style="color:#ff79c6">]</span><span style="color:#6272a4"># cat /etc/kubernetes/manifests/kube-apiserver.yaml </span>
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    scheduler.alpha.kubernetes.io/critical-pod: <span style="color:#f1fa8c">&#34;&#34;</span>
+    tke.prometheus.io/scrape: <span style="color:#f1fa8c">&#34;true&#34;</span>
+    prometheus.io/scheme: <span style="color:#f1fa8c">&#34;https&#34;</span>
+    prometheus.io/port: <span style="color:#f1fa8c">&#34;6443&#34;</span>
+  creationTimestamp: null
+  labels:
+    component: kube-apiserver
+    tier: control-plane
+  name: kube-apiserver
+  namespace: kube-system
+spec:
+  containers:
+  - command:
+    - kube-apiserver
+    - --advertise-address<span style="color:#ff79c6">=</span>1.2.3.4
+    - --allow-privileged<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">true</span>
+    - --authorization-mode<span style="color:#ff79c6">=</span>Node,RBAC
+    - --client-ca-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/ca.crt
+    - --enable-admission-plugins<span style="color:#ff79c6">=</span>NodeRestriction
+    - --enable-bootstrap-token-auth<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">true</span>
+    - --etcd-cafile<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/etcd/ca.crt
+    - --etcd-certfile<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver-etcd-client.crt
+    - --etcd-keyfile<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver-etcd-client.key
+    - --etcd-servers<span style="color:#ff79c6">=</span>https://127.0.0.1:2379
+    - --insecure-port<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>
+    - --kubelet-client-certificate<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver-kubelet-client.crt
+    - --kubelet-client-key<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver-kubelet-client.key
+    - --kubelet-preferred-address-types<span style="color:#ff79c6">=</span>InternalIP,ExternalIP,Hostname
+    - --proxy-client-cert-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/front-proxy-client.crt
+    - --proxy-client-key-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/front-proxy-client.key
+    - --requestheader-allowed-names<span style="color:#ff79c6">=</span>front-proxy-client
+    - --requestheader-client-ca-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/front-proxy-ca.crt
+    - --requestheader-extra-headers-prefix<span style="color:#ff79c6">=</span>X-Remote-Extra-
+    - --requestheader-group-headers<span style="color:#ff79c6">=</span>X-Remote-Group
+    - --requestheader-username-headers<span style="color:#ff79c6">=</span>X-Remote-User
+    - --secure-port<span style="color:#ff79c6">=</span><span style="color:#bd93f9">6443</span>
+    - --service-account-key-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/sa.pub
+    - --service-cluster-ip-range<span style="color:#ff79c6">=</span>172.20.252.0/22
+    - --service-node-port-range<span style="color:#ff79c6">=</span>80-60000
+    - --tls-cert-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver.crt
+    - --tls-private-key-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver.key
+    - --token-auth-file<span style="color:#ff79c6">=</span>/etc/kubernetes/known_tokens.csv
+    image: registry.com/kube-apiserver:v1.14.6
+    imagePullPolicy: IfNotPresent
+    livenessProbe:
+      failureThreshold: <span style="color:#bd93f9">8</span>
+      httpGet:
+        host: 1.2.3.4
+        path: /healthz
+        port: <span style="color:#bd93f9">6443</span>
+        scheme: HTTPS
+      initialDelaySeconds: <span style="color:#bd93f9">15</span>
+      timeoutSeconds: <span style="color:#bd93f9">15</span>
+    name: kube-apiserver
+    resources:
+      requests:
+        cpu: 250m
+    volumeMounts:
+    - mountPath: /etc/ssl/certs
+      name: ca-certs
+      readOnly: <span style="color:#8be9fd;font-style:italic">true</span>
+    - mountPath: /etc/pki
+      name: etc-pki
+      readOnly: <span style="color:#8be9fd;font-style:italic">true</span>
+    - mountPath: /etc/kubernetes/pki
+      name: k8s-certs
+      readOnly: <span style="color:#8be9fd;font-style:italic">true</span>
+    - mountPath: /etc/kubernetes
+      name: vol-dir-0
+  hostNetwork: <span style="color:#8be9fd;font-style:italic">true</span>
+  priorityClassName: system-cluster-critical
+  volumes:
+  - hostPath:
+      path: /etc/ssl/certs
+      type: DirectoryOrCreate
+    name: ca-certs
+  - hostPath:
+      path: /etc/pki
+      type: DirectoryOrCreate
+    name: etc-pki
+  - hostPath:
+      path: /etc/kubernetes/pki
+      type: DirectoryOrCreate
+    name: k8s-certs
+  - hostPath:
+      path: /etc/kubernetes
+      type: <span style="color:#f1fa8c">&#34;&#34;</span>
+    name: vol-dir-0
+status: <span style="color:#ff79c6">{}</span>
+</code></pre></div><p>看command部分就是启动命令+启动参数</p>
+<p>停止kube-apiserver static pod</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># mv /etc/kubernetes/manifests/kube-apiserver.yaml /etc/kubernetes/</span>
+</code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># docker ps -a |grep kube-apiserver </span>
+</code></pre></div><p>找不到kube-apiserver container的话就说明已经停止</p>
+<p>dlv方式启动kube-apiserver</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># dlv exec _output/bin/kube-apiserver --headless -l 1.2.3.4:2345 --api-version=2 -- \</span>
+        --advertise-address<span style="color:#ff79c6">=</span>1.2.3.4 <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --allow-privileged<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">true</span> <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --authorization-mode<span style="color:#ff79c6">=</span>Node,RBAC <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --client-ca-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/ca.crt <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --enable-admission-plugins<span style="color:#ff79c6">=</span>NodeRestriction <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --enable-bootstrap-token-auth<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">true</span> <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --etcd-cafile<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/etcd/ca.crt <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --etcd-certfile<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver-etcd-client.crt <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --etcd-keyfile<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver-etcd-client.key <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --etcd-servers<span style="color:#ff79c6">=</span>https://127.0.0.1:2379 <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --insecure-port<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span> <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --kubelet-client-certificate<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver-kubelet-client.crt <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --kubelet-client-key<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver-kubelet-client.key <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --kubelet-preferred-address-types<span style="color:#ff79c6">=</span>InternalIP,ExternalIP,Hostname <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --proxy-client-cert-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/front-proxy-client.crt <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --proxy-client-key-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/front-proxy-client.key <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --requestheader-allowed-names<span style="color:#ff79c6">=</span>front-proxy-client <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --requestheader-client-ca-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/front-proxy-ca.crt <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --requestheader-extra-headers-prefix<span style="color:#ff79c6">=</span>X-Remote-Extra- <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --requestheader-group-headers<span style="color:#ff79c6">=</span>X-Remote-Group <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --requestheader-username-headers<span style="color:#ff79c6">=</span>X-Remote-User <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --secure-port<span style="color:#ff79c6">=</span><span style="color:#bd93f9">6443</span> <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --service-account-key-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/sa.pub <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --service-cluster-ip-range<span style="color:#ff79c6">=</span>172.20.252.0/22 <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --service-node-port-range<span style="color:#ff79c6">=</span>80-60000 <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --tls-cert-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver.crt <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --tls-private-key-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/apiserver.key <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>        --token-auth-file<span style="color:#ff79c6">=</span>/etc/kubernetes/known_tokens.csv
+API server listening at: 1.2.3.4:2345        
+</code></pre></div><p>打开Golang IDE， 添加Run/Debug Configurations，新添加一个Go Remote配置
+
+  <img src="/img/posts/2020-04-27/kube-apiserver-1.png" alt="">
+
+</p>
+<p>给kube-apiserver的启动函数设置断点，然后点击Debug(绿色小瓢虫那个按钮)
+
+  <img src="/img/posts/2020-04-27/kube-apiserver-2.png" alt="">
+
+
+成功捕获到断点了！</p>
+<h4 id="kube-scheduler调试">kube-scheduler调试</h4>
+<p>调试完kube-apiserver，就先还原kube-apiserver的manifest文件；一样的方式来远程调试kube-scheduler</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># mv /etc/kubernetes/kube-apiserver.yaml /etc/kubernetes/manifests/</span>
+</code></pre></div><p>停止kube-scheduler static pod，dlv启动kube-scheduler</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># mv /etc/kubernetes/manifests/kube-scheduler.yaml /etc/kubernetes/</span>
+</code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># dlv exec _output/bin/kube-scheduler --headless -l 1.2.3.4:2345 --api-version=2 -- \</span>
+--bind-address<span style="color:#ff79c6">=</span>127.0.0.1 <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--kubeconfig<span style="color:#ff79c6">=</span>/etc/kubernetes/scheduler.conf <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--leader-elect<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">true</span> <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--policy-config-file<span style="color:#ff79c6">=</span>/etc/kubernetes/scheduler-policy-config.json <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--use-legacy-policy-config<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">true</span>
+</code></pre></div><p>kube-scheduler断点捕获
+
+  <img src="/img/posts/2020-04-27/kube-scheduler.png" alt="">
+
+</p>
+<h4 id="kube-controller-manager调试">kube-controller-manager调试</h4>
+<p>一样的配方，不一样的味道！调试完上个组件，先恢复</p>
+<p>停止kube-controller-manager static pod，dlv启动kube-controller-manager</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># mv /etc/kubernetes/manifests/kube-controller-manager.yaml /etc/kubernetes/ </span>
+</code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># dlv exec _output/bin/kube-controller-manager --headless -l 1.2.3.4:2345 --api-version=2 -- \</span>
+--allocate-node-cidrs<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">true</span> <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--authentication-kubeconfig<span style="color:#ff79c6">=</span>/etc/kubernetes/controller-manager.conf <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--authorization-kubeconfig<span style="color:#ff79c6">=</span>/etc/kubernetes/controller-manager.conf <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--bind-address<span style="color:#ff79c6">=</span>127.0.0.1 <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--client-ca-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/ca.crt <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--cluster-cidr<span style="color:#ff79c6">=</span>172.20.0.0/16 <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--cluster-signing-cert-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/ca.crt <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--cluster-signing-key-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/ca.key <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--controllers<span style="color:#ff79c6">=</span>*,bootstrapsigner,tokencleaner <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--kubeconfig<span style="color:#ff79c6">=</span>/etc/kubernetes/controller-manager.conf <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--leader-elect<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">true</span> <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--node-cidr-mask-size<span style="color:#ff79c6">=</span><span style="color:#bd93f9">24</span> <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--requestheader-client-ca-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/front-proxy-ca.crt <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--root-ca-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/ca.crt <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--service-account-private-key-file<span style="color:#ff79c6">=</span>/etc/kubernetes/pki/sa.key <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--service-cluster-ip-range<span style="color:#ff79c6">=</span>172.20.252.0/22 <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--use-service-account-credentials<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">true</span>
+</code></pre></div><p>kube-controller-manager断点捕获
+
+  <img src="/img/posts/2020-04-27/kube-controller-manager.png" alt="">
+
+</p>
+<h4 id="kube-proxy调试">kube-proxy调试</h4>
+<p>先恢复上个组件，kube-proxy的启动方式不是static pod方式，是以daemonset+configmap配置文件方式启动服务的.</p>
+<p>先来瞅下kube-proxy的yaml定义</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#ff79c6">[</span>root@ice ~<span style="color:#ff79c6">]</span><span style="color:#6272a4"># kubectl -n kube-system get ds kube-proxy -o yaml</span>
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  creationTimestamp: <span style="color:#f1fa8c">&#34;2020-04-15T02:54:27Z&#34;</span>
+  generation: <span style="color:#bd93f9">1</span>
+  labels:
+    k8s-app: kube-proxy
+  name: kube-proxy
+  namespace: kube-system
+  resourceVersion: <span style="color:#f1fa8c">&#34;2298922&#34;</span>
+  selfLink: /apis/extensions/v1beta1/namespaces/kube-system/daemonsets/kube-proxy
+  uid: 6b7f7476-7ec4-11ea-a28b-52540002fcf3
+spec:
+  revisionHistoryLimit: <span style="color:#bd93f9">10</span>
+  selector:
+    matchLabels:
+      k8s-app: kube-proxy
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        k8s-app: kube-proxy
+    spec:
+      containers:
+      - command:
+        - /usr/local/bin/kube-proxy
+        - --config<span style="color:#ff79c6">=</span>/var/lib/kube-proxy/config.conf
+        - --hostname-override<span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>NODE_NAME<span style="color:#ff79c6">)</span>
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        image: registry.com/kube-proxy:v1.14.6
+        imagePullPolicy: IfNotPresent
+        name: kube-proxy
+        resources: <span style="color:#ff79c6">{}</span>
+        securityContext:
+          privileged: <span style="color:#8be9fd;font-style:italic">true</span>
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/kube-proxy
+          name: kube-proxy
+        - mountPath: /run/xtables.lock
+          name: xtables-lock
+        - mountPath: /lib/modules
+          name: lib-modules
+          readOnly: <span style="color:#8be9fd;font-style:italic">true</span>
+      dnsPolicy: ClusterFirst
+      hostNetwork: <span style="color:#8be9fd;font-style:italic">true</span>
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+      priorityClassName: system-node-critical
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: <span style="color:#ff79c6">{}</span>
+      serviceAccount: kube-proxy
+      serviceAccountName: kube-proxy
+      terminationGracePeriodSeconds: <span style="color:#bd93f9">30</span>
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - operator: Exists
+      volumes:
+      - configMap:
+          defaultMode: <span style="color:#bd93f9">420</span>
+          name: kube-proxy
+        name: kube-proxy
+      - hostPath:
+          path: /run/xtables.lock
+          type: FileOrCreate
+        name: xtables-lock
+      - hostPath:
+          path: /lib/modules
+          type: <span style="color:#f1fa8c">&#34;&#34;</span>
+        name: lib-modules
+  templateGeneration: <span style="color:#bd93f9">1</span>
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: <span style="color:#bd93f9">1</span>
+    type: RollingUpdate
+status:
+  currentNumberScheduled: <span style="color:#bd93f9">3</span>
+  desiredNumberScheduled: <span style="color:#bd93f9">3</span>
+  numberAvailable: <span style="color:#bd93f9">3</span>
+  numberMisscheduled: <span style="color:#bd93f9">0</span>
+  numberReady: <span style="color:#bd93f9">3</span>
+  observedGeneration: <span style="color:#bd93f9">1</span>
+  updatedNumberScheduled: <span style="color:#bd93f9">3</span>
+  
+  
+---
+<span style="color:#ff79c6">[</span>root@ice ~<span style="color:#ff79c6">]</span><span style="color:#6272a4"># kubectl -n kube-system get cm kube-proxy -o yaml</span>
+apiVersion: v1
+data:
+  config.conf: |-
+    apiVersion: kubeproxy.config.k8s.io/v1alpha1
+    bindAddress: 0.0.0.0
+    clientConnection:
+      acceptContentTypes: <span style="color:#f1fa8c">&#34;&#34;</span>
+      burst: <span style="color:#bd93f9">10</span>
+      contentType: application/vnd.kubernetes.protobuf
+      kubeconfig: /var/lib/kube-proxy/kubeconfig.conf
+      qps: <span style="color:#bd93f9">5</span>
+    clusterCIDR: <span style="color:#f1fa8c">&#34;&#34;</span>
+    configSyncPeriod: 15m0s
+    conntrack:
+      maxPerCore: <span style="color:#bd93f9">32768</span>
+      min: <span style="color:#bd93f9">131072</span>
+      tcpCloseWaitTimeout: 1h0m0s
+      tcpEstablishedTimeout: 24h0m0s
+    enableProfiling: <span style="color:#8be9fd;font-style:italic">false</span>
+    healthzBindAddress: 0.0.0.0:10256
+    hostnameOverride: <span style="color:#f1fa8c">&#34;&#34;</span>
+    iptables:
+      masqueradeAll: <span style="color:#8be9fd;font-style:italic">false</span>
+      masqueradeBit: <span style="color:#bd93f9">14</span>
+      minSyncPeriod: 0s
+      syncPeriod: 30s
+    ipvs:
+      excludeCIDRs: null
+      minSyncPeriod: 0s
+      scheduler: <span style="color:#f1fa8c">&#34;&#34;</span>
+      strictARP: <span style="color:#8be9fd;font-style:italic">false</span>
+      syncPeriod: 30s
+    kind: KubeProxyConfiguration
+    metricsBindAddress: 127.0.0.1:10249
+    mode: <span style="color:#f1fa8c">&#34;&#34;</span>
+    nodePortAddresses: null
+    oomScoreAdj: -999
+    portRange: <span style="color:#f1fa8c">&#34;&#34;</span>
+    resourceContainer: /kube-proxy
+    udpIdleTimeout: 250ms
+    winkernel:
+      enableDSR: <span style="color:#8be9fd;font-style:italic">false</span>
+      networkName: <span style="color:#f1fa8c">&#34;&#34;</span>
+      sourceVip: <span style="color:#f1fa8c">&#34;&#34;</span>
+  kubeconfig.conf: |-
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        server: https://1.2.3.4:6443
+      name: default
+    contexts:
+    - context:
+        cluster: default
+        namespace: default
+        user: default
+      name: default
+    current-context: default
+    users:
+    - name: default
+      user:
+        tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+kind: ConfigMap
+metadata:
+  creationTimestamp: <span style="color:#f1fa8c">&#34;2020-04-15T02:54:27Z&#34;</span>
+  labels:
+    app: kube-proxy
+  name: kube-proxy
+  namespace: kube-system
+  resourceVersion: <span style="color:#f1fa8c">&#34;252&#34;</span>
+  selfLink: /api/v1/namespaces/kube-system/configmaps/kube-proxy
+  uid: 6b7cec7f-7ec4-11ea-a28b-52540002fcf3
+</code></pre></div><p>启动命令参数看daemonset中的command部分，配置文件看configmap中的config.conf和kubeconfig.conf(调试代码的话，可以用$HOME/.kube/config取代)</p>
+<p>停止kube-proxy pod运行</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># kubectl -n kube-system edit daemonsets. kube-proxy </span>
+      nodeSelector:
+        beta.kubernetes.io/os: linux2
+</code></pre></div><p>投机取巧的方式停止它，让node的标签匹配不上</p>
+<p>dlv启动kube-proxy</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># vim /root/config.conf</span>
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+bindAddress: 0.0.0.0
+clientConnection:
+  acceptContentTypes: <span style="color:#f1fa8c">&#34;&#34;</span>
+  burst: <span style="color:#bd93f9">10</span>
+  contentType: application/vnd.kubernetes.protobuf
+  kubeconfig: /root/.kube/config 
+  qps: <span style="color:#bd93f9">5</span>
+clusterCIDR: <span style="color:#f1fa8c">&#34;&#34;</span>
+configSyncPeriod: 15m0s
+conntrack:
+  maxPerCore: <span style="color:#bd93f9">32768</span>
+  min: <span style="color:#bd93f9">131072</span>
+  tcpCloseWaitTimeout: 1h0m0s
+  tcpEstablishedTimeout: 24h0m0s
+enableProfiling: <span style="color:#8be9fd;font-style:italic">false</span>
+healthzBindAddress: 0.0.0.0:10256
+hostnameOverride: <span style="color:#f1fa8c">&#34;&#34;</span>
+iptables:
+  masqueradeAll: <span style="color:#8be9fd;font-style:italic">false</span>
+  masqueradeBit: <span style="color:#bd93f9">14</span>
+  minSyncPeriod: 0s
+  syncPeriod: 30s
+ipvs:
+  excludeCIDRs: null
+  minSyncPeriod: 0s
+  scheduler: <span style="color:#f1fa8c">&#34;&#34;</span>
+  strictARP: <span style="color:#8be9fd;font-style:italic">false</span>
+  syncPeriod: 30s
+kind: KubeProxyConfiguration
+metricsBindAddress: 127.0.0.1:10249
+mode: <span style="color:#f1fa8c">&#34;&#34;</span>
+nodePortAddresses: null
+oomScoreAdj: -999
+portRange: <span style="color:#f1fa8c">&#34;&#34;</span>
+resourceContainer: /kube-proxy
+udpIdleTimeout: 250ms
+winkernel:
+  enableDSR: <span style="color:#8be9fd;font-style:italic">false</span>
+  networkName: <span style="color:#f1fa8c">&#34;&#34;</span>
+  sourceVip: <span style="color:#f1fa8c">&#34;&#34;</span>
+</code></pre></div><pre tabindex="0"><code class="language- bash" data-lang=" bash"># dlv exec _output/bin/kube-proxy --headless -l 1.2.3.4:2345 --api-version=2 -- \
+--config=/root/config.conf \
+--hostname-override=1.2.3.4
+</code></pre><p>kube-proxy断点捕获
+
+  <img src="/img/posts/2020-04-27/kube-proxy.png" alt="">
+
+</p>
+<h4 id="kubelet调试">kubelet调试</h4>
+<p>先恢复上一个组件，kubelet的启动方式又跟上述的都不一样，它是以systemd方式运行在宿主机上</p>
+<p>来观摩下kubelet的systemd启动脚本</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#ff79c6">[</span>root@ice ~<span style="color:#ff79c6">]</span><span style="color:#6272a4"># cat /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf </span>
+<span style="color:#6272a4"># Note: This dropin only works with kubeadm and kubelet v1.11+</span>
+<span style="color:#ff79c6">[</span>Service<span style="color:#ff79c6">]</span>
+<span style="color:#8be9fd;font-style:italic">Environment</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf&#34;</span>
+<span style="color:#8be9fd;font-style:italic">Environment</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml&#34;</span>
+<span style="color:#6272a4"># This is a file that &#34;kubeadm init&#34; and &#34;kubeadm join&#34; generates at runtime, populating the KUBELET_KUBEADM_ARGS variable dynamically</span>
+<span style="color:#8be9fd;font-style:italic">EnvironmentFile</span><span style="color:#ff79c6">=</span>-/var/lib/kubelet/kubeadm-flags.env
+<span style="color:#6272a4"># This is a file that the user can use for overrides of the kubelet args as a last resort. Preferably, the user should use</span>
+<span style="color:#6272a4"># the .NodeRegistration.KubeletExtraArgs object in the configuration files instead. KUBELET_EXTRA_ARGS should be sourced from this file.</span>
+<span style="color:#8be9fd;font-style:italic">EnvironmentFile</span><span style="color:#ff79c6">=</span>-/etc/sysconfig/kubelet
+<span style="color:#8be9fd;font-style:italic">ExecStart</span><span style="color:#ff79c6">=</span>
+<span style="color:#8be9fd;font-style:italic">ExecStart</span><span style="color:#ff79c6">=</span>/usr/bin/kubelet <span style="color:#8be9fd;font-style:italic">$KUBELET_KUBECONFIG_ARGS</span> <span style="color:#8be9fd;font-style:italic">$KUBELET_CONFIG_ARGS</span> <span style="color:#8be9fd;font-style:italic">$KUBELET_KUBEADM_ARGS</span> <span style="color:#8be9fd;font-style:italic">$KUBELET_EXTRA_ARGS</span>
+</code></pre></div><p>老规矩，先停掉kubelet服务</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"> systemctl stop kubelet.service   
+</code></pre></div><p>最后得出的kubelet dlv启动命令是</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># dlv exec _output/bin/kubelet --headless -l 1.2.3.4:2345 --api-version=2 -- --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf --config=/var/lib/kubelet/config.yaml --cgroup-driver=cgroupfs --hostname-override=1.2.3.4 --network-plugin=cni --pod-infra-container-image=registry.com/pause:3.1</span>
+</code></pre></div><p>kubelet断点捕获
+
+  <img src="/img/posts/2020-04-27/kubelet.png" alt="">
+
+</p>
+<p>收官！
+
+  <img src="/img/posts/2020-04-27/final.png" alt="">
+
+</p>
+<h3 id="参考链接">参考链接</h3>
+<ul>
+<li><a href="http://lday.me/2017/02/27/0005_gdb-vs-dlv/">dlv vs gdb</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2020-04-25-%E9%BE%99%E8%8A%AFk8s%E4%B9%8B%E6%97%85/" data-toggle="tooltip" data-placement="top" title="容器国产化适配">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-05-03-common_data_structures_and_algorithms/" data-toggle="tooltip" data-placement="top" title="常用数据结构与算法">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

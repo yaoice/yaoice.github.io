@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="K8s HPA常用指标及自定义指标实现" />
+    <meta property="og:title" content="K8s HPA常用指标及自定义指标实现" />
+    <meta property="twitter:title" content="K8s HPA常用指标及自定义指标实现" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>K8s HPA常用指标及自定义指标实现 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-06-02-k8s_hpa_common_metric_and_custom_metric/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>K8s HPA常用指标及自定义指标实现</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Tuesday, June 2, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h3 id="常用指标">常用指标</h3>
+<p>通过配置prometheus rules进行聚合运算，得出常用指标</p>
+<pre tabindex="0"><code>[root@ice ~]# kubectl -n kube-system get cm prometheus-k8s-rulefiles-0 -o yaml
+apiVersion: v1
+data:
+  kube-system-prometheus-alerts.yaml: |
+    {}
+  kube-system-prometheus-records.yaml: |
+    groups:
+    - name: k8s-ag-data
+      rules:
+      - expr: kubelet_running_pod_count*0 + 1
+        record: kube_node_labels
+      - expr: sum by(node) (kube_node_status_capacity{resource=&quot;tencent_com_vcuda_core&quot;})
+        record: kube_node_status_capacity_gpu
+      - expr: sum by(node) (kube_node_status_capacity{resource=&quot;tencent_com_vcuda_memory&quot;})
+        record: kube_node_status_capacity_gpu_memory
+      - expr: sum by(node) (kube_node_status_allocatable{resource=&quot;tencent_com_vcuda_core&quot;})
+        record: kube_node_status_allocatable_gpu
+      - expr: sum by(node) (kube_node_status_allocatable{resource=&quot;tencent_com_vcuda_memory&quot;})
+        record: kube_node_status_allocatable_gpu_memory
+      - expr: kube_pod_info* on(node) group_left(node_role) kube_node_labels
+        record: __pod_info1
+      - expr: label_replace(label_replace(__pod_info1{workload_kind=&quot;ReplicaSet&quot;} * on
+          (workload_name,namespace) group_left(owner_name, owner_kind) label_replace(kube_replicaset_owner,&quot;workload_name&quot;,&quot;$1&quot;,&quot;replicaset&quot;,&quot;(.*)&quot;),&quot;workload_name&quot;,&quot;$1&quot;,&quot;owner_name&quot;,&quot;(.*)&quot;),&quot;workload_kind&quot;,&quot;$1&quot;,&quot;owner_kind&quot;,&quot;(.*)&quot;)  or
+          on(pod_name,namesapce)  __pod_info1{workload_kind != &quot;ReplicaSet&quot;}
+        record: __pod_info2
+      - expr: sum(kube_node_status_allocatable_cpu_cores * on(node) group_left kube_node_labels
+          {node_role=&quot;Node&quot;})
+        record: k8s_cluster_cpu_core_total
+      - expr: sum(kube_node_status_allocatable_memory_bytes * on(node) group_left kube_node_labels
+          {node_role=&quot;Node&quot;})
+        record: k8s_cluster_memory_total
+      - expr: sum(kube_node_status_allocatable_gpu * on(node) group_left kube_node_labels
+          {node_role=&quot;Node&quot;})
+        record: k8s_cluster_gpu_total
+      - expr: sum(kube_node_status_allocatable_gpu_memory * on(node) group_left kube_node_labels
+          {node_role=&quot;Node&quot;})
+        record: k8s_cluster_gpu_memory_total
+      - expr: rate(container_cpu_usage_seconds_total[2m]) * on(namespace, pod_name) group_left(workload_kind,
+          workload_name, node, node_role)  __pod_info2
+        record: k8s_container_cpu_core_used
+      - expr: k8s_container_cpu_core_used * 100 / on (pod_name,namespace,container_name)  group_left  kube_pod_container_resource_requests{resource=&quot;cpu&quot;}
+        record: k8s_container_rate_cpu_core_used_request
+      - expr: k8s_container_cpu_core_used * 100 / on (pod_name,namespace,container_name)  group_left  kube_pod_container_resource_limits{resource=&quot;cpu&quot;}
+        record: k8s_container_rate_cpu_core_used_limit
+      - expr: k8s_container_cpu_core_used * 100 / on(node) group_left  kube_node_status_capacity_cpu_cores
+        record: k8s_container_rate_cpu_core_used_node
+      - expr: container_memory_usage_bytes * on(namespace, pod_name) group_left(workload_kind,workload_name,node,
+          node_role)  __pod_info2
+        record: k8s_container_mem_usage_bytes
+      - expr: (container_memory_usage_bytes -  container_memory_cache)  * on(namespace,
+          pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_container_mem_no_cache_bytes
+      - expr: k8s_container_mem_usage_bytes * 100 / on (pod_name,namespace,container_name)  group_left
+          kube_pod_container_resource_requests{resource=&quot;memory&quot;}
+        record: k8s_container_rate_mem_usage_request
+      - expr: k8s_container_mem_no_cache_bytes * 100 / on (pod_name,namespace,container_name)  group_left
+          kube_pod_container_resource_requests{resource=&quot;memory&quot;}
+        record: k8s_container_rate_mem_no_cache_request
+      - expr: k8s_container_mem_usage_bytes * 100 / on (pod_name,namespace,container_name)  group_left
+          kube_pod_container_resource_limits{resource=&quot;memory&quot;}
+        record: k8s_container_rate_mem_usage_limit
+      - expr: k8s_container_mem_no_cache_bytes * 100 / on (pod_name,namespace,container_name)  group_left
+          kube_pod_container_resource_limits{resource=&quot;memory&quot;}
+        record: k8s_container_rate_mem_no_cache_limit
+      - expr: k8s_container_mem_usage_bytes * 100 / on(node) group_left  kube_node_status_capacity_memory_bytes
+        record: k8s_container_rate_mem_usage_node
+      - expr: k8s_container_mem_no_cache_bytes * 100 / on(node) group_left  kube_node_status_capacity_memory_bytes
+        record: k8s_container_rate_mem_no_cache_node
+      - expr: container_gpu_utilization{gpu=&quot;total&quot;} * on(namespace, pod_name) group_left(workload_kind,workload_name,node,
+          node_role) __pod_info2
+        record: k8s_container_gpu_used
+      - expr: k8s_container_gpu_used / on (pod_name,namespace,container_name) group_left
+          container_request_gpu_utilization
+        record: k8s_container_rate_gpu_used_request
+      - expr: k8s_container_gpu_used * 100 / on(node) group_left kube_node_status_capacity_gpu
+        record: k8s_container_rate_gpu_used_node
+      - expr: container_gpu_memory_total{gpu_memory=&quot;total&quot;} / 256 * on(namespace, pod_name)
+          group_left(workload_kind,workload_name,node, node_role) __pod_info2
+        record: k8s_container_gpu_memory_used
+      - expr: k8s_container_gpu_memory_used * 100 / on (pod_name,namespace,container_name)
+          group_left() (container_request_gpu_memory / 256)
+        record: k8s_container_rate_gpu_memory_used_request
+      - expr: k8s_container_gpu_memory_used * 100 / on(node) group_left() kube_node_status_capacity_gpu_memory
+        record: k8s_container_rate_gpu_memory_used_node
+      - expr: sum(rate(container_network_receive_bytes_total[2m])) without(interface)  *
+          on(namespace, pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_container_network_receive_bytes_bw
+      - expr: sum(rate(container_network_transmit_bytes_total[2m])) without(interface)  *
+          on(namespace, pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_container_network_transmit_bytes_bw
+      - expr: sum(idelta(container_network_receive_bytes_total[2m])) without(interface)  *
+          on(namespace, pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_container_network_receive_bytes
+      - expr: sum(idelta(container_network_transmit_bytes_total[2m])) without(interface)  *
+          on(namespace, pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_container_network_transmit_bytes
+      - expr: sum(rate(container_network_receive_packets_total[2m])) without(interface)  *
+          on(namespace, pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_container_network_receive_packets
+      - expr: sum(rate(container_network_transmit_packets_total[2m])) without(interface)  *
+          on(namespace, pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_container_network_transmit_packets
+      - expr: sum(rate(container_fs_reads_bytes_total[2m])) without(device)  * on(namespace,
+          pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_container_fs_read_bytes
+      - expr: sum(rate(container_fs_writes_bytes_total[2m])) without(device)  * on(namespace,
+          pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_container_fs_write_bytes
+      - expr: sum(rate(container_fs_reads_total[2m])) without(device)  * on(namespace,
+          pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_container_fs_read_times
+      - expr: sum(rate(container_fs_writes_total[2m])) without(device)  * on(namespace,
+          pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_container_fs_write_times
+      - expr: sum(k8s_container_cpu_core_used) without (container_name,container_id)
+        record: k8s_pod_cpu_core_used
+      - expr: sum(k8s_container_cpu_core_used + on (container_name, pod_name, namespace)
+          group_left kube_pod_container_resource_requests{resource=&quot;cpu&quot;} * 0) without(container_name
+          )   * 100  / on (pod_name,namespace)  group_left  sum(kube_pod_container_resource_requests{resource=&quot;cpu&quot;})  without(container_name)
+        record: k8s_pod_rate_cpu_core_used_request
+      - expr: sum(k8s_container_cpu_core_used + on (container_name, pod_name, namespace)
+          group_left kube_pod_container_resource_limits{resource=&quot;cpu&quot;} * 0) without(container_name
+          )   * 100  / on (pod_name,namespace)  group_left  sum(kube_pod_container_resource_limits{resource=&quot;cpu&quot;})  without(container_name)
+        record: k8s_pod_rate_cpu_core_used_limit
+      - expr: k8s_pod_cpu_core_used *100 /  on(node) group_left  kube_node_status_capacity_cpu_cores
+        record: k8s_pod_rate_cpu_core_used_node
+      - expr: sum(k8s_container_mem_usage_bytes) without (container_name,container_id)
+        record: k8s_pod_mem_usage_bytes
+      - expr: sum(k8s_container_mem_no_cache_bytes) without (container_name,container_id)
+        record: k8s_pod_mem_no_cache_bytes
+      - expr: sum(k8s_container_mem_usage_bytes + on (container_name, pod_name, namespace)
+          group_left kube_pod_container_resource_requests{resource=&quot;memory&quot;} * 0) without(container_name
+          )   * 100    / on (pod_name,namespace)  group_left  sum(kube_pod_container_resource_requests{resource=&quot;memory&quot;})
+          without(container_name)
+        record: k8s_pod_rate_mem_usage_request
+      - expr: sum(k8s_container_mem_no_cache_bytes + on (container_name, pod_name, namespace)
+          group_left kube_pod_container_resource_requests{resource=&quot;memory&quot;} * 0) without(container_name
+          )   * 100    / on (pod_name,namespace)  group_left  sum(kube_pod_container_resource_requests{resource=&quot;memory&quot;})
+          without(container_name)
+        record: k8s_pod_rate_mem_no_cache_request
+      - expr: sum(k8s_container_mem_usage_bytes + on (container_name, pod_name, namespace)
+          group_left kube_pod_container_resource_limits{resource=&quot;memory&quot;} * 0) without(container_name
+          )   * 100    / on (pod_name,namespace)  group_left  sum(kube_pod_container_resource_limits{resource=&quot;memory&quot;})  without(container_name)
+        record: k8s_pod_rate_mem_usage_limit
+      - expr: sum(k8s_container_mem_no_cache_bytes + on (container_name, pod_name, namespace)
+          group_left kube_pod_container_resource_limits{resource=&quot;memory&quot;} * 0) without(container_name
+          )   * 100    / on (pod_name,namespace)  group_left  sum(kube_pod_container_resource_limits{resource=&quot;memory&quot;})  without(container_name)
+        record: k8s_pod_rate_mem_no_cache_limit
+      - expr: k8s_pod_mem_usage_bytes * 100  /  on(node) group_left  kube_node_status_capacity_memory_bytes
+        record: k8s_pod_rate_mem_usage_node
+      - expr: k8s_pod_mem_no_cache_bytes * 100 / on(node) group_left  kube_node_status_capacity_memory_bytes
+        record: k8s_pod_rate_mem_no_cache_node
+      - expr: sum(k8s_container_gpu_used) without (container_name,container_id)
+        record: k8s_pod_gpu_used
+      - expr: sum(container_request_gpu_utilization * 100) without(container_name)
+        record: k8s_pod_gpu_request
+      - expr: sum(k8s_container_gpu_used + on (container_name, pod_name, namespace) group_left
+          container_request_gpu_utilization * 0) without(container_name) * 100 / on (pod_name,namespace)
+          group_left k8s_pod_gpu_request
+        record: k8s_pod_rate_gpu_used_request
+      - expr: k8s_pod_gpu_used * 100  /  on(node) group_left  kube_node_status_capacity_gpu
+        record: k8s_pod_rate_gpu_used_node
+      - expr: sum(k8s_container_gpu_memory_used) without (container_name,container_id)
+        record: k8s_pod_gpu_memory_used
+      - expr: sum(container_request_gpu_memory / 256)  without(container_name)
+        record: k8s_pod_gpu_memory_request
+      - expr: sum(k8s_container_gpu_memory_used + on (container_name, pod_name, namespace)
+          group_left container_request_gpu_memory * 0) without(container_name) * 100  /
+          on (pod_name,namespace) group_left k8s_pod_gpu_memory_request
+        record: k8s_pod_rate_gpu_memory_used_request
+      - expr: k8s_pod_gpu_memory_used * 100  /  on(node) group_left() kube_node_status_capacity_gpu_memory
+        record: k8s_pod_rate_gpu_memory_used_node
+      - expr: sum(k8s_container_network_receive_bytes_bw) without (container_name,container_id)
+        record: k8s_pod_network_receive_bytes_bw
+      - expr: sum(k8s_container_network_transmit_bytes_bw) without (container_name,container_id)
+        record: k8s_pod_network_transmit_bytes_bw
+      - expr: sum(k8s_container_network_receive_bytes) without (container_name,container_id)
+        record: k8s_pod_network_receive_bytes
+      - expr: sum(k8s_container_network_transmit_bytes) without (container_name,container_id)
+        record: k8s_pod_network_transmit_bytes
+      - expr: sum(k8s_container_network_receive_packets) without (container_name,container_id)
+        record: k8s_pod_network_receive_packets
+      - expr: sum(k8s_container_network_transmit_packets) without (container_name,container_id)
+        record: k8s_pod_network_transmit_packets
+      - expr: sum(k8s_container_fs_read_bytes) without (container_name,container_id)
+        record: k8s_pod_fs_read_bytes
+      - expr: sum(k8s_container_fs_write_bytes) without (container_name,container_id)
+        record: k8s_pod_fs_write_bytes
+      - expr: sum(k8s_container_fs_read_times) without (container_name,container_id)
+        record: k8s_pod_fs_read_times
+      - expr: sum(k8s_container_fs_write_times) without (container_name,container_id)
+        record: k8s_pod_fs_write_times
+      - expr: sum(kube_pod_status_ready{condition=&quot;true&quot;}) by (namespace,pod_name) *  on(namespace,
+          pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_pod_status_ready
+      - expr: sum(idelta(kube_pod_container_status_restarts_total [2m])) by (namespace,pod_name)
+          *  on(namespace, pod_name) group_left(workload_kind,workload_name,node, node_role)  __pod_info2
+        record: k8s_pod_restart_total
+      - expr: max(kube_node_status_condition{condition=&quot;Ready&quot;, status=&quot;true&quot;} * on (node)
+          group_left(node_role)  kube_node_labels)  without(condition, status)
+        record: k8s_node_status_ready
+      - expr: sum(k8s_pod_restart_total) without (pod_name,workload_kind,workload_name,namespace)
+        record: k8s_node_pod_restart_total
+      - expr: sum(k8s_pod_cpu_core_used) without(namespace,pod_name,workload_kind,workload_name)
+          *100 / on(node) group_left kube_node_status_capacity_cpu_cores
+        record: k8s_node_cpu_usage
+      - expr: sum(k8s_pod_mem_usage_bytes) without(namespace,pod_name,workload_kind,workload_name)
+          *100 / on(node) group_left kube_node_status_capacity_memory_bytes
+        record: k8s_node_mem_usage
+      - expr: sum(k8s_pod_gpu_used) without(namespace,pod_name,workload_kind,workload_name)
+          *100 / on(node) group_left kube_node_status_capacity_gpu
+        record: k8s_node_gpu_usage
+      - expr: sum(k8s_pod_gpu_memory_used) without(namespace,pod_name,workload_kind,workload_name)
+          *100 / on(node) group_left() kube_node_status_capacity_gpu_memory
+        record: k8s_node_gpu_memory_usage
+      - expr: (sum by (node) (irate(node_disk_written_bytes_total[2m]))) *on(node) group_left(node_role)
+          kube_node_labels
+        record: k8s_node_fs_write_bytes
+      - expr: (sum by (node) (irate(node_disk_read_bytes_total[2m])))*on(node) group_left(node_role)
+          kube_node_labels
+        record: k8s_node_fs_read_bytes
+      - expr: (sum by (node) (irate(node_disk_writes_completed_total[2m])))*on(node) group_left(node_role)
+          kube_node_labels
+        record: k8s_node_fs_write_times
+      - expr: (sum by (node) (irate(node_disk_reads_completed_total[2m])))*on(node) group_left(node_role)
+          kube_node_labels
+        record: k8s_node_fs_read_times
+      - expr: count(k8s_pod_status_ready) without (pod_name,workload_kind,workload_name,namespace)
+        record: k8s_node_pod_num
+      - expr: (100 - sum (node_filesystem_avail_bytes{fstype=~&quot;ext3|ext4|xfs&quot;}) by (node)
+          / sum (node_filesystem_size_bytes{fstype=~&quot;ext3|ext4|xfs&quot;}) by (node) *100)
+          *on(node) group_left(node_role) kube_node_labels
+        record: k8s_node_disk_space_rate
+      - expr: (sum by (node) (irate(node_network_receive_bytes_total{device!~&quot;lo|veth(.*)|virb(.*)|docker(.*)|tunl(.*)|v-h(.*)|flannel(.*)&quot;}[5m])))*on(node)
+          group_left(node_role) kube_node_labels
+        record: k8s_node_network_receive_bytes_bw
+      - expr: (sum by (node) (irate(node_network_transmit_bytes_total{device!~&quot;lo|veth(.*)|virb(.*)|docker(.*)|tunl(.*)|v-h(.*)|flannel(.*)&quot;}[5m])))*on(node)
+          group_left(node_role) kube_node_labels
+        record: k8s_node_network_transmit_bytes_bw
+      - expr: |-
+          max(label_replace(
+          label_replace(
+          label_replace(
+          kube_deployment_status_replicas_unavailable,
+          &quot;workload_kind&quot;,&quot;Deployment&quot;,&quot;&quot;,&quot;&quot;)
+          ,&quot;workload_name&quot;,&quot;$1&quot;,&quot;deployment&quot;,&quot;(.*)&quot;),
+          &quot;__name__&quot;, &quot;k8s_workload_abnormal&quot;, &quot;__name__&quot;,&quot;(.*)&quot;) ) by (namespace, workload_name, workload_kind,__name__)
+          or on (namespace,workload_name,workload_kind, __name__)
+          max(label_replace(
+          label_replace(
+          label_replace(
+          kube_daemonset_status_number_unavailable,
+          &quot;workload_kind&quot;,&quot;DaemonSet&quot;,&quot;&quot;,&quot;&quot;)
+          ,&quot;workload_name&quot;,&quot;$1&quot;,&quot;daemonset&quot;,&quot;(.*)&quot;),
+          &quot;__name__&quot;, &quot;k8s_workload_abnormal&quot;, &quot;__name__&quot;,&quot;(.*)&quot;) ) by (namespace, workload_name, workload_kind,__name__)
+          or on (namespace,workload_name,workload_kind, __name__)
+          max(label_replace(
+          label_replace(
+          label_replace(
+          (kube_statefulset_replicas - kube_statefulset_status_replicas_ready),
+          &quot;workload_kind&quot;,&quot;StatefulSet&quot;,&quot;&quot;,&quot;&quot;)
+          ,&quot;workload_name&quot;,&quot;$1&quot;,&quot;statefulset&quot;,&quot;(.*)&quot;),
+          &quot;__name__&quot;, &quot;k8s_workload_abnormal&quot;, &quot;__name__&quot;,&quot;(.*)&quot;) ) by (namespace, workload_name, workload_kind,__name__)
+          or on (namespace,workload_name,workload_kind, __name__)
+          max(label_replace(
+          label_replace(
+          label_replace(
+          (kube_job_status_failed),
+          &quot;workload_kind&quot;,&quot;Job&quot;,&quot;&quot;,&quot;&quot;)
+          ,&quot;workload_name&quot;,&quot;$1&quot;,&quot;job_name&quot;,&quot;(.*)&quot;),
+          &quot;__name__&quot;, &quot;k8s_workload_abnormal&quot;, &quot;__name__&quot;,&quot;(.*)&quot;) ) by (namespace, workload_name, workload_kind,__name__)
+          or on (namespace,workload_name,workload_kind, __name__)
+          max(label_replace(
+          label_replace(
+          label_replace(
+          (kube_cronjob_info * 0),
+          &quot;workload_kind&quot;,&quot;CronJob&quot;,&quot;&quot;,&quot;&quot;)
+          ,&quot;workload_name&quot;,&quot;&quot;,&quot;cronjob&quot;,&quot;(.*)&quot;),
+          &quot;__name__&quot;, &quot;k8s_workload_abnormal&quot;, &quot;__name__&quot;,&quot;(.*)&quot;) ) by (namespace, workload_name, workload_kind,__name__)
+        record: k8s_workload_abnormal
+      - expr: sum(k8s_pod_restart_total) by(namespace,workload_kind,workload_name)
+        record: k8s_workload_pod_restart_total
+      - expr: sum(k8s_pod_cpu_core_used) by(workload_name, workload_kind, namespace)
+        record: k8s_workload_cpu_core_used
+      - expr: k8s_workload_cpu_core_used * 100 / scalar(k8s_cluster_cpu_core_total)
+        record: k8s_workload_rate_cpu_core_used_cluster
+      - expr: sum(k8s_pod_mem_usage_bytes) by(workload_name, workload_kind, namespace)
+        record: k8s_workload_mem_usage_bytes
+      - expr: sum(k8s_pod_mem_no_cache_bytes) by(workload_name, workload_kind, namespace)
+        record: k8s_workload_mem_no_cache_bytes
+      - expr: k8s_workload_mem_usage_bytes  * 100 / scalar(k8s_cluster_memory_total)
+        record: k8s_workload_rate_mem_usage_bytes_cluster
+      - expr: k8s_workload_mem_no_cache_bytes * 100 / scalar(k8s_cluster_memory_total)
+        record: k8s_workload_rate_mem_no_cache_cluster
+      - expr: sum(k8s_pod_network_receive_bytes_bw) by(workload_name, workload_kind, namespace)
+        record: k8s_workload_network_receive_bytes_bw
+      - expr: sum(k8s_pod_network_transmit_bytes_bw)  by(workload_name, workload_kind,
+          namespace)
+        record: k8s_workload_network_transmit_bytes_bw
+      - expr: sum(k8s_pod_network_receive_bytes)  by(workload_name, workload_kind, namespace)
+        record: k8s_workload_network_receive_bytes
+      - expr: sum(k8s_pod_network_transmit_bytes) by(workload_name, workload_kind, namespace)
+        record: k8s_workload_network_transmit_bytes
+      - expr: sum(k8s_pod_network_receive_packets)  by(workload_name, workload_kind, namespace)
+        record: k8s_workload_network_receive_packets
+      - expr: sum(k8s_pod_network_transmit_packets) by(workload_name, workload_kind, namespace)
+        record: k8s_workload_network_transmit_packets
+      - expr: sum(k8s_pod_fs_read_bytes) by (workload_name, workload_kind, namespace)
+        record: k8s_workload_fs_read_bytes
+      - expr: sum(k8s_pod_fs_write_bytes) by (workload_name, workload_kind, namespace)
+        record: k8s_workload_fs_write_bytes
+      - expr: sum(k8s_pod_fs_read_times) by (workload_name, workload_kind, namespace)
+        record: k8s_workload_fs_read_times
+      - expr: sum(k8s_pod_fs_write_times) by (workload_name, workload_kind, namespace)
+        record: k8s_workload_fs_write_times
+      - expr: sum(k8s_pod_gpu_used) by(workload_name, workload_kind, namespace)
+        record: k8s_workload_gpu_used
+      - expr: k8s_workload_gpu_used * 100 / scalar(k8s_cluster_gpu_total)
+        record: k8s_workload_rate_gpu_used_cluster
+      - expr: sum(k8s_pod_gpu_memory_used) by(workload_name, workload_kind, namespace)
+        record: k8s_workload_gpu_memory_used
+      - expr: k8s_workload_gpu_memory_used * 100 / scalar(k8s_cluster_gpu_memory_total)
+        record: k8s_workload_rate_gpu_memory_used_cluster
+      - expr: sum(k8s_pod_cpu_core_used) by (namespace)
+        record: k8s_namespace_cpu_core_used
+      - expr: k8s_namespace_cpu_core_used * 100 / scalar(k8s_cluster_cpu_core_total)
+        record: k8s_namespace_rate_cpu_core_used_cluster
+      - expr: sum(k8s_pod_mem_usage_bytes) by (namespace)
+        record: k8s_namespace_mem_usage_bytes
+      - expr: sum(k8s_pod_mem_no_cache_bytes) by (namespace)
+        record: k8s_namespace_mem_no_cache_bytes
+      - expr: k8s_namespace_mem_usage_bytes * 100 / scalar(k8s_cluster_memory_total)
+        record: k8s_namespace_rate_mem_usage_bytes_cluster
+      - expr: k8s_namespace_mem_no_cache_bytes * 100 / scalar(k8s_cluster_memory_total)
+        record: k8s_namespace_rate_mem_no_cache_cluster
+      - expr: sum(k8s_pod_network_receive_bytes_bw) by(namespace)
+        record: k8s_namespace_network_receive_bytes_bw
+      - expr: sum(k8s_pod_network_transmit_bytes_bw) by(namespace)
+        record: k8s_namespace_network_transmit_bytes_bw
+      - expr: sum(k8s_pod_network_receive_bytes) by(namespace)
+        record: k8s_namespace_network_receive_bytes
+      - expr: sum(k8s_pod_network_transmit_bytes) by(namespace)
+        record: k8s_namespace_network_transmit_bytes
+      - expr: sum(k8s_pod_network_receive_packets) by(namespace)
+        record: k8s_namespace_network_receive_packets
+      - expr: sum(k8s_pod_network_transmit_packets) by(namespace)
+        record: k8s_namespace_network_transmit_packets
+      - expr: sum(k8s_workload_fs_read_bytes) by (namespace)
+        record: k8s_namespace_fs_read_bytes
+      - expr: sum(k8s_workload_fs_write_bytes) by (namespace)
+        record: k8s_namespace_fs_write_bytes
+      - expr: sum(k8s_workload_fs_read_times) by (namespace)
+        record: k8s_namespace_fs_read_times
+      - expr: sum(k8s_workload_fs_write_times) by (namespace)
+        record: k8s_namespace_fs_write_times
+      - expr: sum(k8s_pod_gpu_used) by (namespace)
+        record: k8s_namespace_gpu_used
+      - expr: k8s_namespace_gpu_used * 100 / scalar(k8s_cluster_gpu_total)
+        record: k8s_namespace_rate_gpu_used_cluster
+      - expr: sum(k8s_pod_gpu_memory_used) by (namespace)
+        record: k8s_namespace_gpu_memory_used
+      - expr: k8s_namespace_gpu_memory_used * 100 / scalar(k8s_cluster_gpu_memory_total)
+        record: k8s_namespace_rate_gpu_memory_used_cluster
+      - expr: sum(k8s_pod_cpu_core_used{node_role=&quot;Node&quot;})
+        record: k8s_cluster_cpu_core_used
+      - expr: sum(k8s_pod_mem_usage_bytes{node_role=&quot;Node&quot;})
+        record: k8s_cluster_mem_usage_bytes
+      - expr: sum(k8s_pod_mem_no_cache_bytes{node_role=&quot;Node&quot;})
+        record: k8s_cluster_mem_no_cache_bytes
+      - expr: k8s_cluster_cpu_core_used  * 100 / scalar(k8s_cluster_cpu_core_total)
+        record: k8s_cluster_rate_cpu_core_used_cluster
+      - expr: sum(kube_pod_container_resource_requests{resource=&quot;cpu&quot;} * on(node) group_left
+          kube_node_labels {node_role=&quot;Node&quot;} ) * 100 / scalar(k8s_cluster_cpu_core_total)
+        record: k8s_cluster_rate_cpu_core_request_cluster
+      - expr: k8s_cluster_mem_usage_bytes * 100 / scalar(k8s_cluster_memory_total)
+        record: k8s_cluster_rate_mem_usage_bytes_cluster
+      - expr: k8s_cluster_mem_no_cache_bytes * 100 / scalar(k8s_cluster_memory_total)
+        record: k8s_cluster_rate_mem_no_cache_bytes_cluster
+      - expr: sum(kube_pod_container_resource_requests{resource=&quot;memory&quot;} * on(node) group_left
+          kube_node_labels {node_role=&quot;Node&quot;} ) * 100 / scalar(k8s_cluster_memory_total)
+        record: k8s_cluster_rate_mem_request_bytes_cluster
+      - expr: sum(k8s_pod_network_receive_bytes_bw{node_role=&quot;Node&quot;})
+        record: k8s_cluster_network_receive_bytes_bw
+      - expr: sum(k8s_pod_network_transmit_bytes_bw{node_role=&quot;Node&quot;})
+        record: k8s_cluster_network_transmit_bytes_bw
+      - expr: sum(k8s_pod_network_receive_bytes{node_role=&quot;Node&quot;})
+        record: k8s_cluster_network_receive_bytes
+      - expr: sum(k8s_pod_network_transmit_bytes{node_role=&quot;Node&quot;})
+        record: k8s_cluster_network_transmit_bytes
+      - expr: sum(k8s_pod_network_receive_packets{node_role=&quot;Node&quot;})
+        record: k8s_cluster_network_receive_packets
+      - expr: sum(k8s_pod_network_transmit_packets{node_role=&quot;Node&quot;})
+        record: k8s_cluster_network_transmit_packets
+      - expr: sum(k8s_pod_fs_read_bytes{node_role=&quot;Node&quot;})
+        record: k8s_cluster_fs_read_bytes
+      - expr: sum(k8s_pod_fs_write_bytes{node_role=&quot;Node&quot;})
+        record: k8s_cluster_fs_write_bytes
+      - expr: sum(k8s_pod_fs_read_times{node_role=&quot;Node&quot;})
+        record: k8s_cluster_fs_read_times
+      - expr: sum(k8s_pod_fs_write_times{node_role=&quot;Node&quot;})
+        record: k8s_cluster_fs_write_times
+      - expr: sum(k8s_pod_gpu_used{node_role=&quot;Node&quot;})
+        record: k8s_cluster_gpu_used
+      - expr: k8s_cluster_gpu_used  * 100 / scalar(k8s_cluster_gpu_total)
+        record: k8s_cluster_rate_gpu_used_cluster
+      - expr: sum(k8s_pod_gpu_request * on(node) group_left kube_node_labels {node_role=&quot;Node&quot;})
+          * 100 / scalar(k8s_cluster_gpu_total)
+        record: k8s_cluster_rate_gpu_request_cluster
+      - expr: sum(k8s_pod_gpu_memory_used{node_role=&quot;Node&quot;})
+        record: k8s_cluster_gpu_memory_used
+      - expr: k8s_cluster_gpu_memory_used  * 100 / scalar(k8s_cluster_gpu_memory_total)
+        record: k8s_cluster_rate_gpu_memory_used_cluster
+      - expr: sum(k8s_pod_gpu_memory_request * on(node) group_left kube_node_labels {node_role=&quot;Node&quot;}
+          ) * 100 / scalar(k8s_cluster_gpu_memory_total)
+        record: k8s_cluster_rate_gpu_memory_request_cluster
+      - expr: k8s_namespace_cpu_core_used* on(namespace) group_left(project_name) kube_namespace_labels
+        record: project_namespace_cpu_core_used
+      - expr: k8s_namespace_mem_usage_bytes* on(namespace) group_left(project_name) kube_namespace_labels
+        record: project_namespace_mem_usage_bytes
+      - expr: k8s_namespace_mem_no_cache_bytes* on(namespace) group_left(project_name)
+          kube_namespace_labels
+        record: project_namespace_mem_no_cache_bytes
+      - expr: k8s_namespace_gpu_used* on(namespace) group_left(project_name) kube_namespace_labels
+        record: project_namespace_gpu_used
+      - expr: k8s_namespace_gpu_memory_used* on(namespace) group_left(project_name) kube_namespace_labels
+        record: project_namespace_gpu_memory_used
+      - expr: k8s_namespace_network_receive_bytes_bw* on(namespace) group_left(project_name)
+          kube_namespace_labels
+        record: project_namespace_network_receive_bytes_bw
+      - expr: k8s_namespace_network_transmit_bytes_bw* on(namespace) group_left(project_name)
+          kube_namespace_labels
+        record: project_namespace_network_transmit_bytes_bw
+      - expr: k8s_namespace_network_receive_bytes* on(namespace) group_left(project_name)
+          kube_namespace_labels
+        record: project_namespace_network_receive_bytes
+      - expr: k8s_namespace_network_transmit_bytes* on(namespace) group_left(project_name)
+          kube_namespace_labels
+        record: project_namespace_network_transmit_bytes
+      - expr: k8s_namespace_fs_read_bytes* on(namespace) group_left(project_name) kube_namespace_labels
+        record: project_namespace_fs_read_bytes
+      - expr: k8s_namespace_fs_write_bytes* on(namespace) group_left(project_name) kube_namespace_labels
+        record: project_namespace_fs_write_bytes
+      - expr: sum(project_namespace_cpu_core_used) by (project_name)
+        record: project_cluster_cpu_core_used
+      - expr: project_cluster_cpu_core_used * 100 / scalar(k8s_cluster_cpu_core_total)
+        record: project_cluster_rate_cpu_core_used_cluster
+      - expr: sum(project_namespace_mem_usage_bytes) by (project_name)
+        record: project_cluster_memory_usage_bytes
+      - expr: sum(project_namespace_mem_no_cache_bytes) by (project_name)
+        record: project_cluster_memory_no_cache_bytes
+      - expr: project_cluster_memory_usage_bytes * 100 / scalar(k8s_cluster_memory_total)
+        record: project_cluster_rate_memory_usage_bytes_cluster
+      - expr: project_cluster_memory_no_cache_bytes * 100 / scalar(k8s_cluster_memory_total)
+        record: project_cluster_rate_memory_no_cache_cluster
+      - expr: sum(project_namespace_gpu_used) by (project_name)
+        record: project_cluster_gpu_used
+      - expr: project_cluster_gpu_used * 100 / scalar(k8s_cluster_gpu_total)
+        record: project_cluster_rate_gpu_used_cluster
+      - expr: sum(project_namespace_gpu_memory_used) by (project_name)
+        record: project_cluster_gpu_memory_used
+      - expr: project_cluster_gpu_memory_used * 100 / scalar(k8s_cluster_gpu_memory_total)
+        record: project_cluster_rate_gpu_memory_used_cluster
+      - expr: sum(project_namespace_network_receive_bytes_bw) by (project_name)
+        record: project_cluster_network_receive_bytes_bw
+      - expr: sum(project_namespace_network_transmit_bytes_bw) by (project_name)
+        record: project_cluster_network_transmit_bytes_bw
+      - expr: sum(project_namespace_network_receive_bytes) by (project_name)
+        record: project_cluster_network_receive_bytes
+      - expr: sum(project_namespace_network_transmit_bytes) by (project_name)
+        record: project_cluster_network_transmit_bytes
+      - expr: sum(project_namespace_fs_read_bytes) by (project_name)
+        record: project_cluster_fs_read_bytes
+      - expr: sum(project_namespace_fs_write_bytes) by (project_name)
+        record: project_cluster_fs_write_bytes
+      - expr: up{instance=~&quot;(.*)60001&quot;} * on(node) group_left(node_role) kube_node_labels
+        record: k8s_component_apiserver_ready
+      - expr: up{instance=~&quot;(.*)2379&quot;} * on(node) group_left(node_role) kube_node_labels
+        record: k8s_component_etcd_ready
+      - expr: up{instance=~&quot;(.*)10251&quot;} * on(node) group_left(node_role) kube_node_labels
+        record: k8s_component_scheduler_ready
+      - expr: up{instance=~&quot;(.*)10252&quot;} * on(node) group_left(node_role) kube_node_labels
+        record: k8s_component_controller_manager_ready
+      - expr: sum(apiserver_request_latencies_summary_sum) by (node) / sum(apiserver_request_latencies_summary_count)
+          by (node)
+        record: k8s_component_apiserver_request_latency
+      - expr: sum(scheduler_e2e_scheduling_latency_microseconds_sum) by (node) / sum(scheduler_e2e_scheduling_latency_microseconds_count)
+          by (node)
+        record: k8s_component_scheduler_scheduling_latency
+kind: ConfigMap
+metadata:
+  creationTimestamp: &quot;2020-05-28T03:42:51Z&quot;
+  labels:
+    managed-by: prometheus-operator
+    prometheus-name: k8s
+  name: prometheus-k8s-rulefiles-0
+  namespace: kube-system
+  ownerReferences:
+  - apiVersion: monitoring.coreos.com/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Prometheus
+    name: k8s
+    uid: 21c02639-a095-11ea-afac-52540002fcf3
+  resourceVersion: &quot;971&quot;
+  selfLink: /api/v1/namespaces/kube-system/configmaps/prometheus-k8s-rulefiles-0
+  uid: 4e7bd3c1-a095-11ea-afac-52540002fcf3
+</code></pre><h4 id="cpu使用量">CPU使用量</h4>
+<p>HPA指标：CPU使用量 0.9核</p>
+<pre tabindex="0"><code>apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: test1
+  name: test1
+  namespace: default
+spec:
+  maxReplicas: 5
+  metrics:
+  - pods:
+      metricName: k8s_pod_cpu_core_used
+      targetAverageValue: 900m
+    type: Pods
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1beta2
+    kind: Deployment
+    name: azzdeploy01
+</code></pre><h4 id="cpu利用率占节点">CPU利用率(占节点)</h4>
+<p>HPA指标：CPU利用率（占节点） 40%</p>
+<pre tabindex="0"><code>apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: test1
+  name: test1
+  namespace: default
+spec:
+  maxReplicas: 5
+  metrics:
+  - pods:
+      metricName: k8s_pod_rate_cpu_core_used_node
+      targetAverageValue: &quot;40&quot;
+    type: Pods
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1beta2
+    kind: Deployment
+    name: azzdeploy01
+</code></pre><h4 id="cpu利用率占request">CPU利用率（占Request）</h4>
+<p>HPA指标：CPU利用率（占Request） 50%</p>
+<pre tabindex="0"><code>apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: test1
+  name: test1
+  namespace: default
+spec:
+  maxReplicas: 5
+  metrics:
+  - pods:
+      metricName: k8s_pod_rate_cpu_core_used_request
+      targetAverageValue: &quot;50&quot;
+    type: Pods
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1beta2
+    kind: Deployment
+    name: azzdeploy01
+</code></pre><h4 id="cpu利用率占limit">CPU利用率（占Limit)</h4>
+<p>HPA指标：CPU利用率（占Limit） 80%</p>
+<pre tabindex="0"><code>apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: test1
+  name: test1
+  namespace: default
+spec:
+  maxReplicas: 5
+  metrics:
+  - pods:
+      metricName: k8s_pod_rate_cpu_core_used_limit
+      targetAverageValue: &quot;80&quot;
+    type: Pods
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1beta2
+    kind: Deployment
+    name: azzdeploy01
+</code></pre><h4 id="内存使用量">内存使用量</h4>
+<p>HPA指标：内存使用量 500MiB</p>
+<pre tabindex="0"><code>apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: test1
+  name: test1
+  namespace: default
+spec:
+  maxReplicas: 5
+  metrics:
+  - pods:
+      metricName: k8s_pod_mem_usage_bytes
+      targetAverageValue: 500Mi
+    type: Pods
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1beta2
+    kind: Deployment
+    name: azzdeploy01
+</code></pre><h4 id="内存使用量不包含-cache">内存使用量（不包含 Cache）</h4>
+<p>HPA指标：内存使用量（不包含 Cache） 500MiB</p>
+<pre tabindex="0"><code>apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    qcloud-app: test1
+  name: test1
+  namespace: default
+spec:
+  maxReplicas: 5
+  metrics:
+  - pods:
+      metricName: k8s_pod_mem_no_cache_bytes
+      targetAverageValue: 500Mi
+    type: Pods
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1beta2
+    kind: Deployment
+    name: azzdeploy01
+</code></pre><h4 id="内存利用率占节点">内存利用率（占节点）</h4>
+<p>HPA指标：内存利用率（占节点） 30%</p>
+<pre tabindex="0"><code>apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: test1
+  name: test1
+  namespace: default
+spec:
+  maxReplicas: 5
+  metrics:
+  - pods:
+      metricName: k8s_pod_rate_mem_usage_node
+      targetAverageValue: &quot;30&quot;
+    type: Pods
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1beta2
+    kind: Deployment
+    name: azzdeploy01
+</code></pre><h4 id="内存利用率占节点不包含-cache">内存利用率（占节点，不包含 Cache）</h4>
+<p>HPA指标：内存利用率（占节点，不包含 Cache）30%</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_rate_mem_no_cache_node
+      targetAverageValue: &quot;30&quot;
+    type: Pods
+</code></pre><h4 id="内存利用率占request">内存利用率（占Request）</h4>
+<p>HPA指标：内存利用率（占Request）30%</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_rate_mem_usage_request
+      targetAverageValue: &quot;30&quot;
+    type: Pods
+</code></pre><h4 id="内存利用率占-request不包含cache">内存利用率（占 Request，不包含Cache）</h4>
+<p>HPA指标：内存利用率（占 Request，不包含Cache）30</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_rate_mem_no_cache_request
+      targetAverageValue: &quot;30&quot;
+    type: Pods
+</code></pre><h4 id="内存利用率占-limit">内存利用率（占 Limit)</h4>
+<p>HPA指标：内存利用率（占 Limit) 30%</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_rate_mem_usage_limit
+      targetAverageValue: &quot;30&quot;
+    type: Pods
+</code></pre><h4 id="内存利用率占-limit不包含-cache">内存利用率（占 Limit，不包含 Cache）</h4>
+<p>HPA指标：内存利用率（占 Limit，不包含 Cache）30%</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_rate_mem_no_cache_limit
+      targetAverageValue: &quot;30&quot;
+    type: Pods
+</code></pre><h4 id="硬盘写流量">硬盘写流量</h4>
+<p>HPA指标：硬盘写流量 1000KB/s</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_fs_write_bytes
+      targetAverageValue: 1000Ki
+    type: Pods
+</code></pre><h4 id="硬盘读流量">硬盘读流量</h4>
+<p>HPA指标：硬盘读流量 1000KB/s</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_fs_read_bytes
+      targetAverageValue: 1000Ki
+    type: Pods
+</code></pre><h4 id="硬盘读-iops">硬盘读 IOPS</h4>
+<p>HPA指标：硬盘读 IOPS 1000次/s</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_fs_read_times
+      targetAverageValue: 1k
+    type: Pods
+</code></pre><h4 id="硬盘写-iops">硬盘写 IOPS</h4>
+<p>HPA指标：硬盘写 IOPS 1000次/s</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_fs_write_times
+      targetAverageValue: 1k
+    type: Pods
+</code></pre><h4 id="网络入带宽">网络入带宽</h4>
+<p>HPA指标：网络入带宽 100Mbps</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_network_receive_bytes_bw
+      targetAverageValue: 100Mi
+    type: Pods
+</code></pre><h4 id="网络出带宽">网络出带宽</h4>
+<p>HPA指标：网络出带宽 100Mbps</p>
+<pre tabindex="0"><code> - pods:
+      metricName: k8s_pod_network_transmit_bytes_bw
+      targetAverageValue: 100Mi
+    type: Pods
+</code></pre><h4 id="网络入流量">网络入流量</h4>
+<p>HPA指标：网络入流量 100KB/s</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_network_receive_bytes
+      targetAverageValue: 100Ki
+    type: Pods
+</code></pre><h4 id="网络出流量">网络出流量</h4>
+<p>HPA指标：网络出流量 100KB/s</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_network_transmit_bytes
+      targetAverageValue: 100Ki
+    type: Pods
+</code></pre><h4 id="网络入包量">网络入包量</h4>
+<p>HPA指标：网络入包量 100个</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_network_receive_packets
+      targetAverageValue: &quot;100&quot;
+    type: Pods
+</code></pre><h4 id="网络出包量">网络出包量</h4>
+<p>HPA指标：网络出包量 100个</p>
+<pre tabindex="0"><code>  - pods:
+      metricName: k8s_pod_network_transmit_packets
+      targetAverageValue: &quot;100&quot;
+    type: Pods
+</code></pre><h3 id="自定义指标的autoscaling">自定义指标的autoscaling</h3>
+<h4 id="prometheus-adapter">prometheus-adapter</h4>
+<p>创建一个nginx应用，暴露的prometheus metric路径为/status/format/prometheus</p>
+<pre tabindex="0"><code># vim /hpa-prom-demo.yaml 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hpa-prom-demo
+spec:
+  selector:
+    matchLabels:
+      app: nginx-server
+  template:
+    metadata:
+      labels:
+        app: nginx-server
+      annotations:
+        prometheus.io/scrape: &quot;true&quot;
+        prometheus.io/port: &quot;80&quot;
+        prometheus.io/path: &quot;/status/format/prometheus&quot;
+    spec:
+      containers:
+      - name: nginx-demo
+        image: vaibhavthakur/nginx-vts:v1.0
+        resources:
+          limits:
+            cpu: 50m
+          requests:
+            cpu: 50m
+        ports:
+        - containerPort: 80
+          name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hpa-prom-demo
+  annotations:
+    prometheus.io/scrape: &quot;true&quot;
+    prometheus.io/port: &quot;80&quot;
+    prometheus.io/path: &quot;/status/format/prometheus&quot;
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http
+  selector:
+    app: nginx-server
+  type: NodePort
+</code></pre><pre tabindex="0"><code># kubectl apply -f hpa-prom-demo.yaml 
+</code></pre><pre tabindex="0"><code># kubectl get svc hpa-prom-demo 
+NAME            TYPE       CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+hpa-prom-demo   NodePort   172.20.255.206   &lt;none&gt;        80:50933/TCP   6h14m
+</code></pre><p>获取prometheus指标</p>
+<pre tabindex="0"><code>curl http://172.20.255.206/status/format/prometheus
+# HELP nginx_vts_info Nginx info
+# TYPE nginx_vts_info gauge
+nginx_vts_info{hostname=&quot;nginx-deployment-76d685cfc7-qvnxh&quot;,version=&quot;1.13.12&quot;} 1
+# HELP nginx_vts_start_time_seconds Nginx start time
+# TYPE nginx_vts_start_time_seconds gauge
+nginx_vts_start_time_seconds 1590993544.152
+# HELP nginx_vts_main_connections Nginx connections
+# TYPE nginx_vts_main_connections gauge
+nginx_vts_main_connections{status=&quot;accepted&quot;} 3
+nginx_vts_main_connections{status=&quot;active&quot;} 2
+</code></pre><p>部署k8s-prometheus-adapter</p>
+<pre tabindex="0"><code># vim /root/hpa-prome-adapter-values.yaml 
+rules:
+  default: false
+  custom:
+  - seriesQuery: 'nginx_vts_server_requests_total'
+    resources: 
+      overrides:
+        kubernetes_namespace:
+          resource: namespace
+        kubernetes_pod_name:
+          resource: pod
+    name:
+      matches: &quot;^(.*)_total&quot;
+      as: &quot;${1}_per_second&quot;
+    metricsQuery: (sum(rate(&lt;&lt;.Series&gt;&gt;{&lt;&lt;.LabelMatchers&gt;&gt;}[5m])) by (&lt;&lt;.GroupBy&gt;&gt;))
+ 
+prometheus:
+  url: http://10.125.233.66
+  port: 29175
+</code></pre><pre tabindex="0"><code># helm install --name prometheus-adapter stable/prometheus-adapter -f /root/hpa-prome-adapter-values.yaml
+</code></pre><pre tabindex="0"><code># helm ls
+NAME                    REVISION        UPDATED                         STATUS          CHART                           APP VERSION     NAMESPACE
+prometheus-adapter      1               Mon Jun  1 16:18:32 2020        DEPLOYED        prometheus-adapter-2.3.1        v0.6.0          default  
+</code></pre><p>查看自定义指标的资源</p>
+<pre tabindex="0"><code># kubectl get --raw=&quot;/apis/custom.metrics.k8s.io/v1beta1&quot; | jq .
+{
+  &quot;kind&quot;: &quot;APIResourceList&quot;,
+  &quot;apiVersion&quot;: &quot;v1&quot;,
+  &quot;groupVersion&quot;: &quot;custom.metrics.k8s.io/v1beta1&quot;,
+  &quot;resources&quot;: [
+    {
+      &quot;name&quot;: &quot;pods/nginx_vts_server_requests_per_second&quot;,
+      &quot;singularName&quot;: &quot;&quot;,
+      &quot;namespaced&quot;: true,
+      &quot;kind&quot;: &quot;MetricValueList&quot;,
+      &quot;verbs&quot;: [
+        &quot;get&quot;
+      ]
+    },
+    {
+      &quot;name&quot;: &quot;namespaces/nginx_vts_server_requests_per_second&quot;,
+      &quot;singularName&quot;: &quot;&quot;,
+      &quot;namespaced&quot;: false,
+      &quot;kind&quot;: &quot;MetricValueList&quot;,
+      &quot;verbs&quot;: [
+        &quot;get&quot;
+      ]
+    }
+  ]
+}
+</code></pre><p>通过自定义metrics api获取pod指标</p>
+<pre tabindex="0"><code># kubectl get --raw &quot;/apis/custom.metrics.k8s.io/v1beta1/namespaces/default/pods/*/nginx_vts_server_requests_per_second&quot; | jq .
+{
+  &quot;kind&quot;: &quot;MetricValueList&quot;,
+  &quot;apiVersion&quot;: &quot;custom.metrics.k8s.io/v1beta1&quot;,
+  &quot;metadata&quot;: {
+    &quot;selfLink&quot;: &quot;/apis/custom.metrics.k8s.io/v1beta1/namespaces/default/pods/%2A/nginx_vts_server_requests_per_second&quot;
+  },
+  &quot;items&quot;: [
+    {
+      &quot;describedObject&quot;: {
+        &quot;kind&quot;: &quot;Pod&quot;,
+        &quot;namespace&quot;: &quot;default&quot;,
+        &quot;name&quot;: &quot;hpa-prom-demo-dfd69c997-gb6nx&quot;,
+        &quot;apiVersion&quot;: &quot;/v1&quot;
+      },
+      &quot;metricName&quot;: &quot;nginx_vts_server_requests_per_second&quot;,
+      &quot;timestamp&quot;: &quot;2020-06-01T11:38:45Z&quot;,
+      &quot;value&quot;: &quot;200m&quot;,
+      &quot;selector&quot;: null
+    }
+  ]
+}
+</code></pre><p>压测</p>
+<pre tabindex="0"><code># while true; do wget -q -O- http://172.20.255.206; done
+</code></pre><p>打开另一个窗口，观测hpa变化</p>
+<pre tabindex="0"><code># kubectl describe horizontalpodautoscalers.autoscaling nginx-custom-hpa 
+Name:                                              nginx-custom-hpa
+Namespace:                                         default
+Labels:                                            &lt;none&gt;
+Annotations:                                       kubectl.kubernetes.io/last-applied-configuration:
+                                                     {&quot;apiVersion&quot;:&quot;autoscaling/v2beta1&quot;,&quot;kind&quot;:&quot;HorizontalPodAutoscaler&quot;,&quot;metadata&quot;:{&quot;annotations&quot;:{},&quot;name&quot;:&quot;nginx-custom-hpa&quot;,&quot;namespace&quot;:&quot;d...
+CreationTimestamp:                                 Mon, 01 Jun 2020 20:11:13 +0800
+Reference:                                         Deployment/hpa-prom-demo
+Metrics:                                           ( current / target )
+  &quot;nginx_vts_server_requests_per_second&quot; on pods:  29796m / 10
+Min replicas:                                      2
+Max replicas:                                      5
+Deployment pods:                                   5 current / 5 desired
+Conditions:
+  Type            Status  Reason               Message
+  ----            ------  ------               -------
+  AbleToScale     True    ScaleDownStabilized  recent recommendations were higher than current one, applying the highest recent recommendation
+  ScalingActive   True    ValidMetricFound     the HPA was able to successfully calculate a replica count from pods metric nginx_vts_server_requests_per_second
+  ScalingLimited  True    TooManyReplicas      the desired replica count is more than the maximum replica count
+Events:
+  Type    Reason             Age   From                       Message
+  ----    ------             ----  ----                       -------
+  Normal  SuccessfulRescale  11m   horizontal-pod-autoscaler  New size: 2; reason: Current number of replicas below Spec.MinReplicas
+  Normal  SuccessfulRescale  63s   horizontal-pod-autoscaler  New size: 4; reason: pods metric nginx_vts_server_requests_per_second above target
+  Normal  SuccessfulRescale  48s   horizontal-pod-autoscaler  New size: 5; reason: pods metric nginx_vts_server_requests_per_second above target
+</code></pre><h4 id="kube-metrics-adapter">kube-metrics-adapter</h4>
+<p>克隆kube-metrics-adapter项目</p>
+<pre tabindex="0"><code># git clone https://github.com/zalando-incubator/kube-metrics-adapter.git
+</code></pre><pre tabindex="0"><code># cd docs/
+</code></pre><p>修改deployment启动参数，指定prometheus地址</p>
+<pre tabindex="0"><code># vim deployment.yaml 
+        args:
+        - --v=9
+        - --prometheus-server=http://&lt;prometheus-server地址&gt;:9090
+        - --skipper-ingress-metrics
+        - --aws-external-metrics
+</code></pre><p>apply yaml部署</p>
+<pre tabindex="0"><code># kubectl apply -f ./
+</code></pre><p>查看kube-metrics-adapter deployment</p>
+<pre tabindex="0"><code># kubectl -n kube-system get deployments. kube-metrics-adapter 
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
+kube-metrics-adapter   1/1     1            1           177m
+</code></pre><p>kube-metrics-adapter的prometheus collector采用的是External metric api</p>
+<pre tabindex="0"><code>apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: myapp-hpa
+  namespace: default
+  annotations:
+    metric-config.external.prometheus-query.prometheus/k8s_pod_cpu_core_used-hpa-prom-demo: |
+      avg(k8s_pod_cpu_core_used{cluster_id=&quot;cls-7ffb5c05&quot;, namespace=&quot;default&quot;,workload_kind=&quot;Deployment&quot;,workload_name=&quot;hpa-prom-demo&quot;})
+    metric-config.external.prometheus-query.prometheus/k8s_pod_mem_usage_bytes-hpa-prom-demo: |
+      avg(k8s_pod_mem_usage_bytes{cluster_id=&quot;cls-7ffb5c05&quot;, namespace=&quot;default&quot;,workload_kind=&quot;Deployment&quot;,workload_name=&quot;hpa-prom-demo&quot;})
+    metric-config.external.prometheus-query.prometheus/k8s_pod_fs_write_bytes-hpa-prom-demo: |
+      avg(k8s_pod_fs_write_bytes{cluster_id=&quot;cls-7ffb5c05&quot;, namespace=&quot;default&quot;,workload_kind=&quot;Deployment&quot;,workload_name=&quot;hpa-prom-demo&quot;})
+    metric-config.external.prometheus-query.prometheus/k8s_pod_network_receive_bytes-hpa-prom-demo: |
+      avg(k8s_pod_network_receive_bytes{cluster_id=&quot;cls-7ffb5c05&quot;, namespace=&quot;default&quot;,workload_kind=&quot;Deployment&quot;,workload_name=&quot;hpa-prom-demo&quot;})
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hpa-prom-demo
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: External
+    external:
+      metric:
+        name: prometheus-query
+        selector:
+          matchLabels:
+            query-name: k8s_pod_cpu_core_used-hpa-prom-demo
+      target:
+        type: AverageValue
+        averageValue: 900m
+  - type: External
+    external:
+      metric:
+        name: prometheus-query
+        selector:
+          matchLabels:
+            query-name: k8s_pod_mem_usage_bytes-hpa-prom-demo
+      target:
+        type: AverageValue
+        averageValue: 500Mi
+  - type: External
+    external:
+      metric:
+        name: prometheus-query
+        selector:
+          matchLabels:
+            query-name: k8s_pod_fs_write_bytes-hpa-prom-demo
+      target:
+        type: AverageValue
+        averageValue: 1000Ki
+  - type: External
+    external:
+      metric:
+        name: prometheus-query
+        selector:
+          matchLabels:
+            query-name: k8s_pod_network_receive_bytes-hpa-prom-demo
+      target:
+        type: AverageValue
+        averageValue: 100Ki
+</code></pre><p>annotation那边定义的metrtic configKey不能重复</p>
+<p>查看external metric api资源列表</p>
+<pre tabindex="0"><code># kubectl get --raw=&quot;/apis/external.metrics.k8s.io/v1beta1&quot; | jq .
+{
+  &quot;kind&quot;: &quot;APIResourceList&quot;,
+  &quot;apiVersion&quot;: &quot;v1&quot;,
+  &quot;groupVersion&quot;: &quot;external.metrics.k8s.io/v1beta1&quot;,
+  &quot;resources&quot;: [
+    {
+      &quot;name&quot;: &quot;prometheus-query&quot;,
+      &quot;singularName&quot;: &quot;&quot;,
+      &quot;namespaced&quot;: true,
+      &quot;kind&quot;: &quot;ExternalMetricValueList&quot;,
+      &quot;verbs&quot;: [
+        &quot;get&quot;
+      ]
+    }
+  ]
+}
+</code></pre><p>查看external metric的指标值列表</p>
+<pre tabindex="0"><code># kubectl get --raw &quot;/apis/external.metrics.k8s.io/v1beta1/namespaces/*/prometheus-query&quot; | jq .
+{
+  &quot;kind&quot;: &quot;ExternalMetricValueList&quot;,
+  &quot;apiVersion&quot;: &quot;external.metrics.k8s.io/v1beta1&quot;,
+  &quot;metadata&quot;: {
+    &quot;selfLink&quot;: &quot;/apis/external.metrics.k8s.io/v1beta1/namespaces/default/prometheus-query&quot;
+  },
+  &quot;items&quot;: [
+    {
+      &quot;metricName&quot;: &quot;prometheus-query&quot;,
+      &quot;metricLabels&quot;: {
+        &quot;query-name&quot;: &quot;k8s_pod_cpu_core_used&quot;
+      },
+      &quot;timestamp&quot;: &quot;2020-06-02T12:03:06Z&quot;,
+      &quot;value&quot;: &quot;0&quot;
+    }
+  ]
+}
+</code></pre><h4 id="kube-metrics-adapter-vs-prometheus-adapter">kube-metrics-adapter vs prometheus-adapter</h4>
+<p>kube-metrics-adapter的Prometheus collector是通用收集器，可以将Prometheus查询映射到可用于扩展的指标。
+这种方法与k8s-prometheus-adapter中的方法不同，在k8s-prometheus-adapter中，
+所有可用的Prometheus指标都被收集并转换为HPA可以扩展的指标，并且不可能进行自定义查询。
+使用kube-metrics-adapter的Prometheus collector实现的方法，用户可以定义自定义查询，并且只有从这些查询返回的指标才可用，从而减少了所存储指标的总数。</p>
+<p>但是使用kube-metrics-adapter的Prometheus collector实现的方法也有缺点，查询效果不佳会减慢/杀死Prometheus，因此允许在多租户群集中进行查询操作可能很危险。
+也不可能使用RBAC之类的方法来限制可用指标，因为任何用户都可以基于自定义查询创建指标。</p>
+<p>面向开发者的话，自定义查询可能会更有用，但是最好知道这两种方法之间的差异以及面向的用户，然后再做取舍。</p>
+<h3 id="参考链接">参考链接</h3>
+<ul>
+<li><a href="https://blog.csdn.net/fly910905/article/details/105375822">Kubernetes：HPA 详解-基于 CPU、内存和自定义指标自动扩缩容</a></li>
+<li><a href="https://appfleet.com/blog/prometheus-metrics-based-autoscaling-in-kubernetes/">Prometheus Metrics based autoscaling in Kubernetes</a>`</li>
+<li><a href="https://github.com/zalando-incubator/kube-metrics-adapter">https://github.com/zalando-incubator/kube-metrics-adapter</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2020-05-20-k8s-hpa-implement_principle/" data-toggle="tooltip" data-placement="top" title="K8s HPA介绍(翻译)">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-06-25-first_day_of_training/" data-toggle="tooltip" data-placement="top" title="练车(第一天)">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

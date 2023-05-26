@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="kubernetes存储相关源码阅读笔记" />
+    <meta property="og:title" content="kubernetes存储相关源码阅读笔记" />
+    <meta property="twitter:title" content="kubernetes存储相关源码阅读笔记" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>kubernetes存储相关源码阅读笔记 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2021-03-15-k8s_volume/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>kubernetes存储相关源码阅读笔记</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Monday, March 15, 2021
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <ul>
+<li>kubernetes版本：v1.18.3</li>
+</ul>
+<h2 id="kubernetes存储相关源码">kubernetes存储相关源码</h2>
+<p>在kubernetes源码中与存储相关的代码有:</p>
+<ul>
+<li>PersistentVolumeBinderController</li>
+<li>AttachDetachController</li>
+<li>VolumeExpandController</li>
+<li>PVCProtectionController</li>
+<li>PVProtectionController</li>
+<li>CSI</li>
+<li>kubelet的VolumeManager，这几部分代码之间到底有什么关系呢，之间又是怎么联合工作的呢？</li>
+</ul>
+<h3 id="1-kube-controller-manager中的controller">1. kube-controller-manager中的controller</h3>
+<p>kube-controller-manager可以代理启动一系列的controller组，基本上每一种k8s内置资源对象都有一个对应的controller实现，
+所以k8s内置资源对应的controller入口启动函数在kube-controller-manager代码这边.</p>
+<h4 id="11-persistentvolumebindercontroller">1.1 PersistentVolumeBinderController</h4>
+<p>启动入口函数</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">startPersistentVolumeBinderController</span>(ctx ControllerContext) (http.Handler, <span style="color:#8be9fd">bool</span>, <span style="color:#8be9fd">error</span>) {
+    <span style="color:#6272a4">//收集所有pv插件，实际上是实现了VolumePlugin接口的volume插件列表，其中hostPath和nfs类型的volume回收可以在额外配置
+</span><span style="color:#6272a4"></span>    plugins, err <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">ProbeControllerVolumePlugins</span>(ctx.Cloud, ctx.ComponentConfig.PersistentVolumeBinderController.VolumeConfiguration)
+    <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>, <span style="color:#ff79c6">true</span>, fmt.<span style="color:#50fa7b">Errorf</span>(<span style="color:#f1fa8c">&#34;failed to probe volume plugins when starting persistentvolume controller: %v&#34;</span>, err)
+    }
+    <span style="color:#6272a4">//初始化persistentvolumecontroller的参数
+</span><span style="color:#6272a4"></span>    params <span style="color:#ff79c6">:=</span> persistentvolumecontroller.ControllerParameters{
+        KubeClient:                ctx.ClientBuilder.<span style="color:#50fa7b">ClientOrDie</span>(<span style="color:#f1fa8c">&#34;persistent-volume-binder&#34;</span>),
+        SyncPeriod:                ctx.ComponentConfig.PersistentVolumeBinderController.PVClaimBinderSyncPeriod.Duration,
+        VolumePlugins:             plugins,
+        Cloud:                     ctx.Cloud,
+        ClusterName:               ctx.ComponentConfig.KubeCloudShared.ClusterName,
+        VolumeInformer:            ctx.InformerFactory.<span style="color:#50fa7b">Core</span>().<span style="color:#50fa7b">V1</span>().<span style="color:#50fa7b">PersistentVolumes</span>(),
+        ClaimInformer:             ctx.InformerFactory.<span style="color:#50fa7b">Core</span>().<span style="color:#50fa7b">V1</span>().<span style="color:#50fa7b">PersistentVolumeClaims</span>(),
+        ClassInformer:             ctx.InformerFactory.<span style="color:#50fa7b">Storage</span>().<span style="color:#50fa7b">V1</span>().<span style="color:#50fa7b">StorageClasses</span>(),
+        PodInformer:               ctx.InformerFactory.<span style="color:#50fa7b">Core</span>().<span style="color:#50fa7b">V1</span>().<span style="color:#50fa7b">Pods</span>(),
+        NodeInformer:              ctx.InformerFactory.<span style="color:#50fa7b">Core</span>().<span style="color:#50fa7b">V1</span>().<span style="color:#50fa7b">Nodes</span>(),
+        EnableDynamicProvisioning: ctx.ComponentConfig.PersistentVolumeBinderController.VolumeConfiguration.EnableDynamicProvisioning,
+    }
+    <span style="color:#6272a4">//初始化PersistentVolumeController
+</span><span style="color:#6272a4"></span>    volumeController, volumeControllerErr <span style="color:#ff79c6">:=</span> persistentvolumecontroller.<span style="color:#50fa7b">NewController</span>(params)
+    <span style="color:#ff79c6">if</span> volumeControllerErr <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>, <span style="color:#ff79c6">true</span>, fmt.<span style="color:#50fa7b">Errorf</span>(<span style="color:#f1fa8c">&#34;failed to construct persistentvolume controller: %v&#34;</span>, volumeControllerErr)
+    } 
+    <span style="color:#6272a4">//启动volumeController
+</span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">go</span> volumeController.<span style="color:#50fa7b">Run</span>(ctx.Stop)
+    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>, <span style="color:#ff79c6">true</span>, <span style="color:#ff79c6">nil</span>
+}
+</code></pre></div><p>初始化PersistentVolumeController对象</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#6272a4">// NewController creates a new PersistentVolume controller
+</span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">NewController</span>(p ControllerParameters) (<span style="color:#ff79c6">*</span>PersistentVolumeController, <span style="color:#8be9fd">error</span>) {
+    eventRecorder <span style="color:#ff79c6">:=</span> p.EventRecorder
+    <span style="color:#ff79c6">if</span> eventRecorder <span style="color:#ff79c6">==</span> <span style="color:#ff79c6">nil</span> {
+        broadcaster <span style="color:#ff79c6">:=</span> record.<span style="color:#50fa7b">NewBroadcaster</span>()
+        broadcaster.<span style="color:#50fa7b">StartLogging</span>(klog.Infof)
+        broadcaster.<span style="color:#50fa7b">StartRecordingToSink</span>(<span style="color:#ff79c6">&amp;</span>v1core.EventSinkImpl{Interface: p.KubeClient.<span style="color:#50fa7b">CoreV1</span>().<span style="color:#50fa7b">Events</span>(<span style="color:#f1fa8c">&#34;&#34;</span>)})
+        eventRecorder = broadcaster.<span style="color:#50fa7b">NewRecorder</span>(scheme.Scheme, v1.EventSource{Component: <span style="color:#f1fa8c">&#34;persistentvolume-controller&#34;</span>})
+    }
+
+    controller <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">&amp;</span>PersistentVolumeController{
+        <span style="color:#6272a4">//为什么需要本地维护一份volumes、claims缓存，volumes、claims缓存保存的是上一个已知版本，
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">//如果没有这个缓存，从informers中获取到的volume.Status、claim就会是旧版本
+</span><span style="color:#6272a4"></span>        volumes:                       <span style="color:#50fa7b">newPersistentVolumeOrderedIndex</span>(),
+        claims:                        cache.<span style="color:#50fa7b">NewStore</span>(cache.DeletionHandlingMetaNamespaceKeyFunc),
+        kubeClient:                    p.KubeClient,
+        eventRecorder:                 eventRecorder,
+        runningOperations:             goroutinemap.<span style="color:#50fa7b">NewGoRoutineMap</span>(<span style="color:#ff79c6">true</span> <span style="color:#6272a4">/* exponentialBackOffOnError */</span>),
+        cloud:                         p.Cloud,
+        enableDynamicProvisioning:     p.EnableDynamicProvisioning,
+        clusterName:                   p.ClusterName,
+        createProvisionedPVRetryCount: createProvisionedPVRetryCount,
+        createProvisionedPVInterval:   createProvisionedPVInterval,
+        claimQueue:                    workqueue.<span style="color:#50fa7b">NewNamed</span>(<span style="color:#f1fa8c">&#34;claims&#34;</span>),
+        volumeQueue:                   workqueue.<span style="color:#50fa7b">NewNamed</span>(<span style="color:#f1fa8c">&#34;volumes&#34;</span>),
+        resyncPeriod:                  p.SyncPeriod,
+        operationTimestamps:           metrics.<span style="color:#50fa7b">NewOperationStartTimeCache</span>(),
+    }
+    <span style="color:#6272a4">//初始化所有volume插件
+</span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// Prober is nil because PV is not aware of Flexvolume.
+</span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">:=</span> controller.volumePluginMgr.<span style="color:#50fa7b">InitPlugins</span>(p.VolumePlugins, <span style="color:#ff79c6">nil</span> <span style="color:#6272a4">/* prober */</span>, controller); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>, fmt.<span style="color:#50fa7b">Errorf</span>(<span style="color:#f1fa8c">&#34;Could not initialize volume plugins for PersistentVolume Controller: %v&#34;</span>, err)
+    }
+    <span style="color:#6272a4">//设置VolumeInformer事件回调函数
+</span><span style="color:#6272a4"></span>    p.VolumeInformer.<span style="color:#50fa7b">Informer</span>().<span style="color:#50fa7b">AddEventHandler</span>(
+        cache.ResourceEventHandlerFuncs{
+            AddFunc:    <span style="color:#8be9fd;font-style:italic">func</span>(obj <span style="color:#8be9fd;font-style:italic">interface</span>{}) { controller.<span style="color:#50fa7b">enqueueWork</span>(controller.volumeQueue, obj) },
+            UpdateFunc: <span style="color:#8be9fd;font-style:italic">func</span>(oldObj, newObj <span style="color:#8be9fd;font-style:italic">interface</span>{}) { controller.<span style="color:#50fa7b">enqueueWork</span>(controller.volumeQueue, newObj) },
+            DeleteFunc: <span style="color:#8be9fd;font-style:italic">func</span>(obj <span style="color:#8be9fd;font-style:italic">interface</span>{}) { controller.<span style="color:#50fa7b">enqueueWork</span>(controller.volumeQueue, obj) },
+        },
+    )
+    controller.volumeLister = p.VolumeInformer.<span style="color:#50fa7b">Lister</span>()
+    controller.volumeListerSynced = p.VolumeInformer.<span style="color:#50fa7b">Informer</span>().HasSynced
+    <span style="color:#6272a4">//设置ClaimInformer事件回调函数
+</span><span style="color:#6272a4"></span>    p.ClaimInformer.<span style="color:#50fa7b">Informer</span>().<span style="color:#50fa7b">AddEventHandler</span>(
+        cache.ResourceEventHandlerFuncs{
+            AddFunc:    <span style="color:#8be9fd;font-style:italic">func</span>(obj <span style="color:#8be9fd;font-style:italic">interface</span>{}) { controller.<span style="color:#50fa7b">enqueueWork</span>(controller.claimQueue, obj) },
+            UpdateFunc: <span style="color:#8be9fd;font-style:italic">func</span>(oldObj, newObj <span style="color:#8be9fd;font-style:italic">interface</span>{}) { controller.<span style="color:#50fa7b">enqueueWork</span>(controller.claimQueue, newObj) },
+            DeleteFunc: <span style="color:#8be9fd;font-style:italic">func</span>(obj <span style="color:#8be9fd;font-style:italic">interface</span>{}) { controller.<span style="color:#50fa7b">enqueueWork</span>(controller.claimQueue, obj) },
+        },
+    )
+    controller.claimLister = p.ClaimInformer.<span style="color:#50fa7b">Lister</span>()
+    controller.claimListerSynced = p.ClaimInformer.<span style="color:#50fa7b">Informer</span>().HasSynced
+
+    controller.classLister = p.ClassInformer.<span style="color:#50fa7b">Lister</span>()
+    controller.classListerSynced = p.ClassInformer.<span style="color:#50fa7b">Informer</span>().HasSynced
+    controller.podLister = p.PodInformer.<span style="color:#50fa7b">Lister</span>()
+    controller.podListerSynced = p.PodInformer.<span style="color:#50fa7b">Informer</span>().HasSynced
+    controller.NodeLister = p.NodeInformer.<span style="color:#50fa7b">Lister</span>()
+    controller.NodeListerSynced = p.NodeInformer.<span style="color:#50fa7b">Informer</span>().HasSynced
+
+    csiTranslator <span style="color:#ff79c6">:=</span> csitrans.<span style="color:#50fa7b">New</span>()
+    controller.translator = csiTranslator
+    controller.csiMigratedPluginManager = csimigration.<span style="color:#50fa7b">NewPluginManager</span>(csiTranslator)
+
+    <span style="color:#ff79c6">return</span> controller, <span style="color:#ff79c6">nil</span>
+}
+</code></pre></div><p>启动volumeController</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#6272a4">// Run starts all of this controller&#39;s control loops
+</span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">func</span> (ctrl <span style="color:#ff79c6">*</span>PersistentVolumeController) <span style="color:#50fa7b">Run</span>(stopCh <span style="color:#ff79c6">&lt;-</span><span style="color:#8be9fd;font-style:italic">chan</span> <span style="color:#8be9fd;font-style:italic">struct</span>{}) {
+    <span style="color:#6272a4">//设置defer
+</span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">defer</span> utilruntime.<span style="color:#50fa7b">HandleCrash</span>()
+    <span style="color:#ff79c6">defer</span> ctrl.claimQueue.<span style="color:#50fa7b">ShutDown</span>()
+    <span style="color:#ff79c6">defer</span> ctrl.volumeQueue.<span style="color:#50fa7b">ShutDown</span>()
+
+    klog.<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;Starting persistent volume controller&#34;</span>)
+    <span style="color:#ff79c6">defer</span> klog.<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;Shutting down persistent volume controller&#34;</span>)
+
+    <span style="color:#6272a4">//informer从etcd同步一份数据当作缓存
+</span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> !cache.<span style="color:#50fa7b">WaitForNamedCacheSync</span>(<span style="color:#f1fa8c">&#34;persistent volume&#34;</span>, stopCh, ctrl.volumeListerSynced, ctrl.claimListerSynced, ctrl.classListerSynced, ctrl.podListerSynced, ctrl.NodeListerSynced) {
+        <span style="color:#ff79c6">return</span>
+    }
+    <span style="color:#6272a4">//更新PersistentVolumes/PersistentVolumeClaims informer中的缓存
+</span><span style="color:#6272a4"></span>    ctrl.<span style="color:#50fa7b">initializeCaches</span>(ctrl.volumeLister, ctrl.claimLister)
+    <span style="color:#6272a4">//进行resync操作，让所有的pv/pvc key重新再进入队列
+</span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">go</span> wait.<span style="color:#50fa7b">Until</span>(ctrl.resync, ctrl.resyncPeriod, stopCh)
+    <span style="color:#6272a4">//从PersistentVolumes informer cache中获取循环更新ctrl.volumes.store
+</span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">go</span> wait.<span style="color:#50fa7b">Until</span>(ctrl.volumeWorker, time.Second, stopCh)
+    <span style="color:#6272a4">//从PersistentVolumeClaims informer cache中获取循环更新ctrl.claims
+</span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">go</span> wait.<span style="color:#50fa7b">Until</span>(ctrl.claimWorker, time.Second, stopCh)
+    <span style="color:#6272a4">//往prometheus注册metric
+</span><span style="color:#6272a4"></span>    metrics.<span style="color:#50fa7b">Register</span>(ctrl.volumes.store, ctrl.claims)
+
+    <span style="color:#ff79c6">&lt;-</span>stopCh
+}
+</code></pre></div><p>volumeWorker逻辑</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#6272a4">// volumeWorker processes items from volumeQueue. It must run only once,
+</span><span style="color:#6272a4">// syncVolume is not assured to be reentrant.
+</span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">func</span> (ctrl <span style="color:#ff79c6">*</span>PersistentVolumeController) <span style="color:#50fa7b">volumeWorker</span>() {
+    workFunc <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">func</span>() <span style="color:#8be9fd">bool</span> {
+        keyObj, quit <span style="color:#ff79c6">:=</span> ctrl.volumeQueue.<span style="color:#50fa7b">Get</span>()
+        <span style="color:#ff79c6">if</span> quit {
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>
+        }
+        <span style="color:#6272a4">//标记key对象已处理
+</span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">defer</span> ctrl.volumeQueue.<span style="color:#50fa7b">Done</span>(keyObj)
+        key <span style="color:#ff79c6">:=</span> keyObj.(<span style="color:#8be9fd">string</span>)
+        klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">5</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;volumeWorker[%s]&#34;</span>, key)
+        <span style="color:#6272a4">//对key进行分离，分离namespace, name字段
+</span><span style="color:#6272a4"></span>        _, name, err <span style="color:#ff79c6">:=</span> cache.<span style="color:#50fa7b">SplitMetaNamespaceKey</span>(key)
+        <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;error getting name of volume %q to get volume from informer: %v&#34;</span>, key, err)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+        <span style="color:#6272a4">//从informer cache中获取
+</span><span style="color:#6272a4"></span>        volume, err <span style="color:#ff79c6">:=</span> ctrl.volumeLister.<span style="color:#50fa7b">Get</span>(name)
+        <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">==</span> <span style="color:#ff79c6">nil</span> {
+            <span style="color:#6272a4">// The volume still exists in informer cache, the event must have
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// been add/update/sync
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">//存在就更新
+</span><span style="color:#6272a4"></span>            ctrl.<span style="color:#50fa7b">updateVolume</span>(volume)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+        <span style="color:#ff79c6">if</span> !errors.<span style="color:#50fa7b">IsNotFound</span>(err) {
+            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">2</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;error getting volume %q from informer: %v&#34;</span>, key, err)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+
+        <span style="color:#6272a4">// The volume is not in informer cache, the event must have been
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">// &#34;delete&#34;
+</span><span style="color:#6272a4"></span>        volumeObj, found, err <span style="color:#ff79c6">:=</span> ctrl.volumes.store.<span style="color:#50fa7b">GetByKey</span>(key)
+        <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">2</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;error getting volume %q from cache: %v&#34;</span>, key, err)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+        <span style="color:#ff79c6">if</span> !found {
+            <span style="color:#6272a4">// The controller has already processed the delete event and
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// deleted the volume from its cache
+</span><span style="color:#6272a4"></span>            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">2</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;deletion of volume %q was already processed&#34;</span>, key)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+        volume, ok <span style="color:#ff79c6">:=</span> volumeObj.(<span style="color:#ff79c6">*</span>v1.PersistentVolume)
+        <span style="color:#ff79c6">if</span> !ok {
+            klog.<span style="color:#50fa7b">Errorf</span>(<span style="color:#f1fa8c">&#34;expected volume, got %+v&#34;</span>, volumeObj)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+        <span style="color:#6272a4">//如果不存在于informer cache中，就从ctrl.volumes.store删除该volume
+</span><span style="color:#6272a4"></span>        ctrl.<span style="color:#50fa7b">deleteVolume</span>(volume)
+        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+    }
+    <span style="color:#ff79c6">for</span> {
+        <span style="color:#ff79c6">if</span> quit <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">workFunc</span>(); quit {
+            klog.<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;volume worker queue shutting down&#34;</span>)
+            <span style="color:#ff79c6">return</span>
+        }
+    }
+}
+</code></pre></div><p>主处理逻辑</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">volumeWorker <span style="color:#ff79c6">-</span>&gt; updateVolume <span style="color:#ff79c6">-</span>&gt; syncVolume
+</code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#6272a4">// syncVolume is the main controller method to decide what to do with a volume.
+</span><span style="color:#6272a4">// It&#39;s invoked by appropriate cache.Controller callbacks when a volume is
+</span><span style="color:#6272a4">// created, updated or periodically synced. We do not differentiate between
+</span><span style="color:#6272a4">// these events.
+</span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">func</span> (ctrl <span style="color:#ff79c6">*</span>PersistentVolumeController) <span style="color:#50fa7b">syncVolume</span>(volume <span style="color:#ff79c6">*</span>v1.PersistentVolume) <span style="color:#8be9fd">error</span> {
+    klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: %s&#34;</span>, volume.Name, <span style="color:#50fa7b">getVolumeStatusForLogging</span>(volume))
+
+    <span style="color:#6272a4">// Set correct &#34;migrated-to&#34; annotations on PV and update in API server if
+</span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// necessary
+</span><span style="color:#6272a4"></span>    <span style="color:#6272a4">//是否添加pv.kubernetes.io/migrated-to annotation,从inTree过渡到csi
+</span><span style="color:#6272a4"></span>    newVolume, err <span style="color:#ff79c6">:=</span> ctrl.<span style="color:#50fa7b">updateVolumeMigrationAnnotations</span>(volume)
+    <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+        <span style="color:#6272a4">// Nothing was saved; we will fall back into the same
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">// condition in the next call to this method
+</span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">return</span> err
+    }
+    volume = newVolume
+
+    <span style="color:#6272a4">// [Unit test set 4]
+</span><span style="color:#6272a4"></span>    <span style="color:#6272a4">//pv没和pvc绑定
+</span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> volume.Spec.ClaimRef <span style="color:#ff79c6">==</span> <span style="color:#ff79c6">nil</span> {
+        <span style="color:#6272a4">// Volume is unused
+</span><span style="color:#6272a4"></span>        klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: volume is unused&#34;</span>, volume.Name)
+        <span style="color:#6272a4">//更新pv的状态为Available
+</span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">if</span> _, err <span style="color:#ff79c6">:=</span> ctrl.<span style="color:#50fa7b">updateVolumePhase</span>(volume, v1.VolumeAvailable, <span style="color:#f1fa8c">&#34;&#34;</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+            <span style="color:#6272a4">// Nothing was saved; we will fall back into the same
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// condition in the next call to this method
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">return</span> err
+        }
+        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+    } <span style="color:#ff79c6">else</span> <span style="color:#6272a4">/* pv.Spec.ClaimRef != nil */</span> {
+        <span style="color:#6272a4">// Volume is bound to a claim.
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">//pv和pvc绑定，但是pvc没和pv绑定
+</span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">if</span> volume.Spec.ClaimRef.UID <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;&#34;</span> {
+            <span style="color:#6272a4">// The PV is reserved for a PVC; that PVC has not yet been
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// bound to this PV; the PVC sync will handle it.
+</span><span style="color:#6272a4"></span>            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: volume is pre-bound to claim %s&#34;</span>, volume.Name, <span style="color:#50fa7b">claimrefToClaimKey</span>(volume.Spec.ClaimRef))
+            <span style="color:#6272a4">//更新pv的状态为Available
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> _, err <span style="color:#ff79c6">:=</span> ctrl.<span style="color:#50fa7b">updateVolumePhase</span>(volume, v1.VolumeAvailable, <span style="color:#f1fa8c">&#34;&#34;</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                <span style="color:#6272a4">// Nothing was saved; we will fall back into the same
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// condition in the next call to this method
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">return</span> err
+            }
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+        }
+        klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: volume is bound to claim %s&#34;</span>, volume.Name, <span style="color:#50fa7b">claimrefToClaimKey</span>(volume.Spec.ClaimRef))
+        <span style="color:#6272a4">// Get the PVC by _name_
+</span><span style="color:#6272a4"></span>        <span style="color:#8be9fd;font-style:italic">var</span> claim <span style="color:#ff79c6">*</span>v1.PersistentVolumeClaim
+        claimName <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">claimrefToClaimKey</span>(volume.Spec.ClaimRef)
+        <span style="color:#6272a4">//从维护的claims缓存中查找pv所绑定的pvc
+</span><span style="color:#6272a4"></span>        obj, found, err <span style="color:#ff79c6">:=</span> ctrl.claims.<span style="color:#50fa7b">GetByKey</span>(claimName)
+        <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+            <span style="color:#ff79c6">return</span> err
+        }
+        <span style="color:#6272a4">//从claims缓存中没找到的话，如果存在pv.kubernetes.io/bound-by-controller annotation
+</span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">if</span> !found <span style="color:#ff79c6">&amp;&amp;</span> metav1.<span style="color:#50fa7b">HasAnnotation</span>(volume.ObjectMeta, pvutil.AnnBoundByController) {
+            <span style="color:#6272a4">// If PV is bound by external PV binder (e.g. kube-scheduler), it&#39;s
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// possible on heavy load that corresponding PVC is not synced to
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// controller local cache yet. So we need to double-check PVC in
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">//   1) informer cache
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">//   2) apiserver if not found in informer cache
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// to make sure we will not reclaim a PV wrongly.
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// Note that only non-released and non-failed volumes will be
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// updated to Released state when PVC does not exist.
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">//先从informer cache中查找pvc，如果没有的话，再从apiserver查找pvc
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> volume.Status.Phase <span style="color:#ff79c6">!=</span> v1.VolumeReleased <span style="color:#ff79c6">&amp;&amp;</span> volume.Status.Phase <span style="color:#ff79c6">!=</span> v1.VolumeFailed {
+                obj, err = ctrl.claimLister.<span style="color:#50fa7b">PersistentVolumeClaims</span>(volume.Spec.ClaimRef.Namespace).<span style="color:#50fa7b">Get</span>(volume.Spec.ClaimRef.Name)
+                <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> <span style="color:#ff79c6">&amp;&amp;</span> !apierrors.<span style="color:#50fa7b">IsNotFound</span>(err) {
+                    <span style="color:#ff79c6">return</span> err
+                }
+                found = !apierrors.<span style="color:#50fa7b">IsNotFound</span>(err)
+                <span style="color:#ff79c6">if</span> !found {
+                    obj, err = ctrl.kubeClient.<span style="color:#50fa7b">CoreV1</span>().<span style="color:#50fa7b">PersistentVolumeClaims</span>(volume.Spec.ClaimRef.Namespace).<span style="color:#50fa7b">Get</span>(context.<span style="color:#50fa7b">TODO</span>(), volume.Spec.ClaimRef.Name, metav1.GetOptions{})
+                    <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> <span style="color:#ff79c6">&amp;&amp;</span> !apierrors.<span style="color:#50fa7b">IsNotFound</span>(err) {
+                        <span style="color:#ff79c6">return</span> err
+                    }
+                    found = !apierrors.<span style="color:#50fa7b">IsNotFound</span>(err)
+                }
+            }
+        }
+        <span style="color:#ff79c6">if</span> !found {
+            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: claim %s not found&#34;</span>, volume.Name, <span style="color:#50fa7b">claimrefToClaimKey</span>(volume.Spec.ClaimRef))
+            <span style="color:#6272a4">// Fall through with claim = nil
+</span><span style="color:#6272a4"></span>        } <span style="color:#ff79c6">else</span> {
+            <span style="color:#8be9fd;font-style:italic">var</span> ok <span style="color:#8be9fd">bool</span>
+            claim, ok = obj.(<span style="color:#ff79c6">*</span>v1.PersistentVolumeClaim)
+            <span style="color:#ff79c6">if</span> !ok {
+                <span style="color:#ff79c6">return</span> fmt.<span style="color:#50fa7b">Errorf</span>(<span style="color:#f1fa8c">&#34;Cannot convert object from volume cache to volume %q!?: %#v&#34;</span>, claim.Spec.VolumeName, obj)
+            }
+            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: claim %s found: %s&#34;</span>, volume.Name, <span style="color:#50fa7b">claimrefToClaimKey</span>(volume.Spec.ClaimRef), <span style="color:#50fa7b">getClaimStatusForLogging</span>(claim))
+        }
+        <span style="color:#6272a4">//异常情况处理：pv指向的pvc被删除了，重制pvc,即claim=nil
+</span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">if</span> claim <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> <span style="color:#ff79c6">&amp;&amp;</span> claim.UID <span style="color:#ff79c6">!=</span> volume.Spec.ClaimRef.UID {
+            <span style="color:#6272a4">// The claim that the PV was pointing to was deleted, and another
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// with the same name created.
+</span><span style="color:#6272a4"></span>            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: claim %s has different UID, the old one must have been deleted&#34;</span>, volume.Name, <span style="color:#50fa7b">claimrefToClaimKey</span>(volume.Spec.ClaimRef))
+            <span style="color:#6272a4">// Treat the volume as bound to a missing claim.
+</span><span style="color:#6272a4"></span>            claim = <span style="color:#ff79c6">nil</span>
+        }
+
+        <span style="color:#ff79c6">if</span> claim <span style="color:#ff79c6">==</span> <span style="color:#ff79c6">nil</span> {
+            <span style="color:#6272a4">// If we get into this block, the claim must have been deleted;
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// NOTE: reclaimVolume may either release the PV back into the pool or
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// recycle it or do nothing (retain)
+</span><span style="color:#6272a4"></span>
+            <span style="color:#6272a4">// Do not overwrite previous Failed state - let the user see that
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// something went wrong, while we still re-try to reclaim the
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// volume.
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> volume.Status.Phase <span style="color:#ff79c6">!=</span> v1.VolumeReleased <span style="color:#ff79c6">&amp;&amp;</span> volume.Status.Phase <span style="color:#ff79c6">!=</span> v1.VolumeFailed {
+                <span style="color:#6272a4">// Also, log this only once:
+</span><span style="color:#6272a4"></span>                klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">2</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;volume %q is released and reclaim policy %q will be executed&#34;</span>, volume.Name, volume.Spec.PersistentVolumeReclaimPolicy)
+                <span style="color:#6272a4">//重置volume的状态为Released
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">if</span> volume, err = ctrl.<span style="color:#50fa7b">updateVolumePhase</span>(volume, v1.VolumeReleased, <span style="color:#f1fa8c">&#34;&#34;</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                    <span style="color:#6272a4">// Nothing was saved; we will fall back into the same condition
+</span><span style="color:#6272a4"></span>                    <span style="color:#6272a4">// in the next call to this method
+</span><span style="color:#6272a4"></span>                    <span style="color:#ff79c6">return</span> err
+                }
+            }
+            <span style="color:#6272a4">//根据volume回收策略进行回收操作
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">//这里会调用到一个goroutinemap的包，通过名字来管理goroutines
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> err = ctrl.<span style="color:#50fa7b">reclaimVolume</span>(volume); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                <span style="color:#6272a4">// Release failed, we will fall back into the same condition
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// in the next call to this method
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">return</span> err
+            }
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+        } <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span> claim.Spec.VolumeName <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;&#34;</span> {
+            <span style="color:#6272a4">//检查pvc和pv的volumeMode，是否是一致的fs或block
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> pvutil.<span style="color:#50fa7b">CheckVolumeModeMismatches</span>(<span style="color:#ff79c6">&amp;</span>claim.Spec, <span style="color:#ff79c6">&amp;</span>volume.Spec) {
+                <span style="color:#6272a4">// Binding for the volume won&#39;t be called in syncUnboundClaim,
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// because findBestMatchForClaim won&#39;t return the volume due to volumeMode mismatch.
+</span><span style="color:#6272a4"></span>                volumeMsg <span style="color:#ff79c6">:=</span> fmt.<span style="color:#50fa7b">Sprintf</span>(<span style="color:#f1fa8c">&#34;Cannot bind PersistentVolume to requested PersistentVolumeClaim %q due to incompatible volumeMode.&#34;</span>, claim.Name)
+                ctrl.eventRecorder.<span style="color:#50fa7b">Event</span>(volume, v1.EventTypeWarning, events.VolumeMismatch, volumeMsg)
+                claimMsg <span style="color:#ff79c6">:=</span> fmt.<span style="color:#50fa7b">Sprintf</span>(<span style="color:#f1fa8c">&#34;Cannot bind PersistentVolume %q to requested PersistentVolumeClaim due to incompatible volumeMode.&#34;</span>, volume.Name)
+                ctrl.eventRecorder.<span style="color:#50fa7b">Event</span>(claim, v1.EventTypeWarning, events.VolumeMismatch, claimMsg)
+                <span style="color:#6272a4">// Skipping syncClaim
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+            }
+            <span style="color:#6272a4">//如果volume有pv.kubernetes.io/bound-by-controller的annotation
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> metav1.<span style="color:#50fa7b">HasAnnotation</span>(volume.ObjectMeta, pvutil.AnnBoundByController) {
+                <span style="color:#6272a4">// The binding is not completed; let PVC sync handle it
+</span><span style="color:#6272a4"></span>                klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: volume not bound yet, waiting for syncClaim to fix it&#34;</span>, volume.Name)
+            } <span style="color:#ff79c6">else</span> {
+                <span style="color:#6272a4">// Dangling PV; try to re-establish the link in the PVC sync
+</span><span style="color:#6272a4"></span>                klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: volume was bound and got unbound (by user?), waiting for syncClaim to fix it&#34;</span>, volume.Name)
+            }
+            <span style="color:#6272a4">// In both cases, the volume is Bound and the claim is Pending.
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// Next syncClaim will fix it. To speed it up, we enqueue the claim
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// into the controller, which results in syncClaim to be called
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// shortly (and in the right worker goroutine).
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// This speeds up binding of provisioned volumes - provisioner saves
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// only the new PV and it expects that next syncClaim will bind the
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// claim to it.
+</span><span style="color:#6272a4"></span>            ctrl.claimQueue.<span style="color:#50fa7b">Add</span>(<span style="color:#50fa7b">claimToClaimKey</span>(claim))
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+        } <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span> claim.Spec.VolumeName <span style="color:#ff79c6">==</span> volume.Name {
+            <span style="color:#6272a4">// Volume is bound to a claim properly, update status if necessary
+</span><span style="color:#6272a4"></span>            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: all is bound&#34;</span>, volume.Name)
+            <span style="color:#6272a4">//更新volume的状态为Bound
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> _, err = ctrl.<span style="color:#50fa7b">updateVolumePhase</span>(volume, v1.VolumeBound, <span style="color:#f1fa8c">&#34;&#34;</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                <span style="color:#6272a4">// Nothing was saved; we will fall back into the same
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// condition in the next call to this method
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">return</span> err
+            }
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+        } <span style="color:#ff79c6">else</span> {
+            <span style="color:#6272a4">//排除上面那些情况，接下来就剩下pv已绑定pvc，pvc绑定到另一个pv的情况了
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">//如果volume的annotation中有pv.kubernetes.io/provisioned-by且回收策略是delete
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// Volume is bound to a claim, but the claim is bound elsewhere
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> metav1.<span style="color:#50fa7b">HasAnnotation</span>(volume.ObjectMeta, pvutil.AnnDynamicallyProvisioned) <span style="color:#ff79c6">&amp;&amp;</span> volume.Spec.PersistentVolumeReclaimPolicy <span style="color:#ff79c6">==</span> v1.PersistentVolumeReclaimDelete {
+                <span style="color:#6272a4">// This volume was dynamically provisioned for this claim. The
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// claim got bound elsewhere, and thus this volume is not
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// needed. Delete it.
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// Mark the volume as Released for external deleters and to let
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// the user know. Don&#39;t overwrite existing Failed status!
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">if</span> volume.Status.Phase <span style="color:#ff79c6">!=</span> v1.VolumeReleased <span style="color:#ff79c6">&amp;&amp;</span> volume.Status.Phase <span style="color:#ff79c6">!=</span> v1.VolumeFailed {
+                    <span style="color:#6272a4">// Also, log this only once:
+</span><span style="color:#6272a4"></span>                    klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">2</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;dynamically volume %q is released and it will be deleted&#34;</span>, volume.Name)
+                    <span style="color:#6272a4">//更新volume的状态为Released
+</span><span style="color:#6272a4"></span>                    <span style="color:#ff79c6">if</span> volume, err = ctrl.<span style="color:#50fa7b">updateVolumePhase</span>(volume, v1.VolumeReleased, <span style="color:#f1fa8c">&#34;&#34;</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                        <span style="color:#6272a4">// Nothing was saved; we will fall back into the same condition
+</span><span style="color:#6272a4"></span>                        <span style="color:#6272a4">// in the next call to this method
+</span><span style="color:#6272a4"></span>                        <span style="color:#ff79c6">return</span> err
+                    }
+                }
+                <span style="color:#6272a4">//根据volume回收策略进行回收操作
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">if</span> err = ctrl.<span style="color:#50fa7b">reclaimVolume</span>(volume); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                    <span style="color:#6272a4">// Deletion failed, we will fall back into the same condition
+</span><span style="color:#6272a4"></span>                    <span style="color:#6272a4">// in the next call to this method
+</span><span style="color:#6272a4"></span>                    <span style="color:#ff79c6">return</span> err
+                }
+                <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+            } <span style="color:#ff79c6">else</span> {
+                <span style="color:#6272a4">// Volume is bound to a claim, but the claim is bound elsewhere
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// and it&#39;s not dynamically provisioned.
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">if</span> metav1.<span style="color:#50fa7b">HasAnnotation</span>(volume.ObjectMeta, pvutil.AnnBoundByController) {
+                    <span style="color:#6272a4">// This is part of the normal operation of the controller; the
+</span><span style="color:#6272a4"></span>                    <span style="color:#6272a4">// controller tried to use this volume for a claim but the claim
+</span><span style="color:#6272a4"></span>                    <span style="color:#6272a4">// was fulfilled by another volume. We did this; fix it.
+</span><span style="color:#6272a4"></span>                    klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: volume is bound by controller to a claim that is bound to another volume, unbinding&#34;</span>, volume.Name)
+                    <span style="color:#6272a4">//pv和pvc解绑，更新volume的状态为Available
+</span><span style="color:#6272a4"></span>                    <span style="color:#ff79c6">if</span> err = ctrl.<span style="color:#50fa7b">unbindVolume</span>(volume); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                        <span style="color:#ff79c6">return</span> err
+                    }
+                    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+                } <span style="color:#ff79c6">else</span> {
+                    <span style="color:#6272a4">// The PV must have been created with this ptr; leave it alone.
+</span><span style="color:#6272a4"></span>                    klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolume[%s]: volume is bound by user to a claim that is bound to another volume, waiting for the claim to get unbound&#34;</span>, volume.Name)
+                    <span style="color:#6272a4">// This just updates the volume phase and clears
+</span><span style="color:#6272a4"></span>                    <span style="color:#6272a4">// volume.Spec.ClaimRef.UID. It leaves the volume pre-bound
+</span><span style="color:#6272a4"></span>                    <span style="color:#6272a4">// to the claim.
+</span><span style="color:#6272a4"></span>                    <span style="color:#6272a4">//pv和pvc解绑，更新volume的状态为Available
+</span><span style="color:#6272a4"></span>                    <span style="color:#ff79c6">if</span> err = ctrl.<span style="color:#50fa7b">unbindVolume</span>(volume); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                        <span style="color:#ff79c6">return</span> err
+                    }
+                    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+                }
+            }
+        }
+    }
+}
+</code></pre></div><p>claimWorker逻辑</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#6272a4">// claimWorker processes items from claimQueue. It must run only once,
+</span><span style="color:#6272a4">// syncClaim is not reentrant.
+</span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">func</span> (ctrl <span style="color:#ff79c6">*</span>PersistentVolumeController) <span style="color:#50fa7b">claimWorker</span>() {
+    workFunc <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">func</span>() <span style="color:#8be9fd">bool</span> {
+        keyObj, quit <span style="color:#ff79c6">:=</span> ctrl.claimQueue.<span style="color:#50fa7b">Get</span>()
+        <span style="color:#ff79c6">if</span> quit {
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>
+        }
+        <span style="color:#ff79c6">defer</span> ctrl.claimQueue.<span style="color:#50fa7b">Done</span>(keyObj)
+        key <span style="color:#ff79c6">:=</span> keyObj.(<span style="color:#8be9fd">string</span>)
+        klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">5</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;claimWorker[%s]&#34;</span>, key)
+
+        namespace, name, err <span style="color:#ff79c6">:=</span> cache.<span style="color:#50fa7b">SplitMetaNamespaceKey</span>(key)
+        <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;error getting namespace &amp; name of claim %q to get claim from informer: %v&#34;</span>, key, err)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+        <span style="color:#6272a4">//从informer cache中获取
+</span><span style="color:#6272a4"></span>        claim, err <span style="color:#ff79c6">:=</span> ctrl.claimLister.<span style="color:#50fa7b">PersistentVolumeClaims</span>(namespace).<span style="color:#50fa7b">Get</span>(name)
+        <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">==</span> <span style="color:#ff79c6">nil</span> {
+            <span style="color:#6272a4">// The claim still exists in informer cache, the event must have
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// been add/update/sync
+</span><span style="color:#6272a4"></span>            ctrl.<span style="color:#50fa7b">updateClaim</span>(claim)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+        <span style="color:#ff79c6">if</span> !errors.<span style="color:#50fa7b">IsNotFound</span>(err) {
+            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">2</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;error getting claim %q from informer: %v&#34;</span>, key, err)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+
+        <span style="color:#6272a4">// The claim is not in informer cache, the event must have been &#34;delete&#34;
+</span><span style="color:#6272a4"></span>        claimObj, found, err <span style="color:#ff79c6">:=</span> ctrl.claims.<span style="color:#50fa7b">GetByKey</span>(key)
+        <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">2</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;error getting claim %q from cache: %v&#34;</span>, key, err)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+        <span style="color:#ff79c6">if</span> !found {
+            <span style="color:#6272a4">// The controller has already processed the delete event and
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// deleted the claim from its cache
+</span><span style="color:#6272a4"></span>            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">2</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;deletion of claim %q was already processed&#34;</span>, key)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+        claim, ok <span style="color:#ff79c6">:=</span> claimObj.(<span style="color:#ff79c6">*</span>v1.PersistentVolumeClaim)
+        <span style="color:#ff79c6">if</span> !ok {
+            klog.<span style="color:#50fa7b">Errorf</span>(<span style="color:#f1fa8c">&#34;expected claim, got %+v&#34;</span>, claimObj)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+        }
+        ctrl.<span style="color:#50fa7b">deleteClaim</span>(claim)
+        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+    }
+    <span style="color:#ff79c6">for</span> {
+        <span style="color:#ff79c6">if</span> quit <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">workFunc</span>(); quit {
+            klog.<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;claim worker queue shutting down&#34;</span>)
+            <span style="color:#ff79c6">return</span>
+        }
+    }
+}
+</code></pre></div><p>主处理逻辑</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">claimWorker <span style="color:#ff79c6">-</span>&gt; updateClaim <span style="color:#ff79c6">-</span>&gt; syncClaim
+</code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#6272a4">// syncClaim is the main controller method to decide what to do with a claim.
+</span><span style="color:#6272a4">// It&#39;s invoked by appropriate cache.Controller callbacks when a claim is
+</span><span style="color:#6272a4">// created, updated or periodically synced. We do not differentiate between
+</span><span style="color:#6272a4">// these events.
+</span><span style="color:#6272a4">// For easier readability, it was split into syncUnboundClaim and syncBoundClaim
+</span><span style="color:#6272a4">// methods.
+</span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">func</span> (ctrl <span style="color:#ff79c6">*</span>PersistentVolumeController) <span style="color:#50fa7b">syncClaim</span>(claim <span style="color:#ff79c6">*</span>v1.PersistentVolumeClaim) <span style="color:#8be9fd">error</span> {
+    klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing PersistentVolumeClaim[%s]: %s&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim), <span style="color:#50fa7b">getClaimStatusForLogging</span>(claim))
+
+    <span style="color:#6272a4">// Set correct &#34;migrated-to&#34; annotations on PVC and update in API server if
+</span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// necessary
+</span><span style="color:#6272a4"></span>    <span style="color:#6272a4">//更新claim的annotation，从inTree过渡到csi
+</span><span style="color:#6272a4"></span>    newClaim, err <span style="color:#ff79c6">:=</span> ctrl.<span style="color:#50fa7b">updateClaimMigrationAnnotations</span>(claim)
+    <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+        <span style="color:#6272a4">// Nothing was saved; we will fall back into the same
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">// condition in the next call to this method
+</span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">return</span> err
+    }
+    claim = newClaim
+
+    <span style="color:#ff79c6">if</span> !metav1.<span style="color:#50fa7b">HasAnnotation</span>(claim.ObjectMeta, pvutil.AnnBindCompleted) {
+        <span style="color:#6272a4">//同步未被绑定的claim
+</span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">return</span> ctrl.<span style="color:#50fa7b">syncUnboundClaim</span>(claim)
+    } <span style="color:#ff79c6">else</span> {
+        <span style="color:#6272a4">//同步已被绑定的claim
+</span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">return</span> ctrl.<span style="color:#50fa7b">syncBoundClaim</span>(claim)
+    }
+}
+</code></pre></div><p>syncUnboundClaim函数</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#6272a4">// syncUnboundClaim is the main controller method to decide what to do with an
+</span><span style="color:#6272a4">// unbound claim.
+</span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">func</span> (ctrl <span style="color:#ff79c6">*</span>PersistentVolumeController) <span style="color:#50fa7b">syncUnboundClaim</span>(claim <span style="color:#ff79c6">*</span>v1.PersistentVolumeClaim) <span style="color:#8be9fd">error</span> {
+    <span style="color:#6272a4">// This is a new PVC that has not completed binding
+</span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// OBSERVATION: pvc is &#34;Pending&#34;
+</span><span style="color:#6272a4"></span>    <span style="color:#6272a4">//pvc未绑定至pv
+</span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> claim.Spec.VolumeName <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;&#34;</span> {
+        <span style="color:#6272a4">// User did not care which PV they get.
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">//如果pvc指向的volume为空，校验pvc的storageclass是否为WaitForFirstConsumer绑定方式
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">//storageclass pvc和pv的绑定方式有：1. 立即绑定 2. 被pod使用到
+</span><span style="color:#6272a4"></span>        delayBinding, err <span style="color:#ff79c6">:=</span> pvutil.<span style="color:#50fa7b">IsDelayBindingMode</span>(claim, ctrl.classLister)
+        <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+            <span style="color:#ff79c6">return</span> err
+        }
+
+        <span style="color:#6272a4">// [Unit test set 1]
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">//从pvIndex中寻找跟pvc最匹配的pv，pvIndex根据accessmodes建立的索引
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">//1. 获取所有匹配的accessModes
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">//2. 根据[]v1.PersistentVolumeAccessMode过滤出所有的volume
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">//3. 寻找最一个最匹配的volume(容量最接近的)
+</span><span style="color:#6272a4"></span>        volume, err <span style="color:#ff79c6">:=</span> ctrl.volumes.<span style="color:#50fa7b">findBestMatchForClaim</span>(claim, delayBinding)
+        <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">2</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing unbound PersistentVolumeClaim[%s]: Error finding PV for claim: %v&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim), err)
+            <span style="color:#ff79c6">return</span> fmt.<span style="color:#50fa7b">Errorf</span>(<span style="color:#f1fa8c">&#34;Error finding PV for claim %q: %v&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim), err)
+        }
+        <span style="color:#ff79c6">if</span> volume <span style="color:#ff79c6">==</span> <span style="color:#ff79c6">nil</span> {
+            <span style="color:#6272a4">//未找到匹配的pv
+</span><span style="color:#6272a4"></span>            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing unbound PersistentVolumeClaim[%s]: no volume found&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim))
+            <span style="color:#6272a4">// No PV could be found
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// OBSERVATION: pvc is &#34;Pending&#34;, will retry
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">switch</span> {
+            <span style="color:#6272a4">//pvc是否是延迟绑定
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">case</span> delayBinding <span style="color:#ff79c6">&amp;&amp;</span> !pvutil.<span style="color:#50fa7b">IsDelayBindingProvisioning</span>(claim):
+                ctrl.eventRecorder.<span style="color:#50fa7b">Event</span>(claim, v1.EventTypeNormal, events.WaitForFirstConsumer, <span style="color:#f1fa8c">&#34;waiting for first consumer to be created before binding&#34;</span>)
+            <span style="color:#ff79c6">case</span> v1helper.<span style="color:#50fa7b">GetPersistentVolumeClaimClass</span>(claim) <span style="color:#ff79c6">!=</span> <span style="color:#f1fa8c">&#34;&#34;</span>:
+                <span style="color:#6272a4">//没有找到匹配的pv，继续执行provision volume的过程
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">//1.使用external provisioner provision volume
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">//2.使用内置的provisioner provision volume
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">if</span> err = ctrl.<span style="color:#50fa7b">provisionClaim</span>(claim); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                    <span style="color:#ff79c6">return</span> err
+                }
+                <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+            <span style="color:#ff79c6">default</span>:
+                ctrl.eventRecorder.<span style="color:#50fa7b">Event</span>(claim, v1.EventTypeNormal, events.FailedBinding, <span style="color:#f1fa8c">&#34;no persistent volumes available for this claim and no storage class is set&#34;</span>)
+            }
+
+            <span style="color:#6272a4">// Mark the claim as Pending and try to find a match in the next
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// periodic syncClaim
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">//更新claim的状态为Pending
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> _, err = ctrl.<span style="color:#50fa7b">updateClaimStatus</span>(claim, v1.ClaimPending, <span style="color:#ff79c6">nil</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                <span style="color:#ff79c6">return</span> err
+            }
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+        } <span style="color:#ff79c6">else</span> <span style="color:#6272a4">/* pv != nil */</span> {
+            <span style="color:#6272a4">//找到匹配的pv
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// Found a PV for this claim
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// OBSERVATION: pvc is &#34;Pending&#34;, pv is &#34;Available&#34;
+</span><span style="color:#6272a4"></span>            claimKey <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">claimToClaimKey</span>(claim)
+            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing unbound PersistentVolumeClaim[%s]: volume %q found: %s&#34;</span>, claimKey, volume.Name, <span style="color:#50fa7b">getVolumeStatusForLogging</span>(volume))
+            <span style="color:#6272a4">//pv与pvc相互绑定
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> err = ctrl.<span style="color:#50fa7b">bind</span>(volume, claim); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                <span style="color:#6272a4">// On any error saving the volume or the claim, subsequent
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// syncClaim will finish the binding.
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// record count error for provision if exists
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// timestamp entry will remain in cache until a success binding has happened
+</span><span style="color:#6272a4"></span>                metrics.<span style="color:#50fa7b">RecordMetric</span>(claimKey, <span style="color:#ff79c6">&amp;</span>ctrl.operationTimestamps, err)
+                <span style="color:#ff79c6">return</span> err
+            }
+            <span style="color:#6272a4">// OBSERVATION: claim is &#34;Bound&#34;, pv is &#34;Bound&#34;
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// if exists a timestamp entry in cache, record end to end provision latency and clean up cache
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// End of the provision + binding operation lifecycle, cache will be cleaned by &#34;RecordMetric&#34;
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// [Unit test 12-1, 12-2, 12-4]
+</span><span style="color:#6272a4"></span>            metrics.<span style="color:#50fa7b">RecordMetric</span>(claimKey, <span style="color:#ff79c6">&amp;</span>ctrl.operationTimestamps, <span style="color:#ff79c6">nil</span>)
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+        }
+    } <span style="color:#ff79c6">else</span> <span style="color:#6272a4">/* pvc.Spec.VolumeName != nil */</span> {
+        <span style="color:#6272a4">// [Unit test set 2]
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">// User asked for a specific PV.
+</span><span style="color:#6272a4"></span>        klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing unbound PersistentVolumeClaim[%s]: volume %q requested&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim), claim.Spec.VolumeName)
+        obj, found, err <span style="color:#ff79c6">:=</span> ctrl.volumes.store.<span style="color:#50fa7b">GetByKey</span>(claim.Spec.VolumeName)
+        <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+            <span style="color:#ff79c6">return</span> err
+        }
+        <span style="color:#ff79c6">if</span> !found {
+            <span style="color:#6272a4">// User asked for a PV that does not exist.
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// OBSERVATION: pvc is &#34;Pending&#34;
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// Retry later.
+</span><span style="color:#6272a4"></span>            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing unbound PersistentVolumeClaim[%s]: volume %q requested and not found, will try again next time&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim), claim.Spec.VolumeName)
+            <span style="color:#6272a4">//从维护的volumes找不到volume对象的话，更新claim的状态为Pending
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> _, err = ctrl.<span style="color:#50fa7b">updateClaimStatus</span>(claim, v1.ClaimPending, <span style="color:#ff79c6">nil</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                <span style="color:#ff79c6">return</span> err
+            }
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+        } <span style="color:#ff79c6">else</span> {
+            <span style="color:#6272a4">//从维护的volumes找到volume对象的话
+</span><span style="color:#6272a4"></span>            volume, ok <span style="color:#ff79c6">:=</span> obj.(<span style="color:#ff79c6">*</span>v1.PersistentVolume)
+            <span style="color:#ff79c6">if</span> !ok {
+                <span style="color:#ff79c6">return</span> fmt.<span style="color:#50fa7b">Errorf</span>(<span style="color:#f1fa8c">&#34;Cannot convert object from volume cache to volume %q!?: %+v&#34;</span>, claim.Spec.VolumeName, obj)
+            }
+            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing unbound PersistentVolumeClaim[%s]: volume %q requested and found: %s&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim), claim.Spec.VolumeName, <span style="color:#50fa7b">getVolumeStatusForLogging</span>(volume))
+            <span style="color:#6272a4">//pvc状态&#34;Pending&#34;, pv状态&#34;Available&#34;
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> volume.Spec.ClaimRef <span style="color:#ff79c6">==</span> <span style="color:#ff79c6">nil</span> {
+                <span style="color:#6272a4">// User asked for a PV that is not claimed
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// OBSERVATION: pvc is &#34;Pending&#34;, pv is &#34;Available&#34;
+</span><span style="color:#6272a4"></span>                klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing unbound PersistentVolumeClaim[%s]: volume is unbound, binding&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim))
+                <span style="color:#6272a4">//检测pv是否满足pvc要求
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">if</span> err = <span style="color:#50fa7b">checkVolumeSatisfyClaim</span>(volume, claim); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                    klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;Can&#39;t bind the claim to volume %q: %v&#34;</span>, volume.Name, err)
+                    <span style="color:#6272a4">// send an event
+</span><span style="color:#6272a4"></span>                    msg <span style="color:#ff79c6">:=</span> fmt.<span style="color:#50fa7b">Sprintf</span>(<span style="color:#f1fa8c">&#34;Cannot bind to requested volume %q: %s&#34;</span>, volume.Name, err)
+                    ctrl.eventRecorder.<span style="color:#50fa7b">Event</span>(claim, v1.EventTypeWarning, events.VolumeMismatch, msg)
+                    <span style="color:#6272a4">// volume does not satisfy the requirements of the claim
+</span><span style="color:#6272a4"></span>                    <span style="color:#6272a4">//更新claim的状态为Pending
+</span><span style="color:#6272a4"></span>                    <span style="color:#ff79c6">if</span> _, err = ctrl.<span style="color:#50fa7b">updateClaimStatus</span>(claim, v1.ClaimPending, <span style="color:#ff79c6">nil</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                        <span style="color:#ff79c6">return</span> err
+                    }
+                  <span style="color:#6272a4">//pv和pvc相互绑定
+</span><span style="color:#6272a4"></span>                } <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span> err = ctrl.<span style="color:#50fa7b">bind</span>(volume, claim); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                    <span style="color:#6272a4">// On any error saving the volume or the claim, subsequent
+</span><span style="color:#6272a4"></span>                    <span style="color:#6272a4">// syncClaim will finish the binding.
+</span><span style="color:#6272a4"></span>                    <span style="color:#ff79c6">return</span> err
+                }
+                <span style="color:#6272a4">// OBSERVATION: pvc is &#34;Bound&#34;, pv is &#34;Bound&#34;
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+            } <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span> pvutil.<span style="color:#50fa7b">IsVolumeBoundToClaim</span>(volume, claim) {
+                <span style="color:#6272a4">//pvc状态&#34;Pending&#34;, pv状态&#34;Bound&#34;
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// User asked for a PV that is claimed by this PVC
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// OBSERVATION: pvc is &#34;Pending&#34;, pv is &#34;Bound&#34;
+</span><span style="color:#6272a4"></span>                klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing unbound PersistentVolumeClaim[%s]: volume already bound, finishing the binding&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim))
+
+                <span style="color:#6272a4">// Finish the volume binding by adding claim UID.
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">//pv和pvc相互绑定
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">if</span> err = ctrl.<span style="color:#50fa7b">bind</span>(volume, claim); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                    <span style="color:#ff79c6">return</span> err
+                }
+                <span style="color:#6272a4">// OBSERVATION: pvc is &#34;Bound&#34;, pv is &#34;Bound&#34;
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">//pvc状态&#34;Bound&#34;, pv状态&#34;Bound&#34;
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+            } <span style="color:#ff79c6">else</span> {
+                <span style="color:#6272a4">//pv指向其他的pvc，pvc状态&#34;Pending&#34;, pv状态&#34;Bound&#34;
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// User asked for a PV that is claimed by someone else
+</span><span style="color:#6272a4"></span>                <span style="color:#6272a4">// OBSERVATION: pvc is &#34;Pending&#34;, pv is &#34;Bound&#34;
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">if</span> !metav1.<span style="color:#50fa7b">HasAnnotation</span>(claim.ObjectMeta, pvutil.AnnBoundByController) {
+                    klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing unbound PersistentVolumeClaim[%s]: volume already bound to different claim by user, will retry later&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim))
+                    <span style="color:#6272a4">// User asked for a specific PV, retry later
+</span><span style="color:#6272a4"></span>                    <span style="color:#ff79c6">if</span> _, err = ctrl.<span style="color:#50fa7b">updateClaimStatus</span>(claim, v1.ClaimPending, <span style="color:#ff79c6">nil</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                        <span style="color:#ff79c6">return</span> err
+                    }
+                    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+                } <span style="color:#ff79c6">else</span> {
+                    <span style="color:#6272a4">// This should never happen because someone had to remove
+</span><span style="color:#6272a4"></span>                    <span style="color:#6272a4">// AnnBindCompleted annotation on the claim.
+</span><span style="color:#6272a4"></span>                    klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing unbound PersistentVolumeClaim[%s]: volume already bound to different claim %q by controller, THIS SHOULD NEVER HAPPEN&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim), <span style="color:#50fa7b">claimrefToClaimKey</span>(volume.Spec.ClaimRef))
+                    <span style="color:#ff79c6">return</span> fmt.<span style="color:#50fa7b">Errorf</span>(<span style="color:#f1fa8c">&#34;Invalid binding of claim %q to volume %q: volume already claimed by %q&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim), claim.Spec.VolumeName, <span style="color:#50fa7b">claimrefToClaimKey</span>(volume.Spec.ClaimRef))
+                }
+            }
+        }
+    }
+}
+</code></pre></div><p>syncBoundClaim函数</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#6272a4">// syncBoundClaim is the main controller method to decide what to do with a
+</span><span style="color:#6272a4">// bound claim.
+</span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">func</span> (ctrl <span style="color:#ff79c6">*</span>PersistentVolumeController) <span style="color:#50fa7b">syncBoundClaim</span>(claim <span style="color:#ff79c6">*</span>v1.PersistentVolumeClaim) <span style="color:#8be9fd">error</span> {
+    <span style="color:#6272a4">// HasAnnotation(pvc, pvutil.AnnBindCompleted)
+</span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// This PVC has previously been bound
+</span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// OBSERVATION: pvc is not &#34;Pending&#34;
+</span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// [Unit test set 3]
+</span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> claim.Spec.VolumeName <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;&#34;</span> {
+        <span style="color:#6272a4">// Claim was bound before but not any more.
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">//pvc之前是Bound状态，现在是Lost状态
+</span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">if</span> _, err <span style="color:#ff79c6">:=</span> ctrl.<span style="color:#50fa7b">updateClaimStatusWithEvent</span>(claim, v1.ClaimLost, <span style="color:#ff79c6">nil</span>, v1.EventTypeWarning, <span style="color:#f1fa8c">&#34;ClaimLost&#34;</span>, <span style="color:#f1fa8c">&#34;Bound claim has lost reference to PersistentVolume. Data on the volume is lost!&#34;</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+            <span style="color:#ff79c6">return</span> err
+        }
+        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+    }
+    <span style="color:#6272a4">//从本地volumes缓存中根据pv名字获取对应的对象
+</span><span style="color:#6272a4"></span>    obj, found, err <span style="color:#ff79c6">:=</span> ctrl.volumes.store.<span style="color:#50fa7b">GetByKey</span>(claim.Spec.VolumeName)
+    <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+        <span style="color:#ff79c6">return</span> err
+    }
+    <span style="color:#ff79c6">if</span> !found {
+        <span style="color:#6272a4">// Claim is bound to a non-existing volume.
+</span><span style="color:#6272a4"></span>        <span style="color:#6272a4">//未找到匹配的pv对象
+</span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">if</span> _, err = ctrl.<span style="color:#50fa7b">updateClaimStatusWithEvent</span>(claim, v1.ClaimLost, <span style="color:#ff79c6">nil</span>, v1.EventTypeWarning, <span style="color:#f1fa8c">&#34;ClaimLost&#34;</span>, <span style="color:#f1fa8c">&#34;Bound claim has lost its PersistentVolume. Data on the volume is lost!&#34;</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+            <span style="color:#ff79c6">return</span> err
+        }
+        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+    } <span style="color:#ff79c6">else</span> {
+        <span style="color:#6272a4">//找到匹配的pv对象
+</span><span style="color:#6272a4"></span>        volume, ok <span style="color:#ff79c6">:=</span> obj.(<span style="color:#ff79c6">*</span>v1.PersistentVolume)
+        <span style="color:#ff79c6">if</span> !ok {
+            <span style="color:#ff79c6">return</span> fmt.<span style="color:#50fa7b">Errorf</span>(<span style="color:#f1fa8c">&#34;Cannot convert object from volume cache to volume %q!?: %#v&#34;</span>, claim.Spec.VolumeName, obj)
+        }
+
+        klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing bound PersistentVolumeClaim[%s]: volume %q found: %s&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim), claim.Spec.VolumeName, <span style="color:#50fa7b">getVolumeStatusForLogging</span>(volume))
+        <span style="color:#ff79c6">if</span> volume.Spec.ClaimRef <span style="color:#ff79c6">==</span> <span style="color:#ff79c6">nil</span> {
+            <span style="color:#6272a4">//pvc绑定了pv，但pv未绑定pvc
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// Claim is bound but volume has come unbound.
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// Or, a claim was bound and the controller has not received updated
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// volume yet. We can&#39;t distinguish these cases.
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// Bind the volume again and set all states to Bound.
+</span><span style="color:#6272a4"></span>            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing bound PersistentVolumeClaim[%s]: volume is unbound, fixing&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim))
+            <span style="color:#6272a4">//pv和pvc相互绑定
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> err = ctrl.<span style="color:#50fa7b">bind</span>(volume, claim); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                <span style="color:#6272a4">// Objects not saved, next syncPV or syncClaim will try again
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">return</span> err
+            }
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+        } <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span> volume.Spec.ClaimRef.UID <span style="color:#ff79c6">==</span> claim.UID {
+            <span style="color:#6272a4">//pvc和pv已相互绑定
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// All is well
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// NOTE: syncPV can handle this so it can be left out.
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// NOTE: bind() call here will do nothing in most cases as
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// everything should be already set.
+</span><span style="color:#6272a4"></span>            klog.<span style="color:#50fa7b">V</span>(<span style="color:#bd93f9">4</span>).<span style="color:#50fa7b">Infof</span>(<span style="color:#f1fa8c">&#34;synchronizing bound PersistentVolumeClaim[%s]: claim is already correctly bound&#34;</span>, <span style="color:#50fa7b">claimToClaimKey</span>(claim))
+            <span style="color:#ff79c6">if</span> err = ctrl.<span style="color:#50fa7b">bind</span>(volume, claim); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                <span style="color:#6272a4">// Objects not saved, next syncPV or syncClaim will try again
+</span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">return</span> err
+            }
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+        } <span style="color:#ff79c6">else</span> {
+            <span style="color:#6272a4">//pvc是Bound状态，但pv却和其他pvc绑定了
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// Claim is bound but volume has a different claimant.
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// Set the claim phase to &#39;Lost&#39;, which is a terminal
+</span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// phase.
+</span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> _, err = ctrl.<span style="color:#50fa7b">updateClaimStatusWithEvent</span>(claim, v1.ClaimLost, <span style="color:#ff79c6">nil</span>, v1.EventTypeWarning, <span style="color:#f1fa8c">&#34;ClaimMisbound&#34;</span>, <span style="color:#f1fa8c">&#34;Two claims are bound to the same volume, this one is bound incorrectly&#34;</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+                <span style="color:#ff79c6">return</span> err
+            }
+            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>
+        }
+    }
+}
+</code></pre></div><h4 id="12-attachdetachcontroller">1.2 AttachDetachController</h4>
+<h4 id="13-volumeexpandcontroller">1.3 VolumeExpandController</h4>
+<h4 id="14-pvcprotectioncontroller">1.4 PVCProtectionController</h4>
+<h4 id="15-pvprotectioncontroller">1.5 PVProtectionController</h4>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2021-01-21-tkestack_tapp_readnote/" data-toggle="tooltip" data-placement="top" title="TKEStack TAPP源码阅读笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2021-03-28-devops_and_lowcode_with_tkestack/" data-toggle="tooltip" data-placement="top" title="基于TKEStack构建的DevOps体系">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

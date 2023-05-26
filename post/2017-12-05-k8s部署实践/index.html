@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="K8s部署实践" />
+    <meta property="og:title" content="K8s部署实践" />
+    <meta property="twitter:title" content="K8s部署实践" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>K8s部署实践 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2017-12-05-k8s%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>K8s部署实践</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Tuesday, December 5, 2017
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h3 id="环境">环境</h3>
+<ul>
+<li>CentOS 7.3</li>
+<li>docker-ce-17.11.0.ce-1.el7.centos.x86_64</li>
+<li>kubectl-1.8.4-0.x86_64</li>
+<li>kubeadm-1.8.4-0.x86_64</li>
+<li>kubelet-1.8.4-0.x86_64</li>
+<li>kubernetes-cni-0.5.1-1.x86_64</li>
+</ul>
+<h3 id="系统配置">系统配置</h3>
+<p>单节点，静态主机名解析</p>
+<pre><code>[root@master ~]# cat /etc/hosts  
+172.19.0.14 master
+</code></pre>
+<p>禁用防火墙和selinux</p>
+<pre><code>[root@master ~]# systemctl stop firewalld     
+[root@master ~]# systemctl disable firewalld
+
+[root@master ~]# setenforce 0
+[root@master ~]# vim /etc/selinux/config
+SELINUX=disabled
+</code></pre>
+<p>k8s从1.8版本开始kubelet要求关闭系统swap,不然无法启动；可以通过kubelet的启动参数&ndash;fail-swap-on=false更改这个限制。</p>
+<pre><code>[root@master ~]# swapoff -a  # 关闭系统swap
+</code></pre>
+<p>编辑/etc/fstab,禁用swap分区的挂载</p>
+<pre><code>[root@master ~]# free -m   # 可用free -m查看swap是否关闭
+              total        used        free      shared  buff/cache   available
+Mem:            992         564          72           1         355         255
+Swap:             0           0           0
+</code></pre>
+<p>swappiness参数调整</p>
+<pre><code>[root@master ~]# vim /etc/sysctl.d/k8s.conf   # 添加如下内容
+vm.swappiness=0
+
+[root@master ~]# sysctl -p /etc/sysctl.d/k8s.conf  # 使之生效
+</code></pre>
+<h3 id="安装docker">安装docker</h3>
+<p>安装相关依赖包</p>
+<pre><code>[root@master ~]# yum install -y yum-utils device-mapper-persistent-data lvm2
+</code></pre>
+<p>添加docker stable版本的repo</p>
+<pre><code>root@master ~]# yum-config-manager --add-repo \
+    https://download.docker.com/linux/centos/docker-ce.repo
+</code></pre>
+<p>如果想安装最新版docker的话，就采用这个</p>
+<pre><code>[root@master ~]# curl -fsSL &quot;https://get.docker.com/&quot; | sh
+</code></pre>
+<p>安装docker包</p>
+<pre><code>[root@master ~]# yum install -y docker-ce docker-ce-selinux  
+</code></pre>
+<p>docker从1.13版本(docker-ce没有这个问题)开始禁用iptables filter表中的FOWARD链，这样会导致k8s集群跨Node的Pod无法通信</p>
+<pre><code>[root@master ~]# vim /usr/lib/systemd/system/docker.service # 编辑docker systemd文件，在ExecStart上面加入ExecStartPost命令
+ExecStartPost=/usr/sbin/iptables -P FORWARD ACCEPT
+ExecStart=......
+</code></pre>
+<p>启动docker服务</p>
+<pre><code>[root@master ~]# systemctl daemon-reload
+[root@master ~]# systemctl enable docker
+[root@master ~]# systemctl start docker
+</code></pre>
+<h3 id="kubeadm工具部署">kubeadm工具部署</h3>
+<h4 id="kubeadm介绍">kubeadm介绍</h4>
+<blockquote>
+<p>kubeadm是一种工具，旨在提供kubeadm初始化和kubeadm联接作为创建Kubernetes集群的最佳实践&quot;快速路径&quot;.
+kubeadm执行必要的操作，以使最小可行的群集启动并运行。从设计上讲，它只关心引导程序，而不关心配置机器。
+同样，也不在安装各种功能强大的插件，例如Kubernetes仪表板，监视解决方案和特定于云的插件。</p>
+</blockquote>
+<h4 id="安装kubeadmkubeletkubectl">安装kubeadm、kubelet、kubectl</h4>
+<p>添加kubernetes repo源</p>
+<pre><code>[root@master ~]# cat &lt;&lt;EOF &gt; /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
+        https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+</code></pre>
+<p>测试k8s repo地址是否可用，不然可能需要想办法了。</p>
+<pre><code>[root@master ~]# curl https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+</code></pre>
+<p>安装kubelet kubeadm kubectl包</p>
+<pre><code>[root@master ~]# yum install -y kubelet kubeadm kubectl
+</code></pre>
+<p>kubelet服务开机自启动</p>
+<pre><code>[root@master ~]# systemctl enable kubelet.service
+</code></pre>
+<p>注：kubelet启动时带的cgroup-driver参数(默认cgroup)和docker使用的cgroup-driver参数(默认cgroup)有所不同，会导致kubelet服务启动失败，因为kubeadm包装出来的配置文件中cgroup-driver为systemd，所以这里选择修改docker cgroup-driver为systemd</p>
+<pre><code>[root@master ~]# rpm -ql kubeadm-1.8.4-0.x86_64
+/etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+/usr/bin/kubeadm
+
+[root@master ~]# cat /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+[Service]
+Environment=&quot;KUBELET_CGROUP_ARGS=--cgroup-driver=systemd&quot;
+
+[root@master ~]# vim /etc/docker/daemon.json
+{
+  &quot;exec-opts&quot;: [&quot;native.cgroupdriver=systemd&quot;]
+}
+</code></pre>
+<p>重启docker服务</p>
+<pre><code>[root@master ~]# systemctl restart docker
+[root@master ~]# systemctl status docker
+</code></pre>
+<h4 id="kubeadm创建集群">kubeadm创建集群</h4>
+<p>这里选用flannel网络插件，还需要改些bridge参数</p>
+<pre><code>[root@master ~]# vim /etc/sysctl.d/k8s.conf  # 添加如下内容
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+
+[root@master ~]# sysctl -p /etc/sysctl.d/k8s.conf  # 使之生效
+</code></pre>
+<p>初始化集群</p>
+<pre><code>[root@master ~]# kubeadm init  --kubernetes-version=v1.8.4 \
+              --pod-network-cidr=10.244.0.0/16 \ --apiserver-advertise-address=172.19.0.14
+[kubeadm] WARNING: kubeadm is in beta, please do not use it for production clusters.
+[init] Using Kubernetes version: v1.8.4
+[init] Using Authorization modes: [Node RBAC]
+[preflight] Running pre-flight checks
+[preflight] WARNING: docker version is greater than the most recently validated version. Docker version: 17.11.0-ce. Max validated version: 17.03
+[preflight] Starting the kubelet service
+[kubeadm] WARNING: starting in 1.8, tokens expire after 24 hours by default (if you require a non-expiring token use --token-ttl 0)
+[certificates] Generated ca certificate and key.
+[certificates] Generated apiserver certificate and key.
+[certificates] apiserver serving cert is signed for DNS names [master kubernetes kubernetes.default kubernetes.default.svc kubernetes.default.svc.cluster.local] and IPs [10.96.0.1 172.19.0.14]
+[certificates] Generated apiserver-kubelet-client certificate and key.
+[certificates] Generated sa key and public key.
+[certificates] Generated front-proxy-ca certificate and key.
+[certificates] Generated front-proxy-client certificate and key.
+[certificates] Valid certificates and keys now exist in &quot;/etc/kubernetes/pki&quot;
+[kubeconfig] Wrote KubeConfig file to disk: &quot;admin.conf&quot;
+[kubeconfig] Wrote KubeConfig file to disk: &quot;kubelet.conf&quot;
+[kubeconfig] Wrote KubeConfig file to disk: &quot;controller-manager.conf&quot;
+[kubeconfig] Wrote KubeConfig file to disk: &quot;scheduler.conf&quot;
+[controlplane] Wrote Static Pod manifest for component kube-apiserver to &quot;/etc/kubernetes/manifests/kube-apiserver.yaml&quot;
+[controlplane] Wrote Static Pod manifest for component kube-controller-manager to &quot;/etc/kubernetes/manifests/kube-controller-manager.yaml&quot;
+[controlplane] Wrote Static Pod manifest for component kube-scheduler to &quot;/etc/kubernetes/manifests/kube-scheduler.yaml&quot;
+[etcd] Wrote Static Pod manifest for a local etcd instance to &quot;/etc/kubernetes/manifests/etcd.yaml&quot;
+[init] Waiting for the kubelet to boot up the control plane as Static Pods from directory &quot;/etc/kubernetes/manifests&quot;
+[init] This often takes around a minute; or longer if the control plane images have to be pulled.
+[apiclient] All control plane components are healthy after 30.001692 seconds
+[uploadconfig] Storing the configuration used in ConfigMap &quot;kubeadm-config&quot; in the &quot;kube-system&quot; Namespace
+[markmaster] Will mark node master as master by adding a label and a taint
+[markmaster] Master master tainted and labelled with key/value: node-role.kubernetes.io/master=&quot;&quot;
+[bootstraptoken] Using token: 5b0855.b90b56759e07723e
+[bootstraptoken] Configured RBAC rules to allow Node Bootstrap tokens to post CSRs in order for nodes to get long term certificate credentials
+[bootstraptoken] Configured RBAC rules to allow the csrapprover controller automatically approve CSRs from a Node Bootstrap Token
+[bootstraptoken] Configured RBAC rules to allow certificate rotation for all node client certificates in the cluster
+[bootstraptoken] Creating the &quot;cluster-info&quot; ConfigMap in the &quot;kube-public&quot; namespace
+[addons] Applied essential addon: kube-dns
+[addons] Applied essential addon: kube-proxy
+
+Your Kubernetes master has initialized successfully!
+
+To start using your cluster, you need to run (as a regular user):
+
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+You should now deploy a pod network to the cluster.
+Run &quot;kubectl apply -f [podnetwork].yaml&quot; with one of the options listed at:
+  http://kubernetes.io/docs/admin/addons/
+
+You can now join any number of machines by running the following on each node
+as root:
+  # 这个跟后续新增节点有关，务必记住
+  kubeadm join --token 5b0855.b90b56759e07723e 172.19.0.14:6443 --discovery-token-ca-cert-hash sha256:2cad4211f45f0d454f9a3ac7f59e997248c57497421a0df719a08fca9e385cc1
+</code></pre>
+<p>安装pod网络插件</p>
+<pre><code>[root@master ~]# kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/v0.9.1/Documentation/kube-flannel.yml
+</code></pre>
+<p>如果节点有多个网卡的话，需要指定网卡名称，详情见这里：<a href="https://github.com/kubernetes/kubernetes/issues/39701">https://github.com/kubernetes/kubernetes/issues/39701</a></p>
+<p>不同网络插件略有不同，其它网络插件配置详情见这里：<br>
+<a href="https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/#pod-network">https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/#pod-network</a></p>
+<p>按照初始化集群后的提示，进行如下操作</p>
+<pre><code>mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+</code></pre>
+<p>查看集群状态</p>
+<pre><code>[root@master ~]# kubectl get cs
+NAME                 STATUS    MESSAGE              ERROR
+scheduler            Healthy   ok
+controller-manager   Healthy   ok
+etcd-0               Healthy   {&quot;health&quot;: &quot;true&quot;}
+</code></pre>
+<p>kubeadm安装出来的k8s服务都是以容器形式运行，查看所有pod状态</p>
+<pre><code>[root@master ~]# kubectl get pod --all-namespaces -o wide
+NAMESPACE     NAME                             READY     STATUS    RESTARTS   AGE       IP            NODE
+kube-system   etcd-master                      1/1       Running   0          20h       172.19.0.14   master
+kube-system   kube-apiserver-master            1/1       Running   0          20h       172.19.0.14   master
+kube-system   kube-controller-manager-master   1/1       Running   0          20h       172.19.0.14   master
+kube-system   kube-dns-545bc4bfd4-nt7k6        3/3       Running   0          20h       10.244.0.2    master
+kube-system   kube-flannel-ds-p9n2n            1/1       Running   0          20h       172.19.0.14   master
+kube-system   kube-proxy-5j8h7                 1/1       Running   0          20h       172.19.0.14   master
+kube-system   kube-scheduler-master            1/1       Running   0          20h       172.19.0.14   master
+</code></pre>
+<p>让master节点也参与调度</p>
+<pre><code>[root@master ~]# kubectl taint nodes master node-role.kubernetes.io/master-
+node &quot;master&quot; untainted
+</code></pre>
+<h4 id="集群重置">集群重置</h4>
+<pre><code>kubeadm reset
+ifconfig cni0 down
+ip link delete cni0
+ifconfig flannel.1 down
+ip link delete flannel.1
+rm -rf /var/lib/cni/
+</code></pre>
+<h3 id="kind工具部署">Kind工具部署</h3>
+<h4 id="kind介绍">Kind介绍</h4>
+<blockquote>
+<p>kinded是一种使用Docker容器&quot;节点&quot;运行本地Kubernetes集群的工具。 该类型主要用于测试Kubernetes本身，但可用于本地开发或CI。
+默认情况下，Kind会先下载kindest/node镜像，该镜像包含kubernetes的主要组件，
+当镜像节点准备好时，Kind使用kubeadm进行集群的创建，内部使用containerd跑组件容器。</p>
+</blockquote>
+<h4 id="部署kind">部署kind</h4>
+<pre tabindex="0"><code>wget -O /usr/local/bin/kind https://github.com/kubernetes-sigs/kind/releases/download/v0.9.0/kind-linux-amd64 &amp;&amp; chmod +x /usr/local/bin/kind
+</code></pre><h4 id="kind创建单集群">kind创建单集群</h4>
+<pre tabindex="0"><code>root@xiabingyao-LC0:~# kind create cluster --name test
+Creating cluster &quot;test&quot; ...
+ ✓ Ensuring node image (kindest/node:v1.19.1) 🖼 
+ ✓ Preparing nodes 📦  
+ ✓ Writing configuration 📜 
+ ✓ Starting control-plane 🕹️ 
+ ✓ Installing CNI 🔌 
+ ✓ Installing StorageClass 💾 
+Set kubectl context to &quot;kind-test&quot;
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-test
+
+Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/#community 🙂
+</code></pre><p>默认集群kubeconfig配置自动加入到～/.kube/config</p>
+<h4 id="查看kind集群">查看kind集群</h4>
+<p>查看kind集群</p>
+<pre tabindex="0"><code># kind get clusters
+test
+</code></pre><p>也可以通过<code>kind get kubeconfig</code>生成kubeconfig配置</p>
+<pre tabindex="0"><code># kind get kubeconfig --name=test
+</code></pre><p>下面就跟操作k8s集群一样的操作了</p>
+<pre tabindex="0"><code># kubectl cluster-info 
+Kubernetes master is running at https://127.0.0.1:35747
+KubeDNS is running at https://127.0.0.1:35747/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+</code></pre><pre tabindex="0"><code># kubectl get pod -A
+NAMESPACE            NAME                                         READY   STATUS    RESTARTS   AGE
+kube-system          coredns-f9fd979d6-444gm                      1/1     Running   0          6m10s
+kube-system          coredns-f9fd979d6-m4hzb                      1/1     Running   0          6m10s
+kube-system          etcd-test-control-plane                      1/1     Running   0          6m21s
+kube-system          kindnet-ng5ht                                1/1     Running   0          6m10s
+kube-system          kube-apiserver-test-control-plane            1/1     Running   0          6m21s
+kube-system          kube-controller-manager-test-control-plane   1/1     Running   0          6m21s
+kube-system          kube-proxy-bfln2                             1/1     Running   0          6m10s
+kube-system          kube-scheduler-test-control-plane            1/1     Running   0          6m21s
+local-path-storage   local-path-provisioner-78776bfc44-pglpg      1/1     Running   0          6m10s
+</code></pre><pre tabindex="0"><code># kubectl get nodes -o wide
+NAME                 STATUS   ROLES    AGE     VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                                     KERNEL-VERSION     CONTAINER-RUNTIME
+test-control-plane   Ready    master   6m37s   v1.19.1   172.18.0.2    &lt;none&gt;        Ubuntu Groovy Gorilla (development branch)   5.4.0-52-generic   containerd://1.4.0
+</code></pre><h4 id="指定配置创建集群">指定配置创建集群</h4>
+<p>指定service cidr创建集群</p>
+<pre tabindex="0"><code>cat &gt; config.yaml &lt;&lt; EOF
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  serviceSubnet: &quot;11.96.0.0/12&quot;
+EOF
+</code></pre><pre tabindex="0"><code># # kind create cluster --name test2 --config config.yaml
+Creating cluster &quot;test2&quot; ...
+ ✓ Ensuring node image (kindest/node:v1.19.1) 🖼 
+ ✓ Preparing nodes 📦  
+ ✓ Writing configuration 📜 
+⠊⠁ Starting control-plane 🕹️ 
+ ✓ Starting control-plane 🕹️ 
+ ✓ Installing CNI 🔌 
+ ✓ Installing StorageClass 💾 
+Set kubectl context to &quot;kind-test2&quot;
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-test2
+
+Not sure what to do next? 😅  Check out https://kind.sigs.k8s.io/docs/user/quick-start/
+</code></pre><p>嵌入kubeadm配置创建集群</p>
+<pre tabindex="0"><code>kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+kubeadmConfigPatches:
+- |
+  apiVersion: kubeadm.k8s.io/v1beta2
+  kind: ClusterConfiguration
+  metadata:
+    name: config
+  networking:
+    dnsDomain: kind.iceyao.com
+  apiServer:
+    extraArgs:
+      insecure-bind-address: 0.0.0.0
+      insecure-port: &quot;6444&quot;
+    certSANs:
+    - kind.iceyao.com
+    - 172.17.0.2
+    - 172.17.0.3
+    - 172.17.0.4
+    - 127.0.0.1
+    - localhost
+    - kubernetes
+    - kubernetes.default
+    - kubernetes.default.svc
+    - kubernetes.default.svc.kind.iceyao.com
+    - 10.96.0.1
+</code></pre><p>启用featureGate</p>
+<pre tabindex="0"><code>kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+kubeadmConfigPatches:
+- |
+  apiVersion: kubeadm.k8s.io/v1beta2
+  kind: ClusterConfiguration
+  metadata:
+    name: config
+  apiServer:
+    extraArgs:
+      &quot;feature-gates&quot;: &quot;ServiceTopology=true,EndpointSlice=true&quot;
+  scheduler:
+    extraArgs:
+      &quot;feature-gates&quot;: &quot;ServiceTopology=true,EndpointSlice=true&quot;
+  controllerManager:
+    extraArgs:
+      &quot;feature-gates&quot;: &quot;ServiceTopology=true,EndpointSlice=true&quot;
+- |
+  apiVersion: kubeadm.k8s.io/v1beta2
+  kind: InitConfiguration
+  metadata:
+    name: config
+  nodeRegistration:
+    kubeletExtraArgs:
+      &quot;feature-gates&quot;: &quot;ServiceTopology=true,EndpointSlice=true&quot;
+nodes:
+- role: control-plane
+</code></pre><h4 id="kind创建ha集群">kind创建HA集群</h4>
+<pre tabindex="0"><code>cat &gt; config.yaml &lt;&lt; EOF
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+- role: control-plane
+- role: control-plane
+- role: worker
+- role: worker
+- role: worker
+EOF
+</code></pre><pre tabindex="0"><code># kind create cluster --name test2 --config config.yaml
+Creating cluster &quot;test2&quot; ...
+ ✓ Ensuring node image (kindest/node:v1.19.1) 🖼 
+⠈⠱ Preparing nodes 📦 📦 📦 📦 📦 📦  
+ ✓ Preparing nodes 📦 📦 📦 📦 📦 📦  
+ ✓ Configuring the external load balancer ⚖️ 
+ ✓ Writing configuration 📜 
+ ✓ Starting control-plane 🕹️ 
+ ✓ Installing CNI 🔌 
+ ✓ Installing StorageClass 💾 
+⠈⡱ Joining more control-plane nodes 🎮 
+ ✓ Joining more control-plane nodes 🎮 
+ ✓ Joining worker nodes 🚜 
+Set kubectl context to &quot;kind-test2&quot;
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-test2
+
+Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/#community 🙂
+</code></pre><pre tabindex="0"><code># kubectl get nodes -o wide
+NAME                   STATUS   ROLES    AGE     VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                                     KERNEL-VERSION     CONTAINER-RUNTIME
+test2-control-plane    Ready    master   2m42s   v1.19.1   172.18.0.3    &lt;none&gt;        Ubuntu Groovy Gorilla (development branch)   5.4.0-52-generic   containerd://1.4.0
+test2-control-plane2   Ready    master   2m15s   v1.19.1   172.18.0.5    &lt;none&gt;        Ubuntu Groovy Gorilla (development branch)   5.4.0-52-generic   containerd://1.4.0
+test2-control-plane3   Ready    master   83s     v1.19.1   172.18.0.6    &lt;none&gt;        Ubuntu Groovy Gorilla (development branch)   5.4.0-52-generic   containerd://1.4.0
+test2-worker           Ready    &lt;none&gt;   72s     v1.19.1   172.18.0.8    &lt;none&gt;        Ubuntu Groovy Gorilla (development branch)   5.4.0-52-generic   containerd://1.4.0
+test2-worker2          Ready    &lt;none&gt;   71s     v1.19.1   172.18.0.4    &lt;none&gt;        Ubuntu Groovy Gorilla (development branch)   5.4.0-52-generic   containerd://1.4.0
+test2-worker3          Ready    &lt;none&gt;   72s     v1.19.1   172.18.0.7    &lt;none&gt;        Ubuntu Groovy Gorilla (development branch)   5.4.0-52-generic   containerd://1.4.0
+</code></pre><h4 id="原理">原理</h4>
+<p>一个集群节点就会起一个kindest/node镜像的docker容器</p>
+<pre tabindex="0"><code># docker ps
+CONTAINER ID        IMAGE                  COMMAND                  CREATED             STATUS              PORTS                       NAMES
+d92cd30a54bf        kindest/node:v1.19.1   &quot;/usr/local/bin/entr…&quot;   2 hours ago         Up 2 hours          127.0.0.1:35747-&gt;6443/tcp   test-control-plane
+</code></pre><p>有kind专用的docker网络</p>
+<pre tabindex="0"><code># docker network ls
+NETWORK ID          NAME                DRIVER              SCOPE
+e973e7d48f68        bridge              bridge              local
+702681764ddb        host                host                local
+f8bb928a9027        kind                bridge              local
+fd0209865631        none                null                local
+</code></pre><p>进入docker容器内部，然后使用crictl ps可以看到containerd起的容器</p>
+<pre tabindex="0"><code>root@xiabingyao-LC0:/tmp# docker ps
+CONTAINER ID        IMAGE                  COMMAND                  CREATED             STATUS              PORTS                       NAMES
+d92cd30a54bf        kindest/node:v1.19.1   &quot;/usr/local/bin/entr…&quot;   2 hours ago         Up 2 hours          127.0.0.1:35747-&gt;6443/tcp   test-control-plane
+
+root@xiabingyao-LC0:/tmp# docker exec -it test-control-plane bash
+root@test-control-plane:/# crictl ps
+CONTAINER           IMAGE               CREATED             STATE               NAME                      ATTEMPT             POD ID
+62ce2437ef606       bfe3a36ebd252       2 hours ago         Running             coredns                   0                   9ccdb7c1e81ff
+b6066c7f49614       e422121c9c5f9       2 hours ago         Running             local-path-provisioner    0                   7798f456e8d89
+ab794130d4c40       bfe3a36ebd252       2 hours ago         Running             coredns                   0                   10b2c8fb74299
+a4c7af3163057       b77790820d015       2 hours ago         Running             kindnet-cni               0                   a2cdeba8acb32
+122569f5c27b6       47e289e332426       2 hours ago         Running             kube-proxy                0                   b5bb9550d32d6
+3ecd9df8fb4f5       0369cf4303ffd       2 hours ago         Running             etcd                      0                   698193e891b67
+4fb2ba0b97bfa       7dafbafe72c90       2 hours ago         Running             kube-controller-manager   0                   9af310c3f18be
+8868b5c0e0aef       4d648fc900179       2 hours ago         Running             kube-scheduler            0                   a9d00df6801d0
+e787f5ba43275       8cba89a89aaa8       2 hours ago         Running             kube-apiserver            0                   72758bf4bc244
+</code></pre><h3 id="参考链接">参考链接</h3>
+<ul>
+<li><a href="https://blog.frognew.com/2017/09/kubeadm-install-kubernetes-1.8.html">使用kubeadm安装Kubernetes 1.8</a></li>
+<li><a href="https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/">https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/</a></li>
+<li><a href="https://kind.sigs.k8s.io/docs/user/configuration/">kind官网</a></li>
+<li><a href="https://github.com/kubernetes-sigs/cri-tools">crtctl使用</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2017-11-19-neutron_lbaas%E4%BB%A3%E7%90%86https%E5%AE%9E%E8%B7%B5/" data-toggle="tooltip" data-placement="top" title="Neutron lbaas代理https实践">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2018-01-03-go%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA/" data-toggle="tooltip" data-placement="top" title="Go开发环境搭建">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="k8s ipv4/ipv6双栈实践" />
+    <meta property="og:title" content="k8s ipv4/ipv6双栈实践" />
+    <meta property="twitter:title" content="k8s ipv4/ipv6双栈实践" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>k8s ipv4/ipv6双栈实践 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-11-28-k8s_dual_stack/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>k8s ipv4/ipv6双栈实践</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Saturday, November 28, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h3 id="1-k8s双栈">1 k8s双栈</h3>
+<p>k8s从1.16版本支持ipv4/ipv6双协议栈，集群将支持同时分配IPv4和IPv6地址</p>
+<h3 id="2-ipv6">2 ipv6</h3>
+<h4 id="21-简介">2.1 简介</h4>
+<blockquote>
+<p>IPv6具有比IPv4大得多的编码地址空间。这是因为IPv6采用128位的地址，而IPv4使用的是32位。因此新增的地址空间支持2128（约3.4×1038）个地址，具体数量为340,282,366,920,938,463,463,374,607,431,768,211,456 个，也可以说成1632个，因为每4位地址（128位分为32段，每段4位）可以取24=16个不同的值。
+网络地址转换是目前减缓IPv4地址耗尽最有效的方式，而IPv6的地址消除了对它的依赖，被认为足够在可以预测的未来使用。就以地球人口70亿人计算，每人平均可分得约4.86×1028（486117667×1020）个IPv6地址。
+IPv6从IPv4到IPv6最显著的变化就是网络地址的长度。RFC 2373和RFC 2374定义的IPv6地址有128位长；IPv6地址的表达形式一般采用32个十六进制数。
+在很多场合，IPv6地址由两个逻辑部分组成：一个64位的网络前缀和一个64位的主机地址，主机地址通常根据物理地址自动生成，叫做EUI-64（或者64-位扩展唯一标识）</p>
+</blockquote>
+<h4 id="23-地址分类">2.3 地址分类</h4>
+<ol>
+<li>
+<p>单播（unicast）地址</p>
+<blockquote>
+<p>单播地址标示一个网络接口。协议会把送往地址的数据包送往给其接口。IPv6的单播地址可以有一个代表特殊地址名字的范畴，如链路本地地址（link local address）和唯一区域地址（ULA，unique local address）。
+单播地址包括可聚类的全球单播地址、链路本地地址等。</p>
+</blockquote>
+</li>
+<li>
+<p>任播（anycast）地址</p>
+<blockquote>
+<p>任播像是Unicast（单点传播）与Broadcast（多点广播）的综合。单点广播在来源和目的地间直接进行通信；多点广播存在于单一来源和多个目的地进行通信。
+而Anycast则在以上两者之间，它像多点广播（Broadcast）一样，会有一组接收节点的地址列表，但指定为Anycast的数据包，只会发送给距离最近或发送成本最低（根据路由表来判断）的其中一个接收地址，当该接收地址收到数据包并进行回应，且加入后续的传输。该接收列表的其他节点，会知道某个节点地址已经回应了，它们就不再加入后续的传输作业。
+以目前的应用为例，Anycast地址只能分配给中间设备（如路由器、三层交换机等），不能分配给终端设备（手机、电脑等），而且不能作为发送端的地址。</p>
+</blockquote>
+</li>
+<li>
+<p>多播（multicast）地址</p>
+<blockquote>
+<p>多播地址也称组播地址。多播地址也被指定到一群不同的接口，送到多播地址的数据包会被发送到所有的地址。多播地址由皆为一的字节起始，亦即：它们的前置为FF00::/8。其第二个字节的最后四个比特用以标明&quot;范畴&quot;。
+一般有node-local(0x1)、link-local(0x2)、site-local(0x5)、organization-local(0x8)和global(0xE)。多播地址中的最低112位会组成多播组群标识符，不过因为传统方法是从MAC地址产生，故只有组群标识符中的最低32位有使用。定义过的组群标识符有用于所有节点的多播地址0x1和用于所有路由器的0x2。
+另一个多播组群的地址为&quot;solicited-node多播地址&quot;，是由前置FF02::1:FF00:0/104和剩余的组群标识符（最低24位）所组成。这些地址允许经由邻居发现协议（NDP，Neighbor Discovery Protocol）来解译链接层地址，因而不用干扰到在区网内的所有节点。</p>
+</blockquote>
+</li>
+<li>
+<p>特殊地址</p>
+</li>
+</ol>
+<ul>
+<li>未指定地址：</li>
+</ul>
+<blockquote>
+<p>::/128－所有比特皆为零的地址称作未指定地址。这个地址不可指定给某个网络接口，
+并且只有在主机尚未知道其来源IP时，才会用于软件中。路由器不可转送包含未指定地址的数据包。</p>
+</blockquote>
+<ul>
+<li>链路本地地址：</li>
+</ul>
+<blockquote>
+<p>::1/128－是一种单播绕回地址。如果一个应用程序将数据包送到此地址，IPv6堆栈会转送这些数据包绕回到同样的虚拟接口（相当于IPv4中的127.0.0.1/8）。
+fe80::/10－这些链路本地地址指明，这些地址只在区域连线中是合法的，这有点类似于IPv4中的169.254.0.0/16。</p>
+</blockquote>
+<ul>
+<li>唯一区域地址：</li>
+</ul>
+<blockquote>
+<p>fc00::/7－唯一区域地址（ULA，unique local address）只可用于本地通信，
+类似于IPv4的专用网络地址10.0.0.0/8、172.16.0.0/12和192.168.0.0/16。这定义在RFC 4193中，是用来取代站点本地位域。
+这地址包含一个40比特的伪随机数，以减少当网站合并或数据包误传到网络时碰撞的风险。
+这些地址除了只能用于区域外，还具备全局性的范畴，这点违反了唯一区域位域所取代的站点本地地址的定义。</p>
+</blockquote>
+<ul>
+<li>多播地址：</li>
+</ul>
+<blockquote>
+<p>ff00::/8－这个前置表明定义在&quot;IP Version 6 Addressing Architecture&quot;（RFC 4291）中的多播地址[12]。其中，有些地址已用于指定特殊协议，如ff0X::101对应所有区域的NTP服务器（RFC 2375）。</p>
+</blockquote>
+<ul>
+<li>请求节点多播地址（Solicited-node multicast address）:</li>
+</ul>
+<blockquote>
+<p>ff02::1:FFXX:XXXX－XX:XXXX为相对应的单播或任播地址中的三个最低的字节。</p>
+</blockquote>
+<ul>
+<li>IPv4转译地址：</li>
+</ul>
+<blockquote>
+<p>2001::/32－用于Teredo隧道。
+2002::/16－用于6to4。</p>
+</blockquote>
+<ul>
+<li>ORCHID：</li>
+</ul>
+<blockquote>
+<p>2001:10::/28－ORCHID (Overlay Routable Cryptographic Hash Identifiers)（RFC 4843）。这些是不可遶送的IPv6地址，用于加密散列识别。</p>
+</blockquote>
+<ul>
+<li>文件：</li>
+</ul>
+<blockquote>
+<p>2001:db8::/32－这前置用于文件（RFC 3849）。这些地址应用于IPV6地址的示例中，或描述网络架构。</p>
+</blockquote>
+<h4 id="24-地址表示">2.4 地址表示</h4>
+<p>ipv6地址在某些条家下的省略写法：</p>
+<ol>
+<li>
+<p>每项数字前导的0可以省略，省略后前导数字仍是0则继续
+ipv6等价写法</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">2001:0DB8:02de:0000:0000:0000:0000:0e13
+2001:DB8:2de:0000:0000:0000:0000:e13
+2001:DB8:2de:000:000:000:000:e13
+2001:DB8:2de:00:00:00:00:e13
+2001:DB8:2de:0:0:0:0:e13
+</code></pre></div></li>
+<li>
+<p>可以用双冒号“::”表示一组0或多组连续的0，但只能出现一次
+ipv6等价写法</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">2001:0DB8:0000:0000:0000:0000:1428:57ab
+2001:0DB8:0000:0000:0000::1428:57ab
+2001:0DB8:0:0:0:0:1428:57ab
+2001:0DB8:0::0:1428:57ab
+2001:0DB8::1428:57ab
+</code></pre></div><p>这种情况下不能缩写为2001::25de::cade，不允许双冒号出现两次</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">2001:0000:0000:0000:0000:25de:0000:cade
+2001:0000:0000:0000:25de:0000:0000:cade
+2001:0000:0000:25de:0000:0000:0000:cade
+2001:0000:25de:0000:0000:0000:0000:cade
+</code></pre></div></li>
+<li>
+<p>如果这个地址实际上是IPv4的地址，后32位可以用10进制数表示；因此::ffff:192.168.89.9 相等于::ffff:c0a8:5909(ipv4映射地址)</p>
+</li>
+</ol>
+<h4 id="25-ipv6地址验证测试">2.5 ipv6地址验证测试</h4>
+<p>curl ipv6</p>
+<pre tabindex="0"><code>curl -g  -6 'http://[fd4b:8872:9025:63e9:8c05:d2da:ebc9:c2c0]'
+</code></pre><p>telnet ipv6</p>
+<pre tabindex="0"><code>telnet -6 fe80::3ad1:35ff:fe08:cd%eth0 80
+</code></pre><p>%标明是本地的哪个网络接口</p>
+<p>host域名解析ipv6</p>
+<pre tabindex="0"><code># host -t AAAA baidu.com
+baidu.com has no AAAA record
+# host -t AAAA google.com
+google.com has IPv6 address 2404:6800:4005:80a::200e
+</code></pre><p>baidu.com还不支持ipv6地址</p>
+<p>dig域名解析ipv6</p>
+<pre tabindex="0"><code># dig -t AAAA google.com
+
+; &lt;&lt;&gt;&gt; DiG 9.16.1-Ubuntu &lt;&lt;&gt;&gt; -t AAAA google.com
+;; global options: +cmd
+;; Got answer:
+;; -&gt;&gt;HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 54941
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 65494
+;; QUESTION SECTION:
+;google.com.			IN	AAAA
+
+;; ANSWER SECTION:
+google.com.		13	IN	AAAA	2404:6800:4005:80a::200e
+
+;; Query time: 0 msec
+;; SERVER: 127.0.0.53#53(127.0.0.53)
+;; WHEN: 一 11月 30 09:13:58 CST 2020
+;; MSG SIZE  rcvd: 67
+
+
+# dig -t AAAA baidu.com
+
+; &lt;&lt;&gt;&gt; DiG 9.16.1-Ubuntu &lt;&lt;&gt;&gt; -t AAAA baidu.com
+;; global options: +cmd
+;; Got answer:
+;; -&gt;&gt;HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 26898
+;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 65494
+;; QUESTION SECTION:
+;baidu.com.			IN	AAAA
+
+;; Query time: 0 msec
+;; SERVER: 127.0.0.53#53(127.0.0.53)
+;; WHEN: 一 11月 30 09:14:03 CST 2020
+;; MSG SIZE  rcvd: 38
+</code></pre><h3 id="3-宿主机配置ipv6">3 宿主机配置ipv6</h3>
+<p>宿主机是centos系列系统</p>
+<pre tabindex="0"><code>#加载ipv6内核模块
+# vim /etc/modprobe.d/disable_ipv6.conf
+options ipv6 disable=0
+
+#启用ipv6网络
+vim /etc/sysconfig/network
+NETWORKING_IPV6=yes
+
+#配置ipv6地址
+# vim /etc/sysconfig/network-scripts/ifcfg-eth0 
+IPV6INIT=yes
+IPV6_AUTOCONF=no
+IPV6ADDR=2003:ac18::30a:1/64
+IPV6_DEFAULTGW=2003:ac18::30a:ff/64
+
+#临时生效，配置ipv6网关
+# route -A inet6 add default gw 2003:ac18::30a:254
+
+#sysctl参数启用ipv6
+vim /etc/sysctl.conf
+net.ipv6.conf.all.disable_ipv6 = 0
+net.ipv6.conf.default.disable_ipv6 = 0
+net.ipv6.conf.lo.disable_ipv6 = 0
+net.ipv6.conf.all.forwarding=1
+
+sysctl -p
+</code></pre><h3 id="4-k8s启用ipv6">4 k8s启用ipv6</h3>
+<p>要启用IPv4/IPv6双协议栈，为集群的相关组件启用<code>IPv6DualStack</code>feature gates，并且设置双协议栈的集群网络分配：</p>
+<p>k8s采用kubeadm方式部署</p>
+<h4 id="41-kube-apiserver">4.1 kube-apiserver</h4>
+<pre tabindex="0"><code># vim /etc/kubernetes/manifests/kube-apiserver.yaml
+--feature-gates=IPv6DualStack=true
+--service-cluster-ip-range=10.96.0.0/12,fd00::/108
+</code></pre><p>kube-apiserver启用ipv6双栈特性, 并增加pod ipv6 cidr</p>
+<h4 id="42-kube-controller-manager">4.2 kube-controller-manager</h4>
+<pre tabindex="0"><code># vim /etc/kubernetes/manifests/kube-controller-manager.yaml
+--feature-gates=IPv6DualStack=true
+--service-cluster-ip-range=10.96.0.0/12,fd00::/108
+--cluster-cidr=172.16.0.0/16,fc00::/48
+--node-cidr-mask-size-ipv4=24
+--node-cidr-mask-size-ipv6=64
+</code></pre><p>kube-controller-manager启用ipv6双栈特性, 并增加pod/service ipv6 cidr</p>
+<h4 id="43-kubelet">4.3 kubelet</h4>
+<pre tabindex="0"><code># vim /etc/sysconfig/kubelet
+KUBELET_EXTRA_ARGS=&quot;--feature-gates=IPv6DualStack=true&quot;
+</code></pre><p>kubelet启用ipv6双栈特性</p>
+<h4 id="44-kube-proxy">4.4 kube-proxy</h4>
+<pre tabindex="0"><code># kubectl  -n kube-system edit cm kube-proxy
+data:
+  config.conf: |-
+    ......
+    featureGates:
+      IPv6DualStack: true
+    clusterCIDR: 172.16.0.0/16,fc00::/48
+</code></pre><p>kube-proxy启用ipv6双栈特性, 并增加pod ipv6 cidr</p>
+<h3 id="5-cni插件启用双栈">5 cni插件启用双栈</h3>
+<h4 id="51-flannel">5.1 flannel</h4>
+<p>目前还没看到官方声明说支持ipv6，有个flannel官方issue关于ipv6<a href="https://github.com/coreos/flannel/issues/248">add IPv6 support</a>,</p>
+<p>自行实现了flannel vxlan backend的ipv6支持，给社区提交了两个pr</p>
+<ul>
+<li>flannel cni插件支持dual stack ip分配：<a href="https://github.com/containernetworking/plugins/pull/570">https://github.com/containernetworking/plugins/pull/570</a></li>
+<li>flannel daemon dual stack的支持：<a href="https://github.com/coreos/flannel/pull/1398">https://github.com/coreos/flannel/pull/1398</a></li>
+</ul>
+<p>这里记录一种强制重新运行CI构建和其他触发器的方法：</p>
+<pre tabindex="0"><code>git commit --amend --no-edit   # 没有任何修改，重新创建当前分支中的最后一个提交
+git push --force-with-lease origin pr-branch
+</code></pre><h4 id="511-flannel-cni-dual-stack支持">5.1.1 flannel cni dual stack支持</h4>
+<p>flannel默认使用host-local ipam插件用于分配ip地址</p>
+<pre tabindex="0"><code># echo '{ &quot;cniVersion&quot;: &quot;0.3.1&quot;, &quot;name&quot;: &quot;examplenet&quot;, &quot;ipam&quot;: { &quot;type&quot;: &quot;host-local&quot;, &quot;ranges&quot;: [ [{&quot;subnet&quot;: &quot;203.0.113.0/24&quot;}], [{&quot;subnet&quot;: &quot;2001:db8:1::/64&quot;}]], &quot;dataDir&quot;: &quot;/tmp/cni-example&quot;  } }' | CNI_COMMAND=ADD CNI_CONTAINERID=example CNI_NETNS=/dev/null CNI_IFNAME=dummy0 CNI_PATH=. /opt/cni/bin/host-local 
+{
+    &quot;cniVersion&quot;: &quot;0.3.1&quot;,
+    &quot;ips&quot;: [
+        {
+            &quot;version&quot;: &quot;4&quot;,
+            &quot;address&quot;: &quot;203.0.113.2/24&quot;,
+            &quot;gateway&quot;: &quot;203.0.113.1&quot;
+        },
+        {
+            &quot;version&quot;: &quot;6&quot;,
+            &quot;address&quot;: &quot;2001:db8:1::2/64&quot;,
+            &quot;gateway&quot;: &quot;2001:db8:1::1&quot;
+        }
+    ],
+    &quot;dns&quot;: {}
+}
+</code></pre><p>测试host-local是否支持双栈，从结果来看是支持的. 接下来定位flannel cni不支持ipv6处的代码：</p>
+<p>这里贴核心改动代码，重构getDelegateIPAM函数，让其支持实现可读取ipv6网段，并返回ipv6子网到<code>ranges</code></p>
+<pre tabindex="0"><code>// Return IPAM section for Delegate using input IPAM if present and replacing
+// or complementing as needed.
+func getDelegateIPAM(n *NetConf, fenv *subnetEnv) (map[string]interface{}, error) {
+	ipam := n.IPAM
+	if ipam == nil {
+		ipam = map[string]interface{}{}
+	}
+
+	if !hasKey(ipam, &quot;type&quot;) {
+		ipam[&quot;type&quot;] = &quot;host-local&quot;
+	}
+
+	var rangesSlice [][]map[string]interface{}
+
+	if fenv.sn != nil &amp;&amp; fenv.sn.String() != &quot;&quot; {
+		rangesSlice = append(rangesSlice, []map[string]interface{}{
+			{&quot;subnet&quot;: fenv.sn.String()},
+		},
+		)
+	}
+	if fenv.ip6Sn != nil &amp;&amp; fenv.ip6Sn.String() != &quot;&quot; {
+		rangesSlice = append(rangesSlice, []map[string]interface{}{
+			{&quot;subnet&quot;: fenv.ip6Sn.String()},
+		},
+		)
+	}
+	ipam[&quot;ranges&quot;] = rangesSlice
+
+	rtes, err := getIPAMRoutes(n)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;failed to read IPAM routes: %w&quot;, err)
+	}
+	if fenv.nw != nil {
+		rtes = append(rtes, types.Route{Dst: *fenv.nw})
+	}
+	if fenv.ip6Nw != nil {
+		rtes = append(rtes, types.Route{Dst: *fenv.ip6Nw})
+	}
+	ipam[&quot;routes&quot;] = rtes
+
+	return ipam, nil
+}
+</code></pre><h4 id="512-flannel-daemon-dual-stack支持">5.1.2 flannel daemon dual stack支持</h4>
+<p>部署flannel, Kubernetes v1.17+环境</p>
+<pre tabindex="0"><code>kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+</code></pre><p>配置service ipFamily=IPv6，验证ipv6地址不通</p>
+<pre tabindex="0"><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: common-nginx
+  labels:
+    app: common-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: common-nginx
+  template:
+    metadata:
+      name: common-nginx
+      labels:
+        app: common-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: common-nginx
+spec:
+  ipFamily: IPv6
+  ports:
+  - name: proxy
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: common-nginx 
+  sessionAffinity: None
+  type: ClusterIP 
+---
+apiVersion: extensions/v1beta1 
+kind: Ingress
+metadata:
+  name: common-nginx
+  annotations:
+    kubernetes.io/ingress.class: kong 
+spec:
+  rules:
+  - host: common-nginx.test.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: common-nginx
+          servicePort: 80
+</code></pre><p>分析问题：
+查阅flannel代码，子网分配器就不支持ipv6;如果是ipv4地址，32位，也就是4个字节，golang uint32类型就可以容纳。如果是ipv6地址呢？</p>
+<blockquote>
+<p>ipv6地址，128位，也就是16个字节，golang中并没有uint128类型，如何实现ipv6&lt;-&gt;int相互转换呢？
+<code>github.com/coreos/flannel/pkg/ip/ipnet.go</code>里定义的都是ipv4&lt;-&gt;int逻辑，calico如何实现ipv4、ipv6子网管理呢？</p>
+</blockquote>
+<p>自动生成ipv6地址的前缀</p>
+<pre tabindex="0"><code>func GenerateIPv6ULAPrefix() (string, error) {
+	ulaAddr := []byte{0xfd, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	_, err := cryptorand.Read(ulaAddr[1:6])
+	if err != nil {
+		return &quot;&quot;, err
+	}
+	ipNet := net.IPNet{
+		IP:   net.IP(ulaAddr),
+		Mask: net.CIDRMask(48, 128),
+	}
+	return ipNet.String(), nil
+}
+</code></pre><p>ulaAddr代表一个ipv6地址，是128位，也就是16个字节；cryptorand.Read(ulaAddr[1:6])的作用是让第1个字节到第5个字节的值随机生成，第0个字节是0xfd</p>
+<p>calico-ipam中ipv4/ipv6&lt;-&gt;int相互转换</p>
+<pre tabindex="0"><code># github.com/projectcalico/libcalico-go/lib/net/ip.go
+package net
+
+import (
+	&quot;encoding/json&quot;
+	&quot;math/big&quot;
+	&quot;net&quot;
+)
+
+// Sub class net.IP so that we can add JSON marshalling and unmarshalling.
+type IP struct {
+	net.IP
+}
+
+// Sub class net.IPNet so that we can add JSON marshalling and unmarshalling.
+type IPNet struct {
+	net.IPNet
+}
+
+// MarshalJSON interface for an IP
+func (i IP) MarshalJSON() ([]byte, error) {
+	s, err := i.MarshalText()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(string(s))
+}
+
+// UnmarshalJSON interface for an IP
+func (i *IP) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &amp;s); err != nil {
+		return err
+	}
+	if err := i.UnmarshalText([]byte(s)); err != nil {
+		return err
+	}
+	// Always return IPv4 values as 4-bytes to be consistent with IPv4 IPNet
+	// representations.
+	if ipv4 := i.To4(); ipv4 != nil {
+		i.IP = ipv4
+	}
+
+	return nil
+}
+
+// ParseIP returns an IP from a string
+func ParseIP(ip string) *IP {
+	addr := net.ParseIP(ip)
+	if addr == nil {
+		return nil
+	}
+	// Always return IPv4 values as 4-bytes to be consistent with IPv4 IPNet
+	// representations.
+	if addr4 := addr.To4(); addr4 != nil {
+		addr = addr4
+	}
+	return &amp;IP{addr}
+}
+
+// Version returns the IP version for an IP, or 0 if the IP is not valid.
+func (i IP) Version() int {
+	if i.To4() != nil {
+		return 4
+	} else if len(i.IP) == net.IPv6len {
+		return 6
+	}
+	return 0
+}
+
+// Network returns the IP address as a fully masked IPNet type.
+func (i *IP) Network() *IPNet {
+	// Unmarshaling an IPv4 address returns a 16-byte format of the
+	// address, so convert to 4-byte format to match the mask.
+	n := &amp;IPNet{}
+	if ip4 := i.IP.To4(); ip4 != nil {
+		n.IP = ip4
+		n.Mask = net.CIDRMask(net.IPv4len*8, net.IPv4len*8)
+	} else {
+		n.IP = i.IP
+		n.Mask = net.CIDRMask(net.IPv6len*8, net.IPv6len*8)
+	}
+	return n
+}
+
+// MustParseIP parses the string into an IP.
+func MustParseIP(i string) IP {
+	var ip IP
+	err := ip.UnmarshalText([]byte(i))
+	if err != nil {
+		panic(err)
+	}
+	// Always return IPv4 values as 4-bytes to be consistent with IPv4 IPNet
+	// representations.
+	if ip4 := ip.To4(); ip4 != nil {
+		ip.IP = ip4
+	}
+	return ip
+}
+
+func IPToBigInt(ip IP) *big.Int {
+	if ip.To4() != nil {
+		return big.NewInt(0).SetBytes(ip.To4())
+	} else {
+		return big.NewInt(0).SetBytes(ip.To16())
+	}
+}
+
+func BigIntToIP(ipInt *big.Int) IP {
+	ip := net.IP(ipInt.Bytes())
+	if ip.To4() != nil {
+		return IP{ip}
+	}
+	a := ipInt.FillBytes(make([]byte, 16))
+	return IP{net.IP(a)}
+}
+
+func IncrementIP(ip IP, increment *big.Int) IP {
+	sum := big.NewInt(0).Add(IPToBigInt(ip), increment)
+	return BigIntToIP(sum)
+}
+</code></pre><p>flannel vxlan后端双栈支持改造过程小结：</p>
+<ol>
+<li>host-local ipam cni插件已支持双栈ip地址分配，flannel cni插件需要适配host-local ipam cni插件</li>
+</ol>
+<pre tabindex="0"><code>&quot;ranges&quot;: [ [{&quot;subnet&quot;: &quot;203.0.113.0/24&quot;}], [{&quot;subnet&quot;: &quot;2001:db8:1::/64&quot;}]]
+</code></pre><ol start="2">
+<li>flannel启动程序增加<code>--auto-detect-ipv6</code>自动检测节点主机ipv6地址</li>
+<li>flannel配置文件<code>net-conf.json</code>增加IPv6 cidr配置</li>
+<li>flannel添加ipv6 ip/子网运算库，引入big.Int库(参考calico)</li>
+<li>flannel增加ip6tables处理逻辑，参考原先iptables处理逻辑</li>
+<li>node节点增加flannel ipv6信息annotation</li>
+</ol>
+<pre tabindex="0"><code>  annotations:
+    flannel.alpha.coreos.com/backend-data: '{&quot;VNI&quot;:1,&quot;VtepMAC&quot;:&quot;12:62:b6:2a:21:cf&quot;}'
+    flannel.alpha.coreos.com/backend-type: vxlan
+    flannel.alpha.coreos.com/backend-v6-data: '{&quot;VNI&quot;:1,&quot;VtepMAC&quot;:&quot;ba:5d:da:3f:78:e1&quot;}'
+    flannel.alpha.coreos.com/kube-subnet-manager: &quot;true&quot;
+    flannel.alpha.coreos.com/public-ip: 1.1.33.34
+    flannel.alpha.coreos.com/public-ipv6: 2003:ac18::30a:2
+    node.alpha.kubernetes.io/ttl: &quot;0&quot;
+    volumes.kubernetes.io/controller-managed-attach-detach: &quot;true&quot;
+</code></pre><ol start="7">
+<li>flannel k8s子网管理器增加ipv6子网管理</li>
+<li>flannel vxlan ipv6隧道创建，创建flannel-v6.1 vxlan设备用于ipv6隧道连通</li>
+<li>flannel监听子网变化事件，增加ipv6子网事件监听</li>
+<li>flannel arp，vxlan fdb，增加ipv6地址记录</li>
+</ol>
+<h4 id="52-calico">5.2 calico</h4>
+<p>calico支持ipv4/ipv6双栈，这里采用calico v3.17版本. calico部署可以按节点规模来选择不同的形式：</p>
+<ul>
+<li>Install Calico with Kubernetes API datastore, 50 nodes or less</li>
+<li>Install Calico with Kubernetes API datastore, more than 50 nodes</li>
+<li>Install Calico with etcd datastore</li>
+</ul>
+<p>这里选择第一种</p>
+<pre tabindex="0"><code># curl https://docs.projectcalico.org/manifests/calico.yaml -O
+</code></pre><p>calico启用ipv4/ipv6双栈</p>
+<pre tabindex="0"><code># vim calico.yaml
+#calico-config ConfigMap处
+    &quot;ipam&quot;: {
+        &quot;type&quot;: &quot;calico-ipam&quot;,
+        &quot;assign_ipv4&quot;: &quot;true&quot;,
+        &quot;assign_ipv6&quot;: &quot;true&quot;
+    },
+    - name: IP
+      value: &quot;autodetect&quot;
+
+    - name: IP6
+      value: &quot;autodetect&quot;
+
+    - name: CALICO_IPV4POOL_CIDR
+      value: &quot;172.16.0.0/16&quot;
+
+    - name: CALICO_IPV6POOL_CIDR
+      value: &quot;fc00::/48&quot;
+
+    - name: FELIX_IPV6SUPPORT
+      value: &quot;true&quot;
+</code></pre><pre tabindex="0"><code># kubectl apply -f calico.yaml
+</code></pre><pre tabindex="0"><code># kubectl  -n kube-system get pod |grep calico
+calico-kube-controllers-5dc87d545c-crmjv   1/1     Running       0          178m
+calico-node-bjk7d                          1/1     Running       0          4h2m
+calico-node-hhgm5                          1/1     Running       0          4h2m
+</code></pre><h3 id="6-kube-proxy模式">6 kube-proxy模式</h3>
+<h4 id="61-iptables">6.1 iptables</h4>
+<p>如果是iptables模式，宿主机需要配置ipv6默认网关，不然curl访问不了ipv6 cluster ip. 见<a href="https://github.com/projectcalico/calico/issues/2758">issue</a></p>
+<pre tabindex="0"><code># route -6 -n |grep &quot;::/0&quot;
+::/0                           2003:ac18::30a:254         UG   1   5   179 enp129s0f0
+</code></pre><p>已配置完ipv6地址的默认网关，dummy的网关也可以</p>
+<pre tabindex="0"><code># kubectl -n kube-system edit cm kube-proxy
+apiVersion: v1
+data:
+  config.conf: |-
+    mode: &quot;iptables&quot;
+</code></pre><pre tabindex="0"><code>kubectl apply -f - &lt;&lt; EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: common-nginx
+  labels:
+    app: common-nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: common-nginx
+  template:
+    metadata:
+      name: common-nginx
+      labels:
+        app: common-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        imagePullPolicy: IfNotPresent
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: common-nginx
+spec:
+  ipFamily: IPv6
+  ports:
+  - name: proxy
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: common-nginx 
+  sessionAffinity: None
+  type: ClusterIP 
+EOF
+</code></pre><p>查看pod运行状态</p>
+<pre tabindex="0"><code># kubectl  get pod -o wide
+NAME                            READY   STATUS        RESTARTS   AGE     IP              NODE     NOMINATED NODE   READINESS GATES
+common-nginx-76457bb678-8d8xm   1/1     Running       0          2d16h   172.16.38.198   node53   &lt;none&gt;           &lt;none&gt;
+common-nginx-76457bb678-q6vwt   1/1     Running       0          2d16h   172.16.38.196   node53   &lt;none&gt;           &lt;none&gt;
+common-nginx-76457bb678-t6swz   1/1     Running       0          2d16h   172.16.38.195   node53   &lt;none&gt;           &lt;none&gt;
+</code></pre><p>查看service ipv6 clusterIP</p>
+<pre tabindex="0"><code>[root@node53 ~]# kubectl  get svc
+NAME           TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+common-nginx   ClusterIP   fd00::9955   &lt;none&gt;        80/TCP    2d16h
+</code></pre><p>访问ipv6 clusterIP</p>
+<pre tabindex="0"><code>[root@node53 ~]# curl -I -g -6 'http://[fd00::9955]'
+HTTP/1.1 200 OK
+Server: nginx/1.19.5
+Date: Mon, 30 Nov 2020 02:18:24 GMT
+Content-Type: text/html
+Content-Length: 612
+Last-Modified: Tue, 24 Nov 2020 13:02:03 GMT
+Connection: keep-alive
+ETag: &quot;5fbd044b-264&quot;
+Accept-Ranges: bytes
+</code></pre><h4 id="62-ipvs">6.2 ipvs</h4>
+<pre tabindex="0"><code># kubectl -n kube-system edit cm kube-proxy
+apiVersion: v1
+data:
+  config.conf: |-
+    mode: &quot;ipvs&quot;
+</code></pre><p>重启kube-proxy pod</p>
+<pre tabindex="0"><code>kubectl -n kube-system get pod -l k8s-app=kube-proxy | grep -v 'NAME' | awk '{print $1}' | xargs kubectl -n kube-system delete pod
+</code></pre><p>清除iptables模式的残留的规则</p>
+<pre tabindex="0"><code>iptables -t filter -F; iptables -t filter -X; iptables -t nat -F; iptables -t nat -X;
+</code></pre><p>删除ipv6默认网关(只为测试，正式环境都会有一个默认网关的)</p>
+<pre tabindex="0"><code># ip -6 route delete default via 2003:ac18::30a:254
+</code></pre><p>ipvs模式下不需要配置ipv6默认网关，宿主机也可以访问clusterIP</p>
+<pre tabindex="0"><code># curl -I -g -6 'http://[fd00::9955]'
+HTTP/1.1 200 OK
+Server: nginx/1.19.5
+Date: Mon, 30 Nov 2020 02:37:45 GMT
+Content-Type: text/html
+Content-Length: 612
+Last-Modified: Tue, 24 Nov 2020 13:02:03 GMT
+Connection: keep-alive
+ETag: &quot;5fbd044b-264&quot;
+Accept-Ranges: bytes
+</code></pre><h3 id="7-ingress类型">7 ingress类型</h3>
+<h4 id="71-nginx-ingress-controller">7.1 nginx-ingress-controller</h4>
+<pre tabindex="0"><code># wget -c https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.41.2/deploy/static/provider/cloud/deploy.yaml
+</code></pre><p>把80/443映射端口的service类型改成NodePort</p>
+<pre tabindex="0"><code># vim deploy.yaml
+# Source: ingress-nginx/templates/controller-service.yaml
+......
+spec:
+  type: NodePort
+</code></pre><pre tabindex="0"><code># kubectl apply -f deploy.yaml
+</code></pre><pre tabindex="0"><code># kubectl  -n ingress-nginx get pod
+NAME                                       READY   STATUS      RESTARTS   AGE
+ingress-nginx-admission-create-t2h6f       0/1     Completed   0          3m24s
+ingress-nginx-admission-patch-cj9c9        0/1     Completed   0          3m24s
+ingress-nginx-controller-c4f944d4d-n2v5z   1/1     Running     0          3m24s
+
+# kubectl  -n ingress-nginx get svc
+NAME                                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE
+ingress-nginx-controller             NodePort    10.104.175.58   &lt;none&gt;        80:30080/TCP,443:30443/TCP   3m27s
+ingress-nginx-controller-admission   ClusterIP   10.97.232.105   &lt;none&gt;        443/TCP                      8m39s
+</code></pre><pre tabindex="0"><code># netstat -plunt4
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name    
+tcp        0      0 0.0.0.0:30080           0.0.0.0:*               LISTEN      54678/kube-proxy  
+</code></pre><p>NodePort服务监听的地址在ipv4上，导致访问ipv6地址:30409不通。为什么NodePort服务会监听的地址在ipv4上？ 指定nodePort地址是否有效？</p>
+<pre tabindex="0"><code>#给kube-proxy指定nodePort地址范围, 范围是节点地址cidr(包含ipv4和ipv6)
+# kubectl  -n kube-system edit cm kube-proxy
+apiVersion: v1
+data:
+  config.conf: |-
+    nodePortAddresses: [&quot;2003:ac18::30a:2/64&quot;, &quot;192.168.101.53/24&quot;]
+</code></pre><p>重启kube-proxy pod</p>
+<p>把80/443映射端口的service类型改成NodePort, 指定为ipv6</p>
+<pre tabindex="0"><code># vim deploy.yaml
+# Source: ingress-nginx/templates/controller-service.yaml
+......
+spec:
+  type: NodePort
+  ipFamily: IPv6
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      nodePort: 30080
+      targetPort: http
+    - name: https
+      port: 443
+      nodePort: 30443
+      protocol: TCP
+      targetPort: https
+</code></pre><pre tabindex="0"><code># kubectl apply -f deploy.yaml
+</code></pre><pre tabindex="0"><code># kubectl -n ingress-nginx get svc
+NAME                                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE
+ingress-nginx-controller             NodePort    fd00::c3bf      &lt;none&gt;        80:30080/TCP,443:30443/TCP   9m35s
+ingress-nginx-controller-admission   ClusterIP   10.107.114.87   &lt;none&gt;        443/TCP                      9m35s
+ 
+# netstat -plunt6 |grep 30080
+tcp6       0      0 2003:ac18::30a:2:30080  :::*                    LISTEN      29276/kube-proxy 
+</code></pre><p>可以看到nginx-ingress-controller服务监听在ipv6地址上</p>
+<p>接下来继续下面的验证测试，创建common-nginx ingress规则</p>
+<pre tabindex="0"><code>kubectl apply -f - &lt;&lt; EOF
+apiVersion: networking.k8s.io/v1beta1 
+kind: Ingress
+metadata:
+  name: common-nginx
+spec:
+  rules:
+  - host: common-nginx.test.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: common-nginx
+          servicePort: 80
+EOF
+</code></pre><p>curl访问域名，访问正常</p>
+<pre tabindex="0"><code># curl -H &quot;Host: common-nginx.test.com&quot; -I -g -6 'http://[2003:ac18::30a:2]:30080'
+HTTP/1.1 200 OK
+Date: Mon, 30 Nov 2020 07:28:53 GMT
+Content-Type: text/html
+Content-Length: 612
+Connection: keep-alive
+Last-Modified: Tue, 24 Nov 2020 13:02:03 GMT
+ETag: &quot;5fbd044b-264&quot;
+Accept-Ranges: bytes
+</code></pre><h4 id="72-kong-ingress-controller">7.2 kong-ingress-controller</h4>
+<p>kong-ingress-controller/konga部署参考：<a href="http://www.iceyao.com.cn/2019/12/18/kong-ingress-controller%E5%AE%9E%E8%B7%B5/">kong-ingress-controller实践</a></p>
+<p>修改Deployment，增加ipv6地址监听</p>
+<pre tabindex="0"><code>- name: KONG_PROXY_LISTEN
+  value: &quot;0.0.0.0:8000, 0.0.0.0:8443 ssl http2, [::]:8000,[::]:8443 ssl http2&quot;
+</code></pre><p>修改ingress-kong service, 指定ipFamily为IPv6，指定nodePort</p>
+<pre tabindex="0"><code>apiVersion: v1
+kind: Service
+metadata:
+  name: kong-proxy
+  namespace: kong
+spec:
+  ipFamily: IPv6
+  ports:
+  - name: proxy
+    port: 80
+    protocol: TCP
+    nodePort: 30080
+    targetPort: 8000
+  - name: proxy-ssl
+    port: 443
+    protocol: TCP
+    nodePort: 30443
+    targetPort: 8443
+  selector:
+    app: ingress-kong
+  type: NodePort
+</code></pre><p>查看ingress-kong运行状态</p>
+<pre tabindex="0"><code># kubectl -n kong get pod
+NAME                            READY   STATUS    RESTARTS   AGE
+ingress-kong-6876c9b59c-g4mqz   2/2     Running   1          2m52s
+ingress-kong-6876c9b59c-n2pzv   2/2     Running   1          2m52s
+</code></pre><pre tabindex="0"><code># kubectl  apply -f all-in-one-dbless.yaml
+</code></pre><pre tabindex="0"><code>[root@node53 ~]# kubectl -n kong get pod ingress-kong-6876c9b59c-g4mqz -o go-template --template='{{range .status.podIPs}}{{printf &quot;%s \n&quot; .ip}}{{end}}'
+172.16.38.202 
+fc00::26d1:ddab:d697:fe01:78ca 
+</code></pre><p>再次进行curl访问验证，访问失败</p>
+<pre tabindex="0"><code># curl -H &quot;Host: common-nginx.test.com&quot; -I -g -6 'http://[2003:ac18::30a:2]:30080'
+HTTP/1.1 502 Bad Gateway
+Date: Mon, 30 Nov 2020 08:26:41 GMT
+Content-Type: text/plain; charset=UTF-8
+Connection: keep-alive
+Server: kong/1.4.2
+X-Kong-Upstream-Latency: 1003
+X-Kong-Proxy-Latency: 5010
+Via: kong/1.4.2
+</code></pre><p>通过查看konga web界面看到kong-ingress-controller生成的kong target规则不对，升级kong-ingress-controller版本试试？经过测试master版本也有这问题</p>
+<p>问题分析:</p>
+<p>查看生成的endpoints</p>
+<pre tabindex="0"><code># kubectl get endpoints
+NAME           ENDPOINTS                                                                                                     AGE
+common-nginx   [fc00::26d1:ddab:d697:fe01:78ea]:80,[fc00::26d1:ddab:d697:fe01:78ec]:80,[fc00::26d1:ddab:d697:fe01:78ee]:80   59m
+</code></pre><p>调用kong api获取config配置查看到ipv6地址并没有用[]括起来</p>
+<pre tabindex="0"><code># curl -k https://127.0.0.1:8001/config
+target: fc00::26d1:ddab:d697:fe01:78ee:80
+</code></pre><pre tabindex="0"><code>#kong的日志
+
+020/11/30 12:03:20 [debug] 22#0: *4 [lua] ring.lua:495: new(): [upstream:common-nginx.default.80.svc 1] ringbalancer created
+2020/11/30 12:03:20 [debug] 22#0: *4 [lua] base.lua:841: newHost(): [upstream:common-nginx.default.80.svc 1] created a new host for: [fc00:0000:26d1:ddab:d697:fe01:78ea:0080]
+2020/11/30 12:03:20 [debug] 22#0: *4 [lua] base.lua:584: queryDns(): [upstream:common-nginx.default.80.svc 1] querying dns for [fc00:0000:26d1:ddab:d697:fe01:78ea:0080]
+2020/11/30 12:03:20 [debug] 22#0: *4 [lua] base.lua:499: f(): [upstream:common-nginx.default.80.svc 1] dns record type changed for [fc00:0000:26d1:ddab:d697:fe01:78ea:0080], nil -&gt; 28
+2020/11/30 12:03:20 [debug] 22#0: *4 [lua] base.lua:361: newAddress(): [upstream:common-nginx.default.80.svc 1] new address for host '[fc00:0000:26d1:ddab:d697:fe01:78ea:0080]' created: [fc00:0000:26d1:ddab:d697:fe01:78ea:0080]:8000 (weight 100)
+2020/11/30 12:03:20 [debug] 22#0: *4 [lua] base.lua:563: f(): [upstream:common-nginx.default.80.svc 1] updating balancer based on dns changes for [fc00:0000:26d1:ddab:d697:fe01:78ea:0080]
+2020/11/30 12:03:20 [debug] 22#0: *4 [lua] ring.lua:246: redistributeIndices(): [upstream:common-nginx.default.80.svc 1] redistributed indices, size=10000, dropped=0, assigned=10000, left unassigned=0
+2020/11/30 12:03:20 [debug] 22#0: *4 [lua] base.lua:573: f(): [upstream:common-nginx.default.80.svc 1] querying dns and updating for [fc00:0000:26d1:ddab:d697:fe01:78ea:0080] completed
+2020/11/30 12:03:20 [debug] 22#0: *4 [lua] base.lua:841: newHost(): [upstream:common-nginx.default.80.svc 1] created a new host for: [fc00:0000:26d1:ddab:d697:fe01:78ee:0080]
+2020/11/30 12:03:20 [debug] 22#0: *4 [lua] base.lua:584: queryDns(): [upstream:common-nginx.default.80.svc 1] querying dns for [fc00:0000:26d1:ddab:d697:fe01:78ee:0080]
+2020/11/30 12:03:20 [debug] 22#0: *4 [lua] base.lua:499: f(): [upstream:common-nginx.default.80.svc 1] dns record type changed for [fc00:0000:26d1:ddab:d697:fe01:78ee:0080], nil -&gt; 28
+2020/11/30 12:03:20 [debug] 22#0: *4 [lua] base.lua:361: newAddress(): [upstream:common-nginx.default.80.svc 1] new address for host '[fc00:0000:26d1:ddab:d697:fe01:78ee:0080]' created: [fc00:0000:26d1:ddab:d697:fe01:78ee:0080]:8000 (weight 100)
+</code></pre><p>kong把80端口也当作是ipv6地址的一部分了，问题应该是在ipv6环境下，kong-ingress-cntroller把endpoints解析成target地址的方式有问题，这里给官方提了个<a href="https://github.com/Kong/kubernetes-ingress-controller/pull/973">PR</a></p>
+<h3 id="结论">结论</h3>
+<ul>
+<li>calico支持ipv4/ipv6双栈，原生的flannel目前不支持ipv6，二次开发可实现</li>
+<li>kube-proxy iptables/ipvs模式均访问正常，iptables模式下需要配置宿主机的默认ipv6网关，不然宿主机访问不了clusterIP</li>
+<li>nginx-ingress-controller支持双栈,原生的kong-ingress-controller不支持双栈，稍微改动下可实现</li>
+</ul>
+<h3 id="参考链接">参考链接</h3>
+<ul>
+<li><a href="https://kubernetes.io/zh/docs/concepts/services-networking/dual-stack/">IPv4/IPv6 双协议栈</a></li>
+<li><a href="https://kubernetes.io/zh/docs/tasks/network/validate-dual-stack/">验证 IPv4/IPv6 双协议栈</a></li>
+<li><a href="https://docs.projectcalico.org/networking/ipv6#enable-dual-stack">calico启用双栈</a></li>
+<li><a href="https://docs.projectcalico.org/getting-started/kubernetes/self-managed-onprem/onpremises">calico部署</a></li>
+<li><a href="https://zh.wikipedia.org/wiki/IPv6">ipv6介绍</a></li>
+<li><a href="https://www.cni.dev/plugins/ipam/host-local/">host-local cni插件</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2020-11-15-gpu_manager_reading_note/" data-toggle="tooltip" data-placement="top" title="TKEStack gpu-manager源码阅读笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-12-12-linux_performance_tuning/" data-toggle="tooltip" data-placement="top" title="linux系统调优">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

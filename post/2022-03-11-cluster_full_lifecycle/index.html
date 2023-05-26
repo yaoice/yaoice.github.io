@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="一文读懂集群全生命周期管理" />
+    <meta property="og:title" content="一文读懂集群全生命周期管理" />
+    <meta property="twitter:title" content="一文读懂集群全生命周期管理" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>一文读懂集群全生命周期管理 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2022-03-11-cluster_full_lifecycle/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>一文读懂集群全生命周期管理</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Friday, March 11, 2022
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="1-集群全生命周期管理简介">1. 集群全生命周期管理简介</h2>
+<p>集群全生命周期管理，包括集群的部署、更新、升级，以及后期集群的扩容/缩容等操作。传统模式下的集群全生命周期管理大多数是命令式API方式实现，
+命令式API注重如何部署，定义部署的过程；云原生模式下的集群全生命周期管理是声明式API实现，声明式API注重定义集群的状态，而不是定义部署的过程，
+实际上定义集群的状态里包括了定义部署的过程，对外暴露更简单了，实际上内部增加了复杂性，声明式API可以看作是命令式API的抽象。</p>
+<h2 id="2-开源实现">2. 开源实现</h2>
+<h3 id="21-tkestack">2.1 tkestack</h3>
+<h3 id="211-tkestack简介">2.1.1 tkestack简介</h3>
+<p>TKEStack是一个开源项目，为在生产环境中部署容器的组织提供一个统一的容器管理平台。TKEStack可以简化部署和使用Kubernetes，具备统一集群管理能力。</p>
+<p>统一集群管理</p>
+<ul>
+<li>提供Web控制台和命令行客户端，用于集中管理多个Kubernetes集群</li>
+<li>可与现有的身份验证机制集成，包括LDAP，Active Directory，front proxy和public OAuth providers（例如GitHub）</li>
+<li>统一授权管理，不仅在集群管理级别，甚至在Kubernetes资源级别</li>
+<li>多租户支持，包括团队和用户对容器、构建和网络通信的隔离</li>
+</ul>
+<h3 id="212-代码分析">2.1.2 代码分析</h3>
+<p>集群管理能力是由tke-platform模块提供，k8s的Aggregated API实现，分为tke-platform-api和tke-platform-controller两个进程服务。
+AA是扩展k8s API的一种方式，另外一种扩展方式是使用CRD。</p>
+<h3 id="2121-tke-platform-api">2.1.2.1 tke-platform-api</h3>
+<p>启动入口<code>tkestack.io/tke/cmd/tke-platform-api/apiserver.go</code></p>
+<h3 id="22-kubekey">2.2 kubekey</h3>
+<h3 id="221-kubekey简介">2.2.1 kubekey简介</h3>
+<p>KubeKey（由Go语言开发）是一种全新的安装工具，替代了以前使用的基于ansible的安装程序。KubeKey为您提供灵活的安装选择，您可以仅安装Kubernetes，也可以同时安装Kubernetes和KubeSphere。</p>
+<p>KubeKey的几种使用场景：</p>
+<ul>
+<li>仅安装Kubernetes；</li>
+<li>使用一个命令同时安装Kubernetes和KubeSphere；</li>
+<li>扩缩集群；</li>
+<li>升级集群；</li>
+<li>安装Kubernetes相关的插件（Chart 或 YAML）。</li>
+</ul>
+<h3 id="222-代码分析">2.2.2 代码分析</h3>
+<h3 id="2221-命令行模式">2.2.2.1 命令行模式</h3>
+<p>入口函数<code>github.com/kubesphere/kubekey/cmd/main.go</code></p>
+<pre tabindex="0"><code>// Using a separate entry-point can reduce the size of the binary file
+func main() {
+    //初始化kubekey命令行实例，简称kk
+    cmd := ctl.NewDefaultKubeKeyCommand()
+    _ = exec.Command(&quot;/bin/bash&quot;, &quot;-c&quot;, &quot;ulimit -u 65535&quot;).Run()
+    _ = exec.Command(&quot;/bin/bash&quot;, &quot;-c&quot;, &quot;ulimit -n 65535&quot;).Run()
+
+    // Execute adds all child commands to the root command and sets flags appropriately.
+    // This is called by main.main(). It only needs to happen once to the rootCmd.
+    if err := cmd.Execute(); err != nil {
+        //fmt.Println(err)
+        os.Exit(1)
+    }
+}
+</code></pre><h4 id="2222-kk主命令">2.2.2.2 kk主命令</h4>
+<p>命令行主要逻辑，主命令及子命令初始化</p>
+<pre tabindex="0"><code>// NewKubeKeyCommand creates a new kubekey root command
+func NewKubeKeyCommand(o KubeKeyOptions) *cobra.Command {
+    //主命令kk
+    cmds := &amp;cobra.Command{
+        Use:   &quot;kk&quot;,
+        Short: &quot;Kubernetes/KubeSphere Deploy Tool&quot;,
+        Long: `Deploy a Kubernetes or KubeSphere cluster efficiently, flexibly and easily. There are three scenarios to use KubeKey.
+1. Install Kubernetes only
+2. Install Kubernetes and KubeSphere together in one command
+3. Install Kubernetes first, then deploy KubeSphere on it using https://github.com/kubesphere/ks-installer`,
+    }
+    //init子命令及os、registry子命令
+    cmds.AddCommand(initOs.NewCmdInit())
+    //create子命令及cluster、config、manifest子命令
+    cmds.AddCommand(create.NewCmdCreate())
+    //delete子命令及cluster、node子命令
+    cmds.AddCommand(delete.NewCmdDelete())
+    //add子命令及nodes子命令
+    cmds.AddCommand(add.NewCmdAdd())
+    //upgrade子命令
+    cmds.AddCommand(upgrade.NewCmdUpgrade())
+    //certs子命令及check-expiration、renew子命令
+    cmds.AddCommand(cert.NewCmdCerts())
+    //artifact子命令及export、images子命令
+    cmds.AddCommand(artifact.NewCmdArtifact())
+    //plugin子命令及list子命令
+    cmds.AddCommand(plugin.NewCmdPlugin(o.IOStreams))
+    //completion子命令
+    cmds.AddCommand(completion.NewCmdCompletion())
+    //version子命令
+    cmds.AddCommand(version.NewCmdVersion())
+    return cmds
+}
+</code></pre><h4 id="2223-init子命令">2.2.2.3 init子命令</h4>
+<pre tabindex="0"><code>// NewCmdInit create a new init command
+func NewCmdInit() *cobra.Command {
+    o := NewInitOptions()
+    cmd := &amp;cobra.Command{
+        Use:   &quot;init&quot;,
+        Short: &quot;Initializes the installation environment&quot;,
+    }
+    o.CommonOptions.AddCommonFlag(cmd)
+    cmd.AddCommand(NewCmdInitOs())
+    cmd.AddCommand(NewCmdInitRegistry())
+    return cmd
+}
+</code></pre><p>init子命令下又添加了两个子命令os和registry</p>
+<pre tabindex="0"><code>type InitOsOptions struct {
+    //公共参数，包含InCluster(是否在集群内)，VerBose(是否打印详情)，SkipConfirmCheck(是否跳过确认)，IgnoreErr(是否忽略错误信息)
+    CommonOptions  *options.CommonOptions
+    //集群配置文件路径
+    ClusterCfgFile string
+    //依赖的源目录
+    SourcesDir     string
+    //是否创建本地的registry
+    AddImagesRepo  bool
+}
+
+// NewCmdInitOs creates a new init os command
+func NewCmdInitOs() *cobra.Command {
+    //初始化了InitOsOptions参数
+    o := NewInitOsOptions()
+    cmd := &amp;cobra.Command{
+        Use:   &quot;os&quot;,
+        Short: &quot;Init operating system&quot;,
+        Run: func(cmd *cobra.Command, args []string) {
+            util.CheckErr(o.Run())
+        },
+    }
+    //通用参数命令行方式赋值
+    o.CommonOptions.AddCommonFlag(cmd)
+    //os子命令，命令行方式赋值
+    o.AddFlags(cmd)
+    return cmd
+}
+</code></pre><p>os子命令逻辑，核心处理函数o.Run()</p>
+<pre tabindex="0"><code>func (o *InitOsOptions) Run() error {
+    //这里又初始化了一个Argument结构体实例，把InitOsOptions的参数重新赋值給它
+    arg := common.Argument{
+        FilePath:      o.ClusterCfgFile,
+        SourcesDir:    o.SourcesDir,
+        AddImagesRepo: o.AddImagesRepo,
+        Debug:         o.CommonOptions.Verbose,
+    }
+    //初始化依赖
+    return pipelines.InitDependencies(arg)
+}
+</code></pre><pre tabindex="0"><code>func InitDependencies(args common.Argument) error {
+    var loaderType string
+    //根据是否FilePath来初始化loaderType参数
+    if args.FilePath != &quot;&quot; {
+        loaderType = common.File
+    } else {
+        loaderType = common.AllInOne
+    }
+    //初始化一个KubeRuntime实例
+    runtime, err := common.NewKubeRuntime(loaderType, args)
+    if err != nil {
+        return err
+    }
+    //
+    if err := NewInitDependenciesPipeline(runtime); err != nil {
+        return err
+    }
+    return nil
+}
+</code></pre><p>NewKubeRuntime函数</p>
+<pre tabindex="0"><code>func NewKubeRuntime(flag string, arg Argument) (*KubeRuntime, error) {
+    //根据loaderType返回对应的实现Loader接口的实例，Loader接口包含一个Load()方法定义
+    //有三类结构体ConfigMapLoader、DefaultLoader、FileLoader实现了Loader接口
+    loader := NewLoader(flag, arg)
+    //初始化一个kubekeyapiv1alpha2.Cluster实例，从对应的Loader接口实现中获取Cluster实例
+    cluster, err := loader.Load()
+    if err != nil {
+        return nil, err
+    }
+    //初始化一个BaseRuntime实例
+    //NewDialer：初始化一个Dialer结构体实例，存放ssh的连接，连接实现了Connection接口，接口定义了
+    //Exec、PExec、Fetch、Scp、RemoteFileExist、RemoteDirExist、MkDirAll、Chmod、Close
+    base := connector.NewBaseRuntime(cluster.Name, connector.NewDialer(), arg.Debug, arg.IgnoreErr)
+
+    clusterSpec := &amp;cluster.Spec
+    //设置集群参数默认值
+    defaultCluster, roleGroups := clusterSpec.SetDefaultClusterSpec(arg.InCluster)
+
+    hostSet := make(map[string]struct{})
+    //遍历角色组，设置对应host的角色，赋值base实例的allHosts、roleHosts变量
+    for _, role := range roleGroups {
+        for _, host := range role {
+            if host.IsRole(Master) || host.IsRole(Worker) {
+                host.SetRole(K8s)
+            }
+            if _, ok := hostSet[host.GetName()]; !ok {
+                hostSet[host.GetName()] = struct{}{}
+                base.AppendHost(host)
+                base.AppendRoleMap(host)
+            }
+        }
+    }
+
+    arg.KsEnable = defaultCluster.KubeSphere.Enabled
+    arg.KsVersion = defaultCluster.KubeSphere.Version
+    //初始化KubeRuntime实例
+    r := &amp;KubeRuntime{
+        Cluster:     defaultCluster,
+        ClusterName: cluster.Name,
+        Arg:         arg,
+    }
+    r.BaseRuntime = base
+
+    return r, nil
+}
+</code></pre><p>NewInitDependenciesPipeline函数</p>
+<pre tabindex="0"><code>func NewInitDependenciesPipeline(runtime *common.KubeRuntime) error {
+    //Module是个接口，定义的方法：IsSkip、Default、Init、Is、Run、Until、Slogan、AutoAssert、AppendPostHook、CallPostHook
+    //定义要执行模块有哪些
+    m := []module.Module{
+        //InitDependenciesModule是个嵌套结构体，实现了继承&amp;重载的效果
+        //嵌套顺序：InitDependenciesModule -&gt; common.KubeModule -&gt; module.BaseTaskModule -&gt; BaseModule
+        //每个Module接口具体实现中又定义了task.Interface接口实现，
+        //task.Interface接口定义的方法：GetDesc(获取task描述信息)、Init(task初始化)、Execute(执行)、ExecuteRollback(执行回退)，
+        //实现task.Interface接口的结构体有两种：LocalTask、RemoteTask
+        &amp;os.InitDependenciesModule{},
+    }
+
+    //Pipeline包含多个Module实现，也包含多个PostHookInterface接口实现(执行完模块操作之后的后续操作)
+    //Pipeline定义了Start、Init、InitModule、RunModule方法，调用关系为Start -&gt; Init/InitModule/RunModule
+    p := pipeline.Pipeline{
+        Name:    &quot;InitDependenciesPipeline&quot;,
+        Modules: m,
+        Runtime: runtime,
+    }
+    //运行Pipeline
+    //1.Init: 初始化一个sync.Map, 获取所有主机的数量
+    //2.遍历所有的执行模块，设置SkipConfirmCheck参数的就跳过，依次执行
+    //InitModule，初始化module(用到一个moduleCache实例变量从sync.Pool里获取)
+    //RunModule，运行module，返回执行结果
+    //CallPostHook，再运行PostHook操作
+    //3.PipelineCache变量置空
+    if err := p.Start(); err != nil {
+        return err
+    }
+    return nil
+}
+</code></pre><p>init/os命令的过程就是这样了，按照<code>pipeline -&gt; module -&gt; task</code>流程，其它子命令的过程类似。</p>
+<h3 id="2222-控制器模式">2.2.2.2 控制器模式</h3>
+<p>controller模式的集群全生命周期实现，集群结构体定义：</p>
+<pre tabindex="0"><code>// Cluster is the Schema for the clusters API
+// +kubebuilder:resource:path=clusters,scope=Cluster
+type Cluster struct {
+    metav1.TypeMeta   `json:&quot;,inline&quot;`
+    metav1.ObjectMeta `json:&quot;metadata,omitempty&quot;`
+
+    Spec   ClusterSpec   `json:&quot;spec,omitempty&quot;`
+    Status ClusterStatus `json:&quot;status,omitempty&quot;`
+}
+
+// ClusterSpec defines the desired state of Cluster
+type ClusterSpec struct {
+    // INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+    // Important: Run &quot;make&quot; to regenerate code after modifying this file
+
+    // Foo is an example field of Cluster. Edit Cluster_types.go to remove/update
+    //主机组配置信息，包含名称，地址，内部地址，ssh连接信息，架构，标签信息
+    Hosts                []HostCfg            `yaml:&quot;hosts&quot; json:&quot;hosts,omitempty&quot;`
+    //角色组，不同的角色安装不同的组件
+    RoleGroups           map[string][]string  `yaml:&quot;roleGroups&quot; json:&quot;roleGroups,omitempty&quot;`
+    //控制面接入地址，包含内部负载均衡，域名，地址，端口
+    ControlPlaneEndpoint ControlPlaneEndpoint `yaml:&quot;controlPlaneEndpoint&quot; json:&quot;controlPlaneEndpoint,omitempty&quot;`
+    //系统配置，包含ntpserver和时区配置
+    System               System               `yaml:&quot;system&quot; json:&quot;system,omitempty&quot;`
+    //k8s集群配置
+    Kubernetes           Kubernetes           `yaml:&quot;kubernetes&quot; json:&quot;kubernetes,omitempty&quot;`
+    //k8s网络插件配置
+    Network              NetworkConfig        `yaml:&quot;network&quot; json:&quot;network,omitempty&quot;`
+    //镜像仓库配置
+    Registry             RegistryConfig       `yaml:&quot;registry&quot; json:&quot;registry,omitempty&quot;`
+    //额外插件配置(chart)
+    Addons               []Addon              `yaml:&quot;addons&quot; json:&quot;addons,omitempty&quot;`
+    //是否启用KubeSphere
+    KubeSphere           KubeSphere           `json:&quot;kubesphere,omitempty&quot;`
+}
+
+// ClusterStatus defines the observed state of Cluster
+//集群状态
+type ClusterStatus struct {
+    // INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+    // Important: Run &quot;make&quot; to regenerate code after modifying this file
+    //创建集群/添加节点的job信息，job包含一组pod信息
+    JobInfo       JobInfo      `json:&quot;jobInfo,omitempty&quot;`
+    //pipeline状态信息
+    PiplineInfo   PiplineInfo  `json:&quot;piplineInfo,omitempty&quot;`
+    //集群版本
+    Version       string       `json:&quot;version,omitempty&quot;`
+    //集群网络插件
+    NetworkPlugin string       `json:&quot;networkPlugin,omitempty&quot;`
+    //集群节点统计
+    NodesCount    int          `json:&quot;nodesCount,omitempty&quot;`
+    //etcd节点统计
+    EtcdCount     int          `json:&quot;etcdCount,omitempty&quot;`
+    //master节点统计
+    MasterCount   int          `json:&quot;masterCount,omitempty&quot;`
+    //worker节点统计
+    WorkerCount   int          `json:&quot;workerCount,omitempty&quot;`
+    //节点组的状态信息
+    Nodes         []NodeStatus `json:&quot;nodes,omitempty&quot;`
+    //过程的步骤信息，每一步安装步骤的信息可以回写到这里
+    Conditions    []Condition  `json:&quot;Conditions,omitempty&quot;`
+}
+
+// JobInfo defines the job information to be used to create a cluster or add a node.
+type JobInfo struct {
+    //job的命名空间
+    Namespace string    `json:&quot;namespace,omitempty&quot;`
+    //job名称
+    Name      string    `json:&quot;name,omitempty&quot;`
+    //job关联的pod组信息
+    Pods      []PodInfo `json:&quot;pods,omitempty&quot;`
+}
+
+// PodInfo defines the pod information to be used to create a cluster or add a node.
+type PodInfo struct {
+    //pod名称
+    Name       string          `json:&quot;name,omitempty&quot;`
+    //pod关联的container组信息
+    Containers []ContainerInfo `json:&quot;containers,omitempty&quot;`
+}
+
+// ContainerInfo defines the container information to be used to create a cluster or add a node.
+type ContainerInfo struct {
+    //container名称
+    Name string `json:&quot;name,omitempty&quot;`
+}
+
+// PiplineInfo define the pipline information for operating cluster.
+type PiplineInfo struct {
+    // Running or Terminated
+    //pipeline状态，只有Running和Terminated
+    Status string `json:&quot;status,omitempty&quot;`
+}
+
+// NodeStatus defines the status information of the nodes in the cluster.
+type NodeStatus struct {
+    //内部IP
+    InternalIP string          `json:&quot;internalIP,omitempty&quot;`
+    //主机名
+    Hostname   string          `json:&quot;hostname,omitempty&quot;`
+    //角色
+    Roles      map[string]bool `json:&quot;roles,omitempty&quot;`
+}
+
+// Condition defines the process information.
+type Condition struct {
+    //步骤名称
+    Step      string           `json:&quot;step,omitempty&quot;`
+    //开始时间
+    StartTime metav1.Time      `json:&quot;startTime,omitempty&quot;`
+    //结束时间
+    EndTime   metav1.Time      `json:&quot;endTime,omitempty&quot;`
+    //状态是否正常
+    Status    bool             `json:&quot;status,omitempty&quot;`
+    //执行步骤产生的事件组信息
+    Events    map[string]Event `json:&quot;event,omitempty&quot;`
+}
+
+type Event struct {
+    //事件关联的步骤名称
+    Step    string `yaml:&quot;step&quot; json:&quot;step,omitempty&quot;`
+    //事件状态
+    Status  string `yaml:&quot;status&quot; json:&quot;status,omitempty&quot;`
+    //事件详情
+    Message string `yaml:&quot;message&quot; json:&quot;message,omitempty&quot;`
+}
+</code></pre><h3 id="23-cluster-api">2.3 cluster-api</h3>
+<h2 id="参考链接">参考链接</h2>
+<ul>
+<li><a href="https://kubesphere.io/zh/docs/installing-on-linux/introduction/kubekey/">kubekey官方文档</a></li>
+<li><a href="https://tkestack.github.io/docs/">tkestack官方文档</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2021-09-28-kubesphere_devops/" data-toggle="tooltip" data-placement="top" title="KubeSphere DevOps代码阅读笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2022-06-07-jenkins_build_optimize/" data-toggle="tooltip" data-placement="top" title="java应用容器构建优化">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

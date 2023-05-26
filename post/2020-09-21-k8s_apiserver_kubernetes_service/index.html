@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="K8s apiserver kubernetes service实现" />
+    <meta property="og:title" content="K8s apiserver kubernetes service实现" />
+    <meta property="twitter:title" content="K8s apiserver kubernetes service实现" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>K8s apiserver kubernetes service实现 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-09-21-k8s_apiserver_kubernetes_service/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>K8s apiserver kubernetes service实现</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Monday, September 21, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h3 id="环境">环境</h3>
+<p>K8s版本：v1.18.3</p>
+<h3 id="现象">现象</h3>
+<p>访问k8s apiserver有集群内和集群外两种方式，集群外方式常见的是加载一个kubeconfig配置；集群内方式通过service account+rbac授权访问，走的是
+default/kubernetes service来访问</p>
+<p>default/kubernetes service是由apiserver来管理的，删除也是删除不掉的.</p>
+<pre tabindex="0"><code># kubectl get service kubernetes 
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   11.1.252.1   &lt;none&gt;        443/TCP   5h8m
+ 
+# kubectl get endpoints kubernetes 
+NAME         ENDPOINTS                                   AGE
+kubernetes   192.168.104.111:6443,192.168.104.117:6443   5h8m
+</code></pre><h3 id="代码分析">代码分析</h3>
+<h4 id="bootstrap-controller">bootstrap-controller</h4>
+<p>default命名空间下kubernetes service和kubernetes endpoint这块逻辑是由bootstrap-controller实现的;
+bootstrap-controller是在InstallLegacyAPI阶段初始化的，由两个动作组成，一个是启动动作<code>PostStartHook</code>，另一个是停止动作<code>PreShutdownHook</code></p>
+<pre tabindex="0"><code># k8s.io/kubernetes/cmd/kube-apiserver/app/server.go
+Run -&gt; CreateServerChain -&gt; CreateKubeAPIServer -&gt; kubeAPIServerConfig.Complete().New -&gt; InstallLegacyAPI
+</code></pre><pre tabindex="0"><code>// InstallLegacyAPI will install the legacy APIs for the restStorageProviders if they are enabled.
+func (m *Master) InstallLegacyAPI(c *completedConfig, restOptionsGetter generic.RESTOptionsGetter, legacyRESTStorageProvider corerest.LegacyRESTStorageProvider) error {
+    legacyRESTStorage, apiGroupInfo, err := legacyRESTStorageProvider.NewLegacyRESTStorage(restOptionsGetter)
+    if err != nil {
+        return fmt.Errorf(&quot;error building core storage: %v&quot;, err)
+    }
+
+    controllerName := &quot;bootstrap-controller&quot;
+    coreClient := corev1client.NewForConfigOrDie(c.GenericConfig.LoopbackClientConfig)
+    bootstrapController := c.NewBootstrapController(legacyRESTStorage, coreClient, coreClient, coreClient, coreClient.RESTClient())
+    m.GenericAPIServer.AddPostStartHookOrDie(controllerName, bootstrapController.PostStartHook)
+    m.GenericAPIServer.AddPreShutdownHookOrDie(controllerName, bootstrapController.PreShutdownHook)
+
+    if err := m.GenericAPIServer.InstallLegacyAPIGroup(genericapiserver.DefaultLegacyAPIPrefix, &amp;apiGroupInfo); err != nil {
+        return fmt.Errorf(&quot;error in registering group versions: %v&quot;, err)
+    }
+    return nil
+}
+</code></pre><p>PostStartHook在prepared.Run中调用<code>RunPostStartHooks</code>启动，调用<code>RunPreShutdownHooks</code>停止；
+prepared.Run函数是在CreateServerChain之后执行的</p>
+<pre tabindex="0"><code>prepared.Run -&gt; preparedGenericAPIServer.Run -&gt; NonBlockingRun -&gt; RunPostStartHooks
+                                             |
+                                             -&gt; RunPreShutdownHooks 
+</code></pre><h4 id="poststarthook">PostStartHook</h4>
+<pre tabindex="0"><code>// PostStartHook initiates the core controller loops that must exist for bootstrapping.
+func (c *Controller) PostStartHook(hookContext genericapiserver.PostStartHookContext) error {
+    c.Start()
+    return nil
+}
+
+// Start begins the core controller loops that must exist for bootstrapping
+// a cluster.
+func (c *Controller) Start() {
+    if c.runner != nil {
+        return
+    }
+
+    // Reconcile during first run removing itself until server is ready.
+    endpointPorts := createEndpointPortSpec(c.PublicServicePort, &quot;https&quot;, c.ExtraEndpointPorts)
+    if err := c.EndpointReconciler.RemoveEndpoints(kubernetesServiceName, c.PublicIP, endpointPorts); err != nil {
+        klog.Errorf(&quot;Unable to remove old endpoints from kubernetes service: %v&quot;, err)
+    }
+
+    // SecondaryServiceClusterIPRange为IPV6栈 
+    repairClusterIPs := servicecontroller.NewRepair(c.ServiceClusterIPInterval, c.ServiceClient, c.EventClient, &amp;c.ServiceClusterIPRange, c.ServiceClusterIPRegistry, &amp;c.SecondaryServiceClusterIPRange, c.SecondaryServiceClusterIPRegistry)
+    repairNodePorts := portallocatorcontroller.NewRepair(c.ServiceNodePortInterval, c.ServiceClient, c.EventClient, c.ServiceNodePortRange, c.ServiceNodePortRegistry)
+
+    // run all of the controllers once prior to returning from Start.
+    if err := repairClusterIPs.RunOnce(); err != nil {
+        // If we fail to repair cluster IPs apiserver is useless. We should restart and retry.
+        klog.Fatalf(&quot;Unable to perform initial IP allocation check: %v&quot;, err)
+    }
+    if err := repairNodePorts.RunOnce(); err != nil {
+        // If we fail to repair node ports apiserver is useless. We should restart and retry.
+        klog.Fatalf(&quot;Unable to perform initial service nodePort check: %v&quot;, err)
+    }
+
+    c.runner = async.NewRunner(c.RunKubernetesNamespaces, c.RunKubernetesService, repairClusterIPs.RunUntil, repairNodePorts.RunUntil)
+    c.runner.Start()
+}
+</code></pre><p>PostStartHook执行的逻辑有：</p>
+<ol>
+<li>判断异步运行器是否运行，已运行就直接返回</li>
+<li>创建endpoint port列表</li>
+<li>首次运行的时候移除旧的endpoint, EndpointReconciler类型是leaseEndpointReconciler(在apiserver启动过程NewServerRunOptions定义）</li>
+<li>repairClusterIPsk控制器确保所有ClusterIP独一无二分配</li>
+<li>repairNodePorts控制器确保所有NodePort独一无二分配</li>
+<li>启动异步运行器，传入的参数是需要循环执行的函数，包含RunKubernetesNamespaces、RunKubernetesService、repairClusterIPs.RunUntil和repairNodePorts.RunUntil</li>
+</ol>
+<p>一、RunKubernetesNamespaces函数每隔1分钟确保kube-system、kube-public和kube-node-lease命名空间存在</p>
+<pre tabindex="0"><code>// RunKubernetesNamespaces periodically makes sure that all internal namespaces exist
+func (c *Controller) RunKubernetesNamespaces(ch chan struct{}) {
+    wait.Until(func() {
+        // Loop the system namespace list, and create them if they do not exist
+        for _, ns := range c.SystemNamespaces {
+            if err := createNamespaceIfNeeded(c.NamespaceClient, ns); err != nil {
+                runtime.HandleError(fmt.Errorf(&quot;unable to create required kubernetes system namespace %s: %v&quot;, ns, err))
+            }
+        }
+    }, c.SystemNamespacesInterval, ch)
+}
+</code></pre><p>二、RunKubernetesServicez周期性更新kubernetes service</p>
+<pre tabindex="0"><code>// RunKubernetesService periodically updates the kubernetes service
+func (c *Controller) RunKubernetesService(ch chan struct{}) {
+    // wait until process is ready
+    // 健康检查
+    wait.PollImmediateUntil(100*time.Millisecond, func() (bool, error) {
+        var code int
+        c.healthClient.Get().AbsPath(&quot;/healthz&quot;).Do(context.TODO()).StatusCode(&amp;code)
+        return code == http.StatusOK, nil
+    }, ch)
+
+    wait.NonSlidingUntil(func() {
+        // Service definition is not reconciled after first
+        // run, ports and type will be corrected only during
+        // start.
+        if err := c.UpdateKubernetesService(false); err != nil {
+            runtime.HandleError(fmt.Errorf(&quot;unable to sync kubernetes service: %v&quot;, err))
+        }
+    }, c.EndpointInterval, ch)
+}
+
+// UpdateKubernetesService attempts to update the default Kube service.
+func (c *Controller) UpdateKubernetesService(reconcile bool) error {
+    // Update service &amp; endpoint records.
+    // TODO: when it becomes possible to change this stuff,
+    // stop polling and start watching.
+    // TODO: add endpoints of all replicas, not just the elected master.
+    // 创建default命名空间
+    if err := createNamespaceIfNeeded(c.NamespaceClient, metav1.NamespaceDefault); err != nil {
+        return err
+    }
+    // kubernetes service port也可以用nodePort暴露，即指定--kubernetes-service-node-port参数即可
+    servicePorts, serviceType := createPortAndServiceSpec(c.ServicePort, c.PublicServicePort, c.KubernetesServiceNodePort, &quot;https&quot;, c.ExtraServicePorts)
+    // 创建kubernetes service
+    if err := c.CreateOrUpdateMasterServiceIfNeeded(kubernetesServiceName, c.ServiceIP, servicePorts, serviceType, reconcile); err != nil {
+        return err
+    }
+    // c.PublicIP可以由--advertise-address指定
+    endpointPorts := createEndpointPortSpec(c.PublicServicePort, &quot;https&quot;, c.ExtraEndpointPorts)
+    if err := c.EndpointReconciler.ReconcileEndpoints(kubernetesServiceName, c.PublicIP, endpointPorts, reconcile); err != nil {
+        return err
+    }
+    return nil
+}
+</code></pre><p>c.EndpointReconciler类型是leaseEndpointReconciler</p>
+<pre tabindex="0"><code>// ReconcileEndpoints lists keys in a special etcd directory.
+// Each key is expected to have a TTL of R+n, where R is the refresh interval
+// at which this function is called, and n is some small value.  If an
+// apiserver goes down, it will fail to refresh its key's TTL and the key will
+// expire. ReconcileEndpoints will notice that the endpoints object is
+// different from the directory listing, and update the endpoints object
+// accordingly.
+func (r *leaseEndpointReconciler) ReconcileEndpoints(serviceName string, ip net.IP, endpointPorts []corev1.EndpointPort, reconcilePorts bool) error {
+    r.reconcilingLock.Lock()
+    defer r.reconcilingLock.Unlock()
+
+    // 停止bootstra-controller的时候调用PreShutdownHook触发
+    if r.stopReconcilingCalled {
+        return nil
+    }
+
+    // Refresh the TTL on our key, independently of whether any error or
+    // update conflict happens below. This makes sure that at least some of
+    // the masters will add our endpoint.
+    // 更新etcd中的lease信息，key结构形式:path.Join(s.baseKey, ip)，其中baseKey为&quot;/masterleases/&quot;
+    if err := r.masterLeases.UpdateLease(ip.String()); err != nil {
+        return err
+    }
+
+    return r.doReconcile(serviceName, endpointPorts, reconcilePorts)
+}
+
+func (r *leaseEndpointReconciler) doReconcile(serviceName string, endpointPorts []corev1.EndpointPort, reconcilePorts bool) error {
+    // 获取endpoint
+    e, err := r.epAdapter.Get(corev1.NamespaceDefault, serviceName, metav1.GetOptions{})
+    shouldCreate := false
+    if err != nil {
+        if !errors.IsNotFound(err) {
+            return err
+        }
+        // 是找不到该资源的话，就新建
+        shouldCreate = true
+        e = &amp;corev1.Endpoints{
+            ObjectMeta: metav1.ObjectMeta{
+                Name:      serviceName,
+                Namespace: corev1.NamespaceDefault,
+            },
+        }
+    }
+
+    // ... and the list of master IP keys from etcd
+    // 从etcd中获取/masterleases/下所有apiserver的ip
+    masterIPs, err := r.masterLeases.ListLeases()
+    if err != nil {
+        return err
+    }
+
+    // Since we just refreshed our own key, assume that zero endpoints
+    // returned from storage indicates an issue or invalid state, and thus do
+    // not update the endpoints list based on the result.
+    if len(masterIPs) == 0 {
+        return fmt.Errorf(&quot;no master IPs were listed in storage, refusing to erase all endpoints for the kubernetes service&quot;)
+    }
+
+    // Next, we compare the current list of endpoints with the list of master IP keys
+    // 1. 检测endpoint中的subnet个数是否为1, 不为1，返回formatCorrect=false
+    // 2. 对比endpoint中subnet Addresses和etcd中apiserver ip，不匹配的话返回ipsCorrect=false
+    // 3. reconcilePorts为false, 返回portsCorrect=true
+    formatCorrect, ipCorrect, portsCorrect := checkEndpointSubsetFormatWithLease(e, masterIPs, endpointPorts, reconcilePorts)
+    if formatCorrect &amp;&amp; ipCorrect &amp;&amp; portsCorrect {
+        // 如果都为true的话，确保生成对应的EndpointSlice
+        return r.epAdapter.EnsureEndpointSliceFromEndpoints(corev1.NamespaceDefault, e)
+    }
+
+    // 如果formatCorrect为false, 清空Subsets
+    if !formatCorrect {
+        // Something is egregiously wrong, just re-make the endpoints record.
+        e.Subsets = []corev1.EndpointSubset{{
+            ......
+        }}
+    }
+    // 如果formatCorrect或ipCorrect为false，以etcd中apiserver IP为准更新到endpoint subnets
+    if !formatCorrect || !ipCorrect {
+        // repopulate the addresses according to the expected IPs from etcd
+        e.Subsets[0].Addresses = make([]corev1.EndpointAddress, len(masterIPs))
+        for ind, ip := range masterIPs {
+            e.Subsets[0].Addresses[ind] = corev1.EndpointAddress{IP: ip, NodeName: utilpointer.StringPtr(ip)}
+        }
+
+        // Lexicographic order is retained by this step.
+        // 对EndpointSubset中Addresses、NotReadyAddresses、Ports进行归类，排序
+        e.Subsets = endpointsv1.RepackSubsets(e.Subsets)
+    }
+
+    if !portsCorrect {
+        // Reset ports.
+        e.Subsets[0].Ports = endpointPorts
+    }
+
+    klog.Warningf(&quot;Resetting endpoints for master service %q to %v&quot;, serviceName, masterIPs)
+    // 创建对应的endpoint
+    if shouldCreate {
+        if _, err = r.epAdapter.Create(corev1.NamespaceDefault, e); errors.IsAlreadyExists(err) {
+            err = nil
+        }
+    } else {
+        // 已存在，就更新
+        _, err = r.epAdapter.Update(corev1.NamespaceDefault, e)
+    }
+    return err
+}
+</code></pre><p>三、repairClusterIPs.RunUntil, 确保所有ClusterIP独一无二分配</p>
+<p>最终会调用到c.runOnce</p>
+<pre tabindex="0"><code>repairClusterIPs.RunUntil -&gt; c.RunOnce() -&gt; c.runOnce
+</code></pre><pre tabindex="0"><code># k8s.io/kubernetes/pkg/registry/core/service/ipallocator/controller/repair.go
+
+type Range struct {
+    net *net.IPNet
+    // base is a cached version of the start IP in the CIDR range as a *big.Int
+    base *big.Int
+    // max is the maximum size of the usable addresses in the range
+    max int
+
+    alloc allocator.Interface
+}
+
+// runOnce verifies the state of the cluster IP allocations and returns an error if an unrecoverable problem occurs.
+func (c *Repair) runOnce() error {
+    // TODO: (per smarterclayton) if Get() or ListServices() is a weak consistency read,
+    // or if they are executed against different leaders,
+    // the ordering guarantee required to ensure no IP is allocated twice is violated.
+    // ListServices must return a ResourceVersion higher than the etcd index Get triggers,
+    // and the release code must not release services that have had IPs allocated but not yet been created
+    // See #8295
+
+    // If etcd server is not running we should wait for some time and fail only then. This is particularly
+    // important when we start apiserver and etcd at the same time.
+    var snapshot *api.RangeAllocation
+    var secondarySnapshot *api.RangeAllocation
+
+    var stored, secondaryStored ipallocator.Interface
+    var err, secondaryErr error
+
+    err = wait.PollImmediate(time.Second, 10*time.Second, func() (bool, error) {
+        var err error
+        // 从etcd中获取已分配的ClusterCIDR
+        snapshot, err = c.alloc.Get()
+        if err != nil {
+            return false, err
+        }
+        // 如果开启支持ipv6栈，并设置ipv6 cidr
+        if c.shouldWorkOnSecondary() {
+            // 从etcd中获取已分配的ipv6 ClusterCIDR
+            secondarySnapshot, err = c.secondaryAlloc.Get()
+            if err != nil {
+                return false, err
+            }
+        }
+
+        return true, nil
+    })
+    if err != nil {
+        return fmt.Errorf(&quot;unable to refresh the service IP block: %v&quot;, err)
+    }
+    // If not yet initialized.
+    if snapshot.Range == &quot;&quot; {
+        // 赋值ServiceClusterIPRange
+        snapshot.Range = c.network.String()
+    }
+
+    if c.shouldWorkOnSecondary() &amp;&amp; secondarySnapshot.Range == &quot;&quot; {
+        // 赋值SecondaryServiceClusterIPRange
+        secondarySnapshot.Range = c.secondaryNetwork.String()
+    }
+    // Create an allocator because it is easy to use.
+   
+    // 从snapshot中计算网络段Range, 初始化ipv4地址分配器
+    // Range is a contiguous block of IPs that can be allocated atomically.
+    //
+    // The internal structure of the range is:
+    //
+    //   For CIDR 10.0.0.0/24
+    //   254 addresses usable out of 256 total (minus base and broadcast IPs)
+    //     The number of usable addresses is r.max
+    //
+    //   CIDR base IP          CIDR broadcast IP
+    //   10.0.0.0                     10.0.0.255
+    //   |                                     |
+    //   0 1 2 3 4 5 ...         ... 253 254 255
+    //     |                              |
+    //   r.base                     r.base + r.max
+    //     |                              |
+    //   offset #0 of r.allocated   last offset of r.allocated
+    stored, err = ipallocator.NewFromSnapshot(snapshot)
+    if c.shouldWorkOnSecondary() {
+        // 从secondarySnapshot中计算ipv6网络段Range, 初始化ipv6地址分配器
+        secondaryStored, secondaryErr = ipallocator.NewFromSnapshot(secondarySnapshot)
+    }
+
+    if err != nil || secondaryErr != nil {
+        return fmt.Errorf(&quot;unable to rebuild allocator from snapshots: %v&quot;, err)
+    }
+
+    // We explicitly send no resource version, since the resource version
+    // of 'snapshot' is from a different collection, it's not comparable to
+    // the service collection. The caching layer keeps per-collection RVs,
+    // and this is proper, since in theory the collections could be hosted
+    // in separate etcd (or even non-etcd) instances.
+    // 获取所有命名空间的service
+    list, err := c.serviceClient.Services(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+    if err != nil {
+        return fmt.Errorf(&quot;unable to refresh the service IP block: %v&quot;, err)
+    }
+
+    var rebuilt, secondaryRebuilt *ipallocator.Range
+    // 不再从snapshot计算range, 直接创建cidr range
+    rebuilt, err = ipallocator.NewCIDRRange(c.network)
+    if err != nil {
+        return fmt.Errorf(&quot;unable to create CIDR range: %v&quot;, err)
+    }
+
+    if c.shouldWorkOnSecondary() {
+        // 直接创建ipv6 cidr range
+        secondaryRebuilt, err = ipallocator.NewCIDRRange(c.secondaryNetwork)
+    }
+
+    if err != nil {
+        return fmt.Errorf(&quot;unable to create CIDR range: %v&quot;, err)
+    }
+
+    // Check every Service's ClusterIP, and rebuild the state as we think it should be.
+    for _, svc := range list.Items {
+        if !helper.IsServiceIPSet(&amp;svc) {
+            // 是否是有效的clusterIP
+            // didn't need a cluster IP
+            continue
+        }
+        ip := net.ParseIP(svc.Spec.ClusterIP)
+        if ip == nil {
+            // clusterIP解析失败
+            // cluster IP is corrupt
+            c.recorder.Eventf(&amp;svc, v1.EventTypeWarning, &quot;ClusterIPNotValid&quot;, &quot;Cluster IP %s is not a valid IP; please recreate service&quot;, svc.Spec.ClusterIP)
+            runtime.HandleError(fmt.Errorf(&quot;the cluster IP %s for service %s/%s is not a valid IP; please recreate&quot;, svc.Spec.ClusterIP, svc.Name, svc.Namespace))
+            continue
+        }
+
+        // mark it as in-use
+        // 根据ip选择ipv4或ipv6地址分配器
+        actualAlloc := c.selectAllocForIP(ip, rebuilt, secondaryRebuilt)
+        switch err := actualAlloc.Allocate(ip); err {
+        case nil:
+            actualStored := c.selectAllocForIP(ip, stored, secondaryStored)
+            // 检查ip是否泄露
+            if actualStored.Has(ip) {
+                // remove it from the old set, so we can find leaks
+                actualStored.Release(ip)
+            } else {
+                // cluster IP doesn't seem to be allocated
+                c.recorder.Eventf(&amp;svc, v1.EventTypeWarning, &quot;ClusterIPNotAllocated&quot;, &quot;Cluster IP %s is not allocated; repairing&quot;, ip)
+                runtime.HandleError(fmt.Errorf(&quot;the cluster IP %s for service %s/%s is not allocated; repairing&quot;, ip, svc.Name, svc.Namespace))
+            }
+            delete(c.leaks, ip.String()) // it is used, so it can't be leaked
+        // 检查ip是否重复
+        case ipallocator.ErrAllocated:
+            // cluster IP is duplicate
+            c.recorder.Eventf(&amp;svc, v1.EventTypeWarning, &quot;ClusterIPAlreadyAllocated&quot;, &quot;Cluster IP %s was assigned to multiple services; please recreate service&quot;, ip)
+            runtime.HandleError(fmt.Errorf(&quot;the cluster IP %s for service %s/%s was assigned to multiple services; please recreate&quot;, ip, svc.Name, svc.Namespace))
+        // 检查ip是否超出范围
+        case err.(*ipallocator.ErrNotInRange):
+            // cluster IP is out of range
+            c.recorder.Eventf(&amp;svc, v1.EventTypeWarning, &quot;ClusterIPOutOfRange&quot;, &quot;Cluster IP %s is not within the service CIDR %s; please recreate service&quot;, ip, c.network)
+            runtime.HandleError(fmt.Errorf(&quot;the cluster IP %s for service %s/%s is not within the service CIDR %s; please recreate&quot;, ip, svc.Name, svc.Namespace, c.network))
+        // 检查ip是否分配完
+        case ipallocator.ErrFull:
+            // somehow we are out of IPs
+            cidr := actualAlloc.CIDR()
+            c.recorder.Eventf(&amp;svc, v1.EventTypeWarning, &quot;ServiceCIDRFull&quot;, &quot;Service CIDR %v is full; you must widen the CIDR in order to create new services&quot;, cidr)
+            return fmt.Errorf(&quot;the service CIDR %v is full; you must widen the CIDR in order to create new services&quot;, cidr)
+        default:
+            c.recorder.Eventf(&amp;svc, v1.EventTypeWarning, &quot;UnknownError&quot;, &quot;Unable to allocate cluster IP %s due to an unknown error&quot;, ip)
+            return fmt.Errorf(&quot;unable to allocate cluster IP %s for service %s/%s due to an unknown error, exiting: %v&quot;, ip, svc.Name, svc.Namespace, err)
+        }
+    }
+    // 再次检查是否有ip泄露
+    c.checkLeaked(stored, rebuilt)
+    if c.shouldWorkOnSecondary() {
+        c.checkLeaked(secondaryStored, secondaryRebuilt)
+    }
+
+    // 更新etcd中的快照
+    // Blast the rebuilt state into storage.
+    err = c.saveSnapShot(rebuilt, c.alloc, snapshot)
+    if err != nil {
+        return err
+    }
+
+    if c.shouldWorkOnSecondary() {
+        err := c.saveSnapShot(secondaryRebuilt, c.secondaryAlloc, secondarySnapshot)
+        if err != nil {
+            return nil
+        }
+    }
+    return nil
+}
+</code></pre><p>四、repairNodePorts.RunUntil</p>
+<pre tabindex="0"><code>repairNodePorts.RunUntil -&gt; c.RunOnce() -&gt; c.runOnce
+</code></pre><p>最终会调用到<code>c.runOnce</code></p>
+<pre tabindex="0"><code>// runOnce verifies the state of the port allocations and returns an error if an unrecoverable problem occurs.
+func (c *Repair) runOnce() error {
+    // TODO: (per smarterclayton) if Get() or ListServices() is a weak consistency read,
+    // or if they are executed against different leaders,
+    // the ordering guarantee required to ensure no port is allocated twice is violated.
+    // ListServices must return a ResourceVersion higher than the etcd index Get triggers,
+    // and the release code must not release services that have had ports allocated but not yet been created
+    // See #8295
+
+    // If etcd server is not running we should wait for some time and fail only then. This is particularly
+    // important when we start apiserver and etcd at the same time.
+    var snapshot *api.RangeAllocation
+
+    // 从etcd中获取快照
+    err := wait.PollImmediate(time.Second, 10*time.Second, func() (bool, error) {
+        var err error
+        snapshot, err = c.alloc.Get()
+        return err == nil, err
+    })
+    if err != nil {
+        return fmt.Errorf(&quot;unable to refresh the port allocations: %v&quot;, err)
+    }
+    // If not yet initialized.
+    if snapshot.Range == &quot;&quot; {
+        snapshot.Range = c.portRange.String()
+    }
+    // Create an allocator because it is easy to use.
+    // 根据获取端口分配范围
+    stored, err := portallocator.NewFromSnapshot(snapshot)
+    if err != nil {
+        return fmt.Errorf(&quot;unable to rebuild allocator from snapshot: %v&quot;, err)
+    }
+
+    // We explicitly send no resource version, since the resource version
+    // of 'snapshot' is from a different collection, it's not comparable to
+    // the service collection. The caching layer keeps per-collection RVs,
+    // and this is proper, since in theory the collections could be hosted
+    // in separate etcd (or even non-etcd) instances.
+    // 获取所有命名空间的service
+    list, err := c.serviceClient.Services(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+    if err != nil {
+        return fmt.Errorf(&quot;unable to refresh the port block: %v&quot;, err)
+    }
+
+    // 直接创建PortAllocator对象
+    rebuilt, err := portallocator.NewPortAllocator(c.portRange)
+    if err != nil {
+        return fmt.Errorf(&quot;unable to create port allocator: %v&quot;, err)
+    }
+    // Check every Service's ports, and rebuild the state as we think it should be.
+    for i := range list.Items {
+        svc := &amp;list.Items[i]
+        ports := collectServiceNodePorts(svc)
+        if len(ports) == 0 {
+            continue
+        }
+
+        for _, port := range ports {
+            switch err := rebuilt.Allocate(port); err {
+            // 检查是否有端口泄露
+            case nil:
+                if stored.Has(port) {
+                    // remove it from the old set, so we can find leaks
+                    stored.Release(port)
+                } else {
+                    // doesn't seem to be allocated
+                    c.recorder.Eventf(svc, corev1.EventTypeWarning, &quot;PortNotAllocated&quot;, &quot;Port %d is not allocated; repairing&quot;, port)
+                    runtime.HandleError(fmt.Errorf(&quot;the node port %d for service %s/%s is not allocated; repairing&quot;, port, svc.Name, svc.Namespace))
+                }
+                delete(c.leaks, port) // it is used, so it can't be leaked
+            // 检查是否端口重复
+            case portallocator.ErrAllocated:
+                // port is duplicate, reallocate
+                c.recorder.Eventf(svc, corev1.EventTypeWarning, &quot;PortAlreadyAllocated&quot;, &quot;Port %d was assigned to multiple services; please recreate service&quot;, port)
+                runtime.HandleError(fmt.Errorf(&quot;the node port %d for service %s/%s was assigned to multiple services; please recreate&quot;, port, svc.Name, svc.Namespace))
+            // 检查是否端口超出范围
+            case err.(*portallocator.ErrNotInRange):
+                // port is out of range, reallocate
+                c.recorder.Eventf(svc, corev1.EventTypeWarning, &quot;PortOutOfRange&quot;, &quot;Port %d is not within the port range %s; please recreate service&quot;, port, c.portRange)
+                runtime.HandleError(fmt.Errorf(&quot;the port %d for service %s/%s is not within the port range %s; please recreate&quot;, port, svc.Name, svc.Namespace, c.portRange))
+            // 检查是否端口分配完了
+            case portallocator.ErrFull:
+                // somehow we are out of ports
+                c.recorder.Eventf(svc, corev1.EventTypeWarning, &quot;PortRangeFull&quot;, &quot;Port range %s is full; you must widen the port range in order to create new services&quot;, c.portRange)
+                return fmt.Errorf(&quot;the port range %s is full; you must widen the port range in order to create new services&quot;, c.portRange)
+            default:
+                c.recorder.Eventf(svc, corev1.EventTypeWarning, &quot;UnknownError&quot;, &quot;Unable to allocate port %d due to an unknown error&quot;, port)
+                return fmt.Errorf(&quot;unable to allocate port %d for service %s/%s due to an unknown error, exiting: %v&quot;, port, svc.Name, svc.Namespace, err)
+            }
+        }
+    }
+
+    // Check for ports that are left in the old set.  They appear to have been leaked.
+    // 检查是否端口泄露
+    stored.ForEach(func(port int) {
+        count, found := c.leaks[port]
+        switch {
+        case !found:
+            // flag it to be cleaned up after any races (hopefully) are gone
+            runtime.HandleError(fmt.Errorf(&quot;the node port %d may have leaked: flagging for later clean up&quot;, port))
+            count = numRepairsBeforeLeakCleanup - 1
+            fallthrough
+        case count &gt; 0:
+            // pretend it is still in use until count expires
+            c.leaks[port] = count - 1
+            if err := rebuilt.Allocate(port); err != nil {
+                runtime.HandleError(fmt.Errorf(&quot;the node port %d may have leaked, but can not be allocated: %v&quot;, port, err))
+            }
+        default:
+            // do not add it to the rebuilt set, which means it will be available for reuse
+            runtime.HandleError(fmt.Errorf(&quot;the node port %d appears to have leaked: cleaning up&quot;, port))
+        }
+    })
+
+    // Blast the rebuilt state into storage.
+    // 更新etcd中的快照
+    if err := rebuilt.Snapshot(snapshot); err != nil {
+        return fmt.Errorf(&quot;unable to snapshot the updated port allocations: %v&quot;, err)
+    }
+
+    if err := c.alloc.CreateOrUpdate(snapshot); err != nil {
+        if errors.IsConflict(err) {
+            return err
+        }
+        return fmt.Errorf(&quot;unable to persist the updated port allocations: %v&quot;, err)
+    }
+    return nil
+}
+</code></pre><h4 id="preshutdownhook">PreShutdownHook</h4>
+<pre tabindex="0"><code>// PreShutdownHook triggers the actions needed to shut down the API Server cleanly.
+func (c *Controller) PreShutdownHook() error {
+    c.Stop()
+    return nil
+}
+
+// Stop cleans up this API Servers endpoint reconciliation leases so another master can take over more quickly.
+func (c *Controller) Stop() {
+    // 
+    if c.runner != nil {
+        c.runner.Stop()
+    }
+    endpointPorts := createEndpointPortSpec(c.PublicServicePort, &quot;https&quot;, c.ExtraEndpointPorts)
+    finishedReconciling := make(chan struct{})
+    go func() {
+        defer close(finishedReconciling)
+        klog.Infof(&quot;Shutting down kubernetes service endpoint reconciler&quot;)
+        c.EndpointReconciler.StopReconciling()
+        // 移除对应的endpoint
+        if err := c.EndpointReconciler.RemoveEndpoints(kubernetesServiceName, c.PublicIP, endpointPorts); err != nil {
+            klog.Error(err)
+        }
+    }()
+
+    select {
+    case &lt;-finishedReconciling:
+        // done
+    case &lt;-time.After(2 * c.EndpointInterval):
+        // don't block server shutdown forever if we can't reach etcd to remove ourselves
+        klog.Warning(&quot;RemoveEndpoints() timed out&quot;)
+    }
+}
+</code></pre>
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2020-09-16-k8s_topology_aware_route_readnote/" data-toggle="tooltip" data-placement="top" title="K8s拓扑感知服务路由特性阅读笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-09-25-k8s_cloud-controller-manager_readnote/" data-toggle="tooltip" data-placement="top" title="K8s cloud-controller-manager阅读笔记">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

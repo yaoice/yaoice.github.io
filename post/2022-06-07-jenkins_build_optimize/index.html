@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="java应用容器构建优化" />
+    <meta property="og:title" content="java应用容器构建优化" />
+    <meta property="twitter:title" content="java应用容器构建优化" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>java应用容器构建优化 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2022-06-07-jenkins_build_optimize/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>java应用容器构建优化</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Tuesday, June 7, 2022
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h1 id="1-背景">1. 背景</h1>
+<p>jenkins充当CI作用，构建流程：</p>
+<ol>
+<li>拉取gitlab源代码仓库(配置了gitlab admin token凭证)</li>
+<li>在宿主机上使用命令<code>mvn -B -f /xxx/pom.xml clean package -Dmaven.test.skip=true -U</code>构建jar包，
+宿主机上配置了maven环境(包含/maven工作目录/conf/settings.xml、且在settings.xml中<!-- raw HTML omitted --><!-- raw HTML omitted -->自定义了缓存目录)</li>
+<li>触发构建脚本，加载Dockerfile，把上面步骤的产物jar包添加到镜像中，并推送至远程仓库</li>
+</ol>
+<p>maven settings.xml、pom.xml加载优先级顺序：
+java项目通过maven自动下载依赖时，会涉级读取三个配置文件，分别是源代码项目下的pom.xml文件、HOME目录下的.m2/settings.xml、maven全局配置settings.xml，
+优先级顺序：pom.xml &gt; /$HOME/.m2/settings.xml &gt; /maven工作目录/conf/settings.xml</p>
+<p>jenkins构建结果输出：
+
+  <img src="/img/posts/2022-06-07/jenkins_output.png" alt="">
+
+
+有配置maven本地缓存目录，下载依赖过程还是很快的</p>
+<p>
+  <img src="/img/posts/2022-06-07/jenkins_docker_build.png" alt="">
+
+
+
+  <img src="/img/posts/2022-06-07/jenkins_build_history.png" alt="">
+
+
+问题：虽然有maven本地缓存加速依赖下载，代码没变化的前提下，每次构建还是耗费了1分9秒</p>
+<h1 id="2-分析">2. 分析</h1>
+<p>即使有maven本地缓存加速依赖下载，但是每次应用构建新版本镜像时，比如Maven构建产出物是Final.jar，
+当依赖的moduleA、moduleB模块中任意一处发生变化时，都会产出一个新的Final.jar。
+构建镜像时都要将整个Final.jar重新写入到镜像层，并将整个镜像层推送到镜像仓库中。</p>
+<p>是否有java应用程序分层缓存机制的工具？更改代码时，仅重建更改，而不重建整个应用程序；
+从而减少镜像存储空间，提升构建镜像、推送镜像的性能。</p>
+<blockquote>
+<p>存在这种工具，Google Jib是谷歌公司推出的开源Java镜像构建工具，它具备以上功能</p>
+</blockquote>
+<h1 id="3-jib">3. Jib</h1>
+<h2 id="31-简介">3.1 简介</h2>
+<p>Jib可以为Java应用程序构建优化的Docker和OCI镜像，无需Docker守护程序，
+也无需深入掌握Docker使用。它可作为Maven和Gradle的插件以及Java库。</p>
+<h2 id="32-特点">3.2 特点</h2>
+<ul>
+<li>快速 - 快速生效变更。Jib将应用程序分成多个层，将依赖库与类分离。现在不必等待Docker重新构建好整个Java应用程序，只会重建更改的层</li>
+<li>幂等性 - 使用相同内容重建容器镜像始终会生成相同的镜像，永远不会再次触发不必要的更新。</li>
+<li>无守护进程 - 减少命令行依赖。可直接从Maven或Gradle中构建Docker镜像，然后推送到远程镜像仓库，不需要编写Dockerfile和调用docker push/build命令。</li>
+</ul>
+<h2 id="33-docker构建流程-vs-jib构建流程">3.3 docker构建流程 vs jib构建流程</h2>
+<p>docker构建流程</p>
+<pre tabindex="0"><code>+------------------------+   mvn编译  +---------------------+      +--------------------------------------------------------+
+|                        |            |                     |      |                                                        |
+|        项目源代码       +------------&gt;      Jar包           |      |                    Docker守护进程                       |
+|                        |            |                     |      |                                                        |
+|                        |            |                     |      |                                                        |
++------------------------+            +-----------+---------+      |   +-------------------+  编译    +------------------+  |推送   +----------------+
+                                                  |                |   |                   |          |                  |  |       |                |
+                                                  +--------------------&gt;   编译上下文       +----------&gt;   容器镜像         +----------&gt;   镜像仓库      |
+                                                  |                |   |                   |          |                  |  |       |                |
+                                      +-----------+---------+      |   +-------------------+          +------------------+  |       +----------------+
+                                      |                     |      |                                                        |
+                                      |      Dockerfile     |      |                                                        |
+                                      |                     |      |                                                        |
+                                      |                     |      |                                                        |
+                                      +---------------------+      +--------------------------------------------------------+
+
+</code></pre><p>jib构建流程：</p>
+<pre tabindex="0"><code>+------------------------+          +---------------------+
+|                        |          |                     |
+|    项目源代码            |          |                     |
+|                        +----------&gt;  镜像仓库            |
+|                        |          |                     |
++------------------------+          +---------------------+
+</code></pre><p>对比发现，jib构建流程简化了很多</p>
+<h2 id="33-具体实践">3.3 具体实践</h2>
+<p>jib构建工具主要包含了四个强大的功能，如果编译构建是在没有docker环境的情况下构建，使用build命令和dockerBuild命令并不能制作出镜像，只能使用buildTar命令制作出一个包含镜像的tar文件。</p>
+<ul>
+<li>build提供了创建镜像并推送到远程仓库功能。</li>
+<li>buildTar提供创建一个包含镜像的tar文件功能。</li>
+<li>dockerBuild提供创建docker镜像到本地功能。</li>
+<li>exportDockerContext提供创建dockerfile功能。</li>
+</ul>
+<h3 id="331-引入jib插件">3.3.1 引入jib插件</h3>
+<p>编辑pom.xml，增加jib插件内容</p>
+<pre tabindex="0"><code>&lt;plugin&gt;
+     &lt;groupId&gt;com.google.cloud.tools&lt;/groupId&gt;
+     &lt;artifactId&gt;jib-maven-plugin&lt;/artifactId&gt;
+     &lt;version&gt;3.2.1&lt;/version&gt;
+     &lt;configuration&gt;
+         &lt;from&gt;
+             &lt;image&gt;reg.xxx.com/base/centos:7.9.2009&lt;/image&gt;
+         &lt;/from&gt;
+         &lt;to&gt;
+             &lt;!--镜像名称和tag，使用了mvn内置变量${project.version}，表示当前工程的version--&gt;
+             &lt;image&gt;reg.xxx.com/sme/sme-account-service:${project.version}&lt;/image&gt;
+         &lt;/to&gt;
+         &lt;!--容器相关的属性--&gt;
+         &lt;container&gt;
+             &lt;!--创建时间戳参数--&gt;
+             &lt;creationTime&gt;USE_CURRENT_TIMESTAMP&lt;/creationTime&gt;
+             &lt;!--jvm内存参数--&gt;
+             &lt;jvmFlags&gt;
+                 &lt;jvmFlag&gt;-Djava.security.egd=file:/dev/./urandom&lt;/jvmFlag&gt;
+                 &lt;jvmFlag&gt;-Xms4g&lt;/jvmFlag&gt;
+                 &lt;jvmFlag&gt;-Xmx4g&lt;/jvmFlag&gt;
+             &lt;/jvmFlags&gt;
+             &lt;!--要暴露的端口--&gt;
+             &lt;ports&gt;
+                 &lt;port&gt;80&lt;/port&gt;
+             &lt;/ports&gt;
+           &lt;mainClass&gt;com.xxx.sme.account.service.AccountServiceApplication&lt;/mainClass&gt;
+         &lt;/container&gt;
+     &lt;/configuration&gt;
+&lt;/plugin&gt;
+</code></pre><ul>
+<li>From标签：设置基础镜像，相当于dockerfile中的FROM关键字</li>
+<li>To标签：设置构建出来的镜像的镜像名称和tag</li>
+<li>Container标签：设置容器的相关属性，如jvm内存参数、容器端口等。</li>
+<li>mainClass标签：设置项目启动的主程序，如Spring Boot的Application类</li>
+</ul>
+<p>更多标签使用查阅：<a href="https://github.com/GoogleContainerTools/jib/tree/master/jib-maven-plugin">https://github.com/GoogleContainerTools/jib/tree/master/jib-maven-plugin</a></p>
+<h3 id="332-执行jib构建">3.3.2 执行jib构建</h3>
+<pre tabindex="0"><code># mvn -f account-service/pom.xml clean package jib:build -Dmaven.test.skip=true -U -e -X
+
+[DEBUG] TIMED   Building dependencies layer : 10201.0 ms
+[DEBUG] TIMING  Pushing BLOB digest: sha256:42258b82b21362f321faa42aeed4e2c39b2709f57356c65996007123
+aa50ff49, size: 119520216
+[DEBUG] TIMING  Building container configuration
+[INFO] 
+[INFO] Container entrypoint set to [java, -Djava.security.egd=file:/dev/./urandom, -Xms4g, -Xmx4g, -
+cp, /app/resources:/app/classes:/app/libs/*, com.xxx.sme.account.service.AccountServiceApplication]
+[DEBUG] TIMED   Building container configuration : 1.0 ms
+[DEBUG] TIMING  Pushing container configuration
+[DEBUG] TIMING  Building a manifest list or a single manifest
+[DEBUG] Building a single manifest
+[DEBUG] Skipping push; BLOB already exists on target registry : digest: sha256:42258b82b21362f321faa
+42aeed4e2c39b2709f57356c65996007123aa50ff49, size: 119520216
+[DEBUG] TIMED   Pushing BLOB digest: sha256:42258b82b21362f321faa42aeed4e2c39b2709f57356c65996007123
+aa50ff49, size: 119520216 : 24.0 ms
+[DEBUG] TIMED   Building a manifest list or a single manifest : 58.0 ms
+[DEBUG] TIMING  Pushing BLOB digest: sha256:14b85639ea96206c6e96d1328723dc5a0697d152d6d5b0c42c2d6cdf
+87946c2f, size: 5658
+[DEBUG] TIMING  Checking existence of manifest
+[DEBUG] Checking existence of manifest for sha256:bc1125eb42a203c58d579030d98b1c0d0ca37444292ab66667
+06b04ea97236a0...
+[DEBUG] Skipping manifest existence check; system property set to false
+[DEBUG] TIMED   Checking existence of manifest : 0.0 ms
+[DEBUG] TIMING  pushBlob
+[DEBUG]         TIMING  pushBlob POST sha256:14b85639ea96206c6e96d1328723dc5a0697d152d6d5b0c42c2d6cd
+f87946c2f
+[DEBUG]         TIMED   pushBlob PATCH sha256:14b85639ea96206c6e96d1328723dc5a0697d152d6d5b0c42c2d6c
+df87946c2f : 62.0 ms
+[DEBUG]         TIMED   pushBlob PUT sha256:14b85639ea96206c6e96d1328723dc5a0697d152d6d5b0c42c2d6cdf
+87946c2f : 48.0 ms
+[DEBUG]         TIMED   pushBlob POST sha256:14b85639ea96206c6e96d1328723dc5a0697d152d6d5b0c42c2d6cd
+f87946c2f : 389.0 ms
+[DEBUG] TIMED   pushBlob : 500.0 ms
+[DEBUG] TIMED   Pushing BLOB digest: sha256:14b85639ea96206c6e96d1328723dc5a0697d152d6d5b0c42c2d6cdf
+87946c2f, size: 5658 : 521.0 ms
+[DEBUG] TIMED   Pushing container configuration : 579.0 ms
+[DEBUG] TIMING  Preparing manifest pushers
+[DEBUG] TIMED   Preparing manifest pushers : 1.0 ms
+[DEBUG] TIMING  Pushing manifest
+[DEBUG] Pushing manifest for 2.1.0-SNAPSHOT...
+[DEBUG] TIMED   Pushing manifest : 349.0 ms
+[DEBUG] TIMING  Preparing manifest list pushers
+[DEBUG] TIMED   Preparing manifest list pushers : 0.0 ms
+[DEBUG] TIMED   Building and pushing image : 11278.0 ms
+[INFO] 
+[INFO] Built and pushed image as reg.xxx.com/sme/sme-account-service:2.1.0-SNAPSHOT
+[INFO] Executing tasks:
+[INFO] [============================  ] 91.7% complete
+[INFO] &gt; launching layer pushers
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 34.061 s
+[INFO] Finished at: 2022-06-09T17:11:35+08:00
+[INFO] Final Memory: 116M/1423M
+[INFO] ------------------------------------------------------------------------
+</code></pre><p>34秒，单个镜像构建推送耗时相比于上面的1分9秒提升了35秒，提升显著(有jib缓存的前提下)</p>
+<p>可使用dive小工具，查看镜像分层信息</p>
+<pre tabindex="0"><code># wget -c  https://github.com/wagoodman/dive/releases/download/v0.10.0/dive_0.10.0_linux_amd64.rpm
+# rpm -ivh dive_0.10.0_linux_amd64.rpm
+</code></pre><h1 id="问题">问题</h1>
+<p>mvn jib构建镜像的时候找不到main class，原因是项目里多个地方定义了main class</p>
+<pre tabindex="0"><code># mvn -f account-service/pom.xml clean package jib:dockerBuild -Dmaven.test.skip=true -U -e -X
+[ERROR] Failed to execute goal com.google.cloud.tools:jib-maven-plugin:3.2.1:dockerBuild (default-cli) 
+on project account-service: Multiple valid main classes were found: com.xxx.sme.account.service.AccountServiceApplication, 
+com.xxx.sme.account.service.jobhandler.UrgeCustRepayMentTaskJobHandler, 
+com.xxx.sme.account.service.jobhandler.ZgcReconcileAtDayEndHandler, 
+com.xxx.sme.account.service.jobhandler.loan.AvictcPayScheduleHandler, 
+com.xxx.sme.account.service.jobhandler.loan.FmDownFileJobHandler, com.xxx.sme.account.service.jobhandler.loan.IcbcBatchFileImportJobHandler, 
+com.xxx.sme.account.service.jobhandler.loan.IcbcDownFileJobHandler, com.xxx.sme.account.service.jobhandler.loan.SnDownFileJobHandler, 
+com.xxx.sme.account.service.service.AccountLoanDealForFbService, com.xxx.sme.account.service.service.AccountLoanDealForSnService, 
+com.xxx.sme.account.service.service.bank.CmbService, com.xxx.sme.account.service.util.DateTools, 
+perhaps you should add a `mainClass` configuration to jib-maven-plugin -&gt; [Help 1]
+</code></pre><p>解决方法： 编辑pom.xml，增加mainClass配置</p>
+<pre tabindex="0"><code># 精确定义mainClass
+&lt;container&gt;
+    &lt;!--jvm内存参数--&gt;
+    &lt;jvmFlags&gt;
+        &lt;jvmFlag&gt;-Xms4g&lt;/jvmFlag&gt;
+        &lt;jvmFlag&gt;-Xmx4g&lt;/jvmFlag&gt;
+    &lt;/jvmFlags&gt;
+    &lt;!--要暴露的端口--&gt;
+    &lt;ports&gt;
+        &lt;port&gt;80&lt;/port&gt;
+    &lt;/ports&gt;
+  &lt;mainClass&gt;com.xxx.sme.account.service.AccountServiceApplication&lt;/mainClass&gt;
+&lt;/container&gt;
+</code></pre><h1 id="参考链接">参考链接</h1>
+<ul>
+<li><a href="https://help.aliyun.com/document_detail/202433.html">Java 构建缓慢—未设置有效缓存目录</a></li>
+<li><a href="https://support.huaweicloud.com/codeci_faq/codeci_faq_0025.html">Maven构建缓存配置及清理步骤</a></li>
+<li><a href="https://github.com/GoogleContainerTools/jib">https://github.com/GoogleContainerTools/jib</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2022-03-11-cluster_full_lifecycle/" data-toggle="tooltip" data-placement="top" title="一文读懂集群全生命周期管理">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2022-06-29-zadig_debug_env/" data-toggle="tooltip" data-placement="top" title="一文教你调试zadig代码">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/home-bg.jpeg" />
+    
+
+    
+    <meta name="title" content="TKEStack tke-platform-controller健康检查" />
+    <meta property="og:title" content="TKEStack tke-platform-controller健康检查" />
+    <meta property="twitter:title" content="TKEStack tke-platform-controller健康检查" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>TKEStack tke-platform-controller健康检查 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-09-10-tke-platform-controller_health_check/">
+
+    
+    
+    
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
+
+    
+    
+
+    
+    <script src="/js/jquery.min.js"></script>
+
+    
+    <script src="/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="/js/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+<script>
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.dataLayer = window.dataLayer || [];
+	function gtag(){dataLayer.push(arguments);}
+	gtag('js', new Date());
+	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
+}
+</script>
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/home-bg.jpeg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                    </div>
+                    <h1>TKEStack tke-platform-controller健康检查</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Thursday, September 10, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h3 id="环境">环境</h3>
+<p>tke版本: v0.12.2</p>
+<h3 id="现象">现象</h3>
+<h4 id="cluster对象错误日志">Cluster对象错误日志</h4>
+<p>集群HealthCheck失败，集群状态为Failed, 且不会再恢复</p>
+<pre tabindex="0"><code># kubectl --kubeconfig=/etc/tke/tke-platform-config.yaml get cluster  cls-bd46179d -o yaml
+
+  - lastProbeTime: &quot;2020-09-09T11:40:27Z&quot;
+    lastTransitionTime: &quot;2020-09-09T11:40:27Z&quot;
+    message: '1Get https://192.168.55.14:6443/api/v1/pods?limit=500: dial tcp 192.168.55.14:6443:
+      connect: connection refused'
+    reason: HealthCheckFail
+    status: &quot;False&quot;
+    type: HealthCheck
+  - lastProbeTime: &quot;2020-09-08T07:50:15Z&quot;
+    lastTransitionTime: &quot;2020-09-08T07:50:15Z&quot;
+    status: &quot;True&quot;
+    type: SyncVersion
+  dnsIP: 172.20.252.10
+  nodeCIDRMaskSize: 24
+  phase: Failed
+</code></pre><h4 id="tke-platform-controller错误日志">tke-platform-controller错误日志</h4>
+<p>查看tke-platform-controller日志，有大量的Throttling request，且耗时均在3s以上(另外一个开发环境耗时在ms级别)</p>
+<pre tabindex="0"><code># kubectl -n tke logs tke-platform-controller-666d645579-9pwq8 --tail 30
+2020-09-10 03:08:40.504 info    Finished syncing machine        {&quot;machineName&quot;: &quot;mc-t2hbm6kt&quot;, &quot;processTime&quot;: 0.10702}
+2020-09-10 03:08:40.526 info    Throttling request took 3.644625512s, request: GET:https://tke-platform-api:9443/apis/platform.tke.cloud.tencent.com/v1/clustercredentials?fieldSelector=clusterName%3Dcls-bd46179d
+2020-09-10 03:08:40.575 info    Throttling request took 3.650615986s, request: GET:https://tke-platform-api:9443/apis/platform.tke.cloud.tencent.com/v1/machines/mc-dplrj2hg
+2020-09-10 03:08:40.625 info    Throttling request took 3.6304611s, request: GET:https://tke-platform-api:9443/apis/platform.tke.cloud.tencent.com/v1/machines/mc-lv8pmxnp
+2020-09-10 03:08:40.675 info    Throttling request took 3.671669513s, request: GET:https://tke-platform-api:9443/apis/platform.tke.cloud.tencent.com/v1/clusters/cls-bd46179d
+2020-09-10 03:08:40.725 info    Throttling request took 3.721528728s, request: GET:https://tke-platform-api:9443/apis/platform.tke.cloud.tencent.com/v1/clustercredentials?fieldSelector=clusterName%3Dcls-bd46179d
+2020-09-10 03:08:40.775 info    Throttling request took 3.745508623s, request: GET:https://tke-platform-api:9443/apis/platform.tke.cloud.tencent.com/v1/clusters/cls-bd46179d
+</code></pre><h4 id="etcd错误日志">etcd错误日志</h4>
+<p>查看etcd日志，耗时差不多在200ms～300ms左右(另外一个开发环境耗时在100多ms)</p>
+<pre tabindex="0"><code># kubectl -n kube-system logs etcd-192.168.55.11  | grep &quot;read-only range request&quot;
+2020-09-10 02:14:33.033138 W | etcdserver: read-only range request &quot;key:\&quot;/tke/platform/machines/mc-vhtmkkvs\&quot; &quot; with result &quot;range_response_count:1 size:2869&quot; took too long (256.009466ms) to execute
+2020-09-10 02:14:33.033579 W | etcdserver: read-only range request &quot;key:\&quot;/tke/platform/machines/mc-bmd89j7v\&quot; &quot; with result &quot;range_response_count:1 size:2869&quot; took too long (106.963165ms) to execute
+2020-09-10 02:14:33.033823 W | etcdserver: read-only range request &quot;key:\&quot;/tke/platform/machines/mc-xx9t7d6q\&quot; &quot; with result &quot;range_response_count:1 size:2868&quot; took too long (206.406312ms) to execute
+2020-09-10 02:14:33.034105 W | etcdserver: read-only range request &quot;key:\&quot;/tke/notify/configmaps/tke-notify-controller\&quot; &quot; with result &quot;range_response_count:1 size:539&quot; took too long (219.982463ms) to execute
+2020-09-10 02:14:33.034418 W | etcdserver: read-only range request &quot;key:\&quot;/tke/platform/machines/mc-zpnfttfh\&quot; &quot; with result &quot;range_response_count:1 size:2869&quot; took too long (307.724164ms) to execute
+</code></pre><h3 id="排查">排查</h3>
+<p>查阅tke-platform-controller代码<code>tke/pkg/platform/controller/cluster/cluster_controller.go</code></p>
+<pre tabindex="0"><code>    // configure the namespace informer event handlers
+    clusterInformer.Informer().AddEventHandlerWithResyncPeriod(
+        cache.ResourceEventHandlerFuncs{
+            AddFunc: controller.enqueueCluster,
+            UpdateFunc: func(oldObj, newObj interface{}) {
+                oldCluster, ok1 := oldObj.(*platformv1.Cluster)
+                curCluster, ok2 := newObj.(*platformv1.Cluster)
+                if ok1 &amp;&amp; ok2 &amp;&amp; controller.needsUpdate(oldCluster, curCluster) {
+                    controller.enqueueCluster(newObj)
+                } else {
+                    log.Debug(&quot;Update new cluster not to add&quot;, log.String(&quot;clusterName&quot;, curCluster.Name), log.String(&quot;resourceversion&quot;, curCluster.ResourceVersion), log.String(&quot;old-resourceversion&quot;, oldCluster.ResourceVersion), log.String(&quot;cur-resourceversion&quot;, curCluster.ResourceVersion))
+                }
+            },
+        },
+        resyncPeriod,
+    )
+</code></pre><pre tabindex="0"><code>func (c *Controller) needsUpdate(old *platformv1.Cluster, new *platformv1.Cluster) bool {
+    if !reflect.DeepEqual(old.Spec, new.Spec) {
+        return true
+    }
+
+    if !reflect.DeepEqual(old.Status, new.Status) {
+        return true
+    }
+
+    return false
+}
+</code></pre><p>基于cluster资源对象的clusterInformer，如果前后cluster对象的Spec和Status字段不变，则不把新对象放入工作队列</p>
+<h4 id="cluster-controller核心处理逻辑">cluster controller核心处理逻辑</h4>
+<pre tabindex="0"><code>Run -&gt; worker -&gt; processNextWorkItem -&gt; syncCluster ---&gt; processClusterUpdate -&gt; handlePhase -&gt; ensureHealthCheck
+                                                    |                                                 |
+                                                    |                                                 |
+                                                    |                                                 v
+                                                    ---&gt; processClusterDeletion                 watchClusterHealth
+                                                                                                      |   
+                                                                                                      |
+                                                                                                      v
+                                                                                                checkClusterHealth
+</code></pre><h4 id="healthcheck代码逻辑">HealthCheck代码逻辑</h4>
+<p>进行集群健康检查的话，最终会调用到ensureHealthCheck函数</p>
+<pre tabindex="0"><code>func (c *Controller) ensureHealthCheck(key string, cluster *v1.Cluster) {
+    if c.health.Exist(key) {
+        return
+    }
+
+    log.Info(&quot;start health check for cluster&quot;, log.String(&quot;clusterName&quot;, key), log.String(&quot;phase&quot;, string(cluster.Status.Phase)))
+    c.health.Set(cluster)
+    go wait.PollImmediateUntil(5*time.Minute, c.watchClusterHealth(cluster.Name), c.stopCh)
+}
+</code></pre><p>有这样一段逻辑，如果c.health中的map存在key(集群的name,如：cls-bd46179d)就直接返回了，第一次执行的时候会加入到map中，什么时候会从c.health中移除？</p>
+<p>在processClusterDelete函数中，c.health会移除对应的key; 而processClusterUpdate会从c.cache获取cachedCluster来对集群的UID是否一致，
+不一致的话则触发processClusterDelete函数</p>
+<pre tabindex="0"><code>func (c *Controller) processClusterUpdate(cachedCluster *cachedCluster, cluster *platformv1.Cluster, key string) error {
+    if cachedCluster.state != nil {
+        if cachedCluster.state.UID != cluster.UID {
+            err := c.processClusterDelete(key)
+            if err != nil {
+                return err
+            }
+        }
+    }
+
+    // start update cluster if needed
+    err := c.handlePhase(key, cachedCluster, cluster)
+    if err != nil {
+        return err
+    }
+    // 第一次执行的话，放入c.cache中
+    cachedCluster.state = cluster
+    // Always update the cache upon success.
+    c.cache.set(key, cachedCluster)
+
+    return nil
+}
+
+func (c *Controller) processClusterDelete(key string) error {
+    log.Info(&quot;Cluster will be dropped&quot;, log.String(&quot;clusterName&quot;, key))
+
+    if c.cache.Exist(key) {
+        log.Info(&quot;Delete the cluster cache&quot;, log.String(&quot;clusterName&quot;, key))
+        c.cache.delete(key)
+    }
+
+    if c.health.Exist(key) {
+        log.Info(&quot;Delete the cluster health cache&quot;, log.String(&quot;clusterName&quot;, key))
+        c.health.Del(key)
+    }
+
+    return nil
+}
+</code></pre><p>如果cachedCluster没失效的话，ensureHealthCheck就只会执行一次. watchClusterHealth会每隔5分钟执行一次</p>
+<p>PollImmediateUntil会先执行condition函数，然后每隔interval执行一次condition</p>
+<pre tabindex="0"><code>func PollImmediateUntil(interval time.Duration, condition ConditionFunc, stopCh &lt;-chan struct{}) error
+</code></pre><p>PollUntil每隔interval执行一次condition</p>
+<pre tabindex="0"><code>func PollUntil(interval time.Duration, condition ConditionFunc, stopCh &lt;-chan struct{}) error                                           
+</code></pre><p>再来看看tke-platform-controller的日志</p>
+<pre tabindex="0"><code># kubectl -n tke logs tke-platform-controller-666d645579-g7z7v |grep &quot;Check cluster health&quot;
+2020-09-10 06:37:53.740 info    Check cluster health    {&quot;clusterName&quot;: &quot;cls-4e67d80a&quot;}
+2020-09-10 06:37:53.740 info    Check cluster health    {&quot;clusterName&quot;: &quot;cls-bd46179d&quot;}
+2020-09-10 06:37:53.740 info    Check cluster health    {&quot;clusterName&quot;: &quot;global&quot;}
+2020-09-10 06:37:53.740 info    Check cluster health    {&quot;clusterName&quot;: &quot;cls-0b46be88&quot;}
+2020-09-10 06:42:54.455 info    Check cluster health    {&quot;clusterName&quot;: &quot;cls-0b46be88&quot;}
+2020-09-10 06:42:55.041 info    Check cluster health    {&quot;clusterName&quot;: &quot;cls-4e67d80a&quot;}
+2020-09-10 06:42:55.553 info    Check cluster health    {&quot;clusterName&quot;: &quot;global&quot;}
+2020-09-10 06:47:54.455 info    Check cluster health    {&quot;clusterName&quot;: &quot;cls-0b46be88&quot;}
+2020-09-10 06:47:55.040 info    Check cluster health    {&quot;clusterName&quot;: &quot;cls-4e67d80a&quot;}
+2020-09-10 06:47:55.553 info    Check cluster health    {&quot;clusterName&quot;: &quot;global&quot;}
+</code></pre><p>集群cls-bd46179d就没执行watchClusterHealth函数(Check cluster health日志是在函数第一行输出的)，再回头来看<code>go wait.PollImmediateUntil(5*time.Minute, c.watchClusterHealth(cluster.Name), c.stopCh)</code>,
+是不是第一次执行condition(watchClusterHealth)的时候就return err导致退出5分钟定时器的循环？</p>
+<pre tabindex="0"><code>// PollImmediateUntil tries a condition func until it returns true, an error or stopCh is closed.
+//
+// PollImmediateUntil runs the 'condition' before waiting for the interval.
+// 'condition' will always be invoked at least once.
+func PollImmediateUntil(interval time.Duration, condition ConditionFunc, stopCh &lt;-chan struct{}) error {
+    done, err := condition()
+    if err != nil {
+        return err
+    }
+    if done {
+        return nil
+    }
+    select {
+    case &lt;-stopCh:
+        return ErrWaitTimeout
+    default:
+        return PollUntil(interval, condition, stopCh)
+    }
+}
+</code></pre><p>执行watchClusterHealth，如果不是找不到这个集群或者集群处于Terminating的状态，最终会调用到checkClusterHealth</p>
+<pre tabindex="0"><code>// for PollImmediateUntil, when return true ,an err while exit
+func (c *Controller) watchClusterHealth(clusterName string) func() (bool, error) {
+    return func() (bool, error) {
+        log.Info(&quot;Check cluster health&quot;, log.String(&quot;clusterName&quot;, clusterName))
+
+        cluster, err := c.client.PlatformV1().Clusters().Get(clusterName, metav1.GetOptions{})
+        if err != nil {
+            if errors.IsNotFound(err) {
+                log.Warn(&quot;Cluster not found, to exit the health check loop&quot;, log.String(&quot;clusterName&quot;, clusterName))
+                return true, nil
+            }
+            log.Error(&quot;Check cluster health, cluster get failed&quot;, log.String(&quot;clusterName&quot;, clusterName), log.Err(err))
+            return false, nil
+        }
+
+        if cluster.Status.Phase == v1.ClusterTerminating {
+            log.Warn(&quot;Cluster status is Terminating, to exit the health check loop&quot;, log.String(&quot;clusterName&quot;, cluster.Name))
+            return true, nil
+        }
+
+        _ = c.checkClusterHealth(cluster)
+        return false, nil
+    }
+}
+</code></pre><pre tabindex="0"><code>func (c *Controller) checkClusterHealth(cluster *v1.Cluster) error {
+    // wait for create clustercredential, optimize first health check for user experience
+    if cluster.Status.Phase == v1.ClusterInitializing {
+        err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
+            _, err := util.ClusterCredentialV1(c.client.PlatformV1(), cluster.Name)
+            if err != nil {
+                return false, nil
+            }
+            return true, nil
+        })
+        if err != nil { // not return! execute next steps to show reason for user
+            log.Warn(&quot;wait for create clustercredential error&quot;, log.String(&quot;clusterName&quot;, cluster.Name))
+        }
+    }
+    kubeClient, err := util.BuildExternalClientSet(cluster, c.client.PlatformV1())
+    if err != nil {
+        cluster.Status.Phase = v1.ClusterFailed
+        cluster.Status.Message = err.Error()
+        cluster.Status.Reason = reasonHealthCheckFail
+        now := metav1.Now()
+        c.addOrUpdateCondition(cluster, v1.ClusterCondition{
+            Type:               conditionTypeHealthCheck,
+            Status:             v1.ConditionFalse,
+            Message:            err.Error(),
+            Reason:             reasonHealthCheckFail,
+            LastTransitionTime: now,
+            LastProbeTime:      now,
+        })
+        if err1 := c.persistUpdate(cluster); err1 != nil {
+            log.Warn(&quot;Update cluster status failed&quot;, log.String(&quot;clusterName&quot;, cluster.Name), log.Err(err1))
+            return err1
+        }
+        log.Warn(&quot;Failed to build the cluster client&quot;, log.String(&quot;clusterName&quot;, cluster.Name), log.Err(err))
+        return err
+    }
+
+    res, err := c.caclClusterResource(kubeClient)
+    if err != nil {
+        cluster.Status.Phase = v1.ClusterFailed
+        cluster.Status.Message = err.Error()
+        cluster.Status.Reason = reasonHealthCheckFail
+        now := metav1.Now()
+        c.addOrUpdateCondition(cluster, v1.ClusterCondition{
+            Type:               conditionTypeHealthCheck,
+            Status:             v1.ConditionFalse,
+            Message:            err.Error(),
+            Reason:             reasonHealthCheckFail,
+            LastTransitionTime: now,
+            LastProbeTime:      now,
+        })
+        if err1 := c.persistUpdate(cluster); err1 != nil {
+            log.Warn(&quot;Update cluster status failed&quot;, log.String(&quot;clusterName&quot;, cluster.Name), log.Err(err1))
+            return err1
+        }
+        log.Warn(&quot;Failed to build the cluster client&quot;, log.String(&quot;clusterName&quot;, cluster.Name), log.Err(err))
+        return err
+    }
+    cluster.Status.Resource = *res
+
+    _, err = kubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
+    if err != nil {
+        cluster.Status.Phase = v1.ClusterFailed
+        cluster.Status.Message = err.Error()
+        cluster.Status.Reason = reasonHealthCheckFail
+        c.addOrUpdateCondition(cluster, v1.ClusterCondition{
+            Type:          conditionTypeHealthCheck,
+            Status:        v1.ConditionFalse,
+            Message:       err.Error(),
+            Reason:        reasonHealthCheckFail,
+            LastProbeTime: metav1.Now(),
+        })
+    } else {
+        cluster.Status.Phase = v1.ClusterRunning
+        cluster.Status.Message = &quot;&quot;
+        cluster.Status.Reason = &quot;&quot;
+        c.addOrUpdateCondition(cluster, v1.ClusterCondition{
+            Type:          conditionTypeHealthCheck,
+            Status:        v1.ConditionTrue,
+            Message:       &quot;&quot;,
+            Reason:        &quot;&quot;,
+            LastProbeTime: metav1.Now(),
+        })
+
+        // update version info
+        if cluster.Status.Version == &quot;&quot; {
+            log.Debug(&quot;Update version info&quot;, log.String(&quot;clusterName&quot;, cluster.Name))
+            if version, err := kubeClient.ServerVersion(); err == nil {
+                entireVersion, err := semver.ParseTolerant(version.GitVersion)
+                if err != nil {
+                    return err
+                }
+                pureVersion := semver.Version{Major: entireVersion.Major, Minor: entireVersion.Minor, Patch: entireVersion.Patch}
+                log.Info(&quot;Set cluster version&quot;, log.String(&quot;clusterName&quot;, cluster.Name), log.String(&quot;version&quot;, pureVersion.String()), log.String(&quot;entireVersion&quot;, entireVersion.String()))
+                cluster.Status.Version = pureVersion.String()
+                now := metav1.Now()
+                c.addOrUpdateCondition(cluster, v1.ClusterCondition{
+                    Type:               conditionTypeSyncVersion,
+                    Status:             v1.ConditionTrue,
+                    Message:            &quot;&quot;,
+                    Reason:             &quot;&quot;,
+                    LastProbeTime:      now,
+                    LastTransitionTime: now,
+                })
+            }
+        }
+    }
+
+    if err := c.persistUpdate(cluster); err != nil {
+        log.Error(&quot;Update cluster status failed&quot;, log.String(&quot;clusterName&quot;, cluster.Name), log.Err(err))
+        return err
+    }
+    return err
+}
+</code></pre><p>checkClusterHealth执行逻辑：</p>
+<ol>
+<li>如果业务员集群状态为Initializing, 执行wait.PollImmediate(time.Second, time.Minute, func() (bool, error)获取集群Credential; 间隔1s，超时时间为1分钟，超时后就退出定时器; 会立即先执行一次func</li>
+<li>构建对应业务集群的clientSet</li>
+<li>计算业务集群资源使用情况，包含两种，一、nodes的capacity和allocatable，二、pod resource的Requests资源</li>
+<li>获取业务集群的所有namespace</li>
+<li>更新业务集群的Status</li>
+</ol>
+<p>会在哪一步出错呢，是在计算业务集群资源使用情况这块，计算业务集群资源使用情况会调用<code>podsList, err := kubeClient.CoreV1().Pods(&quot;&quot;).List(metav1.ListOptions{Limit: int64(500)})</code></p>
+<pre tabindex="0"><code># kubectl --kubeconfig=/etc/tke/tke-platform-config.yaml get cluster  cls-bd46179d -o yaml
+
+  - lastProbeTime: &quot;2020-09-09T11:40:27Z&quot;
+    lastTransitionTime: &quot;2020-09-09T11:40:27Z&quot;
+    message: '1Get https://192.168.55.14:6443/api/v1/pods?limit=500: dial tcp 192.168.55.14:6443:
+      connect: connection refused'
+    reason: HealthCheckFail
+    status: &quot;False&quot;
+    type: HealthCheck
+  - lastProbeTime: &quot;2020-09-08T07:50:15Z&quot;
+    lastTransitionTime: &quot;2020-09-08T07:50:15Z&quot;
+    status: &quot;True&quot;
+    type: SyncVersion
+  dnsIP: 172.20.252.10
+  nodeCIDRMaskSize: 24
+  phase: Failed
+</code></pre><h3 id="其它情况">其它情况</h3>
+<p>在进行集群健康检查的时候，如果集群的master机器的操作系统密码或密钥被更改的话；会导致update cluster资源对象失败，因为在对
+cluster资源对象create/update的时候，platform-api那端会有validated的操作，校验cluster资源对象中的机器是否能ssh.</p>
+<p>validated的操作具体是定义在哪里呢？platform-api也是k8s aggregator api，调用了<code>func (e *Store) Create/func (e *Store) Update</code>,该方法
+也实现了k8s.io/apiserver中定义的Storage接口, 要暴露RESTful API就要实现Storage接口</p>
+<pre tabindex="0"><code>//TODO:
+// Storage interfaces need to be separated into two groups; those that operate
+// on collections and those that operate on individually named items.
+// Collection interfaces:
+// (Method: Current -&gt; Proposed)
+//    GET: Lister -&gt; CollectionGetter
+//    WATCH: Watcher -&gt; CollectionWatcher
+//    CREATE: Creater -&gt; CollectionCreater
+//    DELETE: (n/a) -&gt; CollectionDeleter
+//    UPDATE: (n/a) -&gt; CollectionUpdater
+//
+// Single item interfaces:
+// (Method: Current -&gt; Proposed)
+//    GET: Getter -&gt; NamedGetter
+//    WATCH: (n/a) -&gt; NamedWatcher
+//    CREATE: (n/a) -&gt; NamedCreater
+//    DELETE: Deleter -&gt; NamedDeleter
+//    UPDATE: Update -&gt; NamedUpdater
+
+// Storage is a generic interface for RESTful storage services.
+// Resources which are exported to the RESTful API of apiserver need to implement this interface. It is expected
+// that objects may implement any of the below interfaces.
+type Storage interface {
+    // New returns an empty object that can be used with Create and Update after request data has been put into it.
+    // This object must be a pointer type for use with Codec.DecodeInto([]byte, runtime.Object)
+    New() runtime.Object
+}
+
+// Creater is an object that can create an instance of a RESTful object.
+type Creater interface {
+    // New returns an empty object that can be used with Create after request data has been put into it.
+    // This object must be a pointer type for use with Codec.DecodeInto([]byte, runtime.Object)
+    New() runtime.Object
+
+    // Create creates a new version of a resource.
+    Create(ctx context.Context, obj runtime.Object, createValidation ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error)
+}
+
+// Updater is an object that can update an instance of a RESTful object.
+type Updater interface {
+    // New returns an empty object that can be used with Update after request data has been put into it.
+    // This object must be a pointer type for use with Codec.DecodeInto([]byte, runtime.Object)
+    New() runtime.Object
+
+    // Update finds a resource in the storage and updates it. Some implementations
+    // may allow updates creates the object - they should set the created boolean
+    // to true.
+    Update(ctx context.Context, name string, objInfo UpdatedObjectInfo, createValidation ValidateObjectFunc, updateValidation ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error)
+}
+</code></pre><h4 id="create-cluster-validate执行逻辑">create cluster Validate执行逻辑</h4>
+<pre tabindex="0"><code>func (e *Store) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error)
+                        |
+                        |
+                        v
+       rest.BeforeCreate(e.CreateStrategy, ctx, obj)
+                        |
+                        |
+                        v
+         strategy.Validate(ctx, obj)
+
+# 以platform cluster api为例，还有business api, notify api， platform machine api等等
+
+// Validate validates a new cluster
+func (s *Strategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
+    return ValidateCluster(s.clusterProviders, obj.(*platform.Cluster), s.platformClient, true)
+} 
+</code></pre><p>ValidateCluster函数</p>
+<pre tabindex="0"><code>// ValidateCluster tests if required fields in the cluster are set.
+func ValidateCluster(clusterProviders *sync.Map, obj *platform.Cluster, platformClient platforminternalclient.PlatformInterface, create bool) field.ErrorList {
+    allErrs := apiMachineryValidation.ValidateObjectMeta(&amp;obj.ObjectMeta, false, ValidateClusterName, field.NewPath(&quot;metadata&quot;))
+    if create {
+        //这里有ValidateLicenseLimit检验License的逻辑在这里
+        allErrs = append(allErrs, validation.ValidateLicenseLimit(platformClient)...)
+    }
+
+    if obj.Spec.Properties.MaxNodePodNum != nil {
+        if !util.InInt32Slice(nodePodNumAvails, *obj.Spec.Properties.MaxNodePodNum) {
+            allErrs = append(allErrs, field.Invalid(field.NewPath(&quot;spec&quot;, &quot;properties&quot;, &quot;maxNodePodNum&quot;), *obj.Spec.Properties.MaxNodePodNum, fmt.Sprintf(&quot;must in values of `%#v`&quot;, nodePodNumAvails)))
+        }
+    }
+
+    if obj.Spec.Properties.MaxClusterServiceNum != nil {
+        if !util.InInt32Slice(clusterServiceNumAvails, *obj.Spec.Properties.MaxClusterServiceNum) {
+            allErrs = append(allErrs, field.Invalid(field.NewPath(&quot;spec&quot;, &quot;properties&quot;, &quot;maxClusterServiceNum&quot;), *obj.Spec.Properties.MaxClusterServiceNum, fmt.Sprintf(&quot;must in values of `%#v`&quot;, clusterServiceNumAvails)))
+        }
+    }
+
+    if obj.Spec.Type == &quot;&quot; {
+        allErrs = append(allErrs, field.Required(field.NewPath(&quot;spec&quot;, &quot;type&quot;), fmt.Sprintf(&quot;availble type are %v&quot;, types)))
+    } else {
+        if !funk.Contains(types, obj.Spec.Type) {
+            allErrs = append(allErrs, field.Invalid(field.NewPath(&quot;spec&quot;, &quot;type&quot;), obj.Spec.Type, fmt.Sprintf(&quot;availble type are %v&quot;, types)))
+        } else {
+            if obj.Spec.Type == platform.ClusterImported {
+                if len(obj.Status.Addresses) == 0 {
+                    allErrs = append(allErrs, field.Required(field.NewPath(&quot;status&quot;, &quot;addresses&quot;), &quot;must specify at least one obj access address&quot;))
+                } else {
+                    for _, address := range obj.Status.Addresses {
+                        if address.Host == &quot;&quot; {
+                            allErrs = append(allErrs, field.Required(field.NewPath(&quot;status&quot;, &quot;addresses&quot;, string(address.Type), &quot;host&quot;), &quot;must specify the ip of address&quot;))
+                        }
+                        if address.Port == 0 {
+                            allErrs = append(allErrs, field.Required(field.NewPath(&quot;status&quot;, &quot;addresses&quot;, string(address.Type), &quot;port&quot;), &quot;must specify the port of address&quot;))
+                        }
+                        _, err := net.DialTimeout(&quot;tcp&quot;, fmt.Sprintf(&quot;%s:%d&quot;, address.Host, address.Port), 5*time.Second)
+                        if err != nil {
+                            allErrs = append(allErrs, field.Invalid(field.NewPath(&quot;status&quot;, &quot;addresses&quot;), address, err.Error()))
+                        }
+                    }
+                }
+            } else {
+                clusterProvider, err := provider.LoadClusterProvider(clusterProviders, string(obj.Spec.Type))
+                if err != nil {
+                    allErrs = append(allErrs, field.InternalError(field.NewPath(&quot;spec&quot;), err))
+                }
+
+                resp, err := clusterProvider.Validate(*obj)
+                if err != nil {
+                    allErrs = append(allErrs, field.InternalError(field.NewPath(&quot;spec&quot;), err))
+                }
+                allErrs = append(allErrs, resp...)
+            }
+        }
+    }
+    return allErrs
+}
+</code></pre><p><code>ValidateLicenseLimit</code>校验License这里到底做了什么呢？</p>
+<pre tabindex="0"><code>// ValidateLicenseLimit validate user license limit
+func ValidateLicenseLimit(platformClient platforminternalclient.PlatformInterface) field.ErrorList {
+    var allErrs field.ErrorList
+
+    if !filter.RunInPod || platformClient == nil { //没有运行在pod中，一般是自测环境，不校验License
+        return allErrs
+    }
+    //获取所有集群
+    clusters, err := platformClient.Clusters().List(metav1.ListOptions{})
+    if err != nil {
+        allErrs = append(allErrs, field.InternalError(field.NewPath(&quot;spec&quot;, &quot;name&quot;), syserr.New(&quot;List clusters fail where check license &quot;)))
+    } else {
+        clusterNum := len(clusters.Items)
+        sysClusterNum := 0
+        if filter.RunInPod { //global 集群的pod中。global 集群是系统创建的，不计入用户集群数目
+            sysClusterNum = 1
+        }
+        clusterNum = clusterNum - sysClusterNum
+        //校验集群数量是不是超过License里定义的最大数量
+        if clusterNum &gt;= filter.LicenseInfo.Cluster.MaxNum {
+            allErrs = append(allErrs, field.Forbidden(field.NewPath(&quot;spec&quot;, &quot;name&quot;), fmt.Sprintf(&quot;the cluster num upper limit(%d) has been reached&quot;, filter.LicenseInfo.Cluster.MaxNum)))
+        }
+        totalNodeNum := 0
+        totalCPUNum := 0
+        //遍历集群，global集群除外
+        for _, cluster := range clusters.Items {
+            credential, err := util.ClusterCredential(platformClient, cluster.Name)
+            if err != nil {
+                continue
+            }
+            client, err := util.BuildClientSet(&amp;cluster, credential)
+            if err != nil {
+                log.Warn(&quot;connect user cluster fail when check license limit &quot; + err.Error())
+                continue
+            }
+            // calcClusterResource函数是遍历集群中的所有节点，累加计算节点cpu capacity
+            nodeNum, cpuNum, err := calcClusterResource(client)
+            if err != nil {
+                log.Warn(&quot;calc cluster resource fail when check license limit &quot; + err.Error())
+                continue
+            }
+            if cluster.Name != &quot;global&quot; { //global 集群的pod中。global 集群是系统创建的，不计入用户集群
+                //累加计算所有集群的节点数和cpu总数
+                totalNodeNum = totalNodeNum + nodeNum
+                totalCPUNum = totalCPUNum + cpuNum
+            }
+        }
+        //License校验是否超出最大节点总数
+        if totalNodeNum &gt;= filter.LicenseInfo.Cluster.MaxNodeNum {
+            allErrs = append(allErrs, field.Forbidden(field.NewPath(&quot;spec&quot;, &quot;name&quot;), fmt.Sprintf(&quot;the node num upper limit(%d) has been reached&quot;, filter.LicenseInfo.Cluster.MaxNodeNum)))
+        }
+        //License校验是否超出最大cpu总数
+        if totalCPUNum &gt;= filter.LicenseInfo.Cluster.MaxCPUNum {
+            allErrs = append(allErrs, field.Forbidden(field.NewPath(&quot;spec&quot;, &quot;name&quot;), fmt.Sprintf(&quot;the cpu num upper limit(%d) has been reached&quot;, filter.LicenseInfo.Cluster.MaxCPUNum)))
+        }
+        log.Infof(&quot;ValidateLicenseLimit current cluster num %d, max cluster num %d, current node num %d, max node num %d, current cpu num %d, max cpu num %d&quot;,
+            clusterNum, filter.LicenseInfo.Cluster.MaxNum, totalNodeNum, filter.LicenseInfo.Cluster.MaxNodeNum, totalCPUNum, filter.LicenseInfo.Cluster.MaxCPUNum)
+    }
+
+    return allErrs
+}
+</code></pre><p><code>ValidateLicenseLimit</code>做了这些工作：</p>
+<ol>
+<li>获取所有集群列表，后续计算时把global集群除外</li>
+<li>校验集群数量</li>
+<li>遍历集群（global除外），再遍历集群的节点，累加所有集群所有计算节点的总cpu capacity以及所有集群总节点数</li>
+<li>校验节点总数</li>
+<li>校验cpu总数</li>
+</ol>
+<p>最终调用baremental-cluster-provider中的Validate</p>
+<pre tabindex="0"><code>clusterProvider, err := provider.LoadClusterProvider(clusterProviders, string(obj.Spec.Type))
+if err != nil {
+    allErrs = append(allErrs, field.InternalError(field.NewPath(&quot;spec&quot;), err))
+}
+
+resp, err := clusterProvider.Validate(*obj)
+</code></pre><pre tabindex="0"><code>func (p *Provider) Validate(c platform.Cluster) (field.ErrorList, error) {
+    var allErrs field.ErrorList
+
+    sPath := field.NewPath(&quot;spec&quot;)
+
+    if !funk.ContainsString(versions, c.Spec.Version) {
+        allErrs = append(allErrs, field.Invalid(sPath.Child(&quot;version&quot;), c.Spec.Version, fmt.Sprintf(&quot;valid versions are %q&quot;, versions)))
+    }
+
+    if c.Spec.ClusterCIDR == &quot;&quot; {
+        allErrs = append(allErrs, field.Required(sPath.Child(&quot;clusterCIDR&quot;), &quot;&quot;))
+    } else {
+        _, _, err := net.ParseCIDR(c.Spec.ClusterCIDR)
+        if err != nil {
+            allErrs = append(allErrs, field.Invalid(sPath.Child(&quot;clusterCIDR&quot;), c.Spec.ClusterCIDR, fmt.Sprintf(&quot;parse CIDR error:%s&quot;, err)))
+        }
+    }
+
+    // kubeadm need the 10th ip!
+    if *c.Spec.Properties.MaxClusterServiceNum &lt; 10 {
+        allErrs = append(allErrs, field.Invalid(sPath.Child(&quot;Properties.MaxClusterServiceNum&quot;), *c.Spec.Properties.MaxClusterServiceNum, &quot;must not less than 10&quot;))
+    }
+
+    // validate machines
+    if c.Spec.Machines == nil {
+        allErrs = append(allErrs, field.Required(sPath.Child(&quot;machines&quot;), &quot;&quot;))
+    } else {
+        var ips []string
+        for i, machine := range c.Spec.Machines {
+            idxPath := sPath.Child(&quot;machine&quot;).Index(i)
+            if machine.IP == &quot;&quot; {
+                allErrs = append(allErrs, field.Required(idxPath, &quot;&quot;))
+            } else {
+                if funk.Contains(ips, machine.IP) {
+                    allErrs = append(allErrs, field.Duplicate(idxPath, machine.IP))
+                } else {
+                    ips = append(ips, machine.IP)
+
+                    if machine.Password == nil &amp;&amp; machine.PrivateKey == nil {
+                        allErrs = append(allErrs, field.Required(idxPath.Child(&quot;password&quot;), &quot;password or privateKey at least one&quot;))
+                    }
+                    sshConfig := &amp;ssh.Config{
+                        User:        machine.Username,
+                        Host:        machine.IP,
+                        Port:        int(machine.Port),
+                        Password:    string(machine.Password),
+                        PrivateKey:  machine.PrivateKey,
+                        PassPhrase:  machine.PassPhrase,
+                        DialTimeOut: time.Second,
+                        Retry:       0,
+                    }
+                    s, err := ssh.New(sshConfig)
+                    if err != nil {
+                        allErrs = append(allErrs, field.Forbidden(idxPath, err.Error()))
+                    } else {
+                        err = s.Ping()
+                        if err != nil {
+                            allErrs = append(allErrs, field.Forbidden(idxPath, err.Error()))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return allErrs, nil
+}
+</code></pre><p>遍历c.Spec.Machines，并逐个进行ping测试</p>
+<h4 id="update-cluster-validate执行逻辑">update cluster Validate执行逻辑</h4>
+<pre tabindex="0"><code>func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error)
+                        |
+                        |
+                        v
+       rest.BeforeUpdate(e.UpdateStrategy, ctx, obj, existing)
+                        |
+                        |
+                        v
+         strategy.ValidateUpdate(ctx, obj, old)
+
+# 以platform cluster api为例，还有business api, notify api， platform machine api等等
+
+// ValidateUpdate is the default update validation for an end cluster.
+func (s *Strategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+    return ValidateClusterUpdate(s.clusterProviders, obj.(*platform.Cluster), old.(*platform.Cluster), s.platformClient)
+}
+
+// ValidateClusterUpdate tests if required fields in the cluster are set during
+// an update.
+func ValidateClusterUpdate(clusterProviders *sync.Map, cluster *platform.Cluster, old *platform.Cluster, platformClient platforminternalclient.PlatformInterface) field.ErrorList {
+    allErrs := apiMachineryValidation.ValidateObjectMetaUpdate(&amp;cluster.ObjectMeta, &amp;old.ObjectMeta, field.NewPath(&quot;metadata&quot;))
+    // 调用了ValidateCluster
+    allErrs = append(allErrs, ValidateCluster(clusterProviders, cluster, platformClient, false)...)
+
+    if cluster.Spec.Type != &quot;&quot; {
+        if cluster.Spec.Type != platform.ClusterImported {
+            clusterProvider, err := provider.LoadClusterProvider(clusterProviders, string(cluster.Spec.Type))
+            if err != nil {
+                allErrs = append(allErrs, field.InternalError(field.NewPath(&quot;spec&quot;), err))
+            }
+
+            resp, err := clusterProvider.ValidateUpdate(*cluster, *old)
+            if err != nil {
+                allErrs = append(allErrs, field.InternalError(field.NewPath(&quot;spec&quot;, &quot;annotations&quot;), err))
+            }
+            allErrs = append(allErrs, resp...)
+        }
+    }
+
+    return allErrs
+}     
+</code></pre><p>最终调用baremental-cluster-provider中的Validate和ValidateUpdate</p>
+<pre tabindex="0"><code>// ValidateUpdate只是返回了错误，并没有其它操作
+func (p *Provider) ValidateUpdate(cluster platform.Cluster, oldCluster platform.Cluster) (field.ErrorList, error) {
+    var allErrs field.ErrorList
+    return allErrs, nil
+}
+</code></pre><p>上面看了Cluster api的validate操作，create/update cluster对象的时候最终都会进行ssh ping检查操作，如果ssh ping检查失败的话也会引起cluster
+对象健康检查失败.</p>
+<h4 id="create-machine-validate执行逻辑">create machine Validate执行逻辑</h4>
+<p>create machine Validate走的也是这个流程</p>
+<pre tabindex="0"><code>func (e *Store) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error)
+                        |
+                        |
+                        v
+       rest.BeforeCreate(e.CreateStrategy, ctx, obj)
+                        |
+                        |
+                        v
+         strategy.Validate(ctx, obj)
+</code></pre><p>最终走到machine的Validate函数，machine的Validate做了哪些校验的工作呢？</p>
+<pre tabindex="0"><code>// Validate tests if required fields in the machine are set.
+func Validate(machineProviders *sync.Map, obj *platform.Machine, platformClient platforminternalclient.PlatformInterface) field.ErrorList {
+    var err error
+    allErrs := apiMachineryvalidation.ValidateObjectMeta(&amp;obj.ObjectMeta, false, apiMachineryvalidation.NameIsDNSLabel, field.NewPath(&quot;metadata&quot;))
+
+    //跟创建集群一样有ValidateLicenseLimit校验
+    allErrs = append(allErrs, validation.ValidateLicenseLimit(platformClient)...)
+    // validate Type
+    if obj.Spec.Type == &quot;&quot; {
+        allErrs = append(allErrs, field.Required(field.NewPath(&quot;spec&quot;, &quot;type&quot;), &quot;must specify machine type&quot;))
+    } else {
+        if !funk.Contains(types, obj.Spec.Type) {
+            allErrs = append(allErrs, field.Invalid(field.NewPath(&quot;spec&quot;, &quot;type&quot;), obj.Spec.Type, fmt.Sprintf(&quot;availble type are %v&quot;, types)))
+        }
+        p, err := provider.LoadMachineProvider(machineProviders, string(obj.Spec.Type))
+        if err != nil {
+            allErrs = append(allErrs, field.InternalError(field.NewPath(&quot;spec&quot;), err))
+        } else {
+            //这里调用了machine provider的Validate
+            resp, err := p.Validate(*obj)
+            if err != nil {
+                allErrs = append(allErrs, field.InternalError(field.NewPath(&quot;spec&quot;), err))
+            }
+            allErrs = append(allErrs, resp...)
+        }
+    }
+
+    // validate ClusterName
+    var machineList *platform.MachineList
+    var cluster *platform.Cluster
+    //校验集群是否存在
+    clusterErrs := validation.ValidateCluster(platformClient, obj.Spec.ClusterName)
+    if clusterErrs != nil {
+        allErrs = append(allErrs, clusterErrs...)
+    } else {
+        cluster, err = platformClient.Clusters().Get(obj.Spec.ClusterName, metav1.GetOptions{})
+        if err != nil {
+            allErrs = append(allErrs, field.InternalError(field.NewPath(&quot;spec&quot;, &quot;clusterName&quot;),
+                fmt.Errorf(&quot;can't get cluster:%s&quot;, err)))
+        } else {
+            //计算最大节点数
+            _, cidr, _ := net.ParseCIDR(cluster.Spec.ClusterCIDR)
+            ones, _ := cidr.Mask.Size()
+            maxNode := math.Exp2(float64(cluster.Status.NodeCIDRMaskSize - int32(ones)))
+
+            fieldSelector := fmt.Sprintf(&quot;spec.clusterName=%s&quot;, obj.Spec.ClusterName)
+            //获取machine列表
+            machineList, err = platformClient.Machines().List(metav1.ListOptions{FieldSelector: fieldSelector})
+            if err != nil {
+                allErrs = append(allErrs, field.InternalError(field.NewPath(&quot;spec&quot;, &quot;clusterName&quot;),
+                    fmt.Errorf(&quot;list machines of the cluster error:%s&quot;, err)))
+            } else {
+                //对比machine总数和最大节点数
+                machineSize := len(machineList.Items)
+                if machineSize &gt;= int(maxNode) {
+                    allErrs = append(allErrs, field.Forbidden(field.NewPath(&quot;spec&quot;),
+                        fmt.Sprintf(&quot;the cluster's machine upper limit(%d) has been reached&quot;, int(maxNode))))
+                }
+            }
+        }
+    }
+
+    // validate IP
+    if obj.Spec.IP == &quot;&quot; {
+        allErrs = append(allErrs, field.Required(field.NewPath(&quot;spec&quot;, &quot;IP&quot;), &quot;must specify IP&quot;))
+    } else {
+        if machineList != nil {
+            for _, machine := range machineList.Items {
+                if machine.Spec.IP == obj.Spec.IP {
+                    allErrs = append(allErrs, field.Duplicate(field.NewPath(&quot;spec&quot;, &quot;IP&quot;), obj.Spec.IP))
+                }
+            }
+        }
+        if cluster != nil {
+            for _, machine := range cluster.Spec.Machines {
+                if machine.IP == obj.Spec.IP {
+                    allErrs = append(allErrs, field.Duplicate(field.NewPath(&quot;spec&quot;, &quot;IP&quot;), obj.Spec.IP))
+                }
+            }
+        }
+    }
+    if obj.Spec.Port == 0 {
+        allErrs = append(allErrs, field.Required(field.NewPath(&quot;spec&quot;, &quot;IP&quot;), &quot;must specify Port&quot;))
+    }
+
+    // validate ssh
+    if obj.Spec.Password == nil &amp;&amp; obj.Spec.PrivateKey == nil {
+        allErrs = append(allErrs, field.Required(field.NewPath(&quot;spec&quot;, &quot;password&quot;), &quot;password or privateKey at least one&quot;))
+    }
+    //ssh登录校验
+    sshConfig := &amp;ssh.Config{
+        User:        obj.Spec.Username,
+        Host:        obj.Spec.IP,
+        Port:        int(obj.Spec.Port),
+        Password:    string(obj.Spec.Password),
+        PrivateKey:  obj.Spec.PrivateKey,
+        PassPhrase:  obj.Spec.PassPhrase,
+        DialTimeOut: time.Second,
+        Retry:       0,
+    }
+    s, err := ssh.New(sshConfig)
+    if err != nil {
+        allErrs = append(allErrs, field.Forbidden(field.NewPath(&quot;spec&quot;), err.Error()))
+    } else {
+        err = s.Ping()
+        if err != nil {
+            allErrs = append(allErrs, field.Forbidden(field.NewPath(&quot;spec&quot;), err.Error()))
+        }
+    }
+
+    return allErrs
+}
+</code></pre><h3 id="参考链接">参考链接</h3>
+<ul>
+<li><a href="https://github.com/tkestack/tke">https://github.com/tkestack/tke</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2020-08-31-k8s_scheduler_framework/" data-toggle="tooltip" data-placement="top" title="K8s scheduler framework阅读笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-09-15-k8s_network_3/" data-toggle="tooltip" data-placement="top" title="TKEStack Galaxy NetworkPolicy Controller实现">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2023
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>
