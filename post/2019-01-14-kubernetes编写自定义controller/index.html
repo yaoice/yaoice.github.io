@@ -457,12 +457,14 @@ func main() {
     select {}
 }
 </code></pre><h3 id="常用小技巧">常用小技巧</h3>
+<h4 id="特定资源过滤">特定资源过滤</h4>
 <p>使用WithTweakListOptions结合LabelSelector或FieldSelector可以针对特定的资源</p>
 <pre tabindex="0"><code>informerFactory := informers.NewSharedInformerFactoryWithOptions(s.Client, s.ConfigSyncPeriod,
     informers.WithTweakListOptions(func(options *v1meta.ListOptions) {
         options.LabelSelector = &quot;!&quot; + apis.LabelServiceProxyName
     }))
-</code></pre><p>分页，client-go提供limit和continue字段来实现</p>
+</code></pre><h4 id="分页">分页</h4>
+<p>client-go提供limit和continue字段来实现</p>
 <pre tabindex="0"><code>GET /api/v1/pods?limit=500
 ---
 200 OK
@@ -509,7 +511,72 @@ Content-Type: application/json
   &quot;items&quot;: [...] // returns pods 1001-1253
 }
 </code></pre><p>不足500条记录，continue值为0，不用再继续显示下一页了</p>
-<h3 id="参考链接">参考链接</h3>
+<h4 id="client-go实现apply-yaml">client-go实现apply yaml</h4>
+<pre tabindex="0"><code>// convert yaml to runtime.Object
+obj, _, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode([]byte(yamlContent), nil, nil)
+if err != nil {
+   return err
+}
+
+// apply resource to k8s cluster
+err = applyResource(client, obj)
+if err != nil {
+   return err
+}
+
+func applyResource(client Client, obj runtime.Object) error {
+	// convert runtime.Object to unstructured object map
+	unstructuredObjMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+
+	// get GroupVersionKind
+	gvk := obj.GetObjectKind().GroupVersionKind()
+
+	// get GroupVersionResource
+	gvr, err := getGroupVersionResource(client, gvk)
+	if err != nil {
+		return err
+	}
+
+	// generate unstructured object
+	unstructuredObj := &amp;unstructured.Unstructured{
+		Object: unstructuredObjMap,
+	}
+
+	_, err = client.Dynamic().Resource(gvr).
+		Namespace(unstructuredObj.GetNamespace()).
+		Apply(ctx, unstructuredObj.GetName(), unstructuredObj, metav1.ApplyOptions{
+			FieldManager: unstructuredObj.GetName(),
+			Force:        true,
+		})
+	if err != nil {
+		return fmt.Errorf(&quot;dynamic resource %s/%s apply failed, %w&quot;, gvk.Kind, unstructuredObj.GetName(), err)
+	}
+	return nil
+}
+
+func getGroupVersionResource(client Client, gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+	// get GroupVersionResource with specific GroupVersion
+	resourceList, err := client.Discovery().ServerResourcesForGroupVersion(gvk.GroupVersion().String())
+	if err != nil {
+		return schema.GroupVersionResource{}, err
+	}
+
+	for _, resource := range resourceList.APIResources {
+		if resource.Kind == gvk.Kind {
+			return schema.GroupVersionResource{
+				Group:    gvk.Group,
+				Version:  gvk.Version,
+				Resource: resource.Name,
+			}, nil
+		}
+	}
+	return schema.GroupVersionResource{}, fmt.Errorf(&quot;GroupVersionResource not found for GroupVersionKind: %s&quot;, gvk.String())
+}
+</code></pre><h3 id="参考链接">参考链接</h3>
 <ul>
 <li><a href="https://github.com/meyskens/k8s-openresty-ingress">kubernetes ingress自定义controller简易实现</a></li>
 <li><a href="https://mp.weixin.qq.com/s?__biz=MzU1OTAzNzc5MQ==&amp;mid=2247484052&amp;idx=1&amp;sn=cec9f4a1ee0d21c5b2c51bd147b8af59&amp;chksm=fc1c2ea4cb6ba7b283eef5ac4a45985437c648361831bc3e6dd5f38053be1968b3389386e415&amp;scene=21#wechat_redirect">如何用 client-go 拓展 Kubernetes 的 API</a></li>
