@@ -745,10 +745,10 @@ winkernel:
   enableDSR: <span style="color:#8be9fd;font-style:italic">false</span>
   networkName: <span style="color:#f1fa8c">&#34;&#34;</span>
   sourceVip: <span style="color:#f1fa8c">&#34;&#34;</span>
-</code></pre></div><pre tabindex="0"><code class="language- bash" data-lang=" bash"># dlv exec _output/bin/kube-proxy --headless -l 1.2.3.4:2345 --api-version=2 -- \
---config=/root/config.conf \
---hostname-override=1.2.3.4
-</code></pre><p>kube-proxy断点捕获
+</code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># dlv exec _output/bin/kube-proxy --headless -l 1.2.3.4:2345 --api-version=2 -- \</span>
+--config<span style="color:#ff79c6">=</span>/root/config.conf <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--hostname-override<span style="color:#ff79c6">=</span>1.2.3.4
+</code></pre></div><p>kube-proxy断点捕获
 
   <img src="/img/posts/2020-04-27/kube-proxy.png" alt="">
 
@@ -771,7 +771,15 @@ winkernel:
 </code></pre></div><p>老规矩，先停掉kubelet服务</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"> systemctl stop kubelet.service   
 </code></pre></div><p>最后得出的kubelet dlv启动命令是</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># dlv exec _output/bin/kubelet --headless -l 1.2.3.4:2345 --api-version=2 -- --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf --config=/var/lib/kubelet/config.yaml --cgroup-driver=cgroupfs --hostname-override=1.2.3.4 --network-plugin=cni --pod-infra-container-image=registry.com/pause:3.1</span>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># dlv exec _output/bin/kubelet \</span>
+--headless -l 1.2.3.4:2345 --api-version<span style="color:#ff79c6">=</span><span style="color:#bd93f9">2</span> <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>-- --bootstrap-kubeconfig<span style="color:#ff79c6">=</span>/etc/kubernetes/bootstrap-kubelet.conf <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--kubeconfig<span style="color:#ff79c6">=</span>/etc/kubernetes/kubelet.conf <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--config<span style="color:#ff79c6">=</span>/var/lib/kubelet/config.yaml <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--cgroup-driver<span style="color:#ff79c6">=</span>cgroupfs <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--hostname-override<span style="color:#ff79c6">=</span>1.2.3.4 <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--network-plugin<span style="color:#ff79c6">=</span>cni <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--pod-infra-container-image<span style="color:#ff79c6">=</span>registry.com/pause:3.1
 </code></pre></div><p>kubelet断点捕获
 
   <img src="/img/posts/2020-04-27/kubelet.png" alt="">
@@ -782,9 +790,36 @@ winkernel:
   <img src="/img/posts/2020-04-27/final.png" alt="">
 
 </p>
+<h3 id="k8s应用本地调试神器---telepresence">k8s应用本地调试神器 - Telepresence</h3>
+<p>Telepresence主要是打通本地和集群的网络，使开发者能够在本地进行开发</p>
+<h4 id="安装">安装</h4>
+<pre tabindex="0"><code># Intel Macs
+# curl -fL https://app.getambassador.io/download/tel2oss/releases/download/v2.15.0/telepresence-darwin-amd64 -o /usr/local/bin/telepresence
+# chmod a+x /usr/local/bin/telepresence
+
+# Apple silicon Macs
+# curl -fL https://app.getambassador.io/download/tel2oss/releases/download/v2.15.0/telepresence-darwin-arm64 -o /usr/local/bin/telepresence
+# chmod a+x /usr/local/bin/telepresence
+</code></pre><h4 id="连接集群">连接集群</h4>
+<pre tabindex="0"><code># telepresence helm install
+...
+Traffic Manager installed successfully
+</code></pre><p>安装traffic manager在集群中，代理流量用的服务，实质上是双向代理</p>
+<h4 id="截获流量">截获流量</h4>
+<pre tabindex="0"><code># telepresence intercept &lt;service-name&gt; --port &lt;local-port&gt;[:&lt;remote-port&gt;] --env-file &lt;path-to-env-file&gt;
+$ telepresence intercept example-service --port 8080:http --env-file ~/example-service-intercept.env
+Using Deployment example-service
+intercepted
+    Intercept name: example-service
+    State         : ACTIVE
+    Workload kind : Deployment
+    Destination   : 127.0.0.1:8080
+    Intercepting  : all TCP connections
+</code></pre><p>访问example-service的流量会重定向到本地的8080端口，这是本地的IDE以debug模式监听在8080端口，设置断点就能捕获到对应的代码执行</p>
 <h3 id="参考链接">参考链接</h3>
 <ul>
 <li><a href="http://lday.me/2017/02/27/0005_gdb-vs-dlv/">dlv vs gdb</a></li>
+<li><a href="https://www.telepresence.io/docs/latest/quick-start/">https://www.telepresence.io/docs/latest/quick-start/</a></li>
 </ul>
 
 
