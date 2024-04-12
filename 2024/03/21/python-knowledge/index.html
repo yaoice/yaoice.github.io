@@ -413,7 +413,92 @@ producer_2 put a val: 7
 consumer_1 get a val: 6
 consumer_2 get a val: 7
 time cost: 5.012088060379028
-</code></pre></div>
+</code></pre></div><h2 id="隐式new方法和init方法">隐式new方法和init方法</h2>
+<ul>
+<li>__new__()方法用来创建实例，它是class的方法，是个静态方法，执行完了需要返回创建的类的实例。</li>
+<li>__init__()方法用来初始化实例，在实例对象被创建后被调用，是实例对象的方法，通常用于设置实例对象的初始属性。__init__()方法将不返回任何信息。</li>
+<li>类中同时出现了__init__()方法和__new__()方法，调用顺序为：先调用__new__()方法，后调用__init__()方法。__new__()方法如果报错，则不会调用__init__()方法。</li>
+</ul>
+<p>重写__new__方法</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">def</span> __new__(cls):
+      <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">super</span>()<span style="color:#ff79c6">.</span>__new__(cls) <span style="color:#6272a4"># 或return object.__new__(cls)</span>
+</code></pre></div><p>隐式new方法应用 - 单例模式</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">TestCls</span>:
+    _xxx <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>
+    <span style="color:#ff79c6">def</span> __new__(cls):
+        <span style="color:#8be9fd;font-style:italic">print</span>(<span style="color:#f1fa8c">&#39;__new__ func called&#39;</span>)
+        <span style="color:#ff79c6">if</span> cls<span style="color:#ff79c6">.</span>_xxx <span style="color:#ff79c6">==</span> <span style="color:#ff79c6">None</span>:
+            cls<span style="color:#ff79c6">.</span>_xxx <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">object</span><span style="color:#ff79c6">.</span>__new__(cls)
+            <span style="color:#ff79c6">return</span> cls<span style="color:#ff79c6">.</span>_xxx
+        <span style="color:#ff79c6">else</span>:
+            <span style="color:#ff79c6">return</span> cls<span style="color:#ff79c6">.</span>_xxx
+    <span style="color:#ff79c6">def</span> __init__(self):
+        <span style="color:#8be9fd;font-style:italic">print</span>(<span style="color:#f1fa8c">&#39;__init__ func called&#39;</span>)
+
+
+t1 <span style="color:#ff79c6">=</span> TestCls()
+<span style="color:#8be9fd;font-style:italic">print</span>(t1)
+t2 <span style="color:#ff79c6">=</span> TestCls()
+<span style="color:#8be9fd;font-style:italic">print</span>(t2)
+</code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">__new__ func called
+__init__ func called
+&lt;__main__.TestCls object at 0x7f8fe75befe0&gt;
+__new__ func called
+__init__ func called
+&lt;__main__.TestCls object at 0x7f8fe75befe0&gt;
+</code></pre></div><p>可以看出是同个对象，而且隐式new函数先于隐式init函数被调用</p>
+<h2 id="functoolswraps">functools.wraps</h2>
+<p>保证被装饰器装饰后的函数还拥有原来的属性，wraps通过partial以及update_wrapper来实现。比如保留原有函数名和doc</p>
+<p>没用wraps的装饰器</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">decorate</span>(func):
+    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">wrapper</span>():
+        <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">&#39;&lt;decorate&gt;&#39;</span> <span style="color:#ff79c6">+</span> func() <span style="color:#ff79c6">+</span> <span style="color:#f1fa8c">&#39;&lt;/decorate&gt;&#39;</span>
+    <span style="color:#ff79c6">return</span> wrapper
+
+
+@decorate
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">to_decorate</span>():
+    <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">&#39;to decorate!&#39;</span>
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">not_to_decorate</span>():
+    <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">&#39;not to decorate&#39;</span>
+
+
+<span style="color:#8be9fd;font-style:italic">print</span>(to_decorate)
+<span style="color:#8be9fd;font-style:italic">print</span>(not_to_decorate)
+</code></pre></div><p>输出：</p>
+<pre tabindex="0"><code>&lt;function decorate.&lt;locals&gt;.wrapper at 0x7fa1e6ddec20&gt;
+&lt;function not_to_decorate at 0x7fa1e6ddfd90&gt;
+</code></pre><p>从输出来看，装饰后的函数名发生了变化</p>
+<p>用了wraps的装饰器</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">import</span> functools
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">decorate</span>(func):
+    @functools<span style="color:#ff79c6">.</span>wraps(func)
+    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">wrapper</span>():
+        <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">&#39;&lt;decorate&gt;&#39;</span> <span style="color:#ff79c6">+</span> func() <span style="color:#ff79c6">+</span> <span style="color:#f1fa8c">&#39;&lt;/decorate&gt;&#39;</span>
+    <span style="color:#ff79c6">return</span> wrapper
+
+
+@decorate
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">to_decorate</span>():
+    <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">&#39;to decorate!&#39;</span>
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">not_to_decorate</span>():
+    <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">&#39;not to decorate&#39;</span>
+
+
+<span style="color:#8be9fd;font-style:italic">print</span>(to_decorate)
+<span style="color:#8be9fd;font-style:italic">print</span>(not_to_decorate)
+</code></pre></div><p>输出：</p>
+<pre tabindex="0"><code>&lt;function to_decorate at 0x7fd9bfdd2c20&gt;
+&lt;function not_to_decorate at 0x7fd9bfdd3d90&gt;
+</code></pre><p>从输出来看，装饰后的函数跟原来的函数保持了一致。知乎上有篇详解functools.wraps原理的文章：https://zhuanlan.zhihu.com/p/45535784</p>
+
 
                 
                 
@@ -466,6 +551,11 @@ time cost: 5.012088060379028
                             Previous Post</a>
                     </li>
                     
+                    
+                    <li class="next">
+                        <a href="/2024/03/30/ai-agent-readnotes/" data-toggle="tooltip" data-placement="top" title="AI Agent学习笔记">Next
+                            Post &rarr;</a>
+                    </li>
                     
                 </ul>
                 
@@ -545,6 +635,10 @@ time cost: 5.012088060379028
                         
                         
                         
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
                         
                         
                         

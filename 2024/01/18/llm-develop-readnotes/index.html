@@ -2817,6 +2817,7 @@ openai_url <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34
 </code></pre></div><p>输出：</p>
 <pre tabindex="0"><code>{'history': 'AI: 你好，我们一起玩吧'}
 </code></pre><p>ChatGPT是使用了一种基于字节对编码(BPE)的方法啦进行tokenization。BPE是一种常见的tokenization技术，将输入文本分割成较小的子词单元。OpenAl是用tiktoken这个库来计算token的，tiktoken在github上是开源的<a href="https://github.com/openai/tiktoken">https://github.com/openai/tiktoken</a>.关于汉子和英文单词的token计算方式，知乎上一篇文章讲解：<a href="https://www.zhihu.com/question/594159910">https://www.zhihu.com/question/594159910</a></p>
+<p>查询OpenAI的字符和token的映射关系：<a href="https://platform.openai.com/tokenizer">https://platform.openai.com/tokenizer</a></p>
 <h3 id="对话摘要缓存记忆">对话摘要缓存记忆</h3>
 <p>对话摘要缓存记忆，使用LLM对到目前为止历史对话自动总结摘要</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">from</span> langchain_openai.chat_models <span style="color:#ff79c6">import</span> ChatOpenAI
@@ -4775,8 +4776,59 @@ Invoking: `time` with `{&#39;text&#39;: &#39;today&#39;}`
 &gt; Finished chain.
 </code></pre></div><h2 id="lcellangchain-expression-language">LCEL(LangChain Expression Language)</h2>
 <p>LangChain表达式语言（LCEL）是一种轻松地将链组合在一起的声明性方式。 LCEL 从第一天起就被设计为支持将原型投入生产，无需更改代码，从最简单的“提示+LLM”链到最复杂的链</p>
-<h1 id="llm大模型部署">LLM大模型部署</h1>
-<h2 id="麒麟v10系统llm大模型部署">麒麟v10系统LLM大模型部署</h2>
+<h2 id="token计算">Token计算</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">import</span> time
+<span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> ChatOpenAI
+<span style="color:#ff79c6">from</span> langchain_community.callbacks <span style="color:#ff79c6">import</span> get_openai_callback
+
+IS_OLLAMA <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">True</span>
+
+<span style="color:#6272a4"># 初始化OpenAI LLM</span>
+<span style="color:#ff79c6">if</span> IS_OLLAMA:
+    llm <span style="color:#ff79c6">=</span> ChatOpenAI(
+        base_url<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;https://openllm.xxx.com/v1&#34;</span>,
+        api_key<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;ollama&#34;</span>,
+        model<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;qwen:7b&#34;</span>,
+        max_tokens<span style="color:#ff79c6">=</span><span style="color:#bd93f9">2000</span>,
+        temperature<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>)
+<span style="color:#ff79c6">else</span>:
+    llm <span style="color:#ff79c6">=</span> ChatOpenAI(
+        base_url<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;http://xxx:9000/v1&#34;</span>,
+        api_key<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;ollama&#34;</span>,
+        model<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;Qwen1.5-7B-Chat&#34;</span>,
+        max_tokens<span style="color:#ff79c6">=</span><span style="color:#bd93f9">2000</span>,
+        temperature<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>)
+
+<span style="color:#6272a4"># 启动回调函数</span>
+<span style="color:#ff79c6">with</span> get_openai_callback() <span style="color:#ff79c6">as</span> cb:
+    start_time <span style="color:#ff79c6">=</span> time<span style="color:#ff79c6">.</span>time()
+
+    <span style="color:#6272a4"># 生成一些文本</span>
+    output <span style="color:#ff79c6">=</span> llm<span style="color:#ff79c6">.</span>invoke(<span style="color:#f1fa8c">&#34;作为一个旅游资深博主，请写一篇关于巴厘岛的文章，不少于2000字。&#34;</span>)
+    end_time <span style="color:#ff79c6">=</span> time<span style="color:#ff79c6">.</span>time()
+    elapsed_time <span style="color:#ff79c6">=</span> end_time <span style="color:#ff79c6">-</span> start_time
+
+    <span style="color:#6272a4"># 获取生成的token数量</span>
+    total_tokens <span style="color:#ff79c6">=</span> cb<span style="color:#ff79c6">.</span>total_tokens
+
+<span style="color:#6272a4"># 计算token生成速率</span>
+token_rate <span style="color:#ff79c6">=</span> total_tokens <span style="color:#ff79c6">/</span> elapsed_time
+<span style="color:#8be9fd;font-style:italic">print</span>(<span style="color:#f1fa8c">f</span><span style="color:#f1fa8c">&#34;生成了 </span><span style="color:#f1fa8c">{</span>total_tokens<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c"> 个token, 用时 </span><span style="color:#f1fa8c">{</span>elapsed_time<span style="color:#f1fa8c">:</span><span style="color:#f1fa8c">.2f</span><span style="color:#f1fa8c">}</span><span style="color:#f1fa8c"> 秒&#34;</span>)
+<span style="color:#8be9fd;font-style:italic">print</span>(<span style="color:#f1fa8c">f</span><span style="color:#f1fa8c">&#34;Token生成速率为 </span><span style="color:#f1fa8c">{</span>token_rate<span style="color:#f1fa8c">:</span><span style="color:#f1fa8c">.2f</span><span style="color:#f1fa8c">}</span><span style="color:#f1fa8c"> tokens/秒&#34;</span>)
+</code></pre></div><p>输出：</p>
+<pre tabindex="0"><code>生成了 286 个token, 用时 8.75 秒
+Token生成速率为 32.70 tokens/秒
+</code></pre><h1 id="llm大模型部署">LLM大模型部署</h1>
+<h2 id="ollama">Ollama</h2>
+<h3 id="简介">简介</h3>
+<p>Ollama实现一行命令在本地轻松部署大语言模型, 是一个开源框架，专门设计用于在本地运行大型语言模型。从而简化了在本地运行大型模型的过程。Ollama基于llama.cpp之上做了很多封装抽象。</p>
+<p>llama.cpp项目是开发者Georgi Gerganov基于Meta开放的LLaMA模型（简易Python代码示例）手撸的纯C/C++版本，用于模型推理。其可执行的模型文件格式为GGUF，GGUF(GPT-Generated Unified Format)格式是用于存储大型模型预训练结果的，相较于Hugging Face和torch的bin文件，它采用了紧凑的二进制编码格式、优化的数据结构以及内存映射等技术，提供了更高效的数据存储和访问方式。GGUF也是由Georgi Gerganov发明的。</p>
+<h3 id="本地gguf模型导入">本地GGUF模型导入</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># vim Modelfile</span>
+FROM ./test-33b.Q4_0.gguf
+
+<span style="color:#6272a4"># ollama create example -f Modelfile</span>
+</code></pre></div><h2 id="麒麟v10系统llm大模型部署">麒麟v10系统LLM大模型部署</h2>
 <h3 id="准备工作">准备工作</h3>
 <h4 id="硬件环境">硬件环境</h4>
 <table>
@@ -5079,10 +5131,12 @@ RUN pip install tiktoken <span style="color:#f1fa8c">\
 </span><span style="color:#f1fa8c"></span>-p 8000:8000 --ipc<span style="color:#ff79c6">=</span>host <span style="color:#f1fa8c">\
 </span><span style="color:#f1fa8c"></span>vllm/vllm-openai:kylin-v10 <span style="color:#f1fa8c">\
 </span><span style="color:#f1fa8c"></span>--model /opt/qwen-14b-chat <span style="color:#f1fa8c">\
-</span><span style="color:#f1fa8c"></span>--enforce-eager <span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span>--max-model-len <span style="color:#bd93f9">8096</span>
+--enforce-eager <span style="color:#f1fa8c">\
 </span><span style="color:#f1fa8c"></span>--trust-remote-code <span style="color:#f1fa8c">\
 </span><span style="color:#f1fa8c"></span>--tensor-parallel-size <span style="color:#bd93f9">2</span>
-</code></pre></div><p>注：vLLM方式启动带的<code>--model</code>这个参数，调用api接口的时候也需要传入同样的值；<code>--tensor-parallel-size</code>用于在多个GPU间分配工作</p>
+</code></pre></div><p>注：vLLM方式启动带的<code>--model</code>这个参数，调用api接口的时候也需要传入同样的值；<code>--tensor-parallel-size</code>用于在多个GPU间分配工作，
+<code>max-model-len</code>指定模型上下文长度</p>
 <p>查看显卡占用，模型分布在两张卡上，所谓的模型并行</p>
 <pre tabindex="0"><code>[root@localhost vllm]# nvidia-smi
 Thu Feb  1 19:32:24 2024
@@ -5230,30 +5284,30 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 <span style="color:#ff79c6">(</
 </tbody>
 </table>
 <p>curl发个prompt请求，查看是否正常返回</p>
-<pre tabindex="0"><code>[root@localhost ~]# curl http://localhost:8000/v1/completions -H &quot;Content-Type: application/json&quot; -d '{&quot;model&quot;: &quot;/opt/qwen-14b-chat&quot;,&quot;prompt&quot;: &quot;Hi,深圳排名前十的好玩的公园？&quot;,&quot;max_tokens&quot;: 1000,&quot;temperature&quot;: 0, &quot;stop&quot;: &quot;&lt;|endoftext|&gt;&quot;}'
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#ff79c6">[</span>root@localhost ~<span style="color:#ff79c6">]</span><span style="color:#6272a4"># curl http://localhost:8000/v1/completions -H &#34;Content-Type: application/json&#34; -d &#39;{&#34;model&#34;: &#34;/opt/qwen-14b-chat&#34;,&#34;prompt&#34;: &#34;Hi,深圳排名前十的好玩的公园？&#34;,&#34;max_tokens&#34;: 1000,&#34;temperature&#34;: 0, &#34;stop&#34;: &#34;&lt;|endoftext|&gt;&#34;}&#39;</span>
 
-# 输出
-{
-    &quot;id&quot;: &quot;cmpl-dcee971a-fc6b-45f5-bd56-d7433553d9e5&quot;,
-    &quot;choices&quot;: [
-        {
-            &quot;finish_reason&quot;: &quot;stop&quot;,
-            &quot;index&quot;: 0,
-            &quot;logprobs&quot;: null,
-            &quot;text&quot;: &quot;深圳有哪些好玩的公园呢？公园里景色优美，空气清新，是休闲放松的好去处。\n深圳公园多，而且多有特色，比如深圳湾公园、莲花山公园、笔架山公园、洪湖公园、大梅沙海滨公园等等，都是深圳市民和游客经常去的地方。这些公园各有特色，各有特色，各有各自的特色。\n如果时间充足，可以一一游玩。如果时间紧凑，可以挑选一些有代表性的公园游玩。今天就带大家游览一下深圳十大公园。\n深圳湾公园位于深圳市南山区西部，东临深圳湾，西至白石洲，北靠福田区，南接蛇口。公园包括深圳湾栈道、深圳湾运动公园、深圳湾休闲文化公园等。深圳湾公园是深圳最浪漫的公园，最适合新人拍摄婚纱照，也适合全家出游。\n莲花山公园位于深圳市中心区北端红荔路与新洲路交汇处，占地194公顷，是深圳最大的公园。公园包括山顶广场、风筝广场、观景台、莲花山音乐厅、深圳改革开放展览馆等。莲花山公园是深圳市民最喜欢的公园之一，也是深圳最著名的公园。\n笔架山公园位于深圳市中心区，北临深南大道，西接福华三路。公园包括笔架山、笔架山公墓、笔架山儿童公园、笔架山植物园等。笔架山公园是深圳最安静的公园，最适合周末休闲。\n洪湖公园位于深圳市中心区，南临深南大道，北接红荔路，东临深南大道，西接华强北路。公园包括洪湖、洪湖公园、洪湖街、洪湖街等。洪湖公园是深圳最浪漫的公园，最适合新人拍摄婚纱照，也适合全家出游。\n大梅沙海滨公园位于深圳市盐田区东部，西临大梅沙海滨，东至盐田港。公园包括大梅沙海滨、大梅沙海滨公园、大梅沙海滨步行街等。大梅沙海滨公园是深圳最受欢迎的公园，也是深圳最著名的公园。\n深圳湾公园、莲花山公园、笔架山公园、洪湖公园、大梅沙海滨公园都是深圳市民和游客经常去的地方，也是深圳最受欢迎的公园。\n深圳湾公园位于深圳市南山区西部，东临深圳湾，西至白石洲，北靠福田区，南接蛇口。公园包括深圳湾栈道、深圳湾运动公园、深圳湾休闲文化公园等。深圳湾公园是深圳最浪漫的公园，最适合新人拍摄婚纱照，也适合全家出游。\n莲花山公园位于深圳市中心区北端红荔路与新洲路交汇处，占地194公顷，是深圳最大的公园。公园包括山顶广场、风筝广场、观景台、莲花山音乐厅、深圳改革开放展览馆等。莲花山公园是深圳市民最喜欢的公园之一，也是深圳最著名的公园。\n笔架山公园位于深圳市中心区，北临深南大道，西接福华三路。公园包括笔架山、笔架山公墓、笔架山儿童公园、笔架山植物园等。笔架山公园是深圳最安静的公园，最适合周末休闲。\n洪湖公园位于深圳市中心区，南临深南大道，北接红荔路，东临深南大道，西接华强北路。公园包括洪湖、洪湖公园、洪湖街、洪湖街等。洪湖公园是深圳最浪漫的公园，最适合新人拍摄婚纱照，也适合全家出游。\n大梅沙海滨公园位于深圳市盐田区东部，西临大梅沙海滨，东至盐田港。公园包括大梅沙海滨、大梅沙海滨公园、大梅沙海滨步行街等。大梅沙海滨公园是深圳最受欢迎的公园，也是深圳最著名的公园。\n以上就是深圳十大公园，包括深圳湾公园、莲花山公园、笔架山公园、洪湖公园、大梅沙海滨公园等。深圳十大公园各有特色，各有特色，各有各自的特色。&quot;
-        }
-    ],
-    &quot;created&quot;: 1706767165,
-    &quot;model&quot;: &quot;/opt/qwen-14b-chat&quot;,
-    &quot;object&quot;: &quot;text_completion&quot;,
-    &quot;system_fingerprint&quot;: null,
-    &quot;usage&quot;: {
-        &quot;completion_tokens&quot;: 859,
-        &quot;prompt_tokens&quot;: 10,
-        &quot;total_tokens&quot;: 869
-    }
-}
-</code></pre><h3 id="常见错误">常见错误</h3>
+<span style="color:#6272a4"># 输出</span>
+<span style="color:#ff79c6">{</span>
+    <span style="color:#f1fa8c">&#34;id&#34;</span>: <span style="color:#f1fa8c">&#34;cmpl-dcee971a-fc6b-45f5-bd56-d7433553d9e5&#34;</span>,
+    <span style="color:#f1fa8c">&#34;choices&#34;</span>: <span style="color:#ff79c6">[</span>
+        <span style="color:#ff79c6">{</span>
+            <span style="color:#f1fa8c">&#34;finish_reason&#34;</span>: <span style="color:#f1fa8c">&#34;stop&#34;</span>,
+            <span style="color:#f1fa8c">&#34;index&#34;</span>: 0,
+            <span style="color:#f1fa8c">&#34;logprobs&#34;</span>: null,
+            <span style="color:#f1fa8c">&#34;text&#34;</span>: <span style="color:#f1fa8c">&#34;深圳有哪些好玩的公园呢？公园里景色优美，空气清新，是休闲放松的好去处。\n深圳公园多，而且多有特色，比如深圳湾公园、莲花山公园、笔架山公园、洪湖公园、大梅沙海滨公园等等，都是深圳市民和游客经常去的地方。这些公园各有特色，各有特色，各有各自的特色。\n如果时间充足，可以一一游玩。如果时间紧凑，可以挑选一些有代表性的公园游玩。今天就带大家游览一下深圳十大公园。\n深圳湾公园位于深圳市南山区西部，东临深圳湾，西至白石洲，北靠福田区，南接蛇口。公园包括深圳湾栈道、深圳湾运动公园、深圳湾休闲文化公园等。深圳湾公园是深圳最浪漫的公园，最适合新人拍摄婚纱照，也适合全家出游。\n莲花山公园位于深圳市中心区北端红荔路与新洲路交汇处，占地194公顷，是深圳最大的公园。公园包括山顶广场、风筝广场、观景台、莲花山音乐厅、深圳改革开放展览馆等。莲花山公园是深圳市民最喜欢的公园之一，也是深圳最著名的公园。\n笔架山公园位于深圳市中心区，北临深南大道，西接福华三路。公园包括笔架山、笔架山公墓、笔架山儿童公园、笔架山植物园等。笔架山公园是深圳最安静的公园，最适合周末休闲。\n洪湖公园位于深圳市中心区，南临深南大道，北接红荔路，东临深南大道，西接华强北路。公园包括洪湖、洪湖公园、洪湖街、洪湖街等。洪湖公园是深圳最浪漫的公园，最适合新人拍摄婚纱照，也适合全家出游。\n大梅沙海滨公园位于深圳市盐田区东部，西临大梅沙海滨，东至盐田港。公园包括大梅沙海滨、大梅沙海滨公园、大梅沙海滨步行街等。大梅沙海滨公园是深圳最受欢迎的公园，也是深圳最著名的公园。\n深圳湾公园、莲花山公园、笔架山公园、洪湖公园、大梅沙海滨公园都是深圳市民和游客经常去的地方，也是深圳最受欢迎的公园。\n深圳湾公园位于深圳市南山区西部，东临深圳湾，西至白石洲，北靠福田区，南接蛇口。公园包括深圳湾栈道、深圳湾运动公园、深圳湾休闲文化公园等。深圳湾公园是深圳最浪漫的公园，最适合新人拍摄婚纱照，也适合全家出游。\n莲花山公园位于深圳市中心区北端红荔路与新洲路交汇处，占地194公顷，是深圳最大的公园。公园包括山顶广场、风筝广场、观景台、莲花山音乐厅、深圳改革开放展览馆等。莲花山公园是深圳市民最喜欢的公园之一，也是深圳最著名的公园。\n笔架山公园位于深圳市中心区，北临深南大道，西接福华三路。公园包括笔架山、笔架山公墓、笔架山儿童公园、笔架山植物园等。笔架山公园是深圳最安静的公园，最适合周末休闲。\n洪湖公园位于深圳市中心区，南临深南大道，北接红荔路，东临深南大道，西接华强北路。公园包括洪湖、洪湖公园、洪湖街、洪湖街等。洪湖公园是深圳最浪漫的公园，最适合新人拍摄婚纱照，也适合全家出游。\n大梅沙海滨公园位于深圳市盐田区东部，西临大梅沙海滨，东至盐田港。公园包括大梅沙海滨、大梅沙海滨公园、大梅沙海滨步行街等。大梅沙海滨公园是深圳最受欢迎的公园，也是深圳最著名的公园。\n以上就是深圳十大公园，包括深圳湾公园、莲花山公园、笔架山公园、洪湖公园、大梅沙海滨公园等。深圳十大公园各有特色，各有特色，各有各自的特色。&#34;</span>
+        <span style="color:#ff79c6">}</span>
+    <span style="color:#ff79c6">]</span>,
+    <span style="color:#f1fa8c">&#34;created&#34;</span>: 1706767165,
+    <span style="color:#f1fa8c">&#34;model&#34;</span>: <span style="color:#f1fa8c">&#34;/opt/qwen-14b-chat&#34;</span>,
+    <span style="color:#f1fa8c">&#34;object&#34;</span>: <span style="color:#f1fa8c">&#34;text_completion&#34;</span>,
+    <span style="color:#f1fa8c">&#34;system_fingerprint&#34;</span>: null,
+    <span style="color:#f1fa8c">&#34;usage&#34;</span>: <span style="color:#ff79c6">{</span>
+        <span style="color:#f1fa8c">&#34;completion_tokens&#34;</span>: 859,
+        <span style="color:#f1fa8c">&#34;prompt_tokens&#34;</span>: 10,
+        <span style="color:#f1fa8c">&#34;total_tokens&#34;</span>: <span style="color:#bd93f9">869</span>
+    <span style="color:#ff79c6">}</span>
+<span style="color:#ff79c6">}</span>
+</code></pre></div><h3 id="常见错误">常见错误</h3>
 <p>问题：</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">CUDA out of memory. Tried to allocate 1024.00 MiB (GPU 0; 7.80 GiB total capacity; 5.21 GiB already allocated; 
 173.38 MiB free; 5.27 GiB reserved in total by PyTorch) 
@@ -5457,14 +5511,29 @@ unzip master.zip
 bash run.sh
 </code></pre></div><p>脚本运行过程中，会产生交互让你输入remote远程服务器安装还是local本地化安装</p>
 <h1 id="llm大模型评测">LLM大模型评测</h1>
-<p><a href="https://ai-bot.cn/">https://ai-bot.cn/</a>，这个网站类似AI工具的链接导航，有MMLU、Open LLM Leaderboard、OpenCompass等；其中中文大模型评测的话，推荐OpenCompass，国产
-大模型阿里通义千问在其github展示的评测表现也是基于OpenCompass.</p>
+<p><a href="https://ai-bot.cn/">https://ai-bot.cn/</a>，这个网站类似AI工具的链接导航，有MMLU、Open LLM Leaderboard、OpenCompass等；其中中文大模型评测的话，推荐OpenCompass，国产大模型阿里通义千问在其github展示的评测表现也是基于OpenCompass.</p>
+<p>FastChat也提供一个工具<a href="https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge">llm_judge</a></p>
+<p>编程类模型评估标准参考：</p>
+<ul>
+<li>主要HumanEval/Babelcode指标，得分越高越好</li>
+<li>模型参数量不宜过大，过大增加精调和部署成本</li>
+<li>最好具备一定中文能力，但是编码能力优先级更高</li>
+</ul>
+<p>
+  <img src="https://raw.githubusercontent.com/yaoice/blog-images/main/2024-01-18-llm_develop_readnotes/20240118-code-model.png" alt="">
+
+</p>
 <h1 id="llm大模型推理">LLM大模型推理</h1>
 <p>量化：模型使用16位浮点数作为权重进行训练，可以将其缩小到4位整数以进行推理，而不会失去太多的功率，收益是会节省大量的GPU计算资源。</p>
 <p>llama.cpp主要解决的是推理过程中的性能问题。主要有两点优化：</p>
 <ul>
 <li>llama.cpp使用的是C/C++语言写的机器学习张量库ggml</li>
 <li>llama.cpp提供了模型量化的工具</li>
+</ul>
+<h1 id="llm大模型第三方库">LLM大模型第三方库</h1>
+<ul>
+<li><a href="https://github.com/BerriAI/litellm">https://github.com/BerriAI/litellm</a>：兼容OpenAI格式的统一大模型API，大多支持国外的模型</li>
+<li><a href="https://github.com/songquanpeng/one-api">https://github.com/songquanpeng/one-api</a>：兼容OpenAI格式的统一大模型API，大多支持国内的模型</li>
 </ul>
 <h1 id="参考链接">参考链接</h1>
 <ul>
@@ -5474,6 +5543,7 @@ bash run.sh
 <li><a href="https://zhuanlan.zhihu.com/p/111235300">NVidia Docker介绍</a></li>
 <li><a href="https://python.langchain.com/docs/get_started/introduction">https://python.langchain.com/docs/get_started/introduction</a></li>
 <li><a href="https://www.chenshaowen.com/blog/llama-cpp-that-is-a-llm-deployment-tool.html">llama.cpp部署实践</a></li>
+<li><a href="https://new.qq.com/rain/a/20240221A06BMB00">大模型在研发效率提升方面的应用与实践</a></li>
 </ul>
 
 
@@ -5612,6 +5682,10 @@ bash run.sh
                         
                         
                         
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
                         
                         
                         
