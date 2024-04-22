@@ -4776,7 +4776,786 @@ Invoking: `time` with `{&#39;text&#39;: &#39;today&#39;}`
 &gt; Finished chain.
 </code></pre></div><h2 id="lcellangchain-expression-language">LCEL(LangChain Expression Language)</h2>
 <p>LangChain表达式语言（LCEL）是一种轻松地将链组合在一起的声明性方式。 LCEL 从第一天起就被设计为支持将原型投入生产，无需更改代码，从最简单的“提示+LLM”链到最复杂的链</p>
-<h2 id="token计算">Token计算</h2>
+<h2 id="use-cases">Use Cases</h2>
+<p>来自于Langchain官网的quickstart例子：<a href="https://python.langchain.com/docs/use_cases">https://python.langchain.com/docs/use_cases</a></p>
+<h3 id="rag问答">RAG问答</h3>
+<h4 id="rag架构">RAG架构</h4>
+<p>RAG应用有两个核心组件：</p>
+<ul>
+<li>索引</li>
+<li>检索和生成</li>
+</ul>
+<p>建立索引过程：</p>
+<ol>
+<li>Load：第一步加载数据，使用<code>DocumentLoaders</code></li>
+<li>Split：使用文本分割器把大文档切分成小的chunk，用于建立索引数据和传入大模型，因为大chunk检索困难、模型有上下文窗口长度限制</li>
+<li>Store：我们需要存储和索引这些分割的文本，这步通常使用向量存储和Embedding模型。</li>
+</ol>
+<p>
+  <img src="https://python.langchain.com/assets/images/rag_indexing-8160f90a90a33253d0154659cf7d453f.png" alt="RAG架构">
+
+</p>
+<p>检索和生成过程：</p>
+<ol>
+<li>Retrieve：根据用户输入，使用<code>Retriever</code>检索器从存储中检索出相关的分割文本</li>
+<li>Generate：根据问题、检索到的数据生成Prompt发送至聊天模型/LLM，聊天模型/LLM生成相应的回答</li>
+</ol>
+<p>
+  <img src="https://python.langchain.com/assets/images/rag_retrieval_generation-1046a4668d6bb08786ef73c56d4f228a.png" alt="RAG架构">
+
+</p>
+<h4 id="代码实现">代码实现</h4>
+<p>安装依赖</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># pip install --upgrade --quiet  langchain langchain-community langchainhub langchain-openai langchain-chroma bs4</span>
+</code></pre></div><p>一个quickstart例子</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">import</span> bs4
+<span style="color:#ff79c6">from</span> langchain <span style="color:#ff79c6">import</span> hub
+<span style="color:#ff79c6">from</span> langchain_community.document_loaders.web_base <span style="color:#ff79c6">import</span> WebBaseLoader
+<span style="color:#ff79c6">from</span> langchain_chroma <span style="color:#ff79c6">import</span> Chroma
+<span style="color:#ff79c6">from</span> langchain_core.output_parsers <span style="color:#ff79c6">import</span> StrOutputParser
+<span style="color:#ff79c6">from</span> langchain_core.runnables <span style="color:#ff79c6">import</span> RunnablePassthrough
+<span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> OpenAIEmbeddings
+<span style="color:#ff79c6">from</span> langchain_text_splitters <span style="color:#ff79c6">import</span> RecursiveCharacterTextSplitter
+<span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> ChatOpenAI
+<span style="color:#ff79c6">from</span> pydantic.v1 <span style="color:#ff79c6">import</span> SecretStr
+
+api_key <span style="color:#ff79c6">=</span> SecretStr(<span style="color:#f1fa8c">&#34;sk-xxx&#34;</span>)
+openai_url <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;https://api.chatanywhere.com.cn/v1&#34;</span>
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+
+    llm <span style="color:#ff79c6">=</span> ChatOpenAI(
+        temperature<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0.0</span>,
+        api_key<span style="color:#ff79c6">=</span>api_key,
+        base_url<span style="color:#ff79c6">=</span>openai_url)
+
+    <span style="color:#6272a4"># Load, chunk and index the contents of the blog.</span>
+    loader <span style="color:#ff79c6">=</span> WebBaseLoader(
+        web_paths<span style="color:#ff79c6">=</span>(<span style="color:#f1fa8c">&#34;https://lilianweng.github.io/posts/2023-06-23-agent/&#34;</span>,),
+        bs_kwargs<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">dict</span>(
+            parse_only<span style="color:#ff79c6">=</span>bs4<span style="color:#ff79c6">.</span>SoupStrainer(
+                class_<span style="color:#ff79c6">=</span>(<span style="color:#f1fa8c">&#34;post-content&#34;</span>, <span style="color:#f1fa8c">&#34;post-title&#34;</span>, <span style="color:#f1fa8c">&#34;post-header&#34;</span>)
+            )
+        ),
+    )
+    docs <span style="color:#ff79c6">=</span> loader<span style="color:#ff79c6">.</span>load()
+
+    text_splitter <span style="color:#ff79c6">=</span> RecursiveCharacterTextSplitter(
+        chunk_size<span style="color:#ff79c6">=</span><span style="color:#bd93f9">1000</span>, chunk_overlap<span style="color:#ff79c6">=</span><span style="color:#bd93f9">200</span>)
+    splits <span style="color:#ff79c6">=</span> text_splitter<span style="color:#ff79c6">.</span>split_documents(docs)
+    vectorstore <span style="color:#ff79c6">=</span> Chroma<span style="color:#ff79c6">.</span>from_documents(
+        documents<span style="color:#ff79c6">=</span>splits, embedding<span style="color:#ff79c6">=</span>OpenAIEmbeddings(
+            api_key<span style="color:#ff79c6">=</span>api_key,
+            base_url<span style="color:#ff79c6">=</span>openai_url
+        ))
+
+    <span style="color:#6272a4"># Retrieve and generate using the relevant snippets of the blog.</span>
+    retriever <span style="color:#ff79c6">=</span> vectorstore<span style="color:#ff79c6">.</span>as_retriever()
+    prompt <span style="color:#ff79c6">=</span> hub<span style="color:#ff79c6">.</span>pull(<span style="color:#f1fa8c">&#34;rlm/rag-prompt&#34;</span>)
+
+    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">format_docs</span>(docs):
+        <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">&#34;</span><span style="color:#f1fa8c">\n\n</span><span style="color:#f1fa8c">&#34;</span><span style="color:#ff79c6">.</span>join(doc<span style="color:#ff79c6">.</span>page_content <span style="color:#ff79c6">for</span> doc <span style="color:#ff79c6">in</span> docs)
+
+    rag_chain <span style="color:#ff79c6">=</span> (
+        {<span style="color:#f1fa8c">&#34;context&#34;</span>: retriever <span style="color:#ff79c6">|</span> format_docs, <span style="color:#f1fa8c">&#34;question&#34;</span>: RunnablePassthrough()}
+        <span style="color:#ff79c6">|</span> prompt
+        <span style="color:#ff79c6">|</span> llm
+        <span style="color:#ff79c6">|</span> StrOutputParser()
+    )
+
+    <span style="color:#8be9fd;font-style:italic">print</span>(rag_chain<span style="color:#ff79c6">.</span>invoke(<span style="color:#f1fa8c">&#34;What is Task Decomposition?&#34;</span>))
+    vectorstore<span style="color:#ff79c6">.</span>delete_collection()
+
+
+<span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
+    main()
+
+</code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">Task Decomposition is a technique used to <span style="color:#8be9fd;font-style:italic">break</span> down complex tasks into smaller and simpler steps. This process helps agents or models better understand and tackle the task at hand by dividing it into manageable parts. It can be implemented through prompting techniques like Chain of Thought or Tree of Thoughts, task-specific instructions, or human inputs.
+</code></pre></div><h3 id="提取结构化输出">提取结构化输出</h3>
+<p>一个quickstart的例子，要使用支持function/tool调用能力的聊天模型，还可以通过<code>langchain.output_parsers</code>的方式来处理结构化输出</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> ChatOpenAI
+<span style="color:#ff79c6">from</span> pydantic.v1 <span style="color:#ff79c6">import</span> SecretStr
+<span style="color:#ff79c6">from</span> typing <span style="color:#ff79c6">import</span> List, Optional
+
+<span style="color:#ff79c6">from</span> langchain_core.prompts <span style="color:#ff79c6">import</span> ChatPromptTemplate
+<span style="color:#ff79c6">from</span> langchain_core.pydantic_v1 <span style="color:#ff79c6">import</span> BaseModel, Field
+
+
+api_key <span style="color:#ff79c6">=</span> SecretStr(<span style="color:#f1fa8c">&#34;sk-xxx&#34;</span>)
+openai_url <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;https://api.chatanywhere.com.cn/v1&#34;</span>
+
+
+<span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Person</span>(BaseModel):
+    <span style="color:#f1fa8c">&#34;&#34;&#34;Information about a person.&#34;&#34;&#34;</span>
+
+    <span style="color:#6272a4"># ^ Doc-string for the entity Person.</span>
+    <span style="color:#6272a4"># This doc-string is sent to the LLM as the description of the schema Person,</span>
+    <span style="color:#6272a4"># and it can help to improve extraction results.</span>
+
+    <span style="color:#6272a4"># Note that:</span>
+    <span style="color:#6272a4"># 1. Each field is an `optional` -- this allows the model to decline to extract it!</span>
+    <span style="color:#6272a4"># 2. Each field has a `description` -- this description is used by the LLM.</span>
+    <span style="color:#6272a4"># Having a good description can help improve extraction results.</span>
+    name: Optional[<span style="color:#8be9fd;font-style:italic">str</span>] <span style="color:#ff79c6">=</span> Field(default<span style="color:#ff79c6">=</span><span style="color:#ff79c6">None</span>, description<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;The name of the person&#34;</span>)
+    hair_color: Optional[<span style="color:#8be9fd;font-style:italic">str</span>] <span style="color:#ff79c6">=</span> Field(
+        default<span style="color:#ff79c6">=</span><span style="color:#ff79c6">None</span>, description<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;The color of the peron&#39;s hair if known&#34;</span>
+    )
+    height_in_meters: Optional[<span style="color:#8be9fd;font-style:italic">str</span>] <span style="color:#ff79c6">=</span> Field(
+        default<span style="color:#ff79c6">=</span><span style="color:#ff79c6">None</span>, description<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;Height measured in meters&#34;</span>
+    )
+
+
+<span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Data</span>(BaseModel):
+    <span style="color:#f1fa8c">&#34;&#34;&#34;Extracted data about people.&#34;&#34;&#34;</span>
+
+    <span style="color:#6272a4"># Creates a model so that we can extract multiple entities.</span>
+    people: List[Person]
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+
+    llm <span style="color:#ff79c6">=</span> ChatOpenAI(
+        temperature<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0.0</span>,
+        api_key<span style="color:#ff79c6">=</span>api_key,
+        base_url<span style="color:#ff79c6">=</span>openai_url)
+
+    <span style="color:#6272a4"># Define a custom prompt to provide instructions and any additional context.</span>
+<span style="color:#6272a4"># 1) You can add examples into the prompt template to improve extraction quality</span>
+<span style="color:#6272a4"># 2) Introduce additional parameters to take context into account (e.g., include metadata</span>
+<span style="color:#6272a4">#    about the document from which the text was extracted.)</span>
+    prompt <span style="color:#ff79c6">=</span> ChatPromptTemplate<span style="color:#ff79c6">.</span>from_messages(
+        [
+            (
+                <span style="color:#f1fa8c">&#34;system&#34;</span>,
+                <span style="color:#f1fa8c">&#34;You are an expert extraction algorithm. &#34;</span>
+                <span style="color:#f1fa8c">&#34;Only extract relevant information from the text. &#34;</span>
+                <span style="color:#f1fa8c">&#34;If you do not know the value of an attribute asked to extract, &#34;</span>
+                <span style="color:#f1fa8c">&#34;return null for the attribute&#39;s value.&#34;</span>,
+            ),
+            <span style="color:#6272a4"># Please see the how-to about improving performance with</span>
+            <span style="color:#6272a4"># reference examples.</span>
+            <span style="color:#6272a4"># MessagesPlaceholder(&#39;examples&#39;),</span>
+            (<span style="color:#f1fa8c">&#34;human&#34;</span>, <span style="color:#f1fa8c">&#34;</span><span style="color:#f1fa8c">{text}</span><span style="color:#f1fa8c">&#34;</span>),
+        ]
+    )
+
+    runnable <span style="color:#ff79c6">=</span> prompt <span style="color:#ff79c6">|</span> llm<span style="color:#ff79c6">.</span>with_structured_output(schema<span style="color:#ff79c6">=</span>Data)
+    text <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;My name is Jeff, my hair is black and i am 6 feet tall. Anna has the same color hair as me.&#34;</span>
+    <span style="color:#8be9fd;font-style:italic">print</span>(runnable<span style="color:#ff79c6">.</span>invoke({<span style="color:#f1fa8c">&#34;text&#34;</span>: text}))
+
+
+<span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
+    main()
+
+</code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#8be9fd;font-style:italic">people</span><span style="color:#ff79c6">=[</span>Person<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">name</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;Jeff&#39;</span>, <span style="color:#8be9fd;font-style:italic">hair_color</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;black&#39;</span>, <span style="color:#8be9fd;font-style:italic">height_in_meters</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;1.83&#39;</span><span style="color:#ff79c6">)</span>, Person<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">name</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;Anna&#39;</span>, <span style="color:#8be9fd;font-style:italic">hair_color</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;black&#39;</span>, <span style="color:#8be9fd;font-style:italic">height_in_meters</span><span style="color:#ff79c6">=</span>None<span style="color:#ff79c6">)]</span>
+</code></pre></div><h3 id="对话检索机器人">对话检索机器人</h3>
+<p>聊天机器人是LLM最流行的应用场景之一，聊天机器人的核心特征是它们可以进行长时间运行的、有状态的对话，并可以使用相关信息回答用户问题。</p>
+<h4 id="架构">架构</h4>
+<p>
+  <img src="https://python.langchain.com/assets/images/chat_use_case-eb8a4883931d726e9f23628a0d22e315.png" alt="chat_use_case">
+
+
+聊天机器人通常对私有数据使用检索增强生成（RAG），以更好地回答特定领域的问题。您还可以选择在多个数据源之间进行路由，以确保它仅使用最热门的上下文来回答最终问题，或者选择使用更专业类型的聊天历史记录或内存，而不仅仅是来回传递消息。</p>
+<h4 id="代码实现-1">代码实现</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> ChatOpenAI
+<span style="color:#ff79c6">from</span> pydantic.v1 <span style="color:#ff79c6">import</span> SecretStr
+
+<span style="color:#ff79c6">from</span> langchain_core.output_parsers <span style="color:#ff79c6">import</span> StrOutputParser
+<span style="color:#ff79c6">from</span> langchain_core.runnables <span style="color:#ff79c6">import</span> RunnableBranch
+<span style="color:#ff79c6">from</span> langchain_core.prompts <span style="color:#ff79c6">import</span> ChatPromptTemplate, MessagesPlaceholder
+<span style="color:#ff79c6">from</span> langchain_community.document_loaders.web_base <span style="color:#ff79c6">import</span> WebBaseLoader
+<span style="color:#ff79c6">from</span> langchain_text_splitters <span style="color:#ff79c6">import</span> RecursiveCharacterTextSplitter
+<span style="color:#ff79c6">from</span> langchain_chroma <span style="color:#ff79c6">import</span> Chroma
+<span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> OpenAIEmbeddings
+<span style="color:#ff79c6">from</span> langchain.chains.combine_documents <span style="color:#ff79c6">import</span> create_stuff_documents_chain
+<span style="color:#ff79c6">from</span> langchain_core.runnables <span style="color:#ff79c6">import</span> RunnablePassthrough
+<span style="color:#ff79c6">from</span> langchain.memory <span style="color:#ff79c6">import</span> ChatMessageHistory
+
+
+api_key <span style="color:#ff79c6">=</span> SecretStr(<span style="color:#f1fa8c">&#34;sk-xxx&#34;</span>)
+openai_url <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;https://api.chatanywhere.com.cn/v1&#34;</span>
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+
+    chat <span style="color:#ff79c6">=</span> ChatOpenAI(
+        temperature<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0.0</span>,
+        api_key<span style="color:#ff79c6">=</span>api_key,
+        base_url<span style="color:#ff79c6">=</span>openai_url)
+
+    loader <span style="color:#ff79c6">=</span> WebBaseLoader(<span style="color:#f1fa8c">&#34;https://docs.smith.langchain.com/overview&#34;</span>)
+    data <span style="color:#ff79c6">=</span> loader<span style="color:#ff79c6">.</span>load()
+
+    text_splitter <span style="color:#ff79c6">=</span> RecursiveCharacterTextSplitter(
+        chunk_size<span style="color:#ff79c6">=</span><span style="color:#bd93f9">500</span>, chunk_overlap<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>)
+    all_splits <span style="color:#ff79c6">=</span> text_splitter<span style="color:#ff79c6">.</span>split_documents(data)
+    vectorstore <span style="color:#ff79c6">=</span> Chroma<span style="color:#ff79c6">.</span>from_documents(documents<span style="color:#ff79c6">=</span>all_splits, embedding<span style="color:#ff79c6">=</span>OpenAIEmbeddings(
+        api_key<span style="color:#ff79c6">=</span>api_key, base_url<span style="color:#ff79c6">=</span>openai_url))
+    retriever <span style="color:#ff79c6">=</span> vectorstore<span style="color:#ff79c6">.</span>as_retriever(k<span style="color:#ff79c6">=</span><span style="color:#bd93f9">4</span>)
+
+    query_transform_prompt <span style="color:#ff79c6">=</span> ChatPromptTemplate<span style="color:#ff79c6">.</span>from_messages(
+        [
+            MessagesPlaceholder(variable_name<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;messages&#34;</span>),
+            (
+                <span style="color:#f1fa8c">&#34;user&#34;</span>,
+                <span style="color:#f1fa8c">&#34;Given the above conversation, generate a search query to look up in order to get information relevant to the conversation. Only respond with the query, nothing else.&#34;</span>,
+            ),
+        ]
+    )
+
+    question_answering_prompt <span style="color:#ff79c6">=</span> ChatPromptTemplate<span style="color:#ff79c6">.</span>from_messages(
+        [
+            (
+                <span style="color:#f1fa8c">&#34;system&#34;</span>,
+                <span style="color:#f1fa8c">&#34;Answer the user&#39;s questions based on the below context:</span><span style="color:#f1fa8c">\n\n</span><span style="color:#f1fa8c">{context}</span><span style="color:#f1fa8c">&#34;</span>,
+            ),
+            MessagesPlaceholder(variable_name<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;messages&#34;</span>),
+        ]
+    )
+
+    query_transforming_retriever_chain <span style="color:#ff79c6">=</span> RunnableBranch(
+        (
+            <span style="color:#ff79c6">lambda</span> x: <span style="color:#8be9fd;font-style:italic">len</span>(x<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;messages&#34;</span>, [])) <span style="color:#ff79c6">==</span> <span style="color:#bd93f9">1</span>,
+            <span style="color:#6272a4"># If only one message, then we just pass that message&#39;s content to retriever</span>
+            (<span style="color:#ff79c6">lambda</span> x: x[<span style="color:#f1fa8c">&#34;messages&#34;</span>][<span style="color:#ff79c6">-</span><span style="color:#bd93f9">1</span>]<span style="color:#ff79c6">.</span>content) <span style="color:#ff79c6">|</span> retriever,
+        ),
+        <span style="color:#6272a4"># If messages, then we pass inputs to LLM chain to transform the query, then pass to retriever</span>
+        query_transform_prompt <span style="color:#ff79c6">|</span> chat <span style="color:#ff79c6">|</span> StrOutputParser() <span style="color:#ff79c6">|</span> retriever,
+    )<span style="color:#ff79c6">.</span>with_config(run_name<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;chat_retriever_chain&#34;</span>)
+    document_chain <span style="color:#ff79c6">=</span> create_stuff_documents_chain(
+        chat, question_answering_prompt)
+
+    conversational_retrieval_chain <span style="color:#ff79c6">=</span> RunnablePassthrough<span style="color:#ff79c6">.</span>assign(
+        context<span style="color:#ff79c6">=</span>query_transforming_retriever_chain,
+    )<span style="color:#ff79c6">.</span>assign(
+        answer<span style="color:#ff79c6">=</span>document_chain,
+    )
+
+    demo_ephemeral_chat_history <span style="color:#ff79c6">=</span> ChatMessageHistory()
+    demo_ephemeral_chat_history<span style="color:#ff79c6">.</span>add_user_message(
+        <span style="color:#f1fa8c">&#34;how can langsmith help with testing?&#34;</span>)
+
+    response <span style="color:#ff79c6">=</span> conversational_retrieval_chain<span style="color:#ff79c6">.</span>invoke(
+        {<span style="color:#f1fa8c">&#34;messages&#34;</span>: demo_ephemeral_chat_history<span style="color:#ff79c6">.</span>messages},
+    )
+
+    demo_ephemeral_chat_history<span style="color:#ff79c6">.</span>add_ai_message(response[<span style="color:#f1fa8c">&#34;answer&#34;</span>])
+    demo_ephemeral_chat_history<span style="color:#ff79c6">.</span>add_user_message(<span style="color:#f1fa8c">&#34;tell me more about that!&#34;</span>)
+
+    <span style="color:#8be9fd;font-style:italic">print</span>(conversational_retrieval_chain<span style="color:#ff79c6">.</span>invoke(
+        {<span style="color:#f1fa8c">&#34;messages&#34;</span>: demo_ephemeral_chat_history<span style="color:#ff79c6">.</span>messages}
+    ))
+
+
+<span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
+    main()
+
+</code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#ff79c6">{</span><span style="color:#f1fa8c">&#39;messages&#39;</span>: <span style="color:#ff79c6">[</span>HumanMessage<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">content</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;how can langsmith help with testing?&#39;</span><span style="color:#ff79c6">)</span>, AIMessage<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">content</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;LangSmith is designed to aid in the development and testing of production-grade large language model (LLM) applications. Here&#39;s how it can help with testing:\n\n1. **Monitoring and Evaluation**: LangSmith allows you to closely monitor and evaluate your LLM application during testing. This means you can track its performance, identify any issues or bottlenecks, and make necessary improvements before deployment.\n\n2. **Tracing Capabilities**: With LangSmith, you can utilize its tracing capabilities to trace the execution of your LLM application. This helps in understanding how the application behaves under different inputs and scenarios, which is crucial for testing and debugging.\n\n3. **Prompt Hub**: LangSmith includes a Prompt Hub, which is a prompt management tool. This can be useful during testing as it helps in managing and organizing prompts for your LLM application, making it easier to iterate and test different inputs.\n\n4. **Proxy**: LangSmith offers proxy capabilities, which can be utilized to control and manage access to your LLM application during testing. This ensures that only authorized users or systems can interact with the application, enhancing security and control during testing phases.\n\n5. **Cookbook and Additional Resources**: LangSmith provides a Cookbook, which is a collection of tutorials and walkthroughs. These resources can guide you through the testing process, providing best practices and tips for testing LLM applications effectively.\n\nOverall, LangSmith offers a comprehensive set of tools and capabilities to support testing of LLM applications, enabling developers to ship quickly and with confidence.&#34;</span><span style="color:#ff79c6">)</span>, HumanMessage<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">content</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;tell me more about that!&#39;</span><span style="color:#ff79c6">)]</span>, <span style="color:#f1fa8c">&#39;context&#39;</span>: <span style="color:#ff79c6">[</span>Document<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">page_content</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;Skip to main contentLangSmith API DocsSearchGo to AppQuick StartUser GuideTracingEvaluationProduction Monitoring &amp; AutomationsPrompt HubProxyPricingSelf-HostingCookbookQuick StartOn this pageGetting started with LangSmithIntroduction\u200bLangSmith is a platform for building production-grade LLM applications. It allows you to closely monitor and evaluate your application, so you can ship quickly and with confidence. Use of LangChain is not necessary - LangSmith works on its own!Install LangSmith\u200bWe&#39;</span>, <span style="color:#8be9fd;font-style:italic">metadata</span><span style="color:#ff79c6">={</span><span style="color:#f1fa8c">&#39;description&#39;</span>: <span style="color:#f1fa8c">&#39;Introduction&#39;</span>, <span style="color:#f1fa8c">&#39;language&#39;</span>: <span style="color:#f1fa8c">&#39;en&#39;</span>, <span style="color:#f1fa8c">&#39;source&#39;</span>: <span style="color:#f1fa8c">&#39;https://docs.smith.langchain.com/overview&#39;</span>, <span style="color:#f1fa8c">&#39;title&#39;</span>: <span style="color:#f1fa8c">&#39;Getting started with LangSmith | 🦜️🛠️ LangSmith&#39;</span><span style="color:#ff79c6">})</span>, Document<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">page_content</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;LangSmith.Self-Hosting: Learn about self-hosting options for LangSmith.Proxy: Learn about the proxy capabilities of LangSmith.Tracing: Learn about the tracing capabilities of LangSmith.Evaluation: Learn about the evaluation capabilities of LangSmith.Prompt Hub Learn about the Prompt Hub, a prompt management tool built into LangSmith.Additional Resources\u200bLangSmith Cookbook: A collection of tutorials and end-to-end walkthroughs using LangSmith.LangChain Python: Docs for the Python LangChain&#39;</span>, <span style="color:#8be9fd;font-style:italic">metadata</span><span style="color:#ff79c6">={</span><span style="color:#f1fa8c">&#39;description&#39;</span>: <span style="color:#f1fa8c">&#39;Introduction&#39;</span>, <span style="color:#f1fa8c">&#39;language&#39;</span>: <span style="color:#f1fa8c">&#39;en&#39;</span>, <span style="color:#f1fa8c">&#39;source&#39;</span>: <span style="color:#f1fa8c">&#39;https://docs.smith.langchain.com/overview&#39;</span>, <span style="color:#f1fa8c">&#39;title&#39;</span>: <span style="color:#f1fa8c">&#39;Getting started with LangSmith | 🦜️🛠️ LangSmith&#39;</span><span style="color:#ff79c6">})</span>, Document<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">page_content</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;Getting started with LangSmith | 🦜️🛠️ LangSmith&#39;</span>, <span style="color:#8be9fd;font-style:italic">metadata</span><span style="color:#ff79c6">={</span><span style="color:#f1fa8c">&#39;description&#39;</span>: <span style="color:#f1fa8c">&#39;Introduction&#39;</span>, <span style="color:#f1fa8c">&#39;language&#39;</span>: <span style="color:#f1fa8c">&#39;en&#39;</span>, <span style="color:#f1fa8c">&#39;source&#39;</span>: <span style="color:#f1fa8c">&#39;https://docs.smith.langchain.com/overview&#39;</span>, <span style="color:#f1fa8c">&#39;title&#39;</span>: <span style="color:#f1fa8c">&#39;Getting started with LangSmith | 🦜️🛠️ LangSmith&#39;</span><span style="color:#ff79c6">})</span>, Document<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">page_content</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;goes here    datasetName, // The data to predict and grade over    {        evaluationConfig: { customEvaluators: [exactMatch] },        projectMetadata: {            version: &#34;1.0.0&#34;,            revision_id: &#34;beta&#34;,        },    });See more on the evaluation quick start page.Next Steps\u200bCheck out the following sections to learn more about LangSmith:User Guide: Learn about the workflows LangSmith supports at each stage of the LLM application lifecycle.Pricing: Learn about the pricing model for&#39;</span>, <span style="color:#8be9fd;font-style:italic">metadata</span><span style="color:#ff79c6">={</span><span style="color:#f1fa8c">&#39;description&#39;</span>: <span style="color:#f1fa8c">&#39;Introduction&#39;</span>, <span style="color:#f1fa8c">&#39;language&#39;</span>: <span style="color:#f1fa8c">&#39;en&#39;</span>, <span style="color:#f1fa8c">&#39;source&#39;</span>: <span style="color:#f1fa8c">&#39;https://docs.smith.langchain.com/overview&#39;</span>, <span style="color:#f1fa8c">&#39;title&#39;</span>: <span style="color:#f1fa8c">&#39;Getting started with LangSmith | 🦜️🛠️ LangSmith&#39;</span><span style="color:#ff79c6">})]</span>, <span style="color:#f1fa8c">&#39;answer&#39;</span>: <span style="color:#f1fa8c">&#34;Sure, let&#39;s dive deeper into each aspect of how LangSmith can help with testing:\n\n1. **Monitoring and Evaluation**: LangSmith allows you to monitor various metrics and evaluate the performance of your LLM application during testing. This includes tracking metrics such as accuracy, response time, resource utilization, and more. By closely monitoring these metrics, you can identify any issues or areas for improvement in your application&#39;s performance.\n\n2. **Tracing Capabilities**: Tracing capabilities in LangSmith enable you to trace the execution flow of your LLM application. This means you can track how the application processes input prompts, generates responses, and executes various tasks. Tracing helps in understanding the behavior of the application under different conditions, which is essential for thorough testing and debugging.\n\n3. **Prompt Hub**: The Prompt Hub is a built-in tool in LangSmith for managing prompts used in your LLM application. During testing, you can use the Prompt Hub to organize and manage different test cases and input prompts. This makes it easier to iterate on testing scenarios, compare results, and refine your LLM model based on testing feedback.\n\n4. **Proxy**: LangSmith&#39;s proxy capabilities provide control and management over access to your LLM application. This is particularly useful during testing when you want to restrict access to the application to specific users or systems. By using the proxy features, you can ensure that testing environments are properly controlled and secured, reducing the risk of unauthorized access or misuse.\n\n5. **Cookbook and Additional Resources**: The LangSmith Cookbook and additional resources provide tutorials, walkthroughs, and best practices for testing LLM applications. These resources cover various aspects of testing, including setting up test environments, designing test cases, interpreting test results, and optimizing performance. By leveraging these resources, you can improve the effectiveness and efficiency of your testing processes.\n\nOverall, LangSmith offers a comprehensive suite of tools and resources to support testing of LLM applications at every stage of development. From monitoring and evaluation to tracing, prompt management, proxying, and access to helpful documentation, LangSmith empowers developers to conduct thorough testing and ensure the reliability and performance of their LLM applications before deployment.&#34;</span><span style="color:#ff79c6">}</span>
+</code></pre></div><h3 id="工具使用代理">工具使用&amp;代理</h3>
+<p>使用工具有两种主要方式：</p>
+<ul>
+<li>链(chains)</li>
+<li>代理(agents)</li>
+</ul>
+<h4 id="架构-1">架构</h4>
+<p>链中调用工具
+
+  <img src="https://python.langchain.com/assets/images/tool_chain-3571e7fbc481d648aff93a2630f812ab.svg" alt="LangSmith">
+
+</p>
+<p>Agent中调用工具
+
+  <img src="https://python.langchain.com/assets/images/tool_agent-d25fafc271da3ee950ac1fba59cdf490.svg" alt="LangSmith">
+
+</p>
+<h4 id="代码实现-2">代码实现</h4>
+<p>链中调用工具</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> ChatOpenAI
+<span style="color:#ff79c6">from</span> pydantic.v1 <span style="color:#ff79c6">import</span> SecretStr
+<span style="color:#ff79c6">from</span> langchain_core.tools <span style="color:#ff79c6">import</span> tool
+
+
+api_key <span style="color:#ff79c6">=</span> SecretStr(<span style="color:#f1fa8c">&#34;sk-xxx&#34;</span>)
+openai_url <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;https://api.chatanywhere.com.cn/v1&#34;</span>
+
+
+@tool
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">multiply</span>(first_int: <span style="color:#8be9fd;font-style:italic">int</span>, second_int: <span style="color:#8be9fd;font-style:italic">int</span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">int</span>:
+    <span style="color:#f1fa8c">&#34;&#34;&#34;Multiply two integers together.&#34;&#34;&#34;</span>
+    <span style="color:#ff79c6">return</span> first_int <span style="color:#ff79c6">*</span> second_int
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+
+    llm <span style="color:#ff79c6">=</span> ChatOpenAI(
+        temperature<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0.0</span>,
+        api_key<span style="color:#ff79c6">=</span>api_key,
+        base_url<span style="color:#ff79c6">=</span>openai_url)
+
+    llm_with_tools <span style="color:#ff79c6">=</span> llm<span style="color:#ff79c6">.</span>bind_tools([multiply])
+    <span style="color:#6272a4"># 直接函数/工具调用</span>
+    msg <span style="color:#ff79c6">=</span> llm_with_tools<span style="color:#ff79c6">.</span>invoke(<span style="color:#f1fa8c">&#34;whats 5 times forty two&#34;</span>)
+    <span style="color:#8be9fd;font-style:italic">print</span>(msg<span style="color:#ff79c6">.</span>tool_calls)
+
+    <span style="color:#6272a4"># 链中调用工具</span>
+    chain <span style="color:#ff79c6">=</span> llm_with_tools <span style="color:#ff79c6">|</span> (<span style="color:#ff79c6">lambda</span> x: x<span style="color:#ff79c6">.</span>tool_calls[<span style="color:#bd93f9">0</span>][<span style="color:#f1fa8c">&#34;args&#34;</span>]) <span style="color:#ff79c6">|</span> multiply
+    <span style="color:#8be9fd;font-style:italic">print</span>(chain<span style="color:#ff79c6">.</span>invoke(<span style="color:#f1fa8c">&#34;What&#39;s four times 23&#34;</span>))
+
+
+<span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
+    main()
+
+</code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#ff79c6">[{</span><span style="color:#f1fa8c">&#39;name&#39;</span>: <span style="color:#f1fa8c">&#39;multiply&#39;</span>, <span style="color:#f1fa8c">&#39;args&#39;</span>: <span style="color:#ff79c6">{</span><span style="color:#f1fa8c">&#39;first_int&#39;</span>: 5, <span style="color:#f1fa8c">&#39;second_int&#39;</span>: 42<span style="color:#ff79c6">}</span>, <span style="color:#f1fa8c">&#39;id&#39;</span>: <span style="color:#f1fa8c">&#39;call_tYHGZbXVcZo2KTHTF9PGTEW3&#39;</span><span style="color:#ff79c6">}]</span>
+<span style="color:#bd93f9">92</span>
+</code></pre></div><p>Agent中调用工具</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> ChatOpenAI
+<span style="color:#ff79c6">from</span> pydantic.v1 <span style="color:#ff79c6">import</span> SecretStr
+<span style="color:#ff79c6">from</span> langchain_core.tools <span style="color:#ff79c6">import</span> tool
+<span style="color:#ff79c6">from</span> langchain <span style="color:#ff79c6">import</span> hub
+<span style="color:#ff79c6">from</span> langchain.agents <span style="color:#ff79c6">import</span> AgentExecutor, create_tool_calling_agent
+
+
+api_key <span style="color:#ff79c6">=</span> SecretStr(<span style="color:#f1fa8c">&#34;sk-xxx&#34;</span>)
+openai_url <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;https://api.chatanywhere.com.cn/v1&#34;</span>
+
+
+@tool
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">multiply</span>(first_int: <span style="color:#8be9fd;font-style:italic">int</span>, second_int: <span style="color:#8be9fd;font-style:italic">int</span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">int</span>:
+    <span style="color:#f1fa8c">&#34;&#34;&#34;Multiply two integers together.&#34;&#34;&#34;</span>
+    <span style="color:#ff79c6">return</span> first_int <span style="color:#ff79c6">*</span> second_int
+
+
+@tool
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">add</span>(first_int: <span style="color:#8be9fd;font-style:italic">int</span>, second_int: <span style="color:#8be9fd;font-style:italic">int</span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">int</span>:
+    <span style="color:#f1fa8c">&#34;Add two integers.&#34;</span>
+    <span style="color:#ff79c6">return</span> first_int <span style="color:#ff79c6">+</span> second_int
+
+
+@tool
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">exponentiate</span>(base: <span style="color:#8be9fd;font-style:italic">int</span>, exponent: <span style="color:#8be9fd;font-style:italic">int</span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">int</span>:
+    <span style="color:#f1fa8c">&#34;Exponentiate the base to the exponent power.&#34;</span>
+    <span style="color:#ff79c6">return</span> base<span style="color:#ff79c6">**</span>exponent
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+
+    llm <span style="color:#ff79c6">=</span> ChatOpenAI(
+        temperature<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0.0</span>,
+        api_key<span style="color:#ff79c6">=</span>api_key,
+        base_url<span style="color:#ff79c6">=</span>openai_url)
+
+    <span style="color:#6272a4"># Get the prompt to use - can be replaced with any prompt that includes variables &#34;agent_scratchpad&#34; and &#34;input&#34;!</span>
+    prompt <span style="color:#ff79c6">=</span> hub<span style="color:#ff79c6">.</span>pull(<span style="color:#f1fa8c">&#34;hwchase17/openai-tools-agent&#34;</span>)
+
+    tools <span style="color:#ff79c6">=</span> [multiply, add, exponentiate]
+    <span style="color:#6272a4"># Construct the tool calling agent</span>
+    agent <span style="color:#ff79c6">=</span> create_tool_calling_agent(llm, tools, prompt)
+
+    <span style="color:#6272a4"># Create an agent executor by passing in the agent and tools</span>
+    agent_executor <span style="color:#ff79c6">=</span> AgentExecutor(agent<span style="color:#ff79c6">=</span>agent, tools<span style="color:#ff79c6">=</span>tools, verbose<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>)
+    agent_executor<span style="color:#ff79c6">.</span>invoke(
+        {
+            <span style="color:#f1fa8c">&#34;input&#34;</span>: <span style="color:#f1fa8c">&#34;Take 3 to the fifth power and multiply that by the sum of twelve and three, then square the whole result&#34;</span>
+        }
+    )
+
+
+<span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
+    main()
+
+</code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">&gt; Entering new AgentExecutor chain...
+
+Invoking: <span style="color:#f1fa8c">`</span>exponentiate<span style="color:#f1fa8c">`</span> with <span style="color:#f1fa8c">`</span><span style="color:#ff79c6">{</span><span style="color:#f1fa8c">&#39;base&#39;</span>: 3, <span style="color:#f1fa8c">&#39;exponent&#39;</span>: 5<span style="color:#ff79c6">}</span><span style="color:#f1fa8c">`</span>
+
+
+<span style="color:#bd93f9">243</span>
+Invoking: <span style="color:#f1fa8c">`</span>add<span style="color:#f1fa8c">`</span> with <span style="color:#f1fa8c">`</span><span style="color:#ff79c6">{</span><span style="color:#f1fa8c">&#39;first_int&#39;</span>: 12, <span style="color:#f1fa8c">&#39;second_int&#39;</span>: 3<span style="color:#ff79c6">}</span><span style="color:#f1fa8c">`</span>
+
+
+<span style="color:#bd93f9">15</span>
+Invoking: <span style="color:#f1fa8c">`</span>multiply<span style="color:#f1fa8c">`</span> with <span style="color:#f1fa8c">`</span><span style="color:#ff79c6">{</span><span style="color:#f1fa8c">&#39;first_int&#39;</span>: 243, <span style="color:#f1fa8c">&#39;second_int&#39;</span>: 15<span style="color:#ff79c6">}</span><span style="color:#f1fa8c">`</span>
+
+
+<span style="color:#bd93f9">3645</span>
+Invoking: <span style="color:#f1fa8c">`</span>exponentiate<span style="color:#f1fa8c">`</span> with <span style="color:#f1fa8c">`</span><span style="color:#ff79c6">{</span><span style="color:#f1fa8c">&#39;base&#39;</span>: 3645, <span style="color:#f1fa8c">&#39;exponent&#39;</span>: 2<span style="color:#ff79c6">}</span><span style="color:#f1fa8c">`</span>
+
+
+13286025The result of taking <span style="color:#bd93f9">3</span> to the fifth power and multiplying that by the sum of twelve and three, <span style="color:#ff79c6">then</span> squaring the whole result is 13,286,025.
+
+&gt; Finished chain.
+</code></pre></div><h3 id="查询分析">查询分析</h3>
+<p>
+  <img src="https://python.langchain.com/assets/images/query_analysis-cf7fe2eec43fce1e2e8feb1a16413fab.png" alt="">
+
+
+使用
+使用查询分析可以在某些方面上提高查询的质量，借助LLM已经变成一种越来越流行的方式针对问答场景。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">from</span> langchain_community.document_loaders.youtube <span style="color:#ff79c6">import</span> YoutubeLoader
+<span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> ChatOpenAI
+<span style="color:#ff79c6">from</span> pydantic.v1 <span style="color:#ff79c6">import</span> SecretStr
+<span style="color:#ff79c6">import</span> datetime
+<span style="color:#ff79c6">from</span> langchain_chroma <span style="color:#ff79c6">import</span> Chroma
+<span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> OpenAIEmbeddings
+<span style="color:#ff79c6">from</span> langchain_text_splitters <span style="color:#ff79c6">import</span> RecursiveCharacterTextSplitter
+<span style="color:#ff79c6">from</span> langchain_core.prompts <span style="color:#ff79c6">import</span> ChatPromptTemplate
+<span style="color:#ff79c6">from</span> langchain_core.runnables <span style="color:#ff79c6">import</span> RunnablePassthrough
+<span style="color:#ff79c6">from</span> typing <span style="color:#ff79c6">import</span> Optional
+<span style="color:#ff79c6">from</span> langchain_core.pydantic_v1 <span style="color:#ff79c6">import</span> BaseModel, Field
+<span style="color:#ff79c6">from</span> typing <span style="color:#ff79c6">import</span> List
+<span style="color:#ff79c6">from</span> langchain_core.documents <span style="color:#ff79c6">import</span> Document
+
+
+api_key <span style="color:#ff79c6">=</span> SecretStr(<span style="color:#f1fa8c">&#34;sk-xxx&#34;</span>)
+openai_url <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;https://api.chatanywhere.com.cn/v1&#34;</span>
+
+
+<span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Search</span>(BaseModel):
+    <span style="color:#f1fa8c">&#34;&#34;&#34;Search over a database of tutorial videos about a software library.&#34;&#34;&#34;</span>
+
+    query: <span style="color:#8be9fd;font-style:italic">str</span> <span style="color:#ff79c6">=</span> Field(
+        <span style="color:#ff79c6">...</span>,
+        description<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;Similarity search query applied to video transcripts.&#34;</span>,
+    )
+    publish_year: Optional[<span style="color:#8be9fd;font-style:italic">int</span>] <span style="color:#ff79c6">=</span> Field(
+        <span style="color:#ff79c6">None</span>, description<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;Year video was published&#34;</span>)
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+    urls <span style="color:#ff79c6">=</span> [
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=HAn9vnJy6S4&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=dA1cHGACXCo&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=ZcEMLz27sL4&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=hvAPnpSfSGo&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=EhlPDL4QrWY&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=mmBo8nlu2j0&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=rQdibOsL1ps&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=28lC4fqukoc&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=es-9MgxB-uc&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=wLRHwKuKvOE&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=ObIltMaRJvY&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=DjuXACWYkkU&#34;</span>,
+        <span style="color:#f1fa8c">&#34;https://www.youtube.com/watch?v=o7C9ld6Ln-M&#34;</span>,
+    ]
+    docs <span style="color:#ff79c6">=</span> []
+    <span style="color:#ff79c6">for</span> url <span style="color:#ff79c6">in</span> urls:
+        docs<span style="color:#ff79c6">.</span>extend(YoutubeLoader<span style="color:#ff79c6">.</span>from_youtube_url(
+            url, add_video_info<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>)<span style="color:#ff79c6">.</span>load())
+
+    <span style="color:#6272a4"># Add some additional metadata: what year the video was published</span>
+    <span style="color:#ff79c6">for</span> doc <span style="color:#ff79c6">in</span> docs:
+        doc<span style="color:#ff79c6">.</span>metadata[<span style="color:#f1fa8c">&#34;publish_year&#34;</span>] <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">int</span>(
+            datetime<span style="color:#ff79c6">.</span>datetime<span style="color:#ff79c6">.</span>strptime(
+                doc<span style="color:#ff79c6">.</span>metadata[<span style="color:#f1fa8c">&#34;publish_date&#34;</span>], <span style="color:#f1fa8c">&#34;%Y-%m-</span><span style="color:#f1fa8c">%d</span><span style="color:#f1fa8c"> %H:%M:%S&#34;</span>
+            )<span style="color:#ff79c6">.</span>strftime(<span style="color:#f1fa8c">&#34;%Y&#34;</span>)
+        )
+
+    text_splitter <span style="color:#ff79c6">=</span> RecursiveCharacterTextSplitter(chunk_size<span style="color:#ff79c6">=</span><span style="color:#bd93f9">2000</span>)
+    chunked_docs <span style="color:#ff79c6">=</span> text_splitter<span style="color:#ff79c6">.</span>split_documents(docs)
+    embeddings <span style="color:#ff79c6">=</span> OpenAIEmbeddings(model<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;text-embedding-3-small&#34;</span>,
+                                  api_key<span style="color:#ff79c6">=</span>api_key,
+                                  base_url<span style="color:#ff79c6">=</span>openai_url)
+
+    vectorstore <span style="color:#ff79c6">=</span> Chroma<span style="color:#ff79c6">.</span>from_documents(
+        chunked_docs,
+        embeddings,
+    )
+
+    <span style="color:#6272a4"># retrivael without query analysis</span>
+    search_results <span style="color:#ff79c6">=</span> vectorstore<span style="color:#ff79c6">.</span>similarity_search(
+        <span style="color:#f1fa8c">&#34;how do I build a RAG agent&#34;</span>)
+    <span style="color:#8be9fd;font-style:italic">print</span>(search_results[<span style="color:#bd93f9">0</span>]<span style="color:#ff79c6">.</span>metadata[<span style="color:#f1fa8c">&#34;title&#34;</span>])
+    <span style="color:#8be9fd;font-style:italic">print</span>(search_results[<span style="color:#bd93f9">0</span>]<span style="color:#ff79c6">.</span>page_content[:<span style="color:#bd93f9">500</span>])
+
+    <span style="color:#6272a4"># query analysis</span>
+    system <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;&#34;&#34;You are an expert at converting user questions into database queries. </span><span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span><span style="color:#f1fa8c">    You have access to a database of tutorial videos about a software library for building LLM-powered applications. </span><span style="color:#f1fa8c">\
+</span><span style="color:#f1fa8c"></span><span style="color:#f1fa8c">    Given a question, return a list of database queries optimized to retrieve the most relevant results.
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">    If there are acronyms or words you are not familiar with, do not try to rephrase them.&#34;&#34;&#34;</span>
+    prompt <span style="color:#ff79c6">=</span> ChatPromptTemplate<span style="color:#ff79c6">.</span>from_messages(
+        [
+            (<span style="color:#f1fa8c">&#34;system&#34;</span>, system),
+            (<span style="color:#f1fa8c">&#34;human&#34;</span>, <span style="color:#f1fa8c">&#34;</span><span style="color:#f1fa8c">{question}</span><span style="color:#f1fa8c">&#34;</span>),
+        ]
+    )
+    llm <span style="color:#ff79c6">=</span> ChatOpenAI(
+        temperature<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0.0</span>,
+        api_key<span style="color:#ff79c6">=</span>api_key,
+        base_url<span style="color:#ff79c6">=</span>openai_url)
+    structured_llm <span style="color:#ff79c6">=</span> llm<span style="color:#ff79c6">.</span>with_structured_output(Search)
+    query_analyzer <span style="color:#ff79c6">=</span> {
+        <span style="color:#f1fa8c">&#34;question&#34;</span>: RunnablePassthrough()} <span style="color:#ff79c6">|</span> prompt <span style="color:#ff79c6">|</span> structured_llm
+    <span style="color:#8be9fd;font-style:italic">print</span>(query_analyzer<span style="color:#ff79c6">.</span>invoke(<span style="color:#f1fa8c">&#34;how do I build a RAG agent&#34;</span>))
+
+    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">retrieval</span>(search: Search) <span style="color:#ff79c6">-&gt;</span> List[Document]:
+        <span style="color:#ff79c6">if</span> search<span style="color:#ff79c6">.</span>publish_year <span style="color:#ff79c6">is</span> <span style="color:#ff79c6">not</span> <span style="color:#ff79c6">None</span>:
+            <span style="color:#6272a4"># This is syntax specific to Chroma,</span>
+            <span style="color:#6272a4"># the vector database we are using.</span>
+            _filter <span style="color:#ff79c6">=</span> {<span style="color:#f1fa8c">&#34;publish_year&#34;</span>: {<span style="color:#f1fa8c">&#34;$eq&#34;</span>: search<span style="color:#ff79c6">.</span>publish_year}}
+        <span style="color:#ff79c6">else</span>:
+            _filter <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>
+        <span style="color:#ff79c6">return</span> vectorstore<span style="color:#ff79c6">.</span>similarity_search(search<span style="color:#ff79c6">.</span>query, <span style="color:#8be9fd;font-style:italic">filter</span><span style="color:#ff79c6">=</span>_filter)
+
+    retrieval_chain <span style="color:#ff79c6">=</span> query_analyzer <span style="color:#ff79c6">|</span> retrieval
+    results <span style="color:#ff79c6">=</span> retrieval_chain<span style="color:#ff79c6">.</span>invoke(<span style="color:#f1fa8c">&#34;RAG tutorial published in 2023&#34;</span>)
+    <span style="color:#8be9fd;font-style:italic">print</span>(results)
+
+
+<span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
+    main()
+
+</code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">OpenGPTs
+hardcoded that it will always <span style="color:#ff79c6">do</span> a retrieval step here the assistant decides whether to <span style="color:#ff79c6">do</span> a retrieval step or not sometimes this is good sometimes this is bad sometimes it you don<span style="color:#f1fa8c">&#39;t need to do a retrieval step when I said hi it didn&#39;</span>t need to call it tool um but other <span style="color:#8be9fd;font-style:italic">times</span> you know the the llm might mess up and not realize that it needs to <span style="color:#ff79c6">do</span> a retrieval step and so the rag bot will always <span style="color:#ff79c6">do</span> a retrieval step so it<span style="color:#f1fa8c">&#39;s more focused there because this is also a simpler architecture so it&#39;</span>s always
+/opt/anaconda3/envs/chatgpt/lib/python3.11/site-packages/langchain_core/_api/beta_decorator.py:87: LangChainBetaWarning: The <span style="color:#ff79c6">function</span> <span style="color:#f1fa8c">`</span>with_structured_output<span style="color:#f1fa8c">`</span> is in beta. It is actively being worked on, so the API may change.
+  warn_beta<span style="color:#ff79c6">(</span>
+<span style="color:#8be9fd;font-style:italic">query</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;build RAG agent&#39;</span> <span style="color:#8be9fd;font-style:italic">publish_year</span><span style="color:#ff79c6">=</span>None
+<span style="color:#ff79c6">[</span>Document<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">page_content</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;capacity and conventional rag approaches that just strip the text out really miss a lot of this so let&#39;s try kind of how could we build a rag system over the visual content in in a slide deck um so to start off what I did was I took a slide deck and this is um uh data dog&#39;s Q3 earnings report I randomly chose it you know it was just like an interesting demonstration of like kind of complex uh you know financial information and figures and slide deck and I created a set of 10 questions and answer pairs about these slides this is like my evalve set um and this is really easy to do I can just create a CSV that has like my question and my answer in this case like my input output pairs um and it&#39;s just a set of questions that I devised myself I looked at the slides I said okay here&#39;s some interesting question answer pairs I put them in a CSV and I load these into Langs Smith now Langs Smith is Lang chain platform that supports durability and evaluations um and I create a data set for myself in Lang Smith and there&#39;s some links down here that show exactly how to do that but that&#39;s my starting point so I say okay here&#39;s my evaluation set I have the slide deck I built 10 question answer pairs from the slides now let&#39;s compare some approaches there might be two different ways to think about multimodal rag um so one is this notion of multimodal embeddings so we take our slides we extract them as images in every image we use multimodal embeddings to map them into this kind of this embedding space that is common between kind of text and and images um for that I use open clip embeddings um and so I now have an index in this case I use chroma that contains a bunch of images uh that have been embedded using open clip um at retrieval time I ask a question I use I basically take the natural language question embed it indeed with multimodal embeddings same ones similarity search just like normal retrieve images that are similar to my question pass the image to in this case uh my&#34;</span>, <span style="color:#8be9fd;font-style:italic">metadata</span><span style="color:#ff79c6">={</span><span style="color:#f1fa8c">&#39;author&#39;</span>: <span style="color:#f1fa8c">&#39;LangChain&#39;</span>, <span style="color:#f1fa8c">&#39;description&#39;</span>: <span style="color:#f1fa8c">&#39;Unknown&#39;</span>, <span style="color:#f1fa8c">&#39;length&#39;</span>: 1833, <span style="color:#f1fa8c">&#39;publish_date&#39;</span>: <span style="color:#f1fa8c">&#39;2023-12-20 00:00:00&#39;</span>, <span style="color:#f1fa8c">&#39;publish_year&#39;</span>: 2023, <span style="color:#f1fa8c">&#39;source&#39;</span>: <span style="color:#f1fa8c">&#39;28lC4fqukoc&#39;</span>, <span style="color:#f1fa8c">&#39;thumbnail_url&#39;</span>: <span style="color:#f1fa8c">&#39;https://i.ytimg.com/vi/28lC4fqukoc/hq720.jpg?sqp=-oaymwEmCIAKENAF8quKqQMa8AEB-AH-CYAC0AWKAgwIABABGCkgWChyMA8=&amp;rs=AOn4CLCPeU4y3IyyG2C3XDHmIYh8efhGbQ&#39;</span>, <span style="color:#f1fa8c">&#39;title&#39;</span>: <span style="color:#f1fa8c">&#39;Getting Started with Multi-Modal LLMs&#39;</span>, <span style="color:#f1fa8c">&#39;view_count&#39;</span>: 3766<span style="color:#ff79c6">})</span>, Document<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">page_content</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;uh context for it um instead of uh instead of asking a question so here we can just add our second route so now we&#39;re going to have um two different sets of endpoints um and I can actually just show that off in the uh fast API doc so if I refresh this we&#39;ll see now that we have all the invoke batch stream and stream log uh calls for rag conversation which was the first example that we went over or first template that we went over um and we also now have these extraction open AI functions ones um which just taken a single string instead of both like a chat history and a question and so if we go to our playground um so this is going to be our rag conversation playground um but we can go to extraction openingi functions um and we&#39;re adding a little index so it&#39;s easier to to get to these links um so in this case if we look at the readme for extraction open AI functions um what this is going to do is it&#39;s going to um extract the title and author of papers um which uh we&#39;ll look at in a sec and we&#39;ll we&#39;ll try and customize it to extract something else um but we can actually just use the same article over here um just because it also has paper ERS and authors um so if we just paste in some section of this um we can see that it&#39;s able not reminders um we can see that it&#39;s able to extract out um those authors and papers that are kind of covered in this Tas do composition section um and let&#39;s actually go into that template um to see why it&#39;s it&#39;s doing just papers um in instead um so here we can see that we have just a prompt going into a model uh which has kind of some open AI functions um set on it and then we&#39;ll talk a little bit how about how we can design those ourselves um and then in the end it&#39;s just going to Output that papers key um which is just going to be a list of papers according to our kind of pedantic model here um and then we can see that it&#39;s extracting title an author because we um Define those as as the fields to extract so let&#39;s say um I don&#39;t know&#34;</span>, <span style="color:#8be9fd;font-style:italic">metadata</span><span style="color:#ff79c6">={</span><span style="color:#f1fa8c">&#39;author&#39;</span>: <span style="color:#f1fa8c">&#39;LangChain&#39;</span>, <span style="color:#f1fa8c">&#39;description&#39;</span>: <span style="color:#f1fa8c">&#39;Unknown&#39;</span>, <span style="color:#f1fa8c">&#39;length&#39;</span>: 2441, <span style="color:#f1fa8c">&#39;publish_date&#39;</span>: <span style="color:#f1fa8c">&#39;2023-11-02 00:00:00&#39;</span>, <span style="color:#f1fa8c">&#39;publish_year&#39;</span>: 2023, <span style="color:#f1fa8c">&#39;source&#39;</span>: <span style="color:#f1fa8c">&#39;o7C9ld6Ln-M&#39;</span>, <span style="color:#f1fa8c">&#39;thumbnail_url&#39;</span>: <span style="color:#f1fa8c">&#39;https://i.ytimg.com/vi/o7C9ld6Ln-M/hqdefault.jpg?sqp=-oaymwEXCJADEOABSFryq4qpAwkIARUAAIhCGAE=&amp;rs=AOn4CLDf7gvV8D3I2UFy0UsA2Wh0qUhA-A&#39;</span>, <span style="color:#f1fa8c">&#39;title&#39;</span>: <span style="color:#f1fa8c">&#39;LangServe and LangChain Templates Webinar&#39;</span>, <span style="color:#f1fa8c">&#39;view_count&#39;</span>: 5000<span style="color:#ff79c6">})</span>, Document<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">page_content</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;and reason about what&#39;s going on so so that&#39;s maybe like a simple like mental model how to think about what&#39;s happening when you work with multimodal LMS um yeah let&#39;s talk a about use cases so Greg Cameron on Twitter kind of had this kind of nice visualization of a bunch of things that have been been shown with GPD 4V um a lot of people seen really cool demos with image captioning um extractions a really good one taking an image extracting elements text elements and so forth um recommendations so there&#39;s kind of like a lot of design applications um kind of suggestions about how to improve the visual Aesthetics of a scene of a of a of of like you know um of an object um and of course like interpretation this is like you know common in the rag context for example if you have like a you know collection of say we&#39;ll talk a little bit later to it a little bit later about slides um or about diagrams in documents you can of course use a vision model to reason about what&#39;s happening there in a question answer context um and this was like an intering demonstration of of extraction uh shown in the in the gbd uh 4V paper here uh actually this is a follow on to the GPD 4V model by Microsoft showing here are some interesting um explorations and they they talked about kind of extraction from complex documents um so let&#39;s actually walk through a demo to make this a little bit more concrete and I&#39;ll share kind of a bunch of code and and templates that can be easily reused later um so I think you know presentations like slide decks are a really good application for vision models because they&#39;re inherently kind of visual they have lots of kind of complex visual elements like like graphs uh tables figures and they&#39;re very common you know every nearly every organization uses slides in some capacity and conventional rag approaches that just strip the text out really miss a lot of this so let&#39;s try kind of how could we build a rag system over the visual content in in a slide deck um so&#34;</span>, <span style="color:#8be9fd;font-style:italic">metadata</span><span style="color:#ff79c6">={</span><span style="color:#f1fa8c">&#39;author&#39;</span>: <span style="color:#f1fa8c">&#39;LangChain&#39;</span>, <span style="color:#f1fa8c">&#39;description&#39;</span>: <span style="color:#f1fa8c">&#39;Unknown&#39;</span>, <span style="color:#f1fa8c">&#39;length&#39;</span>: 1833, <span style="color:#f1fa8c">&#39;publish_date&#39;</span>: <span style="color:#f1fa8c">&#39;2023-12-20 00:00:00&#39;</span>, <span style="color:#f1fa8c">&#39;publish_year&#39;</span>: 2023, <span style="color:#f1fa8c">&#39;source&#39;</span>: <span style="color:#f1fa8c">&#39;28lC4fqukoc&#39;</span>, <span style="color:#f1fa8c">&#39;thumbnail_url&#39;</span>: <span style="color:#f1fa8c">&#39;https://i.ytimg.com/vi/28lC4fqukoc/hq720.jpg?sqp=-oaymwEmCIAKENAF8quKqQMa8AEB-AH-CYAC0AWKAgwIABABGCkgWChyMA8=&amp;rs=AOn4CLCPeU4y3IyyG2C3XDHmIYh8efhGbQ&#39;</span>, <span style="color:#f1fa8c">&#39;title&#39;</span>: <span style="color:#f1fa8c">&#39;Getting Started with Multi-Modal LLMs&#39;</span>, <span style="color:#f1fa8c">&#39;view_count&#39;</span>: 3766<span style="color:#ff79c6">})</span>, Document<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">page_content</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;this is the main thing I want to serve the thing that I copy has a bunch of extraneous things we can easily remove that um we can now do add routes app chain this is all useless stuff from before let&#39;s call This research assistant um and then we can do if we do this install SEC Starlet that&#39;s an easy fix no need to run that twice query run main install unicorn burun may now we can go here and we can add in research assistant playground and so now we get this thing what is the difference between L chain let&#39;s change it up what&#39;s the difference between L chain and open AI so this is a nice little this is all autogenerated we know that the input&#39;s question because we we know the internals of the chain that we wrote you can see the intermediate steps streams things automatically um Lang chain and open a are two prominent entities in the sphere each offering unique Frameworks and models so not exactly right we don&#39;t offer any models okay here we go open the eye provider of Link language models um Lang chain is a framework for language model applications cool so it gets those right general purpose versus chat focused um okay so it talks about the two different classes in Lang chain talks about our Integrations um developer platform um and conclusion and so we get a bunch of sources as well so that&#39;s pretty much it for this video um I&#39;ll post the code for this um in a in a simple gist or something um I&#39;ll also post uh the code for a more complex uh research assistant um oh let&#39;s maybe do one last thing let&#39;s maybe change this so instead of scraping the web it&#39;s using a different retriever of our choice and this is really interesting because uh you can now change it to do to do research over any corporate of data that you want so we&#39;ll change it we&#39;ll do some research over uh let&#39;s do some research over um over archive data all right so I&#39;ve done some basic setup I&#39;ve imported the archive retriever from L chain and I&#39;ve got uh I&#39;ve created the retriever class here what&#34;</span>, <span style="color:#8be9fd;font-style:italic">metadata</span><span style="color:#ff79c6">={</span><span style="color:#f1fa8c">&#39;author&#39;</span>: <span style="color:#f1fa8c">&#39;LangChain&#39;</span>, <span style="color:#f1fa8c">&#39;description&#39;</span>: <span style="color:#f1fa8c">&#39;Unknown&#39;</span>, <span style="color:#f1fa8c">&#39;length&#39;</span>: 2620, <span style="color:#f1fa8c">&#39;publish_date&#39;</span>: <span style="color:#f1fa8c">&#39;2023-11-16 00:00:00&#39;</span>, <span style="color:#f1fa8c">&#39;publish_year&#39;</span>: 2023, <span style="color:#f1fa8c">&#39;source&#39;</span>: <span style="color:#f1fa8c">&#39;DjuXACWYkkU&#39;</span>, <span style="color:#f1fa8c">&#39;thumbnail_url&#39;</span>: <span style="color:#f1fa8c">&#39;https://i.ytimg.com/vi/DjuXACWYkkU/hq720.jpg&#39;</span>, <span style="color:#f1fa8c">&#39;title&#39;</span>: <span style="color:#f1fa8c">&#39;Building a Research Assistant from Scratch&#39;</span>, <span style="color:#f1fa8c">&#39;view_count&#39;</span>: 19059<span style="color:#ff79c6">})]</span>
+</code></pre></div><h3 id="基于sqlcsv的问答">基于SQL/CSV的问答</h3>
+<p>基于SQL语言的数据库问答，LangChain基于SQLAlchemy库提供了一系列的内置链和Agent实现此功能</p>
+<h4 id="架构-2">架构</h4>
+<p>
+  <img src="https://python.langchain.com/assets/images/sql_usecase-d432701261f05ab69b38576093718cf3.png" alt="">
+
+
+任何SQL链和Agent的步骤都是如下：</p>
+<ul>
+<li>把问题转换为SQL查询</li>
+<li>执行SQL查询</li>
+<li>使用查询结果回答问题</li>
+</ul>
+<h4 id="代码实现-3">代码实现</h4>
+<p>创建Chinook db，并进行初始化</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># 下载Chinook_Sqlite.sql</span>
+<span style="color:#6272a4"># curl https://raw.githubusercontent.com/lerocha/chinook-database/master/ChinookDatabase/DataSources/Chinook_Sqlite.sql -o Chinook_Sqlite.sql</span>
+
+<span style="color:#6272a4"># 创建Chinook.db</span>
+<span style="color:#6272a4"># sqlite3 Chinook.db</span>
+<span style="color:#6272a4"># .read Chinook_Sqlite.sql</span>
+<span style="color:#6272a4"># SELECT * FROM Artist LIMIT 10;</span>
+1|AC/DC
+2|Accept
+3|Aerosmith
+4|Alanis Morissette
+5|Alice In Chains
+6|Antônio Carlos Jobim
+7|Apocalyptica
+8|Audioslave
+9|BackBeat
+10|Billy Cobham
+<span style="color:#6272a4"># .exit</span>
+</code></pre></div><p>内置链实现SQL查询</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> ChatOpenAI
+<span style="color:#ff79c6">from</span> pydantic.v1 <span style="color:#ff79c6">import</span> SecretStr
+<span style="color:#ff79c6">from</span> langchain_community.utilities.sql_database <span style="color:#ff79c6">import</span> SQLDatabase
+<span style="color:#ff79c6">from</span> langchain.chains <span style="color:#ff79c6">import</span> create_sql_query_chain
+<span style="color:#ff79c6">from</span> langchain_community.tools.sql_database.tool <span style="color:#ff79c6">import</span> QuerySQLDataBaseTool
+<span style="color:#ff79c6">from</span> operator <span style="color:#ff79c6">import</span> itemgetter
+
+<span style="color:#ff79c6">from</span> langchain_core.output_parsers <span style="color:#ff79c6">import</span> StrOutputParser
+<span style="color:#ff79c6">from</span> langchain_core.prompts <span style="color:#ff79c6">import</span> PromptTemplate
+<span style="color:#ff79c6">from</span> langchain_core.runnables <span style="color:#ff79c6">import</span> RunnablePassthrough
+
+
+api_key <span style="color:#ff79c6">=</span> SecretStr(<span style="color:#f1fa8c">&#34;sk-xxx&#34;</span>)
+openai_url <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;https://api.chatanywhere.com.cn/v1&#34;</span>
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+    db <span style="color:#ff79c6">=</span> SQLDatabase<span style="color:#ff79c6">.</span>from_uri(<span style="color:#f1fa8c">&#34;sqlite:///Chinook.db&#34;</span>)
+    <span style="color:#8be9fd;font-style:italic">print</span>(db<span style="color:#ff79c6">.</span>dialect)
+    <span style="color:#8be9fd;font-style:italic">print</span>(db<span style="color:#ff79c6">.</span>get_usable_table_names())
+
+    llm <span style="color:#ff79c6">=</span> ChatOpenAI(
+        temperature<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0.0</span>,
+        api_key<span style="color:#ff79c6">=</span>api_key,
+        base_url<span style="color:#ff79c6">=</span>openai_url)
+    <span style="color:#6272a4"># 问题转化为SQL查询</span>
+    chain <span style="color:#ff79c6">=</span> create_sql_query_chain(llm, db)
+    response <span style="color:#ff79c6">=</span> chain<span style="color:#ff79c6">.</span>invoke({<span style="color:#f1fa8c">&#34;question&#34;</span>: <span style="color:#f1fa8c">&#34;How many employees are there&#34;</span>})
+    <span style="color:#8be9fd;font-style:italic">print</span>(response)
+
+    <span style="color:#6272a4"># 执行SQL查询</span>
+    execute_query <span style="color:#ff79c6">=</span> QuerySQLDataBaseTool(db<span style="color:#ff79c6">=</span>db)
+    write_query <span style="color:#ff79c6">=</span> create_sql_query_chain(llm, db)
+    chain <span style="color:#ff79c6">=</span> write_query <span style="color:#ff79c6">|</span> execute_query
+    <span style="color:#8be9fd;font-style:italic">print</span>(chain<span style="color:#ff79c6">.</span>invoke({<span style="color:#f1fa8c">&#34;question&#34;</span>: <span style="color:#f1fa8c">&#34;How many employees are there&#34;</span>}))
+
+    <span style="color:#6272a4"># 回答问题</span>
+    answer_prompt <span style="color:#ff79c6">=</span> PromptTemplate<span style="color:#ff79c6">.</span>from_template(
+        <span style="color:#f1fa8c">&#34;&#34;&#34;Given the following user question, corresponding SQL query, and SQL result, answer the user question.
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">    Question: </span><span style="color:#f1fa8c">{question}</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">    SQL Query: </span><span style="color:#f1fa8c">{query}</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">    SQL Result: </span><span style="color:#f1fa8c">{result}</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">    Answer: &#34;&#34;&#34;</span>
+    )
+
+    answer <span style="color:#ff79c6">=</span> answer_prompt <span style="color:#ff79c6">|</span> llm <span style="color:#ff79c6">|</span> StrOutputParser()
+    chain <span style="color:#ff79c6">=</span> (
+        RunnablePassthrough<span style="color:#ff79c6">.</span>assign(query<span style="color:#ff79c6">=</span>write_query)<span style="color:#ff79c6">.</span>assign(
+            result<span style="color:#ff79c6">=</span>itemgetter(<span style="color:#f1fa8c">&#34;query&#34;</span>) <span style="color:#ff79c6">|</span> execute_query
+        )
+        <span style="color:#ff79c6">|</span> answer
+    )
+    <span style="color:#8be9fd;font-style:italic">print</span>(chain<span style="color:#ff79c6">.</span>invoke({<span style="color:#f1fa8c">&#34;question&#34;</span>: <span style="color:#f1fa8c">&#34;How many employees are there&#34;</span>}))
+
+
+<span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
+    main()
+
+</code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">sqlite
+<span style="color:#ff79c6">[</span><span style="color:#f1fa8c">&#39;Album&#39;</span>, <span style="color:#f1fa8c">&#39;Artist&#39;</span>, <span style="color:#f1fa8c">&#39;Customer&#39;</span>, <span style="color:#f1fa8c">&#39;Employee&#39;</span>, <span style="color:#f1fa8c">&#39;Genre&#39;</span>, <span style="color:#f1fa8c">&#39;Invoice&#39;</span>, <span style="color:#f1fa8c">&#39;InvoiceLine&#39;</span>, <span style="color:#f1fa8c">&#39;MediaType&#39;</span>, <span style="color:#f1fa8c">&#39;Playlist&#39;</span>, <span style="color:#f1fa8c">&#39;PlaylistTrack&#39;</span>, <span style="color:#f1fa8c">&#39;Track&#39;</span><span style="color:#ff79c6">]</span>
+SELECT COUNT<span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;EmployeeId&#34;</span><span style="color:#ff79c6">)</span> AS <span style="color:#f1fa8c">&#34;TotalEmployees&#34;</span> FROM <span style="color:#f1fa8c">&#34;Employee&#34;</span>
+<span style="color:#ff79c6">[(</span>8,<span style="color:#ff79c6">)]</span>
+There are a total of <span style="color:#bd93f9">8</span> employees.
+</code></pre></div><p>内置Agent实现SQL查询</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> ChatOpenAI
+<span style="color:#ff79c6">from</span> pydantic.v1 <span style="color:#ff79c6">import</span> SecretStr
+<span style="color:#ff79c6">from</span> langchain_community.utilities.sql_database <span style="color:#ff79c6">import</span> SQLDatabase
+<span style="color:#ff79c6">from</span> langchain_community.agent_toolkits.sql.base <span style="color:#ff79c6">import</span> create_sql_agent
+
+
+api_key <span style="color:#ff79c6">=</span> SecretStr(<span style="color:#f1fa8c">&#34;sk-xxx&#34;</span>)
+openai_url <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;https://api.chatanywhere.com.cn/v1&#34;</span>
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+    db <span style="color:#ff79c6">=</span> SQLDatabase<span style="color:#ff79c6">.</span>from_uri(<span style="color:#f1fa8c">&#34;sqlite:///Chinook.db&#34;</span>)
+    <span style="color:#8be9fd;font-style:italic">print</span>(db<span style="color:#ff79c6">.</span>dialect)
+    <span style="color:#8be9fd;font-style:italic">print</span>(db<span style="color:#ff79c6">.</span>get_usable_table_names())
+
+    llm <span style="color:#ff79c6">=</span> ChatOpenAI(
+        temperature<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0.0</span>,
+        api_key<span style="color:#ff79c6">=</span>api_key,
+        base_url<span style="color:#ff79c6">=</span>openai_url)
+
+    agent_executor <span style="color:#ff79c6">=</span> create_sql_agent(
+        llm, db<span style="color:#ff79c6">=</span>db, agent_type<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;openai-tools&#34;</span>, verbose<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>)
+    agent_executor<span style="color:#ff79c6">.</span>invoke(
+        {
+            <span style="color:#f1fa8c">&#34;input&#34;</span>: <span style="color:#f1fa8c">&#34;List the total sales per country. Which country&#39;s customers spent the most?&#34;</span>
+        }
+    )
+
+
+<span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
+    main()
+
+</code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">sqlite
+<span style="color:#ff79c6">[</span><span style="color:#f1fa8c">&#39;Album&#39;</span>, <span style="color:#f1fa8c">&#39;Artist&#39;</span>, <span style="color:#f1fa8c">&#39;Customer&#39;</span>, <span style="color:#f1fa8c">&#39;Employee&#39;</span>, <span style="color:#f1fa8c">&#39;Genre&#39;</span>, <span style="color:#f1fa8c">&#39;Invoice&#39;</span>, <span style="color:#f1fa8c">&#39;InvoiceLine&#39;</span>, <span style="color:#f1fa8c">&#39;MediaType&#39;</span>, <span style="color:#f1fa8c">&#39;Playlist&#39;</span>, <span style="color:#f1fa8c">&#39;PlaylistTrack&#39;</span>, <span style="color:#f1fa8c">&#39;Track&#39;</span><span style="color:#ff79c6">]</span>
+
+
+&gt; Entering new SQL Agent Executor chain...
+
+Invoking: <span style="color:#f1fa8c">`</span>sql_db_list_tables<span style="color:#f1fa8c">`</span> with <span style="color:#f1fa8c">`</span><span style="color:#ff79c6">{}</span><span style="color:#f1fa8c">`</span>
+
+
+Album, Artist, Customer, Employee, Genre, Invoice, InvoiceLine, MediaType, Playlist, PlaylistTrack, Track
+Invoking: <span style="color:#f1fa8c">`</span>sql_db_schema<span style="color:#f1fa8c">`</span> with <span style="color:#f1fa8c">`</span><span style="color:#ff79c6">{</span><span style="color:#f1fa8c">&#39;table_names&#39;</span>: <span style="color:#f1fa8c">&#39;Customer, Invoice, InvoiceLine&#39;</span><span style="color:#ff79c6">}</span><span style="color:#f1fa8c">`</span>
+
+
+
+CREATE TABLE <span style="color:#f1fa8c">&#34;Customer&#34;</span> <span style="color:#ff79c6">(</span>
+        <span style="color:#f1fa8c">&#34;CustomerId&#34;</span> INTEGER NOT NULL, 
+        <span style="color:#f1fa8c">&#34;FirstName&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>40<span style="color:#ff79c6">)</span> NOT NULL, 
+        <span style="color:#f1fa8c">&#34;LastName&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>20<span style="color:#ff79c6">)</span> NOT NULL, 
+        <span style="color:#f1fa8c">&#34;Company&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>80<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;Address&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>70<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;City&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>40<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;State&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>40<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;Country&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>40<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;PostalCode&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>10<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;Phone&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>24<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;Fax&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>24<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;Email&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>60<span style="color:#ff79c6">)</span> NOT NULL, 
+        <span style="color:#f1fa8c">&#34;SupportRepId&#34;</span> INTEGER, 
+        PRIMARY KEY <span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;CustomerId&#34;</span><span style="color:#ff79c6">)</span>, 
+        FOREIGN KEY<span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;SupportRepId&#34;</span><span style="color:#ff79c6">)</span> REFERENCES <span style="color:#f1fa8c">&#34;Employee&#34;</span> <span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;EmployeeId&#34;</span><span style="color:#ff79c6">)</span>
+<span style="color:#ff79c6">)</span>
+
+/*
+<span style="color:#bd93f9">3</span> rows from Customer table:
+CustomerId      FirstName       LastName        Company Address City    State   Country PostalCode      Phone    Fax     Email   SupportRepId
+<span style="color:#bd93f9">1</span>       Luís    Gonçalves       Embraer - Empresa Brasileira de Aeronáutica S.A.        Av. Brigadeiro Faria Lima, <span style="color:#bd93f9">2170</span>  São José dos Campos     SP      Brazil  12227-000       +55 <span style="color:#ff79c6">(</span>12<span style="color:#ff79c6">)</span> 3923-5555      +55 <span style="color:#ff79c6">(</span>12<span style="color:#ff79c6">)</span> 3923-5566       luisg@embraer.com.br    <span style="color:#bd93f9">3</span>
+<span style="color:#bd93f9">2</span>       Leonie  Köhler  None    Theodor-Heuss-Straße <span style="color:#bd93f9">34</span> Stuttgart       None    Germany <span style="color:#bd93f9">70174</span>   +49 <span style="color:#bd93f9">0711</span> <span style="color:#bd93f9">2842222</span> None    leonekohler@surfeu.de   <span style="color:#bd93f9">5</span>
+<span style="color:#bd93f9">3</span>       François        Tremblay        None    <span style="color:#bd93f9">1498</span> rue Bélanger       Montréal        QC      Canada  H2G 1A7  +1 <span style="color:#ff79c6">(</span>514<span style="color:#ff79c6">)</span> 721-4711       None    ftremblay@gmail.com     <span style="color:#bd93f9">3</span>
+*/
+
+
+CREATE TABLE <span style="color:#f1fa8c">&#34;Invoice&#34;</span> <span style="color:#ff79c6">(</span>
+        <span style="color:#f1fa8c">&#34;InvoiceId&#34;</span> INTEGER NOT NULL, 
+        <span style="color:#f1fa8c">&#34;CustomerId&#34;</span> INTEGER NOT NULL, 
+        <span style="color:#f1fa8c">&#34;InvoiceDate&#34;</span> DATETIME NOT NULL, 
+        <span style="color:#f1fa8c">&#34;BillingAddress&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>70<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;BillingCity&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>40<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;BillingState&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>40<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;BillingCountry&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>40<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;BillingPostalCode&#34;</span> NVARCHAR<span style="color:#ff79c6">(</span>10<span style="color:#ff79c6">)</span>, 
+        <span style="color:#f1fa8c">&#34;Total&#34;</span> NUMERIC<span style="color:#ff79c6">(</span>10, 2<span style="color:#ff79c6">)</span> NOT NULL, 
+        PRIMARY KEY <span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;InvoiceId&#34;</span><span style="color:#ff79c6">)</span>, 
+        FOREIGN KEY<span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;CustomerId&#34;</span><span style="color:#ff79c6">)</span> REFERENCES <span style="color:#f1fa8c">&#34;Customer&#34;</span> <span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;CustomerId&#34;</span><span style="color:#ff79c6">)</span>
+<span style="color:#ff79c6">)</span>
+
+/*
+<span style="color:#bd93f9">3</span> rows from Invoice table:
+InvoiceId       CustomerId      InvoiceDate     BillingAddress  BillingCity     BillingState    BillingCountry   BillingPostalCode       Total
+<span style="color:#bd93f9">1</span>       <span style="color:#bd93f9">2</span>       2021-01-01 00:00:00     Theodor-Heuss-Straße <span style="color:#bd93f9">34</span> Stuttgart       None    Germany <span style="color:#bd93f9">70174</span>   1.98
+<span style="color:#bd93f9">2</span>       <span style="color:#bd93f9">4</span>       2021-01-02 00:00:00     Ullevålsveien <span style="color:#bd93f9">14</span>        Oslo    None    Norway  <span style="color:#bd93f9">0171</span>    3.96
+<span style="color:#bd93f9">3</span>       <span style="color:#bd93f9">8</span>       2021-01-03 00:00:00     Grétrystraat <span style="color:#bd93f9">63</span> Brussels        None    Belgium <span style="color:#bd93f9">1000</span>    5.94
+*/
+
+
+CREATE TABLE <span style="color:#f1fa8c">&#34;InvoiceLine&#34;</span> <span style="color:#ff79c6">(</span>
+        <span style="color:#f1fa8c">&#34;InvoiceLineId&#34;</span> INTEGER NOT NULL, 
+        <span style="color:#f1fa8c">&#34;InvoiceId&#34;</span> INTEGER NOT NULL, 
+        <span style="color:#f1fa8c">&#34;TrackId&#34;</span> INTEGER NOT NULL, 
+        <span style="color:#f1fa8c">&#34;UnitPrice&#34;</span> NUMERIC<span style="color:#ff79c6">(</span>10, 2<span style="color:#ff79c6">)</span> NOT NULL, 
+        <span style="color:#f1fa8c">&#34;Quantity&#34;</span> INTEGER NOT NULL, 
+        PRIMARY KEY <span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;InvoiceLineId&#34;</span><span style="color:#ff79c6">)</span>, 
+        FOREIGN KEY<span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;TrackId&#34;</span><span style="color:#ff79c6">)</span> REFERENCES <span style="color:#f1fa8c">&#34;Track&#34;</span> <span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;TrackId&#34;</span><span style="color:#ff79c6">)</span>, 
+        FOREIGN KEY<span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;InvoiceId&#34;</span><span style="color:#ff79c6">)</span> REFERENCES <span style="color:#f1fa8c">&#34;Invoice&#34;</span> <span style="color:#ff79c6">(</span><span style="color:#f1fa8c">&#34;InvoiceId&#34;</span><span style="color:#ff79c6">)</span>
+<span style="color:#ff79c6">)</span>
+
+/*
+<span style="color:#bd93f9">3</span> rows from InvoiceLine table:
+InvoiceLineId   InvoiceId       TrackId UnitPrice       Quantity
+<span style="color:#bd93f9">1</span>       <span style="color:#bd93f9">1</span>       <span style="color:#bd93f9">2</span>       0.99    <span style="color:#bd93f9">1</span>
+<span style="color:#bd93f9">2</span>       <span style="color:#bd93f9">1</span>       <span style="color:#bd93f9">4</span>       0.99    <span style="color:#bd93f9">1</span>
+<span style="color:#bd93f9">3</span>       <span style="color:#bd93f9">2</span>       <span style="color:#bd93f9">6</span>       0.99    <span style="color:#bd93f9">1</span>
+*/
+Invoking: <span style="color:#f1fa8c">`</span>sql_db_query<span style="color:#f1fa8c">`</span> with <span style="color:#f1fa8c">`</span><span style="color:#ff79c6">{</span><span style="color:#f1fa8c">&#39;query&#39;</span>: <span style="color:#f1fa8c">&#39;SELECT BillingCountry AS Country, SUM(Total) AS TotalSales FROM Invoice GROUP BY BillingCountry ORDER BY TotalSales DESC;&#39;</span><span style="color:#ff79c6">}</span><span style="color:#f1fa8c">`</span>
+responded: To find the total sales per country, we need to sum the total amount from the invoices <span style="color:#ff79c6">for</span> each country. Here is the query to achieve this:
+
+<span style="color:#f1fa8c">```</span>sql
+SELECT BillingCountry AS Country, SUM<span style="color:#ff79c6">(</span>Total<span style="color:#ff79c6">)</span> AS TotalSales
+FROM Invoice
+GROUP BY BillingCountry
+ORDER BY TotalSales DESC;
+<span style="color:#f1fa8c">```</span>
+
+By running this query, we can determine which country<span style="color:#f1fa8c">&#39;s customers spent the most. Let me execute the query to provide you with the answer.
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">[(&#39;</span>USA<span style="color:#f1fa8c">&#39;, 523.0600000000003), (&#39;</span>Canada<span style="color:#f1fa8c">&#39;, 303.9599999999999), (&#39;</span>France<span style="color:#f1fa8c">&#39;, 195.09999999999994), (&#39;</span>Brazil<span style="color:#f1fa8c">&#39;, 190.09999999999997), (&#39;</span>Germany<span style="color:#f1fa8c">&#39;, 156.48), (&#39;</span>United Kingdom<span style="color:#f1fa8c">&#39;, 112.85999999999999), (&#39;</span>Czech Republic<span style="color:#f1fa8c">&#39;, 90.24000000000001), (&#39;</span>Portugal<span style="color:#f1fa8c">&#39;, 77.23999999999998), (&#39;</span>India<span style="color:#f1fa8c">&#39;, 75.25999999999999), (&#39;</span>Chile<span style="color:#f1fa8c">&#39;, 46.62), (&#39;</span>Ireland<span style="color:#f1fa8c">&#39;, 45.62), (&#39;</span>Hungary<span style="color:#f1fa8c">&#39;, 45.62), (&#39;</span>Austria<span style="color:#f1fa8c">&#39;, 42.62), (&#39;</span>Finland<span style="color:#f1fa8c">&#39;, 41.620000000000005), (&#39;</span>Netherlands<span style="color:#f1fa8c">&#39;, 40.62), (&#39;</span>Norway<span style="color:#f1fa8c">&#39;, 39.62), (&#39;</span>Sweden<span style="color:#f1fa8c">&#39;, 38.620000000000005), (&#39;</span>Poland<span style="color:#f1fa8c">&#39;, 37.620000000000005), (&#39;</span>Italy<span style="color:#f1fa8c">&#39;, 37.620000000000005), (&#39;</span>Denmark<span style="color:#f1fa8c">&#39;, 37.620000000000005), (&#39;</span>Australia<span style="color:#f1fa8c">&#39;, 37.620000000000005), (&#39;</span>Argentina<span style="color:#f1fa8c">&#39;, 37.620000000000005), (&#39;</span>Spain<span style="color:#f1fa8c">&#39;, 37.62), (&#39;</span>Belgium&#39;, 37.62<span style="color:#ff79c6">)]</span>The total sales per country are as follows:
+
+1. USA: <span style="color:#8be9fd;font-style:italic">$523</span>.06
+2. Canada: <span style="color:#8be9fd;font-style:italic">$303</span>.96
+3. France: <span style="color:#8be9fd;font-style:italic">$195</span>.10
+4. Brazil: <span style="color:#8be9fd;font-style:italic">$190</span>.10
+5. Germany: <span style="color:#8be9fd;font-style:italic">$156</span>.48
+
+Therefore, customers from the USA spent the most in total sales.
+
+&gt; Finished chain.
+</code></pre></div><h2 id="token计算">Token计算</h2>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">import</span> time
 <span style="color:#ff79c6">from</span> langchain_openai <span style="color:#ff79c6">import</span> ChatOpenAI
 <span style="color:#ff79c6">from</span> langchain_community.callbacks <span style="color:#ff79c6">import</span> get_openai_callback
@@ -4828,6 +5607,32 @@ Token生成速率为 32.70 tokens/秒
 FROM ./test-33b.Q4_0.gguf
 
 <span style="color:#6272a4"># ollama create example -f Modelfile</span>
+</code></pre></div><h3 id="参数调优">参数调优</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># vim /etc/systemd/system/ollama.service</span>
+<span style="color:#ff79c6">[</span>Unit<span style="color:#ff79c6">]</span>
+<span style="color:#8be9fd;font-style:italic">Description</span><span style="color:#ff79c6">=</span>Ollama Service
+<span style="color:#8be9fd;font-style:italic">After</span><span style="color:#ff79c6">=</span>network-online.target
+
+<span style="color:#ff79c6">[</span>Service<span style="color:#ff79c6">]</span>
+<span style="color:#8be9fd;font-style:italic">ExecStart</span><span style="color:#ff79c6">=</span>/usr/bin/ollama serve
+<span style="color:#8be9fd;font-style:italic">User</span><span style="color:#ff79c6">=</span>ollama
+<span style="color:#8be9fd;font-style:italic">Group</span><span style="color:#ff79c6">=</span>ollama
+<span style="color:#8be9fd;font-style:italic">Restart</span><span style="color:#ff79c6">=</span>always
+<span style="color:#8be9fd;font-style:italic">RestartSec</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">3</span>
+<span style="color:#6272a4"># 开启debug模式，可以看到更多输出日志</span>
+<span style="color:#8be9fd;font-style:italic">Environment</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;OLLAMA_DEBUG=1&#34;</span>
+<span style="color:#8be9fd;font-style:italic">Environment</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;OLLAMA_HOST=0.0.0.0&#34;</span>
+<span style="color:#6272a4"># 绑定GPU卡，通过nvidia-smi -L可以查到，多卡使用逗号隔开</span>
+<span style="color:#8be9fd;font-style:italic">Environment</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;CUDA_VISIBLE_DEVICES=GPU-18089521-10dd-9d6a-88df-cabf9d427d43&#34;</span>
+<span style="color:#6272a4"># 最大显存使用，单位byte</span>
+<span style="color:#8be9fd;font-style:italic">Environment</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;OLLAMA_MAX_VRAM=23192823398&#34;</span>
+<span style="color:#6272a4"># 模型加载到显存中的过期时间</span>
+<span style="color:#8be9fd;font-style:italic">Environment</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;OLLAMA_KEEP_ALIVE=5m&#34;</span>
+<span style="color:#6272a4"># 动态库，强制使用GPU，默认情况下在GPU不足的情况下会使用cpu</span>
+<span style="color:#8be9fd;font-style:italic">Environment</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;OLLAMA_LLM_LIBRARY=cuda_v11&#34;</span>
+
+<span style="color:#ff79c6">[</span>Install<span style="color:#ff79c6">]</span>
+<span style="color:#8be9fd;font-style:italic">WantedBy</span><span style="color:#ff79c6">=</span>default.target
 </code></pre></div><h2 id="麒麟v10系统llm大模型部署">麒麟v10系统LLM大模型部署</h2>
 <h3 id="准备工作">准备工作</h3>
 <h4 id="硬件环境">硬件环境</h4>
@@ -5135,8 +5940,7 @@ RUN pip install tiktoken <span style="color:#f1fa8c">\
 --enforce-eager <span style="color:#f1fa8c">\
 </span><span style="color:#f1fa8c"></span>--trust-remote-code <span style="color:#f1fa8c">\
 </span><span style="color:#f1fa8c"></span>--tensor-parallel-size <span style="color:#bd93f9">2</span>
-</code></pre></div><p>注：vLLM方式启动带的<code>--model</code>这个参数，调用api接口的时候也需要传入同样的值；<code>--tensor-parallel-size</code>用于在多个GPU间分配工作，
-<code>max-model-len</code>指定模型上下文长度</p>
+</code></pre></div><p>注：vLLM方式启动带的<code>--model</code>这个参数，调用api接口的时候也需要传入同样的值；<code>--tensor-parallel-size</code>用于在多个GPU间分配工作，<code>max-model-len</code>指定模型上下文长度，<code>--served-model-name Qwen1.5-7B-Chat</code>可以指定模型的名字，没指定的话默认就用<code>--model</code>用于模型名</p>
 <p>查看显卡占用，模型分布在两张卡上，所谓的模型并行</p>
 <pre tabindex="0"><code>[root@localhost vllm]# nvidia-smi
 Thu Feb  1 19:32:24 2024
@@ -5164,7 +5968,8 @@ Thu Feb  1 19:32:24 2024
 |    0   N/A  N/A    151961      C   python3                                   22010MiB |
 |    1   N/A  N/A    154943      C   ray::RayWorkerVllm.execute_method         20780MiB |
 +---------------------------------------------------------------------------------------+
-</code></pre><p>查看vllm-api容器日志，验证是否启动成功</p>
+</code></pre><p><code>nvidia-smi</code>的展示算比较简洁的，推荐用nvitop来看gpu使用情况，不仅有nvtop详细的展示，还拥有gpustat彩色界面展示</p>
+<p>查看vllm-api容器日志，验证是否启动成功</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#ff79c6">[</span>root@localhost vllm<span style="color:#ff79c6">]</span><span style="color:#6272a4"># docker logs -f vllm-api</span>
 INFO 02-01 10:14:02 api_server.py:727<span style="color:#ff79c6">]</span> args: Namespace<span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">host</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">port</span><span style="color:#ff79c6">=</span>8000, <span style="color:#8be9fd;font-style:italic">allow_credentials</span><span style="color:#ff79c6">=</span>False, <span style="color:#8be9fd;font-style:italic">allowed_origins</span><span style="color:#ff79c6">=[</span><span style="color:#f1fa8c">&#39;*&#39;</span><span style="color:#ff79c6">]</span>, <span style="color:#8be9fd;font-style:italic">allowed_methods</span><span style="color:#ff79c6">=[</span><span style="color:#f1fa8c">&#39;*&#39;</span><span style="color:#ff79c6">]</span>, <span style="color:#8be9fd;font-style:italic">allowed_headers</span><span style="color:#ff79c6">=[</span><span style="color:#f1fa8c">&#39;*&#39;</span><span style="color:#ff79c6">]</span>, <span style="color:#8be9fd;font-style:italic">served_model_name</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">chat_template</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">response_role</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;assistant&#39;</span>, <span style="color:#8be9fd;font-style:italic">ssl_keyfile</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">ssl_certfile</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">model</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;/opt/qwen-14b-chat&#39;</span>, <span style="color:#8be9fd;font-style:italic">tokenizer</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">revision</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">tokenizer_revision</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">tokenizer_mode</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;auto&#39;</span>, <span style="color:#8be9fd;font-style:italic">trust_remote_code</span><span style="color:#ff79c6">=</span>True, <span style="color:#8be9fd;font-style:italic">download_dir</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">load_format</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;auto&#39;</span>, <span style="color:#8be9fd;font-style:italic">dtype</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;auto&#39;</span>, <span style="color:#8be9fd;font-style:italic">max_model_len</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">worker_use_ray</span><span style="color:#ff79c6">=</span>False, <span style="color:#8be9fd;font-style:italic">pipeline_parallel_size</span><span style="color:#ff79c6">=</span>1, <span style="color:#8be9fd;font-style:italic">tensor_parallel_size</span><span style="color:#ff79c6">=</span>2, <span style="color:#8be9fd;font-style:italic">max_parallel_loading_workers</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">block_size</span><span style="color:#ff79c6">=</span>16, <span style="color:#8be9fd;font-style:italic">seed</span><span style="color:#ff79c6">=</span>0, <span style="color:#8be9fd;font-style:italic">swap_space</span><span style="color:#ff79c6">=</span>4, <span style="color:#8be9fd;font-style:italic">gpu_memory_utilization</span><span style="color:#ff79c6">=</span>0.9, <span style="color:#8be9fd;font-style:italic">max_num_batched_tokens</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">max_num_seqs</span><span style="color:#ff79c6">=</span>256, <span style="color:#8be9fd;font-style:italic">max_paddings</span><span style="color:#ff79c6">=</span>256, <span style="color:#8be9fd;font-style:italic">disable_log_stats</span><span style="color:#ff79c6">=</span>False, <span style="color:#8be9fd;font-style:italic">quantization</span><span style="color:#ff79c6">=</span>None, <span style="color:#8be9fd;font-style:italic">enforce_eager</span><span style="color:#ff79c6">=</span>True, <span style="color:#8be9fd;font-style:italic">max_context_len_to_capture</span><span style="color:#ff79c6">=</span>8192, <span style="color:#8be9fd;font-style:italic">engine_use_ray</span><span style="color:#ff79c6">=</span>False, <span style="color:#8be9fd;font-style:italic">disable_log_requests</span><span style="color:#ff79c6">=</span>False, <span style="color:#8be9fd;font-style:italic">max_log_len</span><span style="color:#ff79c6">=</span>None<span style="color:#ff79c6">)</span>
 2024-02-01 10:14:07,259	INFO worker.py:1724 -- Started a <span style="color:#8be9fd;font-style:italic">local</span> Ray instance.
@@ -5482,9 +6287,10 @@ Server:
  Product License: Community Engine
 </code></pre></div><p>[todo]
 昇腾适配待补充</p>
-<h1 id="llm大模型应用---qanything知识库">LLM大模型应用 - QAnything知识库</h1>
+<h1 id="llm大模型应用">LLM大模型应用</h1>
+<h2 id="qanything知识库">QAnything知识库</h2>
 <p>QAnything版本：d5c59260a1af74f01a9b378b567435ab0caa40df</p>
-<h2 id="linux环境离线安装">Linux环境离线安装</h2>
+<h3 id="linux环境离线安装">Linux环境离线安装</h3>
 <p>docker、docker-compose预装好</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># 先在联网机器上下载docker镜像</span>
 docker pull quay.io/coreos/etcd:v3.5.5
@@ -5510,6 +6316,7 @@ unzip master.zip
 <span style="color:#8be9fd;font-style:italic">cd</span> QAnything-master
 bash run.sh
 </code></pre></div><p>脚本运行过程中，会产生交互让你输入remote远程服务器安装还是local本地化安装</p>
+<h2 id="langchain-chatchat知识库">Langchain-Chatchat知识库</h2>
 <h1 id="llm大模型评测">LLM大模型评测</h1>
 <p><a href="https://ai-bot.cn/">https://ai-bot.cn/</a>，这个网站类似AI工具的链接导航，有MMLU、Open LLM Leaderboard、OpenCompass等；其中中文大模型评测的话，推荐OpenCompass，国产大模型阿里通义千问在其github展示的评测表现也是基于OpenCompass.</p>
 <p>FastChat也提供一个工具<a href="https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge">llm_judge</a></p>
@@ -5530,6 +6337,7 @@ bash run.sh
 <li>llama.cpp使用的是C/C++语言写的机器学习张量库ggml</li>
 <li>llama.cpp提供了模型量化的工具</li>
 </ul>
+<h1 id="llm微调">LLM微调</h1>
 <h1 id="llm大模型第三方库">LLM大模型第三方库</h1>
 <ul>
 <li><a href="https://github.com/BerriAI/litellm">https://github.com/BerriAI/litellm</a>：兼容OpenAI格式的统一大模型API，大多支持国外的模型</li>
