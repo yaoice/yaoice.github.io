@@ -220,7 +220,7 @@ if (!doNotTrack) {
 
                 
                 <h1 id="背景">背景</h1>
-<p>实践内容源于吴恩达老师与openAI合作推出的大语言模型教程，本教程基于<a href="https://datawhalechina.github.io/prompt-engineering-for-developers/#/README">面向开发者的LLM入门教程</a>的golang版本实践(前两个章节)。</p>
+<p>实践内容源于吴恩达老师与openAI合作推出的大语言模型教程，本教程基于<a href="https://datawhalechina.github.io/prompt-engineering-for-developers/#/README">面向开发者的LLM入门教程</a>的golang版本实践(第一个章节)。</p>
 <h1 id="环境配置">环境配置</h1>
 <p>1.申请OpenAI API Key</p>
 <p>在OpenAI官网注册的账号默认有18美金的额度用于消耗token，3个月内有效。国内也有免费的内测Key供申请
@@ -6331,14 +6331,228 @@ bash run.sh
 
 </p>
 <h1 id="llm大模型推理">LLM大模型推理</h1>
-<p>量化：模型使用16位浮点数作为权重进行训练，可以将其缩小到4位整数以进行推理，而不会失去太多的功率，收益是会节省大量的GPU计算资源。</p>
+<h2 id="什么是量化">什么是量化</h2>
+<p>举个例子来解释量化，模型使用16位浮点数作为权重进行训练，可以将其缩小到4位整数以进行推理，而不会失去太多的功率，收益是会节省大量的GPU计算资源。</p>
 <p>llama.cpp主要解决的是推理过程中的性能问题。主要有两点优化：</p>
 <ul>
 <li>llama.cpp使用的是C/C++语言写的机器学习张量库ggml</li>
 <li>llama.cpp提供了模型量化的工具</li>
 </ul>
-<h1 id="llm微调">LLM微调</h1>
-<h1 id="llm大模型第三方库">LLM大模型第三方库</h1>
+<h1 id="llm大模型微调">LLM大模型微调</h1>
+<p>为什么要进行大模型微调？大模型通常是针对通用场景来训练的，针对垂直领域的特定场景可能并不适用。所以需要对大模型参数进行微调，以便在特定场景下的效果更好。具体体现在这几个方面：提高准确性、提高效率、减少训练的数据需求。</p>
+<h2 id="什么是transformer">什么是Transformer</h2>
+<h2 id="qloralora微调技术">QLoRA/LoRA微调技术</h2>
+<p>知乎有篇文章对大模型微调技术QLoRA、LoRA的介绍：<a href="https://zhuanlan.zhihu.com/p/671089942">https://zhuanlan.zhihu.com/p/671089942</a>，使用<a href="https://kimi.moonshot.cn/">https://kimi.moonshot.cn/</a>可以快速解读论文</p>
+<p>LoRA和QLoRA是两种用于大型预训练模型(如Transformer模型)微调的技术：</p>
+<p>LoRA（Low-Rank Adaptation）</p>
+<ul>
+<li>低秩矩阵近似：LoRA的核心思想是使用低秩矩阵来近似原始模型中的权重矩阵。低秩矩阵具有较少的参数，因此可以减少微调过程中的计算和存储需求。</li>
+<li>微调过程：在微调阶段，LoRA不是直接更新原始模型的权重，而是更新这些低秩矩阵。这样可以在不显著增加模型大小和计算复杂度的情况下，对模型进行有效的微调。</li>
+<li>适应性：通过这种方式，LoRA允许模型在保持预训练知识的同时，学习特定任务的特征，从而提高微调后模型在下游任务上的性能。</li>
+</ul>
+<p>QLDoRA（Quantized Low-Rank Adaptation）</p>
+<ul>
+<li>量化：QLoRA是LoRA的扩展，它在低秩矩阵近似的基础上引入了量化技术。量化是一种压缩技术，可以进一步减少模型的参数数量和计算需求。</li>
+<li>低秩量化矩阵：在QLoRA中，微调涉及的是一组量化后的低秩矩阵。这些矩阵在微调过程中被更新，以适应特定任务的需求。</li>
+<li>效率与性能：QLoRA旨在实现与LoRA相似的适应性，同时通过量化进一步降低模型的内存占用和加速推理过程，使得模型更适合在资源受限的环境下部署。</li>
+<li>应用场景：这些技术尤其适用于大型模型，如NLP领域的Transformer模型，它们在预训练阶段已经学习了大量的语言知识。通过LoRA或QLoRA微调，这些模型可以更有效地适应特定的下游任务，如文本分类、机器翻译或问答系统，而无需从头开始训练整个模型。</li>
+</ul>
+<p>LoRA和QLoRA通过减少微调过程中的参数数量和计算量，使得大型模型的微调变得更加高效，同时尽可能保留模型在预训练阶段获得的知识。这些技术对于推动大型模型在实际应用中的部署具有重要意义。</p>
+<h2 id="llm微调项目unsloth">LLM微调项目unsloth</h2>
+<p><a href="https://github.com/unslothai/unsloth">unsloth</a>是通过QLoRA、LoRA技术来加速大模型微调，能够提升2～5倍的速度并且减少80%的内存占用</p>
+<p>主要特性：</p>
+<ul>
+<li>所有内核均采用OpenAI的Triton语言编写。采用手动反向传播引擎。</li>
+<li>无精度损失，所有方法都是精确的。</li>
+<li>支持自2018年起支持NVIDIA GPU。最低CUDA能力7.0（V100、T4、Titan V、RTX 20、30、40x、A100、H100、L40 等）GTX 1070、1080可以工作，但速度很慢。</li>
+<li>在Linux和Windows的WSL上可以工作。</li>
+<li>通过<a href="https://github.com/TimDettmers/bitsandbytes">bitsandbytes</a>支持4位和16位QLoRA/LoRA微调。</li>
+<li>它的开源版本训练速度提高5倍，(Unsloth Pro)[https://unsloth.ai/]版本，训练速度可提高30倍</li>
+</ul>
+<h3 id="云端使用colab微调">云端使用colab微调</h3>
+<p>参考youtube上的视频教程：<a href="https://www.youtube.com/watch?v=JIaWgRStuXA&amp;t=9s">https://www.youtube.com/watch?v=JIaWgRStuXA&amp;t=9s</a></p>
+<h3 id="本地微调llama3-8b">本地微调llama3-8b</h3>
+<p>参考youtube上的视频教程：<a href="https://www.youtube.com/watch?v=LPmI-Ok5fUc">https://www.youtube.com/watch?v=LPmI-Ok5fUc</a>，这里选用llama3为例进行微调，llama3在各种基准测试中表现出色，属于先天优势。</p>
+<h4 id="安装依赖">安装依赖</h4>
+<p>安装nvidia驱动(这里用的是NVIDIA GeForce RTX 3090)、cuda</p>
+<ul>
+<li>nvidia驱动下载：<a href="https://www.nvidia.com/Download/index.aspx">https://www.nvidia.com/Download/index.aspx</a></li>
+<li>cuda下载：<a href="https://developer.nvidia.com/cuda-toolkit-archive">https://developer.nvidia.com/cuda-toolkit-archive</a></li>
+</ul>
+<p>cuda的脚本执行完后，会在终端输出一些待操作的信息，需要设置环境变量才生效，以cuda 12.2版本为例</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">PATH</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$PATH</span>:/usr/local/cuda-12.2/bin
+<span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">LD_LIBRARY_PATH</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$LD_LIBRARY_PATH</span>:/usr/local/cuda-12.2/lib64
+
+<span style="color:#6272a4"># nvcc -V</span>
+nvcc: NVIDIA <span style="color:#ff79c6">(</span>R<span style="color:#ff79c6">)</span> Cuda compiler driver
+Copyright <span style="color:#ff79c6">(</span>c<span style="color:#ff79c6">)</span> 2005-2023 NVIDIA Corporation
+Built on Tue_Jun_13_19:16:58_PDT_2023
+Cuda compilation tools, release 12.2, V12.2.91
+Build cuda_12.2.r12.2/compiler.32965470_0
+</code></pre></div><h4 id="安装微调库">安装微调库</h4>
+<p>使用conda安装微调环境</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">conda create --name unsloth_env <span style="color:#8be9fd;font-style:italic">python</span><span style="color:#ff79c6">=</span>3.10
+conda activate unsloth_env
+conda install pytorch-cuda<span style="color:#ff79c6">=</span>12.1 pytorch cudatoolkit xformers -c pytorch -c nvidia -c xformers
+pip install <span style="color:#f1fa8c">&#34;unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git&#34;</span>
+pip install --no-deps trl peft accelerate bitsandbytes
+</code></pre></div><h4 id="安装jupyter可选">安装Jupyter(可选)</h4>
+<p>安装jupyter，也可以使用ipython在终端实现交互式python效果</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">conda install -c anaconda ipykernel jupyter chardet
+
+<span style="color:#6272a4"># 在ipykernel中添加虚拟环境，以便在jupyter notebook中使用conda虚拟环境</span>
+python -m ipykernel install --user --name<span style="color:#ff79c6">=</span>unsloth_env
+</code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># 查看jupyter kernel列表，是否生效</span>
+jupyter kernelspec list
+0.00s - Debugger warning: It seems that frozen modules are being used, which may
+0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules<span style="color:#ff79c6">=</span>off
+0.00s - to python to disable frozen modules.
+0.00s - Note: Debugging will proceed. Set <span style="color:#8be9fd;font-style:italic">PYDEVD_DISABLE_FILE_VALIDATION</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span> to disable this validation.
+Available kernels:
+  unsloth_env    /root/.local/share/jupyter/kernels/unsloth_env
+  python3        /root/anaconda3/share/jupyter/kernels/python3
+</code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># 启动jupyter，默认监听在&lt;server-ip&gt;:8888上</span>
+jupyter notebook --ip<span style="color:#ff79c6">=</span>&lt;server-ip&gt; --allow-root
+</code></pre></div><h4 id="加载模型">加载模型</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#6272a4"># 加载模型</span>
+<span style="color:#ff79c6">from</span> unsloth <span style="color:#ff79c6">import</span> FastLanguageModel
+<span style="color:#ff79c6">import</span> torch
+max_seq_length <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">2048</span> <span style="color:#6272a4"># Choose any! We auto support RoPE Scaling internally!</span>
+dtype <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span> <span style="color:#6272a4"># None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+</span>
+load_in_4bit <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">True</span> <span style="color:#6272a4"># Use 4bit quantization to reduce memory usage. Can be False.</span>
+
+model, tokenizer <span style="color:#ff79c6">=</span> FastLanguageModel<span style="color:#ff79c6">.</span>from_pretrained(
+    model_name <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;unsloth/llama-3-8b-bnb-4bit&#34;</span>, <span style="color:#6272a4"># HuggingFace上的模型路径，HuggingFace上unsloth也提供基础的instruct量化4位模型，要使用替换相应路径即可</span>
+    max_seq_length <span style="color:#ff79c6">=</span> max_seq_length,
+    dtype <span style="color:#ff79c6">=</span> dtype,
+    load_in_4bit <span style="color:#ff79c6">=</span> load_in_4bit,
+    <span style="color:#6272a4"># token = &#34;hf_...&#34;, # use one if using gated models like meta-llama/Llama-2-7b-hf</span>
+)
+</code></pre></div><h4 id="微调前测试">微调前测试</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#6272a4"># 微调前测试</span>
+alpaca_prompt <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;&#34;&#34;Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">### Instruction:
+</span><span style="color:#f1fa8c"></span><span style="color:#f1fa8c">{}</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">### Input:
+</span><span style="color:#f1fa8c"></span><span style="color:#f1fa8c">{}</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">### Response:
+</span><span style="color:#f1fa8c"></span><span style="color:#f1fa8c">{}</span><span style="color:#f1fa8c">&#34;&#34;&#34;</span> <span style="color:#6272a4"># 定义prompt结构</span>
+
+FastLanguageModel<span style="color:#ff79c6">.</span>for_inference(model) <span style="color:#6272a4"># Enable native 2x faster inference</span>
+inputs <span style="color:#ff79c6">=</span> tokenizer(
+[
+    alpaca_prompt<span style="color:#ff79c6">.</span>format(
+        <span style="color:#f1fa8c">&#34;请使用中文回答问题&#34;</span>, <span style="color:#6272a4"># instruction</span>
+        <span style="color:#f1fa8c">&#34;海绵宝宝的书法是不是叫做海绵体?&#34;</span>, <span style="color:#6272a4"># input</span>
+        <span style="color:#f1fa8c">&#34;&#34;</span>, <span style="color:#6272a4"># output - leave this blank for generation!</span>
+    )
+], return_tensors <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;pt&#34;</span>)<span style="color:#ff79c6">.</span>to(<span style="color:#f1fa8c">&#34;cuda&#34;</span>)
+
+<span style="color:#ff79c6">from</span> transformers <span style="color:#ff79c6">import</span> TextStreamer  <span style="color:#6272a4"># TextStreamer可以实时输出</span>
+text_streamer <span style="color:#ff79c6">=</span> TextStreamer(tokenizer)
+_ <span style="color:#ff79c6">=</span> model<span style="color:#ff79c6">.</span>generate(<span style="color:#ff79c6">**</span>inputs, streamer <span style="color:#ff79c6">=</span> text_streamer, max_new_tokens <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">128</span>)
+</code></pre></div><h4 id="准备微调数据集">准备微调数据集</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#6272a4"># 准备微调数据集</span>
+EOS_TOKEN <span style="color:#ff79c6">=</span> tokenizer<span style="color:#ff79c6">.</span>eos_token <span style="color:#6272a4"># 必须添加EOS_TOKEN</span>
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">formatting_prompts_func</span>(examples):
+    <span style="color:#6272a4"># 跟数据集的格式结构一致</span>
+    instructions <span style="color:#ff79c6">=</span> examples[<span style="color:#f1fa8c">&#34;instruction&#34;</span>]
+    inputs       <span style="color:#ff79c6">=</span> examples[<span style="color:#f1fa8c">&#34;input&#34;</span>]
+    outputs      <span style="color:#ff79c6">=</span> examples[<span style="color:#f1fa8c">&#34;output&#34;</span>]
+    texts <span style="color:#ff79c6">=</span> []
+    <span style="color:#ff79c6">for</span> instruction, <span style="color:#8be9fd;font-style:italic">input</span>, output <span style="color:#ff79c6">in</span> <span style="color:#8be9fd;font-style:italic">zip</span>(instructions, inputs, outputs):
+        <span style="color:#6272a4"># 必须添加EOS_TOKEN, 否则无限生成</span>
+        text <span style="color:#ff79c6">=</span> alpaca_prompt<span style="color:#ff79c6">.</span>format(instruction, <span style="color:#8be9fd;font-style:italic">input</span>, output) <span style="color:#ff79c6">+</span> EOS_TOKEN
+        texts<span style="color:#ff79c6">.</span>append(text)
+    <span style="color:#ff79c6">return</span> { <span style="color:#f1fa8c">&#34;text&#34;</span> : texts, }
+<span style="color:#ff79c6">pass</span>
+
+<span style="color:#ff79c6">from</span> datasets <span style="color:#ff79c6">import</span> load_dataset
+<span style="color:#6272a4"># 选用中文数据集，内容来自于百度贴吧-弱智吧</span>
+dataset <span style="color:#ff79c6">=</span> load_dataset(<span style="color:#f1fa8c">&#34;kigner/ruozhiba-llama3&#34;</span>, split <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;train&#34;</span>)  <span style="color:#6272a4"># 从HuggingFace上下载数据集，也支持加载本地的数据集</span>
+dataset <span style="color:#ff79c6">=</span> dataset<span style="color:#ff79c6">.</span>map(formatting_prompts_func, batched <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">True</span>,)
+</code></pre></div><h4 id="设置微调参数">设置微调参数</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#6272a4"># 设置微调参数，微调方法选择LoRA</span>
+model <span style="color:#ff79c6">=</span> FastLanguageModel<span style="color:#ff79c6">.</span>get_peft_model(
+    model,
+    r <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">16</span>, <span style="color:#6272a4"># 建议8, 16, 32, 64, 128</span>
+    target_modules <span style="color:#ff79c6">=</span> [<span style="color:#f1fa8c">&#34;q_proj&#34;</span>, <span style="color:#f1fa8c">&#34;k_proj&#34;</span>, <span style="color:#f1fa8c">&#34;v_proj&#34;</span>, <span style="color:#f1fa8c">&#34;o_proj&#34;</span>,
+                      <span style="color:#f1fa8c">&#34;gate_proj&#34;</span>, <span style="color:#f1fa8c">&#34;up_proj&#34;</span>, <span style="color:#f1fa8c">&#34;down_proj&#34;</span>,],
+    lora_alpha <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">16</span>,
+    lora_dropout <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>, <span style="color:#6272a4"># Supports any, but = 0 is optimized</span>
+    bias <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;none&#34;</span>,    <span style="color:#6272a4"># Supports any, but = &#34;none&#34; is optimized</span>
+    <span style="color:#6272a4"># [NEW] &#34;unsloth&#34; uses 30% less VRAM, fits 2x larger batch sizes!</span>
+    use_gradient_checkpointing <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;unsloth&#34;</span>, <span style="color:#6272a4"># 梯度检查点，True or &#34;unsloth&#34; for very long context</span>
+    random_state <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">3407</span>,
+    use_rslora <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">False</span>,  <span style="color:#6272a4"># We support rank stabilized LoRA</span>
+    loftq_config <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>, <span style="color:#6272a4"># And LoftQ</span>
+)
+
+<span style="color:#ff79c6">from</span> trl <span style="color:#ff79c6">import</span> SFTTrainer
+<span style="color:#ff79c6">from</span> transformers <span style="color:#ff79c6">import</span> TrainingArguments
+
+<span style="color:#6272a4"># 使用SFT微调，unsloth支持SFT、DPO微调</span>
+trainer <span style="color:#ff79c6">=</span> SFTTrainer(
+    model <span style="color:#ff79c6">=</span> model,
+    tokenizer <span style="color:#ff79c6">=</span> tokenizer,
+    train_dataset <span style="color:#ff79c6">=</span> dataset,
+    dataset_text_field <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;text&#34;</span>,
+    max_seq_length <span style="color:#ff79c6">=</span> max_seq_length,
+    dataset_num_proc <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">2</span>,
+    packing <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">False</span>, <span style="color:#6272a4"># Can make training 5x faster for short sequences.</span>
+    args <span style="color:#ff79c6">=</span> TrainingArguments(
+        per_device_train_batch_size <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">2</span>,
+        gradient_accumulation_steps <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">4</span>,
+        warmup_steps <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">5</span>,
+        max_steps <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">60</span>,     <span style="color:#6272a4"># 微调步数</span>
+        learning_rate <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">2e-4</span>,   <span style="color:#6272a4"># 学习率</span>
+        fp16 <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">not</span> torch<span style="color:#ff79c6">.</span>cuda<span style="color:#ff79c6">.</span>is_bf16_supported(),
+        bf16 <span style="color:#ff79c6">=</span> torch<span style="color:#ff79c6">.</span>cuda<span style="color:#ff79c6">.</span>is_bf16_supported(),
+        logging_steps <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>,
+        optim <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;adamw_8bit&#34;</span>,
+        weight_decay <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0.01</span>,
+        lr_scheduler_type <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;linear&#34;</span>,
+        seed <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">3407</span>,
+        output_dir <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;outputs&#34;</span>,   <span style="color:#6272a4"># 合并模型的输出目录</span>
+    ),
+)
+</code></pre></div><h4 id="开始训练模型">开始训练模型</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#6272a4"># 开始训练</span>
+trainer_stats <span style="color:#ff79c6">=</span> trainer<span style="color:#ff79c6">.</span>train()
+</code></pre></div><h4 id="验证微调模型">验证微调模型</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">FastLanguageModel<span style="color:#ff79c6">.</span>for_inference(model) <span style="color:#6272a4"># Enable native 2x faster inference</span>
+inputs <span style="color:#ff79c6">=</span> tokenizer(
+[
+    alpaca_prompt<span style="color:#ff79c6">.</span>format(
+        <span style="color:#f1fa8c">&#34;请使用中文回答问题&#34;</span>, <span style="color:#6272a4"># instruction</span>
+        <span style="color:#f1fa8c">&#34;海绵宝宝的书法是不是叫做海绵体?&#34;</span>, <span style="color:#6272a4"># input</span>
+        <span style="color:#f1fa8c">&#34;&#34;</span>, <span style="color:#6272a4"># output - leave this blank for generation!</span>
+    )
+], return_tensors <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;pt&#34;</span>)<span style="color:#ff79c6">.</span>to(<span style="color:#f1fa8c">&#34;cuda&#34;</span>)
+
+<span style="color:#ff79c6">from</span> transformers <span style="color:#ff79c6">import</span> TextStreamer  <span style="color:#6272a4"># TextStreamer可以实时输出</span>
+text_streamer <span style="color:#ff79c6">=</span> TextStreamer(tokenizer)
+_ <span style="color:#ff79c6">=</span> model<span style="color:#ff79c6">.</span>generate(<span style="color:#ff79c6">**</span>inputs, streamer <span style="color:#ff79c6">=</span> text_streamer, max_new_tokens <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">128</span>)
+</code></pre></div><h4 id="保存微调模型">保存微调模型</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#6272a4"># 保存训练后的LoRA模型，并不是一个完整的模型</span>
+model<span style="color:#ff79c6">.</span>save_pretrained(<span style="color:#f1fa8c">&#34;lora_model&#34;</span>) <span style="color:#6272a4"># Local saving</span>
+tokenizer<span style="color:#ff79c6">.</span>save_pretrained(<span style="color:#f1fa8c">&#34;lora_model&#34;</span>)
+<span style="color:#6272a4"># model.push_to_hub(&#34;your_name/lora_model&#34;, token = &#34;...&#34;) # Online saving，推送到HuggingFace上</span>
+<span style="color:#6272a4"># tokenizer.push_to_hub(&#34;your_name/lora_model&#34;, token = &#34;...&#34;) # Online saving，推送到HuggingFace上</span>
+</code></pre></div><h4 id="合并模型">合并模型</h4>
+<p>合并模型是指将微调后的模型和原始模型进行合并，假设这里最终模型的保存格式为：4bit GGUF格式，其中经过的转换过程是：16bit HF格式 -&gt; 16bit GGUF格式 -&gt; 4bit GGUF格式</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#6272a4"># 保存为HF格式，vLLM可加载使用</span>
+model<span style="color:#ff79c6">.</span>save_pretrained_merged(<span style="color:#f1fa8c">&#34;model&#34;</span>, tokenizer, save_method <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;merged_16bit&#34;</span>,)  <span style="color:#6272a4"># 也可选保存为其它精度格式，如4bit </span>
+<span style="color:#6272a4"># model.push_to_hub_merged(&#34;hf/model&#34;, tokenizer, save_method = &#34;merged_16bit&#34;, token = &#34;&#34;) # 是否推送到HuggingFace上</span>
+
+<span style="color:#6272a4"># 保存为4bit GGUF格式，HF格式到GGUF格式的转换是集成了llama.cpp来实现的</span>
+model<span style="color:#ff79c6">.</span>save_pretrained_gguf(<span style="color:#f1fa8c">&#34;model&#34;</span>, tokenizer, quantization_method <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;q4_k_m&#34;</span>)
+<span style="color:#6272a4"># model.push_to_hub_gguf(&#34;hf/model&#34;, tokenizer, quantization_method = &#34;q4_k_m&#34;, token = &#34;&#34;) 是否推送到HuggingFace上</span>
+</code></pre></div><p>GGUG模型可使用<a href="https://gpt4all.io/index.html">gpt4all</a>加载查看效果</p>
+<h1 id="llm大模型api第三方库">LLM大模型API第三方库</h1>
 <ul>
 <li><a href="https://github.com/BerriAI/litellm">https://github.com/BerriAI/litellm</a>：兼容OpenAI格式的统一大模型API，大多支持国外的模型</li>
 <li><a href="https://github.com/songquanpeng/one-api">https://github.com/songquanpeng/one-api</a>：兼容OpenAI格式的统一大模型API，大多支持国内的模型</li>

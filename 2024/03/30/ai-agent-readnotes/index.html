@@ -331,7 +331,15 @@ curl -sSL https://install.python-poetry.org | sed <span style="color:#f1fa8c">&#
 <p>Agent协议：用于统一agents开发的一套准则，来自AI-Engineer-Foundation提出的<a href="https://github.com/AI-Engineer-Foundation/agent-protocol">Agent Protocol</a>，AutoGPT就是采用Agent protocol来开发Agent.</p>
 <p>AutoGPT在构建agent的生态，包括benchmark和protocol</p>
 <h2 id="部署">部署</h2>
-<p>1.使用conda创建一个虚拟环境</p>
+<p>提前设置好.condarc，用命令<code>conda config --show-sources</code>校验</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># vim ~/.condarc</span>
+channels:
+   - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+   - defaults
+show_channel_urls: <span style="color:#8be9fd;font-style:italic">true</span>
+
+ssl_verify: <span style="color:#8be9fd;font-style:italic">false</span>
+</code></pre></div><p>1.使用conda创建一个虚拟环境</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">conda create --name autogpt <span style="color:#8be9fd;font-style:italic">python</span><span style="color:#ff79c6">=</span>3.10
 conda activate autogpt
 </code></pre></div><p>2.安装poetry</p>
@@ -1265,7 +1273,345 @@ human_proxy <span style="color:#ff79c6">(</span>to agent_with_number<span style=
   <img src="https://microsoft.github.io/autogen/assets/images/code-executor-no-docker-0ec717a62637ff02e852efa284dd50d5.png" alt="代码执行器">
 
 </p>
-<h4 id="docker执行">Docker执行</h4>
+<p>安装相关python库</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># pip install matplotlib numpy</span>
+</code></pre></div><p>一个本地调用执行python脚本的例子</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">import</span> tempfile
+<span style="color:#ff79c6">import</span> os
+<span style="color:#ff79c6">from</span> autogen <span style="color:#ff79c6">import</span> ConversableAgent
+<span style="color:#ff79c6">from</span> autogen.coding <span style="color:#ff79c6">import</span> LocalCommandLineCodeExecutor
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+    <span style="color:#6272a4"># Create a temporary directory to store the code files.</span>
+    temp_dir <span style="color:#ff79c6">=</span> tempfile<span style="color:#ff79c6">.</span>TemporaryDirectory()
+
+    <span style="color:#6272a4"># Create a local command line code executor.</span>
+    executor <span style="color:#ff79c6">=</span> LocalCommandLineCodeExecutor(
+        timeout<span style="color:#ff79c6">=</span><span style="color:#bd93f9">10</span>,  <span style="color:#6272a4"># Timeout for each code execution in seconds.</span>
+        <span style="color:#6272a4"># Use the temporary directory to store the code files.</span>
+        work_dir<span style="color:#ff79c6">=</span>temp_dir<span style="color:#ff79c6">.</span>name,
+    )
+
+    <span style="color:#6272a4"># Create an agent with code executor configuration.</span>
+    code_executor_agent <span style="color:#ff79c6">=</span> ConversableAgent(
+        <span style="color:#f1fa8c">&#34;code_executor_agent&#34;</span>,
+        llm_config<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>,  <span style="color:#6272a4"># Turn off LLM for this agent.</span>
+        <span style="color:#6272a4"># Use the local command line code executor.</span>
+        code_execution_config<span style="color:#ff79c6">=</span>{<span style="color:#f1fa8c">&#34;executor&#34;</span>: executor},
+        <span style="color:#6272a4"># Always take human input for this agent for safety.</span>
+        human_input_mode<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;ALWAYS&#34;</span>,
+    )
+
+    message_with_code_block <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;&#34;&#34;This is a message with code block.
+</span><span style="color:#f1fa8c">The code block is below:
+</span><span style="color:#f1fa8c">```python
+</span><span style="color:#f1fa8c">import numpy as np
+</span><span style="color:#f1fa8c">import matplotlib.pyplot as plt
+</span><span style="color:#f1fa8c">x = np.random.randint(0, 100, 100)
+</span><span style="color:#f1fa8c">y = np.random.randint(0, 100, 100)
+</span><span style="color:#f1fa8c">plt.scatter(x, y)
+</span><span style="color:#f1fa8c">plt.savefig(&#39;scatter.png&#39;)
+</span><span style="color:#f1fa8c">print(&#39;Scatter plot saved to scatter.png&#39;)
+</span></code></pre></div><p>This is the end of the message.
+&quot;&quot;&quot;</p>
+<pre><code># Generate a reply for the given code.
+reply = code_executor_agent.generate_reply(
+    messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: message_with_code_block}])
+print(reply)
+print(temp_dir.name)
+print(os.listdir(temp_dir.name))
+</code></pre>
+<p>if <strong>name</strong> == &ldquo;<strong>main</strong>&quot;:
+main()</p>
+<pre tabindex="0"><code>
+输出：
+```bash
+Provide feedback to the sender. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: 
+
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; NO HUMAN INPUT RECEIVED.
+
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; USING AUTO REPLY...
+
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; EXECUTING CODE BLOCK (inferred language is python)...
+exitcode: 0 (execution succeeded)
+Code output: 0.00s - Debugger warning: It seems that frozen modules are being used, which may
+0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off
+0.00s - to python to disable frozen modules.
+0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.
+Scatter plot saved to scatter.png
+
+/var/folders/vm/ry3ff3355gnfvmgt8w17872c0000gn/T/tmpccqhl6ds
+['tmp_code_e24bf32d4a21990fb9e4b5eb889ebe5a.py', 'scatter.png']
+</code></pre><h4 id="docker执行">Docker执行</h4>
+<p>需要在环境上先装好docker
+
+  <img src="https://microsoft.github.io/autogen/assets/images/code-executor-docker-8d3f56a6bb4b4605fec68804350f42fc.png" alt="">
+
+</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">import</span> tempfile
+<span style="color:#ff79c6">from</span> autogen <span style="color:#ff79c6">import</span> ConversableAgent
+<span style="color:#ff79c6">from</span> autogen.coding <span style="color:#ff79c6">import</span> DockerCommandLineCodeExecutor
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+    <span style="color:#6272a4"># Create a temporary directory to store the code files.</span>
+    temp_dir <span style="color:#ff79c6">=</span> tempfile<span style="color:#ff79c6">.</span>TemporaryDirectory()
+
+    <span style="color:#6272a4"># Create a Docker command line code executor.</span>
+    executor <span style="color:#ff79c6">=</span> DockerCommandLineCodeExecutor(
+        <span style="color:#6272a4"># Execute code using the given docker image name.</span>
+        image<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;python:3.12-slim&#34;</span>,
+        timeout<span style="color:#ff79c6">=</span><span style="color:#bd93f9">10</span>,  <span style="color:#6272a4"># Timeout for each code execution in seconds.</span>
+        <span style="color:#6272a4"># Use the temporary directory to store the code files.</span>
+        work_dir<span style="color:#ff79c6">=</span>temp_dir<span style="color:#ff79c6">.</span>name,
+    )
+
+    <span style="color:#6272a4"># Create an agent with code executor configuration that uses docker.</span>
+    code_executor_agent_using_docker <span style="color:#ff79c6">=</span> ConversableAgent(
+        <span style="color:#f1fa8c">&#34;code_executor_agent_docker&#34;</span>,
+        llm_config<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>,  <span style="color:#6272a4"># Turn off LLM for this agent.</span>
+        <span style="color:#6272a4"># Use the docker command line code executor.</span>
+        code_execution_config<span style="color:#ff79c6">=</span>{<span style="color:#f1fa8c">&#34;executor&#34;</span>: executor},
+        <span style="color:#6272a4"># Always take human input for this agent for safety.</span>
+        human_input_mode<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;ALWAYS&#34;</span>,
+    )
+
+    message_with_code_block <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;&#34;&#34;This is a message with code block.
+</span><span style="color:#f1fa8c">The code block is below:
+</span><span style="color:#f1fa8c">```python
+</span><span style="color:#f1fa8c">print(&#39;hello world!&#39;)
+</span></code></pre></div><p>This is the end of the message.
+&quot;&rdquo;&quot;
+reply = code_executor_agent_using_docker.generate_reply(
+messages=[{&ldquo;role&rdquo;: &ldquo;user&rdquo;, &ldquo;content&rdquo;: message_with_code_block}])
+print(reply)</p>
+<pre><code># When the code executor is no longer used, stop it to release the resources.
+# executor.stop()
+</code></pre>
+<p>if <strong>name</strong> == &ldquo;<strong>main</strong>&quot;:
+main()</p>
+<pre tabindex="0"><code>
+输出：
+```bash
+Provide feedback to the sender. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: 
+
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; NO HUMAN INPUT RECEIVED.
+
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; USING AUTO REPLY...
+
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; EXECUTING CODE BLOCK (inferred language is python)...
+exitcode: 0 (execution succeeded)
+Code output: hello world!
+</code></pre><h4 id="在对话中集成代码执行器">在对话中集成代码执行器</h4>
+<p>
+  <img src="https://microsoft.github.io/autogen/assets/images/code-execution-in-conversation-f02c7a3ea7e45e3f4aa71d8def851677.png" alt="code-execution-in-conversation">
+
+</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">import</span> tempfile
+<span style="color:#ff79c6">from</span> autogen <span style="color:#ff79c6">import</span> ConversableAgent
+<span style="color:#ff79c6">from</span> autogen.coding <span style="color:#ff79c6">import</span> LocalCommandLineCodeExecutor
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+    config_list <span style="color:#ff79c6">=</span> [
+        {
+            <span style="color:#f1fa8c">&#34;model&#34;</span>: <span style="color:#f1fa8c">&#34;llama3:8b&#34;</span>,
+            <span style="color:#f1fa8c">&#34;base_url&#34;</span>: <span style="color:#f1fa8c">&#34;http://xxx:11434/v1/&#34;</span>,
+            <span style="color:#f1fa8c">&#34;api_key&#34;</span>: <span style="color:#f1fa8c">&#34;ollama&#34;</span>,
+            <span style="color:#f1fa8c">&#34;max_tokens&#34;</span>: <span style="color:#bd93f9">8000</span>,
+            <span style="color:#f1fa8c">&#34;temperature&#34;</span>: <span style="color:#bd93f9">0</span>,
+        }
+    ]
+
+    <span style="color:#6272a4"># Create a temporary directory to store the code files.</span>
+    temp_dir <span style="color:#ff79c6">=</span> tempfile<span style="color:#ff79c6">.</span>TemporaryDirectory()
+
+    <span style="color:#6272a4"># Create a local command line code executor.</span>
+    executor <span style="color:#ff79c6">=</span> LocalCommandLineCodeExecutor(
+        timeout<span style="color:#ff79c6">=</span><span style="color:#bd93f9">10</span>,  <span style="color:#6272a4"># Timeout for each code execution in seconds.</span>
+        <span style="color:#6272a4"># Use the temporary directory to store the code files.</span>
+        work_dir<span style="color:#ff79c6">=</span>temp_dir<span style="color:#ff79c6">.</span>name,
+    )
+
+    <span style="color:#6272a4"># Create an agent with code executor configuration.</span>
+    code_executor_agent <span style="color:#ff79c6">=</span> ConversableAgent(
+        <span style="color:#f1fa8c">&#34;code_executor_agent&#34;</span>,
+        llm_config<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>,  <span style="color:#6272a4"># Turn off LLM for this agent.</span>
+        <span style="color:#6272a4"># Use the local command line code executor.</span>
+        code_execution_config<span style="color:#ff79c6">=</span>{<span style="color:#f1fa8c">&#34;executor&#34;</span>: executor},
+        <span style="color:#6272a4"># Always take human input for this agent for safety.</span>
+        human_input_mode<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;ALWAYS&#34;</span>,
+    )
+
+    <span style="color:#6272a4"># The code writer agent&#39;s system message is to instruct the LLM on how to use</span>
+<span style="color:#6272a4"># the code executor in the code executor agent.</span>
+    code_writer_system_message <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;&#34;&#34;You are a helpful AI assistant.
+</span><span style="color:#f1fa8c">Solve tasks using your coding and language skills.
+</span><span style="color:#f1fa8c">In the following cases, suggest python code (in a python coding block) or shell script (in a sh coding block) for the user to execute.
+</span><span style="color:#f1fa8c">1. When you need to collect info, use the code to output the info you need, for example, browse or search the web, download/read a file, print the content of a webpage or a file, get the current date/time, check the operating system. After sufficient info is printed and the task is ready to be solved based on your language skill, you can solve the task by yourself.
+</span><span style="color:#f1fa8c">2. When you need to perform some task with code, use the code to perform the task and output the result. Finish the task smartly.
+</span><span style="color:#f1fa8c">Solve the task step by step if you need to. If a plan is not provided, explain your plan first. Be clear which step uses code, and which step uses your language skill.
+</span><span style="color:#f1fa8c">When using code, you must indicate the script type in the code block. The user cannot provide any other feedback or perform any other action beyond executing the code you suggest. The user can&#39;t modify your code. So do not suggest incomplete code which requires users to modify. Don&#39;t use a code block if it&#39;s not intended to be executed by the user.
+</span><span style="color:#f1fa8c">If you want the user to save the code in a file before executing it, put # filename: &lt;filename&gt; inside the code block as the first line. Don&#39;t include multiple code blocks in one response. Do not ask users to copy and paste the result. Instead, use &#39;print&#39; function for the output when relevant. Check the execution result returned by the user.
+</span><span style="color:#f1fa8c">If the result indicates there is an error, fix the error and output the code again. Suggest the full code instead of partial code or code changes. If the error can&#39;t be fixed or if the task is not solved even after the code is executed successfully, analyze the problem, revisit your assumption, collect additional info you need, and think of a different approach to try.
+</span><span style="color:#f1fa8c">When you find an answer, verify the answer carefully. Include verifiable evidence in your response if possible.
+</span><span style="color:#f1fa8c">Reply &#39;TERMINATE&#39; in the end when everything is done.
+</span><span style="color:#f1fa8c">    &#34;&#34;&#34;</span>
+
+    code_writer_agent <span style="color:#ff79c6">=</span> ConversableAgent(
+        <span style="color:#f1fa8c">&#34;code_writer_agent&#34;</span>,
+        system_message<span style="color:#ff79c6">=</span>code_writer_system_message,
+        llm_config<span style="color:#ff79c6">=</span>{<span style="color:#f1fa8c">&#34;config_list&#34;</span>: config_list},
+        code_execution_config<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>,  <span style="color:#6272a4"># Turn off code execution for this agent.</span>
+    )
+
+    chat_result <span style="color:#ff79c6">=</span> code_executor_agent<span style="color:#ff79c6">.</span>initiate_chat(
+        code_writer_agent,
+        message<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;Write Python code to calculate the 14th Fibonacci number.&#34;</span>,
+    )
+
+
+<span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
+    main()
+
+</code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">code_executor_agent <span style="color:#ff79c6">(</span>to code_writer_agent<span style="color:#ff79c6">)</span>:
+
+Write Python code to calculate the 14th Fibonacci number.
+
+--------------------------------------------------------------------------------
+
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; USING AUTO REPLY...
+code_writer_agent <span style="color:#ff79c6">(</span>to code_executor_agent<span style="color:#ff79c6">)</span>:
+
+Here<span style="color:#f1fa8c">&#39;s a simple Python program that calculates the 14th Fibonacci number:
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">```python
+</span><span style="color:#f1fa8c"># filename: fibonacci.py
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">def fibonacci(n):
+</span><span style="color:#f1fa8c">    if n &lt;= 0:
+</span><span style="color:#f1fa8c">        return &#34;Input should be positive integer.&#34;
+</span><span style="color:#f1fa8c">    elif n == 1:
+</span><span style="color:#f1fa8c">        return 0
+</span><span style="color:#f1fa8c">    elif n == 2:
+</span><span style="color:#f1fa8c">        return 1
+</span><span style="color:#f1fa8c">    else:
+</span><span style="color:#f1fa8c">        a, b = 0, 1
+</span><span style="color:#f1fa8c">        for i in range(2, n):
+</span><span style="color:#f1fa8c">            a, b = b, a + b
+</span><span style="color:#f1fa8c">        return b
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">print(fibonacci(14))
+</span><span style="color:#f1fa8c">```
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">To run this code, save it to a file named `fibonacci.py` and then execute the file using Python:
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">```sh
+</span><span style="color:#f1fa8c">$ python fibonacci.py
+</span><span style="color:#f1fa8c">```
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">This program calculates the Fibonacci sequence up to the 14th number. The Fibonacci sequence is a series of numbers in which each number is the sum of the two preceding ones, usually starting with 0 and 1.
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">The `fibonacci` function takes an integer `n` as input and returns the `n`-th Fibonacci number. It uses a simple iterative approach to calculate the Fibonacci sequence up to the `n`-th number.
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">When you run this code, it will print the 14th Fibonacci number.
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">--------------------------------------------------------------------------------
+</span><span style="color:#f1fa8c">Provide feedback to code_writer_agent. Press enter to skip and use auto-reply, or type &#39;</span>exit<span style="color:#f1fa8c">&#39; to end the conversation: 
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; NO HUMAN INPUT RECEIVED.
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; USING AUTO REPLY...
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; EXECUTING 2 CODE BLOCKS (inferred languages are [python, sh])...
+</span><span style="color:#f1fa8c">code_executor_agent (to code_writer_agent):
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">exitcode: 127 (execution failed)
+</span><span style="color:#f1fa8c">Code output: 0.00s - Debugger warning: It seems that frozen modules are being used, which may
+</span><span style="color:#f1fa8c">0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off
+</span><span style="color:#f1fa8c">0.00s - to python to disable frozen modules.
+</span><span style="color:#f1fa8c">0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.
+</span><span style="color:#f1fa8c">233
+</span><span style="color:#f1fa8c">/private/var/folders/vm/ry3ff3355gnfvmgt8w17872c0000gn/T/tmphluowg0c/tmp_code_cbdd7e73b49460ad7164185cb78b1d30.sh: line 1: $: command not found
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">--------------------------------------------------------------------------------
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; USING AUTO REPLY...
+</span><span style="color:#f1fa8c">code_writer_agent (to code_executor_agent):
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">It seems that the code I provided earlier is not executable in your environment. The error message indicates that there&#39;</span>s an issue with running Python commands.
+
+To fix this, let<span style="color:#f1fa8c">&#39;s try a different approach. Instead of executing the code directly, we can use a Python interpreter to run the code and print the result.
+</span><span style="color:#f1fa8c">
+</span><span style="color:#f1fa8c">Here&#39;</span>s how you can <span style="color:#ff79c6">do</span> it:
+
+1. Open a terminal or <span style="color:#8be9fd;font-style:italic">command</span> prompt.
+2. Type <span style="color:#f1fa8c">`</span>python<span style="color:#f1fa8c">`</span> <span style="color:#ff79c6">(</span>without quotes<span style="color:#ff79c6">)</span> and press Enter.
+3. In the Python interpreter, <span style="color:#8be9fd;font-style:italic">type</span> the following code:
+<span style="color:#f1fa8c">```</span>
+def fibonacci<span style="color:#ff79c6">(</span>n<span style="color:#ff79c6">)</span>:
+    <span style="color:#ff79c6">if</span> n &lt;<span style="color:#ff79c6">=</span> 0:
+        <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">&#34;Input should be positive integer.&#34;</span>
+    <span style="color:#ff79c6">elif</span> <span style="color:#8be9fd;font-style:italic">n</span> <span style="color:#ff79c6">==</span> 1:
+        <span style="color:#ff79c6">return</span> <span style="color:#bd93f9">0</span>
+    <span style="color:#ff79c6">elif</span> <span style="color:#8be9fd;font-style:italic">n</span> <span style="color:#ff79c6">==</span> 2:
+        <span style="color:#ff79c6">return</span> <span style="color:#bd93f9">1</span>
+    <span style="color:#ff79c6">else</span>:
+        a, <span style="color:#8be9fd;font-style:italic">b</span> <span style="color:#ff79c6">=</span> 0, <span style="color:#bd93f9">1</span>
+        <span style="color:#ff79c6">for</span> i in range<span style="color:#ff79c6">(</span>2, n<span style="color:#ff79c6">)</span>:
+            a, <span style="color:#8be9fd;font-style:italic">b</span> <span style="color:#ff79c6">=</span> b, a + b
+        <span style="color:#ff79c6">return</span> b
+
+print<span style="color:#ff79c6">(</span>fibonacci<span style="color:#ff79c6">(</span>14<span style="color:#ff79c6">))</span>
+<span style="color:#f1fa8c">```</span>
+4. Press Enter to execute the code.
+
+This should print the 14th Fibonacci number, which is <span style="color:#f1fa8c">`</span>233<span style="color:#f1fa8c">`</span>.
+
+If you<span style="color:#f1fa8c">&#39;re still having trouble executing the code, please let me know and I&#39;</span>ll try to <span style="color:#8be9fd;font-style:italic">help</span> you further!
+
+--------------------------------------------------------------------------------
+Provide feedback to code_writer_agent. Press enter to skip and use auto-reply, or <span style="color:#8be9fd;font-style:italic">type</span> <span style="color:#f1fa8c">&#39;exit&#39;</span> to end the conversation: 
+
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; NO HUMAN INPUT RECEIVED.
+
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; USING AUTO REPLY...
+
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; EXECUTING CODE BLOCK <span style="color:#ff79c6">(</span>inferred language is python<span style="color:#ff79c6">)</span>...
+code_executor_agent <span style="color:#ff79c6">(</span>to code_writer_agent<span style="color:#ff79c6">)</span>:
+
+exitcode: <span style="color:#bd93f9">0</span> <span style="color:#ff79c6">(</span>execution succeeded<span style="color:#ff79c6">)</span>
+Code output: 0.00s - Debugger warning: It seems that frozen modules are being used, which may
+0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules<span style="color:#ff79c6">=</span>off
+0.00s - to python to disable frozen modules.
+0.00s - Note: Debugging will proceed. Set <span style="color:#8be9fd;font-style:italic">PYDEVD_DISABLE_FILE_VALIDATION</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span> to disable this validation.
+<span style="color:#bd93f9">233</span>
+
+
+--------------------------------------------------------------------------------
+
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; USING AUTO REPLY...
+code_writer_agent <span style="color:#ff79c6">(</span>to code_executor_agent<span style="color:#ff79c6">)</span>:
+
+It looks like the code executed successfully and printed the 14th Fibonacci number, which is indeed <span style="color:#f1fa8c">`</span>233<span style="color:#f1fa8c">`</span>. Well <span style="color:#ff79c6">done</span>!
+
+Now that we<span style="color:#f1fa8c">&#39;ve confirmed the correct output, I&#39;</span>ll terminate our conversation.
+
+TERMINATE
+
+--------------------------------------------------------------------------------
+Provide feedback to code_writer_agent. Press enter to skip and use auto-reply, or <span style="color:#8be9fd;font-style:italic">type</span> <span style="color:#f1fa8c">&#39;exit&#39;</span> to end the conversation: <span style="color:#8be9fd;font-style:italic">exit</span>
+</code></pre></div><h4 id="userproxyagentassistantagent">UserProxyAgent/AssistantAgent</h4>
+<p>使用UserProxyAgent/AssistantAgent可以带来便利，避免写system_message，但并不是适用于所有场景，针对特殊的场景，该调整
+system_message的还是要调整下</p>
+<ul>
+<li>UserProxyAgent：ConversableAgent的子类，其中human_input_mode=ALWAYS、llm_config=False、带有默认description，UserProxyAgent通常作为代码执行器</li>
+<li>AssistantAgent：ConversableAgent的子类，其中human_input_mode=NEVER、code_execution_config=False、带有默认
+description和system_message，AssistantAgent通常作为代码编写器，而不是代码执行器存在</li>
+</ul>
 <h3 id="工具使用">工具使用</h3>
 <p>工具是预定义的函数，Agent可以直接使用</p>
 <h3 id="对话模式">对话模式</h3>
