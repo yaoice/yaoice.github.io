@@ -1613,10 +1613,105 @@ system_message的还是要调整下</p>
 description和system_message，AssistantAgent通常作为代码编写器，而不是代码执行器存在</li>
 </ul>
 <h3 id="工具使用">工具使用</h3>
-<p>工具是预定义的函数，Agent可以直接使用</p>
-<h4 id="创建工具">创建工具</h4>
-<pre tabindex="0"><code>
-</code></pre><h3 id="对话模式">对话模式</h3>
+<p>工具是预定义的函数，Agent可以直接使用；工具调用要正常工作的话需要相应的LLM支持才行，Qwen 1.5开源大模型API支持tool use</p>
+<h4 id="创建注册使用工具">创建/注册/使用工具</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">from</span> autogen <span style="color:#ff79c6">import</span> ConversableAgent
+<span style="color:#ff79c6">from</span> typing <span style="color:#ff79c6">import</span> Annotated, Literal
+
+<span style="color:#6272a4"># Literal 用于定义一个变量或参数只能取某些字面量值</span>
+Operator <span style="color:#ff79c6">=</span> Literal[<span style="color:#f1fa8c">&#34;+&#34;</span>, <span style="color:#f1fa8c">&#34;-&#34;</span>, <span style="color:#f1fa8c">&#34;*&#34;</span>, <span style="color:#f1fa8c">&#34;/&#34;</span>]
+
+<span style="color:#6272a4"># Annotated 则用于为类型添加元数据。它的主要用途是为类型变量添加描述性的字符串。</span>
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">calculator</span>(a: <span style="color:#8be9fd;font-style:italic">int</span>, b: <span style="color:#8be9fd;font-style:italic">int</span>, operator: Annotated[Operator, <span style="color:#f1fa8c">&#34;operator&#34;</span>]) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">int</span>:
+    <span style="color:#ff79c6">if</span> operator <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;+&#34;</span>:
+        <span style="color:#ff79c6">return</span> a <span style="color:#ff79c6">+</span> b
+    <span style="color:#ff79c6">elif</span> operator <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;-&#34;</span>:
+        <span style="color:#ff79c6">return</span> a <span style="color:#ff79c6">-</span> b
+    <span style="color:#ff79c6">elif</span> operator <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;*&#34;</span>:
+        <span style="color:#ff79c6">return</span> a <span style="color:#ff79c6">*</span> b
+    <span style="color:#ff79c6">elif</span> operator <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;/&#34;</span>:
+        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">int</span>(a <span style="color:#ff79c6">/</span> b)
+    <span style="color:#ff79c6">else</span>:
+        <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">&#34;Invalid operator&#34;</span>)
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">main</span>():
+    config_list <span style="color:#ff79c6">=</span> [
+        {
+            <span style="color:#f1fa8c">&#34;model&#34;</span>: <span style="color:#f1fa8c">&#34;moonshot-v1-8k&#34;</span>,
+            <span style="color:#f1fa8c">&#34;base_url&#34;</span>: <span style="color:#f1fa8c">&#34;https://api.moonshot.cn/v1&#34;</span>,
+            <span style="color:#f1fa8c">&#34;api_key&#34;</span>: <span style="color:#f1fa8c">&#34;sk-xxx&#34;</span>,
+            <span style="color:#f1fa8c">&#34;max_tokens&#34;</span>: <span style="color:#bd93f9">8000</span>,
+            <span style="color:#f1fa8c">&#34;temperature&#34;</span>: <span style="color:#bd93f9">0</span>,
+        }
+    ]
+
+    <span style="color:#6272a4"># Let&#39;s first define the assistant agent that suggests tool calls.</span>
+    assistant <span style="color:#ff79c6">=</span> ConversableAgent(
+        name<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;Assistant&#34;</span>,
+        system_message<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;You are a helpful AI assistant. &#34;</span>
+        <span style="color:#f1fa8c">&#34;You can help with simple calculations. &#34;</span>
+        <span style="color:#f1fa8c">&#34;Return &#39;TERMINATE&#39; when the task is done.&#34;</span>,
+        llm_config<span style="color:#ff79c6">=</span>{<span style="color:#f1fa8c">&#34;config_list&#34;</span>: config_list},
+    )
+
+    <span style="color:#6272a4"># The user proxy agent is used for interacting with the assistant agent</span>
+    <span style="color:#6272a4"># and executes tool calls.</span>
+    user_proxy <span style="color:#ff79c6">=</span> ConversableAgent(
+        name<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;User&#34;</span>,
+        llm_config<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>,
+        is_termination_msg<span style="color:#ff79c6">=</span><span style="color:#ff79c6">lambda</span> msg: msg<span style="color:#ff79c6">.</span>get(
+            <span style="color:#f1fa8c">&#34;content&#34;</span>) <span style="color:#ff79c6">is</span> <span style="color:#ff79c6">not</span> <span style="color:#ff79c6">None</span> <span style="color:#ff79c6">and</span> <span style="color:#f1fa8c">&#34;TERMINATE&#34;</span> <span style="color:#ff79c6">in</span> msg[<span style="color:#f1fa8c">&#34;content&#34;</span>],
+        human_input_mode<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;NEVER&#34;</span>,
+    )
+
+    <span style="color:#6272a4"># Register the tool signature with the assistant agent.</span>
+    assistant<span style="color:#ff79c6">.</span>register_for_llm(
+        name<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;calculator&#34;</span>, description<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;A simple calculator&#34;</span>)(calculator)
+
+    <span style="color:#6272a4"># Register the tool function with the user proxy agent.</span>
+    user_proxy<span style="color:#ff79c6">.</span>register_for_execution(name<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;calculator&#34;</span>)(calculator)
+
+    chat_result <span style="color:#ff79c6">=</span> user_proxy<span style="color:#ff79c6">.</span>initiate_chat(
+        assistant, message<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;2+3等于几&#34;</span>)
+
+
+<span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
+    main()
+
+</code></pre></div><p><code>assistant.register_for_llm</code>和<code>user_proxy.register_for_execution</code>assistant和user_proxy需要同时注册tool，可以换种写法，使用<code>register_function</code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#ff79c6">from</span> autogen <span style="color:#ff79c6">import</span> register_function
+
+<span style="color:#6272a4"># Register the calculator function to the two agents.</span>
+register_function(
+    calculator,
+    caller<span style="color:#ff79c6">=</span>assistant,  <span style="color:#6272a4"># The assistant agent can suggest calls to the calculator.</span>
+    executor<span style="color:#ff79c6">=</span>user_proxy,  <span style="color:#6272a4"># The user proxy agent can execute the calculator calls.</span>
+    name<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;calculator&#34;</span>,  <span style="color:#6272a4"># By default, the function name is used as the tool name.</span>
+    description<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;A simple calculator&#34;</span>,  <span style="color:#6272a4"># A description of the tool.</span>
+)
+</code></pre></div><p>如果用过OpenAI’s tool use的API，会习惯使用tool schema，下面就用tool schema方式重构下代码</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#6272a4"># 使用pydantic实现复杂的type schema</span>
+<span style="color:#ff79c6">from</span> pydantic <span style="color:#ff79c6">import</span> BaseModel, Field
+
+<span style="color:#ff79c6">class</span> <span style="color:#50fa7b">CalculatorInput</span>(BaseModel):
+    a: Annotated[<span style="color:#8be9fd;font-style:italic">int</span>, Field(description<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;The first number.&#34;</span>)]
+    b: Annotated[<span style="color:#8be9fd;font-style:italic">int</span>, Field(description<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;The second number.&#34;</span>)]
+    operator: Annotated[Operator, Field(description<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;The operator.&#34;</span>)]
+
+
+<span style="color:#ff79c6">def</span> <span style="color:#50fa7b">calculator</span>(<span style="color:#8be9fd;font-style:italic">input</span>: Annotated[CalculatorInput, <span style="color:#f1fa8c">&#34;Input to the calculator.&#34;</span>]) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">int</span>:
+    <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>operator <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;+&#34;</span>:
+        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>a <span style="color:#ff79c6">+</span> <span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>b
+    <span style="color:#ff79c6">elif</span> <span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>operator <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;-&#34;</span>:
+        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>a <span style="color:#ff79c6">-</span> <span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>b
+    <span style="color:#ff79c6">elif</span> <span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>operator <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;*&#34;</span>:
+        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>a <span style="color:#ff79c6">*</span> <span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>b
+    <span style="color:#ff79c6">elif</span> <span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>operator <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;/&#34;</span>:
+        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">int</span>(<span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>a <span style="color:#ff79c6">/</span> <span style="color:#8be9fd;font-style:italic">input</span><span style="color:#ff79c6">.</span>b)
+    <span style="color:#ff79c6">else</span>:
+        <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">&#34;Invalid operator&#34;</span>)
+</code></pre></div><h3 id="对话模式">对话模式</h3>
 <h4 id="双agent互聊">双Agent互聊</h4>
 <p>
   <img src="https://microsoft.github.io/autogen/assets/images/two-agent-chat-512f70f6b1393b05dc9019c322b15213.png" alt="two-agent-chat">
