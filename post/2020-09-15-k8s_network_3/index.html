@@ -10,8 +10,8 @@
     <meta property="og:type" content="article">
 
     
-    <meta property="og:image" content="https://www.iceyao.com.cn/img/post-bg-unix-linux.jpg">
-    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/post-bg-unix-linux.jpg" />
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
     
 
     
@@ -74,16 +74,25 @@
 
 
 
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
-<script>
-var doNotTrack = false;
-if (!doNotTrack) {
-	window.dataLayer = window.dataLayer || [];
-	function gtag(){dataLayer.push(arguments);}
-	gtag('js', new Date());
-	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
-}
-</script>
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
 
 
 
@@ -375,7 +384,7 @@ type ipsetTable struct {
 func (p *PolicyManager) initInformers(networkPolicyInformer networkingformers.NetworkPolicyInformer) {
     //podInformerFactory := informers.NewFilteredSharedInformerFactory(g.client, time.Minute, v1.NamespaceAll,
     //func(listOptions *v1.ListOptions) {
-    //	listOptions.FieldSelector = fields.OneTermEqualSelector(&quot;spec.nodeName&quot;, k8s.GetHostname(&quot;&quot;)).String()
+    //	listOptions.FieldSelector = fields.OneTermEqualSelector(&#34;spec.nodeName&#34;, k8s.GetHostname(&#34;&#34;)).String()
     //})
     p.podInformerFactory = informers.NewSharedInformerFactory(p.client, 0)
     podInformer := p.podInformerFactory.Core().V1().Pods()
@@ -398,7 +407,7 @@ func (p *PolicyManager) initInformers(networkPolicyInformer networkingformers.Ne
 </code></pre><p>实际上network policy实现也是一个controller，监听的是pod/networkPolicy对象的add/update/delete事件</p>
 <p>controller主处理函数</p>
 <pre tabindex="0"><code>func (p *PolicyManager) Run() {
-    glog.Infof(&quot;start resyncing network policies&quot;)
+    glog.Infof(&#34;start resyncing network policies&#34;)
     // 1. 同步集群中所有的networkPolicy规则
     p.syncNetworkPolices()
     // 2. 同步GLX-sip-xxxx/GLX-snet-xxxx/GLX-dip-xxxx/GLX-dnet-xxxx/GLX-ip-xxxx ipsets规则，GLX-PLCY-XXXX iptables链规则
@@ -411,7 +420,7 @@ func (p *PolicyManager) initInformers(networkPolicyInformer networkingformers.Ne
     // 获取所有的NetworkPolicies
     list, err := p.policyLister.NetworkPolicies(v1.NamespaceAll).List(labels.Everything())
     if err != nil {
-        glog.Warningf(&quot;failed to list network policies: %v&quot;, err)
+        glog.Warningf(&#34;failed to list network policies: %v&#34;, err)
         return
     }
     // 同步所有pod的开销很大，所以存在NetworkPolicie的话才执行这个步骤
@@ -436,11 +445,11 @@ func (p *PolicyManager) initInformers(networkPolicyInformer networkingformers.Ne
     p.policies = policies
     p.Unlock()
 }
-</code></pre><pre tabindex="0"><code>// It's expensive to sync all pods. So don't start podInformerFactory until there is any network policy object
+</code></pre><pre tabindex="0"><code>// It&#39;s expensive to sync all pods. So don&#39;t start podInformerFactory until there is any network policy object
 func (p *PolicyManager) startPodInformerFactory() {
     p.podInformerOnce.Do(func() {
-        glog.Infof(&quot;starting pod informer factory&quot;)
-        defer glog.Infof(&quot;started pod informer factory&quot;)
+        glog.Infof(&#34;starting pod informer factory&#34;)
+        defer glog.Infof(&#34;started pod informer factory&#34;)
         namespaceInformer := p.podInformerFactory.Core().V1().Namespaces()
         namespaceCachedInformer := namespaceInformer.Informer()
         p.namespaceLister = namespaceInformer.Lister()
@@ -460,7 +469,7 @@ func (p *PolicyManager) startPodInformerFactory() {
     policies = p.policies
     p.Unlock()
     if err := p.syncRules(policies); err != nil {
-        glog.Warningf(&quot;failed to sync policy rules: %v&quot;, err)
+        glog.Warningf(&#34;failed to sync policy rules: %v&#34;, err)
     }
 }
 
@@ -471,7 +480,7 @@ func (p *PolicyManager) syncRules(polices []policy) error {
     // 获取所有ipset规则
     ipsets, err := p.ipsetHandle.ListSets()
     if err != nil {
-        return fmt.Errorf(&quot;failed to list ipsets: %v&quot;, err)
+        return fmt.Errorf(&#34;failed to list ipsets: %v&#34;, err)
     }
     // build new ipset table map
     // ipsetMap的数据结构：map[string]*ipsetTable
@@ -503,14 +512,14 @@ func (p *PolicyManager) syncRules(polices []policy) error {
 }
 </code></pre><h4 id="syncpods">syncPods</h4>
 <pre tabindex="0"><code>func (p *PolicyManager) syncPods() {
-    glog.V(4).Infof(&quot;start syncing pods&quot;)
+    glog.V(4).Infof(&#34;start syncing pods&#34;)
     var wg sync.WaitGroup
     // 同步pod iptables链的函数
     syncPodChains := func(pod *corev1.Pod) {
         defer wg.Done()
         // 同步GLX-INGRESS/GLX-EGRESS/GLX-POD-XXXX iptable链规则
         if err := p.SyncPodChains(pod); err != nil {
-            glog.Warningf(&quot;failed to sync pod policy %s_%s: %v&quot;, pod.Name, pod.Namespace, err)
+            glog.Warningf(&#34;failed to sync pod policy %s_%s: %v&#34;, pod.Name, pod.Namespace, err)
         }
     }
     // pod informer cache已经同步的话
@@ -518,34 +527,34 @@ func (p *PolicyManager) syncRules(polices []policy) error {
         // 获取所有pod
         pods, err := p.podLister.Pods(v1.NamespaceAll).List(labels.Everything())
         if err != nil {
-            glog.Warningf(&quot;failed to list pods: %v&quot;, err)
+            glog.Warningf(&#34;failed to list pods: %v&#34;, err)
             return
         }
         // 获取nodeName
         nodeHostName := k8s.GetHostname()
-        glog.V(4).Infof(&quot;find %d pods, nodeHostName %s&quot;, len(pods), nodeHostName)
+        glog.V(4).Infof(&#34;find %d pods, nodeHostName %s&#34;, len(pods), nodeHostName)
         for i := range pods {
             // 遍历匹配nodeName过滤
             if pods[i].Spec.NodeName != nodeHostName {
                 continue
             }
             wg.Add(1)
-            glog.V(4).Infof(&quot;starting goroutine to sync pod chain for %s_%s&quot;, pods[i].Name, pods[i].Namespace)
+            glog.V(4).Infof(&#34;starting goroutine to sync pod chain for %s_%s&#34;, pods[i].Name, pods[i].Namespace)
             // 调用syncPodChains
             go syncPodChains(pods[i])
         }
     } else {
         // pod informer cache未同步的话
-        // PodInformerFactory not started meaning there isn't any network policy right now, ensure pods' chains
+        // PodInformerFactory not started meaning there isn&#39;t any network policy right now, ensure pods&#39; chains
         // are deleted
         // 调用apiserver直接过滤字段获取其节点下的所有pod
         list, err := p.client.CoreV1().Pods(v1.NamespaceAll).List(p.ctx, v1.ListOptions{
-            FieldSelector: fields.OneTermEqualSelector(&quot;spec.nodeName&quot;, k8s.GetHostname()).String()})
+            FieldSelector: fields.OneTermEqualSelector(&#34;spec.nodeName&#34;, k8s.GetHostname()).String()})
         if err != nil {
-            glog.Warningf(&quot;failed to list pods: %v&quot;, err)
+            glog.Warningf(&#34;failed to list pods: %v&#34;, err)
             return
         }
-        glog.V(4).Infof(&quot;find %d pods&quot;, len(list.Items))
+        glog.V(4).Infof(&#34;find %d pods&#34;, len(list.Items))
         for i := range list.Items {
             wg.Add(1)
             // 调用syncPodChains 
@@ -620,7 +629,7 @@ Sep 28 21:57:16 [localhost] kernel: [66008088.172426] TRACE: filter:OUTPUT:rule:
 <div class="zs-modal-box">
 	<div class="zs-modal-head">
 		<button type="button" class="close">×</button>
-		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
         
 	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
 		
@@ -783,6 +792,11 @@ Sep 28 21:57:16 [localhost] kernel: [66008088.172426] TRACE: filter:OUTPUT:rule:
         </div>
     </div>
 </article>
+
+
+
+
+
 
 
 
@@ -990,6 +1004,7 @@ Sep 28 21:57:16 [localhost] kernel: [66008088.172426] TRACE: filter:OUTPUT:rule:
         });
     });
 </script>
+
 
 
 

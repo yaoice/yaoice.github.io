@@ -10,8 +10,8 @@
     <meta property="og:type" content="article">
 
     
-    <meta property="og:image" content="https://www.iceyao.com.cn/img/post-bg-unix-linux.jpg">
-    <meta property="twitter:image" content="https://www.iceyao.com.cn/img/post-bg-unix-linux.jpg" />
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
     
 
     
@@ -74,16 +74,25 @@
 
 
 
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
-<script>
-var doNotTrack = false;
-if (!doNotTrack) {
-	window.dataLayer = window.dataLayer || [];
-	function gtag(){dataLayer.push(arguments);}
-	gtag('js', new Date());
-	gtag('config', 'G-9J7CKFVPPM', { 'anonymize_ip': false });
-}
-</script>
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
 
 
 
@@ -328,76 +337,76 @@ data:
     }
 </code></pre><h4 id="15-local-pvc-provisioner部署">1.5 local-pvc-provisioner部署</h4>
 <p>这里采用local-pvc-provisioner, 有其它的存储更好了，比如说：ceph、nfs.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="color:#6272a4"># wget -c https://raw.githubusercontent.com/kubernetes-sigs/sig-storage-local-static-provisioner/master/deployment/kubernetes/example/default_example_provisioner_generated.yaml</span>
-</code></pre></div><p>这里<code>fsType: xfs</code>,  dockerhub上有local-volume-provisioner镜像<code>docker pull googleimages/local-volume-provisioner:v2.4.0</code>，可能无法访问gcr.io镜像仓库地址</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span><span style="color:#6272a4"># wget -c https://raw.githubusercontent.com/kubernetes-sigs/sig-storage-local-static-provisioner/master/deployment/kubernetes/example/default_example_provisioner_generated.yaml</span>
+</span></span></code></pre></div><p>这里<code>fsType: xfs</code>,  dockerhub上有local-volume-provisioner镜像<code>docker pull googleimages/local-volume-provisioner:v2.4.0</code>，可能无法访问gcr.io镜像仓库地址</p>
 <p>部署local-volume-provisioner</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="color:#6272a4"># kubectl apply -f default_example_provisioner_generated.yaml</span>
-
-<span style="color:#6272a4"># kubectl  get ds</span>
-NAME                       DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
-local-volume-provisioner   <span style="color:#bd93f9">1</span>         <span style="color:#bd93f9">1</span>         <span style="color:#bd93f9">1</span>       <span style="color:#bd93f9">1</span>            <span style="color:#bd93f9">1</span>           &lt;none&gt;          12m
-
-<span style="color:#6272a4"># kubectl  get pod</span>
-NAME                              READY   STATUS    RESTARTS   AGE
-local-volume-provisioner-nrww4    1/1     Running   <span style="color:#bd93f9">0</span>          12m
-</code></pre></div><p>创建local-volume-storageclass</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="color:#6272a4"># kubectl apply -f - &lt;&lt; EOF</span>
-<span style="color:#ff79c6">kind</span>: StorageClass
-<span style="color:#ff79c6">apiVersion</span>: storage.k8s.io/v1
-<span style="color:#ff79c6">metadata</span>:
-  <span style="color:#ff79c6">name</span>: fast-disks
-<span style="color:#ff79c6">provisioner</span>: kubernetes.io/no-provisioner
-<span style="color:#ff79c6">volumeBindingMode</span>: WaitForFirstConsumer
-EOF
-
-<span style="color:#6272a4">#设置为默认storageclass</span>
-<span style="color:#6272a4"># kubectl patch storageclass fast-disks -p &#39;{&#34;metadata&#34;: {&#34;annotations&#34;:{&#34;storageclass.kubernetes.io/is-default-class&#34;:&#34;true&#34;}}}&#39;</span>
-</code></pre></div><p>local-volume-provisioner默认的可发现目录（discovery directory）是<code>/mnt/fast-disks</code>，挂载到这里的目录必须是mount进来，手动创建目录是不会被自动转换为PV的</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">mkdir -p /opt/k8s/localpv/<span style="color:#ff79c6">{</span>sda,sdb,sdc<span style="color:#ff79c6">}</span>
-mkdir -p /mnt/fast-disks/<span style="color:#ff79c6">{</span>sda,sdb,sdc<span style="color:#ff79c6">}</span>
-mount --bind /opt/k8s/localpv/sda /mnt/fast-disks/sda
-mount --bind /opt/k8s/localpv/sdb /mnt/fast-disks/sdb
-mount --bind /opt/k8s/localpv/sdc /mnt/fast-disks/sdc
-</code></pre></div><p>创建pod，验证local-pv</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="color:#6272a4"># kubectl apply -f - &lt;&lt; EOF</span>
-<span style="color:#ff79c6">kind</span>: PersistentVolumeClaim
-<span style="color:#ff79c6">apiVersion</span>: v1
-<span style="color:#ff79c6">metadata</span>:
-  <span style="color:#ff79c6">name</span>: pvc-local
-<span style="color:#ff79c6">spec</span>:
-  <span style="color:#ff79c6">accessModes</span>:
-  - ReadWriteOnce
-  <span style="color:#ff79c6">resources</span>:
-    <span style="color:#ff79c6">requests</span>:
-      <span style="color:#ff79c6">storage</span>: 5Gi
-  <span style="color:#ff79c6">storageClassName</span>: fast-disks
----
-<span style="color:#ff79c6">apiVersion</span>: v1
-<span style="color:#ff79c6">kind</span>: Pod
-<span style="color:#ff79c6">metadata</span>:
-  <span style="color:#ff79c6">name</span>: pv-local-pod
-<span style="color:#ff79c6">spec</span>:
-  <span style="color:#ff79c6">volumes</span>:
-  - <span style="color:#ff79c6">name</span>: example-pv-local
-    <span style="color:#ff79c6">persistentVolumeClaim</span>:
-      <span style="color:#ff79c6">claimName</span>: pvc-local
-  <span style="color:#ff79c6">containers</span>:
-  - <span style="color:#ff79c6">name</span>: example-pv-local
-    <span style="color:#ff79c6">image</span>: nginx
-    <span style="color:#ff79c6">ports</span>:
-    - <span style="color:#ff79c6">containerPort</span>: <span style="color:#bd93f9">80</span>
-    <span style="color:#ff79c6">volumeMounts</span>:
-    - <span style="color:#ff79c6">mountPath</span>: /usr/share/nginx/html
-      <span style="color:#ff79c6">name</span>: example-pv-local
-EOF
-</code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># kubectl get pod nginx-c48bdb85c-clbtt</span>
-NAME                    READY   STATUS    RESTARTS   AGE
-nginx-c48bdb85c-clbtt   1/1     Running   <span style="color:#bd93f9">0</span>          4d23h
-
-<span style="color:#6272a4"># kubectl get pvc pvc-local</span>
-NAME        STATUS   VOLUME              CAPACITY   ACCESS MODES   STORAGECLASS   AGE
-pvc-local   Bound    local-pv-ffd50f12   208Gi      RWO            fast-disks     46s
-</code></pre></div><h4 id="16-helm-push插件安装">1.6 helm-push插件安装</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span><span style="color:#6272a4"># kubectl apply -f default_example_provisioner_generated.yaml</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># kubectl  get ds</span>
+</span></span><span style="display:flex;"><span>NAME                       DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+</span></span><span style="display:flex;"><span>local-volume-provisioner   <span style="color:#bd93f9">1</span>         <span style="color:#bd93f9">1</span>         <span style="color:#bd93f9">1</span>       <span style="color:#bd93f9">1</span>            <span style="color:#bd93f9">1</span>           &lt;none&gt;          12m
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># kubectl  get pod</span>
+</span></span><span style="display:flex;"><span>NAME                              READY   STATUS    RESTARTS   AGE
+</span></span><span style="display:flex;"><span>local-volume-provisioner-nrww4    1/1     Running   <span style="color:#bd93f9">0</span>          12m
+</span></span></code></pre></div><p>创建local-volume-storageclass</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#6272a4"># kubectl apply -f - &lt;&lt; EOF</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">kind</span>: StorageClass
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">apiVersion</span>: storage.k8s.io/v1
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">metadata</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">name</span>: fast-disks
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">provisioner</span>: kubernetes.io/no-provisioner
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">volumeBindingMode</span>: WaitForFirstConsumer
+</span></span><span style="display:flex;"><span>EOF
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">#设置为默认storageclass</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># kubectl patch storageclass fast-disks -p &#39;{&#34;metadata&#34;: {&#34;annotations&#34;:{&#34;storageclass.kubernetes.io/is-default-class&#34;:&#34;true&#34;}}}&#39;</span>
+</span></span></code></pre></div><p>local-volume-provisioner默认的可发现目录（discovery directory）是<code>/mnt/fast-disks</code>，挂载到这里的目录必须是mount进来，手动创建目录是不会被自动转换为PV的</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>mkdir -p /opt/k8s/localpv/<span style="color:#ff79c6">{</span>sda,sdb,sdc<span style="color:#ff79c6">}</span>
+</span></span><span style="display:flex;"><span>mkdir -p /mnt/fast-disks/<span style="color:#ff79c6">{</span>sda,sdb,sdc<span style="color:#ff79c6">}</span>
+</span></span><span style="display:flex;"><span>mount --bind /opt/k8s/localpv/sda /mnt/fast-disks/sda
+</span></span><span style="display:flex;"><span>mount --bind /opt/k8s/localpv/sdb /mnt/fast-disks/sdb
+</span></span><span style="display:flex;"><span>mount --bind /opt/k8s/localpv/sdc /mnt/fast-disks/sdc
+</span></span></code></pre></div><p>创建pod，验证local-pv</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#6272a4"># kubectl apply -f - &lt;&lt; EOF</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">kind</span>: PersistentVolumeClaim
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">apiVersion</span>: v1
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">metadata</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">name</span>: pvc-local
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">spec</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">accessModes</span>:
+</span></span><span style="display:flex;"><span>  - ReadWriteOnce
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">resources</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">requests</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">storage</span>: 5Gi
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">storageClassName</span>: fast-disks
+</span></span><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">apiVersion</span>: v1
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">kind</span>: Pod
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">metadata</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">name</span>: pv-local-pod
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">spec</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">volumes</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ff79c6">name</span>: example-pv-local
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">persistentVolumeClaim</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">claimName</span>: pvc-local
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">containers</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ff79c6">name</span>: example-pv-local
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">image</span>: nginx
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">ports</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#ff79c6">containerPort</span>: <span style="color:#bd93f9">80</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">volumeMounts</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#ff79c6">mountPath</span>: /usr/share/nginx/html
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">name</span>: example-pv-local
+</span></span><span style="display:flex;"><span>EOF
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># kubectl get pod nginx-c48bdb85c-clbtt</span>
+</span></span><span style="display:flex;"><span>NAME                    READY   STATUS    RESTARTS   AGE
+</span></span><span style="display:flex;"><span>nginx-c48bdb85c-clbtt   1/1     Running   <span style="color:#bd93f9">0</span>          4d23h
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># kubectl get pvc pvc-local</span>
+</span></span><span style="display:flex;"><span>NAME        STATUS   VOLUME              CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+</span></span><span style="display:flex;"><span>pvc-local   Bound    local-pv-ffd50f12   208Gi      RWO            fast-disks     46s
+</span></span></code></pre></div><h4 id="16-helm-push插件安装">1.6 helm-push插件安装</h4>
 <p>helm-push插件离线安装</p>
 <pre tabindex="0"><code># wget -c https://github.com/chartmuseum/helm-push/releases/download/v0.9.0/helm-push_0.9.0_linux_amd64.tar.gz
 # mkdir -p $HOME/.local/share/helm/plugins/helm-push
@@ -533,7 +542,7 @@ WORKDIR /usr/src/dev
 COPY settings.xml /usr/share/maven/ref/
 COPY . /usr/src/dev
 
-ENV TIMEZONE &quot;Asia/Shanghai&quot;
+ENV TIMEZONE &#34;Asia/Shanghai&#34;
 
 RUN mvn -B -f pom.xml -s /usr/share/maven/ref/settings.xml clean install
 RUN ls /usr/src/dev-xxx/target/
@@ -548,44 +557,44 @@ COPY --from=builder /usr/src/dev/target/xxx.jar /java/bin
 # copy the config files from the current working dir
 
 EXPOSE 80
-ENTRYPOINT [&quot;java&quot;, &quot;-jar&quot;, &quot;xxx.jar&quot;]
+ENTRYPOINT [&#34;java&#34;, &#34;-jar&#34;, &#34;xxx.jar&#34;]
 </code></pre><p>Dockerfile两步编译阶段，第一个编译阶段利用maven镜像编译出来的产物复制给第二个编译阶段</p>
 <h4 id="27-jenkinsfile范例">2.7 Jenkinsfile范例</h4>
 <p>Slave节点预装了argocd客户端，配置gitlab ssh密钥互信</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#6272a4"># tree ci</span>
-ci
-├── Build.sh
-├── Clean.sh
-├── Common.sh
-├── Deliver.sh
-├── Jenkinsfile
-└── Update.sh
-</code></pre></div><p>Jenkinsfile文件</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># tree ci</span>
+</span></span><span style="display:flex;"><span>ci
+</span></span><span style="display:flex;"><span>├── Build.sh
+</span></span><span style="display:flex;"><span>├── Clean.sh
+</span></span><span style="display:flex;"><span>├── Common.sh
+</span></span><span style="display:flex;"><span>├── Deliver.sh
+</span></span><span style="display:flex;"><span>├── Jenkinsfile
+</span></span><span style="display:flex;"><span>└── Update.sh
+</span></span></code></pre></div><p>Jenkinsfile文件</p>
 <pre tabindex="0"><code># cat ci/Jenkinsfile
 node {
 
-  def APP_GIT_URL='git@git.xxx.com:xxx/dev-xxx.git'
-  def GIT_CREDENTIALSID='gitlab_ssh'
+  def APP_GIT_URL=&#39;git@git.xxx.com:xxx/dev-xxx.git&#39;
+  def GIT_CREDENTIALSID=&#39;gitlab_ssh&#39;
 
-  stage ('Checkout') {
-    checkout([$class: 'GitSCM', branches: [[name: &quot;${params.BRANCH_OR_TAG}&quot;]], extensions: [[$class: 'LocalBranch', localBranch: &quot;${params.BRANCH_OR_TAG}&quot;],[$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: true, recursiveSubmodules: true, reference: '', trackingSubmodules: true]], userRemoteConfigs: [[credentialsId: &quot;${GIT_CREDENTIALSID}&quot;, url: &quot;${APP_GIT_URL}&quot;]]])
-    sh 'chmod a+x ./ci/*.sh'
+  stage (&#39;Checkout&#39;) {
+    checkout([$class: &#39;GitSCM&#39;, branches: [[name: &#34;${params.BRANCH_OR_TAG}&#34;]], extensions: [[$class: &#39;LocalBranch&#39;, localBranch: &#34;${params.BRANCH_OR_TAG}&#34;],[$class: &#39;SubmoduleOption&#39;, disableSubmodules: false, parentCredentials: true, recursiveSubmodules: true, reference: &#39;&#39;, trackingSubmodules: true]], userRemoteConfigs: [[credentialsId: &#34;${GIT_CREDENTIALSID}&#34;, url: &#34;${APP_GIT_URL}&#34;]]])
+    sh &#39;chmod a+x ./ci/*.sh&#39;
   }
 
-  stage ('Build') {
-    sh './ci/Build.sh'
+  stage (&#39;Build&#39;) {
+    sh &#39;./ci/Build.sh&#39;
   }
 
-  stage ('Update') {
-    sh './ci/Update.sh'
+  stage (&#39;Update&#39;) {
+    sh &#39;./ci/Update.sh&#39;
   }
 
-  stage ('Deliver') {
-    sh './ci/Deliver.sh'
+  stage (&#39;Deliver&#39;) {
+    sh &#39;./ci/Deliver.sh&#39;
   }
 
-  stage ('Cleanup') {
-    sh './ci/Clean.sh'
+  stage (&#39;Cleanup&#39;) {
+    sh &#39;./ci/Clean.sh&#39;
     deleteDir()
   }
 }
@@ -595,7 +604,7 @@ node {
 
 set -x
 
-BASEDIR=$(dirname &quot;$0&quot;)
+BASEDIR=$(dirname &#34;$0&#34;)
 source ${BASEDIR}/Common.sh
 
 #lgoin
@@ -615,7 +624,7 @@ docker rmi -f ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
 
 set -x
 
-BASEDIR=$(dirname &quot;$0&quot;)
+BASEDIR=$(dirname &#34;$0&#34;)
 source ${BASEDIR}/Common.sh
 
 #git clone
@@ -623,12 +632,12 @@ git clone git@git.xxx.com:xxx/xxx_manifest.git
 cd lls_manifest/
 
 #replace image tag
-sed -i -r &quot;s;image:(.*);image: \&quot;${IMAGE_NAME}:${IMAGE_TAG}\&quot;;g&quot; dev-xxx/dev-xxx-dep.yaml
+sed -i -r &#34;s;image:(.*);image: \&#34;${IMAGE_NAME}:${IMAGE_TAG}\&#34;;g&#34; dev-xxx/dev-xxx-dep.yaml
 
 #git push
-git config --global user.name &quot;Administrator&quot;
-git config --global user.email &quot;test@xxx.com&quot;
-git commit -am &quot;${JOB_NAME}-${BUILD_TAG} image update&quot;
+git config --global user.name &#34;Administrator&#34;
+git config --global user.email &#34;test@xxx.com&#34;
+git commit -am &#34;${JOB_NAME}-${BUILD_TAG} image update&#34;
 git push
 </code></pre><p>Deliver.sh文件</p>
 <pre tabindex="0"><code># cat ci/Deliver.sh
@@ -636,7 +645,7 @@ git push
 
 set -x
 
-BASEDIR=$(dirname &quot;$0&quot;)
+BASEDIR=$(dirname &#34;$0&#34;)
 source ${BASEDIR}/Common.sh
 
 #login
@@ -657,12 +666,12 @@ argocd app create test-dev-xxx \
          --auto-prune
 </code></pre><p>Common.sh文件</p>
 <pre tabindex="0"><code># cat ci/Common.sh
-IMAGE_REGISTRY=&quot;default.registry.xxx.com&quot;
-IMAGE_REGISTRY_USER=&quot;tkestack&quot;
-IMAGE_REGISTRY_PASS=&quot;eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.xxx&quot;
-IMAGE_NAME=&quot;devops/dev-xxx&quot;
-GIT_COMMIT_ID=`git describe --always --tags | sed 's/-/./2' | sed 's/-/./2'`
-IMAGE_TAG=${GIT_COMMIT_ID:-'latest'}
+IMAGE_REGISTRY=&#34;default.registry.xxx.com&#34;
+IMAGE_REGISTRY_USER=&#34;tkestack&#34;
+IMAGE_REGISTRY_PASS=&#34;eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.xxx&#34;
+IMAGE_NAME=&#34;devops/dev-xxx&#34;
+GIT_COMMIT_ID=`git describe --always --tags | sed &#39;s/-/./2&#39; | sed &#39;s/-/./2&#39;`
+IMAGE_TAG=${GIT_COMMIT_ID:-&#39;latest&#39;}
 </code></pre><p>Clean.sh文件</p>
 <pre tabindex="0"><code># cat ci/Clean.sh
 #!/bin/bash
@@ -671,74 +680,74 @@ IMAGE_TAG=${GIT_COMMIT_ID:-'latest'}
 <p>MANIFEST_GIT_URL、IMAGE_REGISTRY、ARGOCD_URL在Jenkins全局变量那边声明，xxx_CREDENTIALSID在Jenkins全局凭证那边配置</p>
 <pre tabindex="0"><code>cat Jenkinsfile
 node {
-  def APP_GIT_URL='git@git.xxx.com:xxx/dev-xxx.git'
-  def APP_NAMESPACE=&quot;devops&quot;
-  def APP_NAME=&quot;dev-xxx&quot;
-  def APP_DEPLOY_ENV=&quot;dev&quot;
+  def APP_GIT_URL=&#39;git@git.xxx.com:xxx/dev-xxx.git&#39;
+  def APP_NAMESPACE=&#34;devops&#34;
+  def APP_NAME=&#34;dev-xxx&#34;
+  def APP_DEPLOY_ENV=&#34;dev&#34;
 
-  def GIT_CREDENTIALSID='gitlab_ssh'
-  def IMAGE_REGISTRY_CREDENTIALSID='registry_auth'
-  def ARGOCD_CREDENTIALSID='argocd_auth'
+  def GIT_CREDENTIALSID=&#39;gitlab_ssh&#39;
+  def IMAGE_REGISTRY_CREDENTIALSID=&#39;registry_auth&#39;
+  def ARGOCD_CREDENTIALSID=&#39;argocd_auth&#39;
 
-  def MANIFEST_GIT_URL=&quot;${MANIFEST_GIT_URL}&quot;
-  def BRANCH_OR_TAG=&quot;${params.BRANCH_OR_TAG}&quot;
+  def MANIFEST_GIT_URL=&#34;${MANIFEST_GIT_URL}&#34;
+  def BRANCH_OR_TAG=&#34;${params.BRANCH_OR_TAG}&#34;
 
-  def ARGOCD_URL=&quot;${ARGOCD_URL}&quot;
-  def IMAGE_REGISTRY=&quot;${IMAGE_REGISTRY}&quot;
+  def ARGOCD_URL=&#34;${ARGOCD_URL}&#34;
+  def IMAGE_REGISTRY=&#34;${IMAGE_REGISTRY}&#34;
 
-  env.IMAGE_TAG=&quot;${params.IMAGE_TAG}&quot;
+  env.IMAGE_TAG=&#34;${params.IMAGE_TAG}&#34;
 
-  stage ('Checkout') {
-    checkout([$class: 'GitSCM', branches: [[name: &quot;${BRANCH_OR_TAG}&quot;]], extensions: [[$class: 'LocalBranch', localBranch: &quot;${BRANCH_OR_TAG}&quot;],[$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: true, recursiveSubmodules: true, reference: '', trackingSubmodules: true]], userRemoteConfigs: [[credentialsId: &quot;${GIT_CREDENTIALSID}&quot;, url: &quot;${APP_GIT_URL}&quot;]]])
+  stage (&#39;Checkout&#39;) {
+    checkout([$class: &#39;GitSCM&#39;, branches: [[name: &#34;${BRANCH_OR_TAG}&#34;]], extensions: [[$class: &#39;LocalBranch&#39;, localBranch: &#34;${BRANCH_OR_TAG}&#34;],[$class: &#39;SubmoduleOption&#39;, disableSubmodules: false, parentCredentials: true, recursiveSubmodules: true, reference: &#39;&#39;, trackingSubmodules: true]], userRemoteConfigs: [[credentialsId: &#34;${GIT_CREDENTIALSID}&#34;, url: &#34;${APP_GIT_URL}&#34;]]])
 
-    if (&quot;${env.IMAGE_TAG}&quot; == &quot;&quot;) {
-        env.IMAGE_TAG = &quot;${sh(script:'git rev-parse --short HEAD', returnStdout: true).trim()}&quot;
+    if (&#34;${env.IMAGE_TAG}&#34; == &#34;&#34;) {
+        env.IMAGE_TAG = &#34;${sh(script:&#39;git rev-parse --short HEAD&#39;, returnStdout: true).trim()}&#34;
     }
   }
 
-  stage ('Build') {
+  stage (&#39;Build&#39;) {
     //login docker registry
-    withCredentials([usernamePassword(credentialsId: &quot;${IMAGE_REGISTRY_CREDENTIALSID}&quot;, usernameVariable: &quot;IMAGE_REGISTRY_USER&quot;, passwordVariable: &quot;IMAGE_REGISTRY_PASS&quot;)]){
-      sh(&quot;docker login -u ${IMAGE_REGISTRY_USER} -p ${IMAGE_REGISTRY_PASS} ${IMAGE_REGISTRY}&quot;)
+    withCredentials([usernamePassword(credentialsId: &#34;${IMAGE_REGISTRY_CREDENTIALSID}&#34;, usernameVariable: &#34;IMAGE_REGISTRY_USER&#34;, passwordVariable: &#34;IMAGE_REGISTRY_PASS&#34;)]){
+      sh(&#34;docker login -u ${IMAGE_REGISTRY_USER} -p ${IMAGE_REGISTRY_PASS} ${IMAGE_REGISTRY}&#34;)
     }
 
     //build image
-    sh(&quot;docker build -t ${IMAGE_REGISTRY}/${APP_NAMESPACE}/${APP_NAME}:${env.IMAGE_TAG} -f ./Dockerfile .&quot;)
+    sh(&#34;docker build -t ${IMAGE_REGISTRY}/${APP_NAMESPACE}/${APP_NAME}:${env.IMAGE_TAG} -f ./Dockerfile .&#34;)
 
     //push image
-    sh(&quot;docker push ${IMAGE_REGISTRY}/${APP_NAMESPACE}/${APP_NAME}:${env.IMAGE_TAG}&quot;)
+    sh(&#34;docker push ${IMAGE_REGISTRY}/${APP_NAMESPACE}/${APP_NAME}:${env.IMAGE_TAG}&#34;)
 
     //rm image
-    sh(&quot;docker rmi -f ${IMAGE_REGISTRY}/${APP_NAMESPACE}/${APP_NAME}:${env.IMAGE_TAG}&quot;)
+    sh(&#34;docker rmi -f ${IMAGE_REGISTRY}/${APP_NAMESPACE}/${APP_NAME}:${env.IMAGE_TAG}&#34;)
   }
 
-  stage ('Update') {
+  stage (&#39;Update&#39;) {
     //git clone
-    checkout([$class: 'GitSCM', branches: [[name: &quot;*/master&quot;]], extensions: [[$class: 'LocalBranch', localBranch: &quot;master&quot;],[$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: true, recursiveSubmodules: true, reference: '', trackingSubmodules: true]], userRemoteConfigs: [[credentialsId: &quot;${GIT_CREDENTIALSID}&quot;, url: &quot;${MANIFEST_GIT_URL}&quot;]]])
+    checkout([$class: &#39;GitSCM&#39;, branches: [[name: &#34;*/master&#34;]], extensions: [[$class: &#39;LocalBranch&#39;, localBranch: &#34;master&#34;],[$class: &#39;SubmoduleOption&#39;, disableSubmodules: false, parentCredentials: true, recursiveSubmodules: true, reference: &#39;&#39;, trackingSubmodules: true]], userRemoteConfigs: [[credentialsId: &#34;${GIT_CREDENTIALSID}&#34;, url: &#34;${MANIFEST_GIT_URL}&#34;]]])
 
     //replace image tag
-    sh(&quot;sed -i -r 's;image:(.*);image: \&quot;${APP_NAMESPACE}/${APP_NAME}:${env.IMAGE_TAG}\&quot;;g' ${APP_DEPLOY_ENV}/${APP_NAME}/${APP_NAME}-dep.yaml&quot;)
+    sh(&#34;sed -i -r &#39;s;image:(.*);image: \&#34;${APP_NAMESPACE}/${APP_NAME}:${env.IMAGE_TAG}\&#34;;g&#39; ${APP_DEPLOY_ENV}/${APP_NAME}/${APP_NAME}-dep.yaml&#34;)
 
     //git push
-    sh(&quot;git config --global user.name 'Administrator'&quot;)
-    sh(&quot;git config --global user.email 'test@lls.com'&quot;)
-    sh(&quot;git commit -am '${JOB_NAME}-${BUILD_TAG} image update'&quot;)
-    sh(&quot;git push&quot;)
+    sh(&#34;git config --global user.name &#39;Administrator&#39;&#34;)
+    sh(&#34;git config --global user.email &#39;test@lls.com&#39;&#34;)
+    sh(&#34;git commit -am &#39;${JOB_NAME}-${BUILD_TAG} image update&#39;&#34;)
+    sh(&#34;git push&#34;)
   }
 
-  stage ('Deliver') {
+  stage (&#39;Deliver&#39;) {
     //login argo-cd server
-    withCredentials([usernamePassword(credentialsId: &quot;${ARGOCD_CREDENTIALSID}&quot;, usernameVariable: &quot;ARGOCD_USER&quot;, passwordVariable: &quot;ARGOCD_PASS&quot;)]){
-      sh(&quot;argocd login ${ARGOCD_URL} \
+    withCredentials([usernamePassword(credentialsId: &#34;${ARGOCD_CREDENTIALSID}&#34;, usernameVariable: &#34;ARGOCD_USER&#34;, passwordVariable: &#34;ARGOCD_PASS&#34;)]){
+      sh(&#34;argocd login ${ARGOCD_URL} \
         --username ${ARGOCD_USER} \
         --password ${ARGOCD_PASS} \
         --insecure \
         --plaintext \
-        --grpc-web&quot;)
+        --grpc-web&#34;)
     }
 
     //create argo-cd app
-    sh(&quot;argocd app create test-${APP_NAME} \
+    sh(&#34;argocd app create test-${APP_NAME} \
          --label env=${APP_DEPLOY_ENV} \
          --repo ${MANIFEST_GIT_URL} \
          --path ${APP_DEPLOY_ENV}/${APP_NAME} \
@@ -746,128 +755,128 @@ node {
          --dest-namespace ${APP_NAMESPACE} \
          --sync-policy automated \
          --grpc-web \
-         --auto-prune&quot;)
+         --auto-prune&#34;)
   }
 
-  stage ('Cleanup') {
+  stage (&#39;Cleanup&#39;) {
     deleteDir()
   }
 }
 </code></pre><p>声明式流水线范例：（Jenkins 2.x版本之后新增了声明式流水线语法）</p>
-<pre tabindex="0"><code>//def ARGOCD_URL=&quot;${ARGOCD_URL}&quot;
-//def MANIFEST_GIT_URL=&quot;${MANIFEST_GIT_URL}&quot;
-//def IMAGE_REGISTRY=&quot;${IMAGE_REGISTRY}&quot;
-def IMAGE_TAG = &quot;&quot;
+<pre tabindex="0"><code>//def ARGOCD_URL=&#34;${ARGOCD_URL}&#34;
+//def MANIFEST_GIT_URL=&#34;${MANIFEST_GIT_URL}&#34;
+//def IMAGE_REGISTRY=&#34;${IMAGE_REGISTRY}&#34;
+def IMAGE_TAG = &#34;&#34;
 
 pipeline {
     agent {
         node {
-          label ''
+          label &#39;&#39;
         }
     }
     //要输入的参数
     parameters {
         // Jenkins parameter
         string(
-            name: 'APP_GIT_URL',
-            defaultValue: '',
-            description: 'Required: input app git repo url')
+            name: &#39;APP_GIT_URL&#39;,
+            defaultValue: &#39;&#39;,
+            description: &#39;Required: input app git repo url&#39;)
         gitParameter(
-            name: 'BRANCH_OR_TAG',
-            branchFilter: 'origin/(.*)',
-            defaultValue: 'origin/master',
-            tagFilter: '*',
-            type: 'PT_BRANCH_TAG',
-            description: 'Required: chose a branch you want')
+            name: &#39;BRANCH_OR_TAG&#39;,
+            branchFilter: &#39;origin/(.*)&#39;,
+            defaultValue: &#39;origin/master&#39;,
+            tagFilter: &#39;*&#39;,
+            type: &#39;PT_BRANCH_TAG&#39;,
+            description: &#39;Required: chose a branch you want&#39;)
         string(
-            name: 'APP_NAME',
-            defaultValue: '',
-            description: 'Required: input app name')
+            name: &#39;APP_NAME&#39;,
+            defaultValue: &#39;&#39;,
+            description: &#39;Required: input app name&#39;)
         choice(
-            name: 'APP_DEPLOY_ENV',
-            choices: ['dev', 'product', 'test'],
-            description: 'Required: input app deploy environment')
+            name: &#39;APP_DEPLOY_ENV&#39;,
+            choices: [&#39;dev&#39;, &#39;product&#39;, &#39;test&#39;],
+            description: &#39;Required: input app deploy environment&#39;)
         string(
-            name: 'IMAGE_TAG',
-            defaultValue: '',
-            description: 'Optional: input app image tag')
+            name: &#39;IMAGE_TAG&#39;,
+            defaultValue: &#39;&#39;,
+            description: &#39;Optional: input app image tag&#39;)
         string(
-            name: 'APP_NAMESPACE',
-            defaultValue: 'devops',
-            description: 'Optional: input app namespace')
+            name: &#39;APP_NAMESPACE&#39;,
+            defaultValue: &#39;devops&#39;,
+            description: &#39;Optional: input app namespace&#39;)
     }
     //全局凭证环境变量
     environment {
-        ARGOCD_AUTH = credentials(&quot;argocd_auth&quot;)
-        REGISTRY_AUTH = credentials(&quot;registry_auth&quot;)
-        GITLAB_AUTH = credentials(&quot;gitlab&quot;)
-        GIT_CREDENTIALSID=&quot;gitlab&quot;
+        ARGOCD_AUTH = credentials(&#34;argocd_auth&#34;)
+        REGISTRY_AUTH = credentials(&#34;registry_auth&#34;)
+        GITLAB_AUTH = credentials(&#34;gitlab&#34;)
+        GIT_CREDENTIALSID=&#34;gitlab&#34;
     }
 
     stages {
       //拉代码阶段
-      stage ('Checkout') {
+      stage (&#39;Checkout&#39;) {
         steps {
-          checkout([$class: 'GitSCM', branches: [[name: &quot;${params.BRANCH_OR_TAG}&quot;]], extensions: [[$class: 'LocalBranch', localBranch: &quot;${params.BRANCH_OR_TAG}&quot;],[$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: true, recursiveSubmodules: true, reference: '', trackingSubmodules: true]], userRemoteConfigs: [[credentialsId: &quot;${env.GIT_CREDENTIALSID}&quot;, url: &quot;${params.APP_GIT_URL}&quot;]]])
+          checkout([$class: &#39;GitSCM&#39;, branches: [[name: &#34;${params.BRANCH_OR_TAG}&#34;]], extensions: [[$class: &#39;LocalBranch&#39;, localBranch: &#34;${params.BRANCH_OR_TAG}&#34;],[$class: &#39;SubmoduleOption&#39;, disableSubmodules: false, parentCredentials: true, recursiveSubmodules: true, reference: &#39;&#39;, trackingSubmodules: true]], userRemoteConfigs: [[credentialsId: &#34;${env.GIT_CREDENTIALSID}&#34;, url: &#34;${params.APP_GIT_URL}&#34;]]])
 
           script {
-            IMAGE_TAG = &quot;${params.IMAGE_TAG}&quot;
+            IMAGE_TAG = &#34;${params.IMAGE_TAG}&#34;
 
             //if not defined, use git last commit-id
-            if ( &quot;${IMAGE_TAG}&quot; == &quot;&quot; ) {
-               IMAGE_TAG = &quot;${sh(script:'git rev-parse --short HEAD', returnStdout: true).trim()}&quot;
+            if ( &#34;${IMAGE_TAG}&#34; == &#34;&#34; ) {
+               IMAGE_TAG = &#34;${sh(script:&#39;git rev-parse --short HEAD&#39;, returnStdout: true).trim()}&#34;
             }
           }
         }
       }
       //构建阶段
-      stage ('Build') {
+      stage (&#39;Build&#39;) {
         steps {
             //login docker registry
-            sh(&quot;docker login -u ${REGISTRY_AUTH_USR} -p ${REGISTRY_AUTH_PSW} ${IMAGE_REGISTRY}&quot;)
+            sh(&#34;docker login -u ${REGISTRY_AUTH_USR} -p ${REGISTRY_AUTH_PSW} ${IMAGE_REGISTRY}&#34;)
 
             //build image
-            sh(&quot;docker build -t ${IMAGE_REGISTRY}/${params.APP_NAMESPACE}/${params.APP_NAME}:${IMAGE_TAG} -f ./Dockerfile .&quot;)
+            sh(&#34;docker build -t ${IMAGE_REGISTRY}/${params.APP_NAMESPACE}/${params.APP_NAME}:${IMAGE_TAG} -f ./Dockerfile .&#34;)
 
             //push image
-            sh(&quot;docker push ${IMAGE_REGISTRY}/${params.APP_NAMESPACE}/${params.APP_NAME}:${IMAGE_TAG}&quot;)
+            sh(&#34;docker push ${IMAGE_REGISTRY}/${params.APP_NAMESPACE}/${params.APP_NAME}:${IMAGE_TAG}&#34;)
 
             //rm image
-            sh(&quot;docker rmi -f ${IMAGE_REGISTRY}/${params.APP_NAMESPACE}/${params.APP_NAME}:${IMAGE_TAG}&quot;)
+            sh(&#34;docker rmi -f ${IMAGE_REGISTRY}/${params.APP_NAMESPACE}/${params.APP_NAME}:${IMAGE_TAG}&#34;)
          }
       }
       //修改Manifest阶段
-      stage ('Update') {
+      stage (&#39;Update&#39;) {
         steps {
             //git clone
-            checkout([$class: 'GitSCM', branches: [[name: &quot;*/master&quot;]], extensions: [[$class: 'LocalBranch', localBranch: &quot;master&quot;],[$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: true, recursiveSubmodules: true, reference: '', trackingSubmodules: true]], userRemoteConfigs: [[credentialsId: &quot;${env.GIT_CREDENTIALSID}&quot;, url: &quot;https://${MANIFEST_GIT_URL}&quot;]]])
+            checkout([$class: &#39;GitSCM&#39;, branches: [[name: &#34;*/master&#34;]], extensions: [[$class: &#39;LocalBranch&#39;, localBranch: &#34;master&#34;],[$class: &#39;SubmoduleOption&#39;, disableSubmodules: false, parentCredentials: true, recursiveSubmodules: true, reference: &#39;&#39;, trackingSubmodules: true]], userRemoteConfigs: [[credentialsId: &#34;${env.GIT_CREDENTIALSID}&#34;, url: &#34;https://${MANIFEST_GIT_URL}&#34;]]])
 
             //replace image tag
-            sh(&quot;sed -i -r 's;image:(.*);image: \&quot;${params.APP_NAMESPACE}/${params.APP_NAME}:${IMAGE_TAG}\&quot;;g' ${params.APP_DEPLOY_ENV}/${params.APP_NAME}/${params.APP_NAME}-dep.yaml&quot;)
-            sh(&quot;echo `date '+%Y-%m-%d_%H-%M-%S'` &gt; ${params.APP_DEPLOY_ENV}/build_timestamp&quot;)
+            sh(&#34;sed -i -r &#39;s;image:(.*);image: \&#34;${params.APP_NAMESPACE}/${params.APP_NAME}:${IMAGE_TAG}\&#34;;g&#39; ${params.APP_DEPLOY_ENV}/${params.APP_NAME}/${params.APP_NAME}-dep.yaml&#34;)
+            sh(&#34;echo `date &#39;+%Y-%m-%d_%H-%M-%S&#39;` &gt; ${params.APP_DEPLOY_ENV}/build_timestamp&#34;)
 
             //git push
-            sh(&quot;git config --global user.name 'Administrator'&quot;)
-            sh(&quot;git config --global user.email 'test@lls.com'&quot;)
-            sh(&quot;git add --all&quot;)
-            sh(&quot;git commit -am '${JOB_NAME}-${BUILD_TAG} image update'&quot;)
-            sh(&quot;git push https://${GITLAB_AUTH_USR}:${GITLAB_AUTH_PSW}@${MANIFEST_GIT_URL}&quot;)
+            sh(&#34;git config --global user.name &#39;Administrator&#39;&#34;)
+            sh(&#34;git config --global user.email &#39;test@lls.com&#39;&#34;)
+            sh(&#34;git add --all&#34;)
+            sh(&#34;git commit -am &#39;${JOB_NAME}-${BUILD_TAG} image update&#39;&#34;)
+            sh(&#34;git push https://${GITLAB_AUTH_USR}:${GITLAB_AUTH_PSW}@${MANIFEST_GIT_URL}&#34;)
         }
       }
       //发布阶段
-      stage ('Deliver') {
+      stage (&#39;Deliver&#39;) {
         steps {
             //login argo-cd server
-            sh(&quot;argocd login ${ARGOCD_URL} \
+            sh(&#34;argocd login ${ARGOCD_URL} \
                 --username ${ARGOCD_AUTH_USR} \
                 --password ${ARGOCD_AUTH_PSW} \
                 --insecure \
                 --plaintext \
-                --grpc-web&quot;)
+                --grpc-web&#34;)
 
 
             //create argo-cd app
-            sh(&quot;argocd app create test-${params.APP_NAME} \
+            sh(&#34;argocd app create test-${params.APP_NAME} \
                  --label env=${params.APP_DEPLOY_ENV} \
                  --repo https://${MANIFEST_GIT_URL} \
                  --path ${params.APP_DEPLOY_ENV}/${params.APP_NAME} \
@@ -875,7 +884,7 @@ pipeline {
                  --dest-namespace ${params.APP_NAMESPACE} \
                  --sync-policy automated \
                  --grpc-web \
-                 --auto-prune&quot;)
+                 --auto-prune&#34;)
         }
       }
     }
@@ -937,11 +946,11 @@ webhook.gitlab.secret:  5 bytes
                        |---&gt; Test(执行，返回200即ok)
 </code></pre><h4 id="210-argo-api">2.10 argo api</h4>
 <p>获取bearer token</p>
-<pre tabindex="0"><code>$ curl $ARGOCD_SERVER/api/v1/session -d $'{&quot;username&quot;:&quot;admin&quot;,&quot;password&quot;:&quot;password&quot;}'
-{&quot;token&quot;:&quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1Njc4MTIzODcsImlzcyI6ImFyZ29jZCIsIm5iZiI6MTU2NzgxMjM4Nywic3ViIjoiYWRtaW4ifQ.ejyTgFxLhuY9mOBtKhcnvobg3QZXJ4_RusN_KIdVwao&quot;}
+<pre tabindex="0"><code>$ curl $ARGOCD_SERVER/api/v1/session -d $&#39;{&#34;username&#34;:&#34;admin&#34;,&#34;password&#34;:&#34;password&#34;}&#39;
+{&#34;token&#34;:&#34;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1Njc4MTIzODcsImlzcyI6ImFyZ29jZCIsIm5iZiI6MTU2NzgxMjM4Nywic3ViIjoiYWRtaW4ifQ.ejyTgFxLhuY9mOBtKhcnvobg3QZXJ4_RusN_KIdVwao&#34;}
 </code></pre><p>获取applications列表</p>
-<pre tabindex="0"><code>$ curl $ARGOCD_SERVER/api/v1/applications -H &quot;Authorization: Bearer $ARGOCD_TOKEN&quot;
-{&quot;metadata&quot;:{&quot;selfLink&quot;:&quot;/apis/argoproj.io/v1alpha1/namespaces/argocd/applications&quot;,&quot;resourceVersion&quot;:&quot;37755&quot;},&quot;items&quot;:...}
+<pre tabindex="0"><code>$ curl $ARGOCD_SERVER/api/v1/applications -H &#34;Authorization: Bearer $ARGOCD_TOKEN&#34;
+{&#34;metadata&#34;:{&#34;selfLink&#34;:&#34;/apis/argoproj.io/v1alpha1/namespaces/argocd/applications&#34;,&#34;resourceVersion&#34;:&#34;37755&#34;},&#34;items&#34;:...}
 </code></pre><h3 id="3-应用发布策略">3. 应用发布策略</h3>
 <p>k8s默认Deployment资源支持两种发布策略：<code>RollingUpdate</code>和<code>Recreate</code></p>
 <ul>
@@ -1057,8 +1066,8 @@ service/rollout-bluegreen-preview created
 NAME               STRATEGY   STATUS        STEP  SET-WEIGHT  READY  DESIRED  UP-TO-DATE  AVAILABLE
 rollout-bluegreen  BlueGreen  Healthy       -     -           2/2    2        2           2
 </code></pre><p>更换镜像为rollouts-demo:yellow，查看rollout详情，在没执行promote命令active还是指向的是旧版本</p>
-<pre tabindex="0"><code># kubectl argo rollouts set image rollout-bluegreen &quot;*=argoproj/rollouts-demo:yellow&quot;
-rollout &quot;rollout-bluegreen&quot; image updated
+<pre tabindex="0"><code># kubectl argo rollouts set image rollout-bluegreen &#34;*=argoproj/rollouts-demo:yellow&#34;
+rollout &#34;rollout-bluegreen&#34; image updated
 
 # kubectl argo rollouts get rollout  rollout-bluegreen
 Name:            rollout-bluegreen
@@ -1114,7 +1123,7 @@ NAME                                           KIND        STATUS     AGE    INF
 </code></pre><p>执行<code>argo rollouts promote</code>命令后active指向了新版本，同时旧版本ReplicaSet在倒计时30s后自动ScaledDown,
 只留下新版本的pod</p>
 <pre tabindex="0"><code># kubectl argo rollouts promote rollout-bluegreen
-rollout 'rollout-bluegreen' promoted
+rollout &#39;rollout-bluegreen&#39; promoted
 [root@lianbang-xuexi-server24 argo-rollouts]# kubectl argo rollouts get rollout  rollout-bluegreen
 Name:            rollout-bluegreen
 Namespace:       default
@@ -1238,7 +1247,7 @@ spec:
 canaryService和stableService加上pod-template-hash, 用于区分新旧版本流量。</li>
 </ul>
 <p>更换镜像为rollouts-demo:yellow，查看rollout详情，符合预期，卡在第二步(因为pause没有定义具体时间)</p>
-<pre tabindex="0"><code># kubectl argo rollouts set image rollout-canary &quot;*=argoproj/rollouts-demo:yellow&quot;
+<pre tabindex="0"><code># kubectl argo rollouts set image rollout-canary &#34;*=argoproj/rollouts-demo:yellow&#34;
 
 # kubectl argo rollouts get rollout rollout-canary
 Name:            rollout-canary
@@ -1271,7 +1280,7 @@ NAME                                        KIND        STATUS     AGE    INFO
       └──□ rollout-canary-8545c4b6d8-x9kkm  Pod         ✔ Running  13m    ready:1/1
 </code></pre><p>执行promote后，stable指向了新版本，同时旧版本ReplicaSet在倒计时30s后自动ScaledDown</p>
 <pre tabindex="0"><code># kubectl argo rollouts promote rollout-canary
-rollout 'rollout-canary' promoted
+rollout &#39;rollout-canary&#39; promoted
 
 # kubectl argo rollouts get rollout rollout-canary
 Name:            rollout-canary
@@ -1503,7 +1512,7 @@ spec:
                 command:
                 - sh
                 - -c
-                - '[[ $(expr $RANDOM % 2) -eq 1 ]]'
+                - &#39;[[ $(expr $RANDOM % 2) -eq 1 ]]&#39;
               restartPolicy: Never
 
 ---
@@ -1577,7 +1586,7 @@ spec:
           serviceName: rollout-canary
           servicePort: 80
 </code></pre><p>更新镜像，观察rollout变化</p>
-<pre tabindex="0"><code># kubectl argo rollouts set image rollout-canary &quot;*=argoproj/rollouts-demo:yellow&quot;
+<pre tabindex="0"><code># kubectl argo rollouts set image rollout-canary &#34;*=argoproj/rollouts-demo:yellow&#34;
 
 # kubectl argo rollouts get rollout rollout-canary
 </code></pre><h4 id="39-argo-rollouts-dashboard">3.9 argo-rollouts dashboard</h4>
@@ -1611,7 +1620,7 @@ spec:
 <div class="zs-modal-box">
 	<div class="zs-modal-head">
 		<button type="button" class="close">×</button>
-		<span class="author"><a href="https://www.iceyao.com.cn"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
         
 	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
 		
@@ -1774,6 +1783,11 @@ spec:
         </div>
     </div>
 </article>
+
+
+
+
+
 
 
 
@@ -1981,6 +1995,7 @@ spec:
         });
     });
 </script>
+
 
 
 
