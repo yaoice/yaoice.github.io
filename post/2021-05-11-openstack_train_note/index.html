@@ -1272,119 +1272,126 @@ Query OK, 0 rows affected (0.000 sec)
 <pre tabindex="0"><code>[root@controller1 ~]# yum install -y openstack-neutron openstack-neutron-ml2 \
     openstack-neutron-linuxbridge ebtables
 </code></pre><p>编辑neutron配置文件（使用linuxbridge）</p>
-<pre tabindex="0"><code># vim /etc/neutron/neutron.conf
-[database]
-# ...
-connection = mysql+pymysql://neutron:NEUTRON_DBPASS@controller/neutron
-connection_recycle_time = 10
-max_overflow = 1000
-max_pool_size = 1
-max_retries = -1
-
-[DEFAULT]
-# ...
-core_plugin = ml2
-service_plugins = router
-allow_overlapping_ips = true
-transport_url = rabbit://openstack:openstack@controller1:5672/
-auth_strategy = keystone
-notify_nova_on_port_status_changes = true
-notify_nova_on_port_data_changes = true
-
-[keystone_authtoken]
-# ...
-www_authenticate_uri = http://controller1:5000
-auth_url = http://controller1:5000
-memcached_servers = controller1:11211
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-project_name = service
-username = neutron
-password = neturon
-
-[nova]
-# ...
-auth_url = http://controller1:5000
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-region_name = RegionOne
-project_name = service
-username = nova
-password = nova
-
-[oslo_concurrency]
-# ...
-lock_path = /var/lib/neutron/tmp
-</code></pre><p>编辑ml2配置文件</p>
-<pre tabindex="0"><code># vim /etc/neutron/plugins/ml2/ml2_conf.ini
-[ml2]
-# ...
-type_drivers = flat,vlan,vxlan
-tenant_network_types = vxlan
-
-mechanism_drivers = linuxbridge,l2population
-extension_drivers = port_security
-
-[ml2_type_flat]
-# ...
-flat_networks = provider
-
-[ml2_type_vxlan]
-# ...
-vni_ranges = 1:1000
-
-[securitygroup]
-# ...
-enable_ipset = true
-</code></pre><p>编辑linuxbridge配置文件</p>
-<pre tabindex="0"><code># vim /etc/neutron/plugins/ml2/linuxbridge_agent.ini
-[linux_bridge]
-physical_interface_mappings = provider:em3
-
-[vxlan]
-enable_vxlan = true
-local_ip = 172.16.88.245
-l2_population = true
-
-[securitygroup]
-# ...
-enable_security_group = true
-firewall_driver = neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
-</code></pre><p>编辑sysctl.conf配置</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># vim /etc/neutron/neutron.conf</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>database<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># ...</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">connection</span> <span style="color:#ff79c6">=</span> mysql+pymysql://neutron:NEUTRON_DBPASS@controller/neutron
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">connection_recycle_time</span> <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">10</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">max_overflow</span> <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1000</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">max_pool_size</span> <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">max_retries</span> <span style="color:#ff79c6">=</span> -1
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>DEFAULT<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># ...</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">core_plugin</span> <span style="color:#ff79c6">=</span> ml2
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">service_plugins</span> <span style="color:#ff79c6">=</span> router
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">allow_overlapping_ips</span> <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">transport_url</span> <span style="color:#ff79c6">=</span> rabbit://openstack:openstack@controller1:5672/
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">auth_strategy</span> <span style="color:#ff79c6">=</span> keystone
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">notify_nova_on_port_status_changes</span> <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">notify_nova_on_port_data_changes</span> <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">true</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>keystone_authtoken<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># ...</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">www_authenticate_uri</span> <span style="color:#ff79c6">=</span> http://controller1:5000
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">auth_url</span> <span style="color:#ff79c6">=</span> http://controller1:5000
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">memcached_servers</span> <span style="color:#ff79c6">=</span> controller1:11211
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">auth_type</span> <span style="color:#ff79c6">=</span> password
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">project_domain_name</span> <span style="color:#ff79c6">=</span> default
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">user_domain_name</span> <span style="color:#ff79c6">=</span> default
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">project_name</span> <span style="color:#ff79c6">=</span> service
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">username</span> <span style="color:#ff79c6">=</span> neutron
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">password</span> <span style="color:#ff79c6">=</span> neturon
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>nova<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># ...</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">auth_url</span> <span style="color:#ff79c6">=</span> http://controller1:5000
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">auth_type</span> <span style="color:#ff79c6">=</span> password
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">project_domain_name</span> <span style="color:#ff79c6">=</span> default
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">user_domain_name</span> <span style="color:#ff79c6">=</span> default
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">region_name</span> <span style="color:#ff79c6">=</span> RegionOne
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">project_name</span> <span style="color:#ff79c6">=</span> service
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">username</span> <span style="color:#ff79c6">=</span> nova
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">password</span> <span style="color:#ff79c6">=</span> nova
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>oslo_concurrency<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># ...</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">lock_path</span> <span style="color:#ff79c6">=</span> /var/lib/neutron/tmp
+</span></span></code></pre></div><p>编辑ml2配置文件</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># vim /etc/neutron/plugins/ml2/ml2_conf.ini</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>ml2<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">type_drivers</span> <span style="color:#ff79c6">=</span> flat,vlan
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">tenant_network_types</span> <span style="color:#ff79c6">=</span> vlan,flat
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">mechanism_drivers</span> <span style="color:#ff79c6">=</span> linuxbridge,openvswitch
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">extension_drivers</span> <span style="color:#ff79c6">=</span> port_security
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>ml2_type_flat<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">flat_networks</span> <span style="color:#ff79c6">=</span> provider
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>ml2_type_vlan<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">network_vlan_ranges</span> <span style="color:#ff79c6">=</span> provider:2:4094
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>ml2_type_vxlan<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">vni_ranges</span> <span style="color:#ff79c6">=</span> 1:1000
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>securitygroup<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">firewall_driver</span> <span style="color:#ff79c6">=</span> neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">#firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">enable_ipset</span> <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">enable_security_group</span> <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>ovs<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">bridge_mappings</span> <span style="color:#ff79c6">=</span> provider:br-ex
+</span></span></code></pre></div><p>编辑linuxbridge配置文件</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># vim /etc/neutron/plugins/ml2/linuxbridge_agent.ini</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>linux_bridge<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">physical_interface_mappings</span> <span style="color:#ff79c6">=</span> provider:em3
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>vxlan<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">enable_vxlan</span> <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">local_ip</span> <span style="color:#ff79c6">=</span> 172.16.88.245
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">l2_population</span> <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">true</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>securitygroup<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># ...</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">enable_security_group</span> <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">firewall_driver</span> <span style="color:#ff79c6">=</span> neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+</span></span></code></pre></div><p>编辑sysctl.conf配置</p>
 <pre tabindex="0"><code># vim /etc/sysctl.conf
 net.bridge.bridge-nf-call-iptables = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 
 # sysctl -p
 </code></pre><p>编辑l3配置文件</p>
-<pre tabindex="0"><code>[root@controller1 ~]# vim /etc/neutron/l3_agent.ini
-[DEFAULT]
-interface_driver = linuxbridge
-dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
-enable_isolated_metadata = true
-</code></pre><p>编辑metadata配置文件</p>
-<pre tabindex="0"><code>[root@controller1 ~]# vim /etc/neutron/metadata_agent.ini
-[DEFAULT]
-# ...
-nova_metadata_host = controller1
-metadata_proxy_shared_secret = METADATA_SECRET
-</code></pre><p>编辑nova配置，nova与neutron交互</p>
-<pre tabindex="0"><code>[root@controller1 ~]# vim /etc/nova/nova.conf
-[neutron]
-# ...
-auth_url = http://controller1:5000
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-region_name = RegionOne
-project_name = service
-username = neutron
-password = neutron
-service_metadata_proxy = true
-metadata_proxy_shared_secret = METADATA_SECRET
-</code></pre><p>创建软链接，neutron-server systemd启动脚步读取的是<code>/etc/neutron/plugin.ini</code>配置文件</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">[</span>root@controller1 ~<span style="color:#ff79c6">]</span><span style="color:#6272a4"># vim /etc/neutron/l3_agent.ini</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>DEFAULT<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">interface_driver</span> <span style="color:#ff79c6">=</span> linuxbridge
+</span></span></code></pre></div><p>编辑dhcp配置文件</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">[</span>DEFAULT<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">interface_driver</span> <span style="color:#ff79c6">=</span> linuxbridge
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">dhcp_driver</span> <span style="color:#ff79c6">=</span> neutron.agent.linux.dhcp.Dnsmasq
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">enable_isolated_metadata</span> <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">dnsmasq_dns_servers</span> <span style="color:#ff79c6">=</span> 8.8.8.8
+</span></span></code></pre></div><p>编辑metadata配置文件</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">[</span>root@controller1 ~<span style="color:#ff79c6">]</span><span style="color:#6272a4"># vim /etc/neutron/metadata_agent.ini</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>DEFAULT<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># ...</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">nova_metadata_host</span> <span style="color:#ff79c6">=</span> controller1
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">metadata_proxy_shared_secret</span> <span style="color:#ff79c6">=</span> METADATA_SECRET
+</span></span></code></pre></div><p>编辑nova配置，nova与neutron交互</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">[</span>root@controller1 ~<span style="color:#ff79c6">]</span><span style="color:#6272a4"># vim /etc/nova/nova.conf</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>neutron<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># ...</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">auth_url</span> <span style="color:#ff79c6">=</span> http://controller1:5000
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">auth_type</span> <span style="color:#ff79c6">=</span> password
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">project_domain_name</span> <span style="color:#ff79c6">=</span> default
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">user_domain_name</span> <span style="color:#ff79c6">=</span> default
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">region_name</span> <span style="color:#ff79c6">=</span> RegionOne
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">project_name</span> <span style="color:#ff79c6">=</span> service
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">username</span> <span style="color:#ff79c6">=</span> neutron
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">password</span> <span style="color:#ff79c6">=</span> neutron
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">service_metadata_proxy</span> <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">metadata_proxy_shared_secret</span> <span style="color:#ff79c6">=</span> METADATA_SECRET
+</span></span></code></pre></div><p>创建软链接，neutron-server systemd启动脚步读取的是<code>/etc/neutron/plugin.ini</code>配置文件</p>
 <pre tabindex="0"><code>[root@controller1 ~]# ln -s /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini
 </code></pre><p>同步neutron数据库表</p>
 <pre tabindex="0"><code>[root@controller1 ~]# /bin/sh -c &#34;neutron-db-manage --config-file /etc/neutron/neutron.conf \
@@ -1727,10 +1734,8 @@ OPENSTACK_CINDER_FEATURES = {
 TIME_ZONE = &#34;Asia/Shanghai&#34;
 # Path to directory containing policy.json files
 POLICY_FILES_PATH = &#39;/etc/openstack-dashboard&#39;
-</code></pre><p>编辑horizon httpd配置文件</p>
-<pre tabindex="0"><code>[root@controller1 ~]# vim /etc/httpd/conf.d/openstack-dashboard.conf
 </code></pre><p>重启httpd服务</p>
-<pre tabindex="0"><code>[root@controller1 ~]# systemctl status httpd.service
+<pre tabindex="0"><code>[root@controller1 ~]# systemctl restart httpd
 </code></pre><p>登录<code>http://&lt;controller-ip&gt;/dashboard</code>访问</p>
 <p>tips: 界面logo修改路径</p>
 <pre tabindex="0"><code>[root@controller1 img]# ll /usr/share/openstack-dashboard/static/dashboard/img/logo-splash.svg
@@ -1762,9 +1767,11 @@ MS Name/IP address         Stratum Poll Reach LastRx Last sample
 ^* controller1                   3   6   177    40   +111us[ +207us] +/-   16ms
 </code></pre><h4 id="233-yum源">2.3.3 Yum源</h4>
 <p>安装OpenStack train源</p>
-<pre tabindex="0"><code># yum install -y centos-release-openstack-train
+<pre tabindex="0"><code># yum install -y centos-release-openstack-train centos-release-qemu-ev
 </code></pre><h4 id="234-nova">2.3.4 Nova</h4>
-<p>编辑nova配置</p>
+<p>安装nova-compute包</p>
+<pre tabindex="0"><code># yum install -y openstack-nova-compute libvirt
+</code></pre><p>编辑nova配置</p>
 <pre tabindex="0"><code>[root@controller1 data]# vim /etc/nova/nova.conf
 [DEFAULT]
 # ...
