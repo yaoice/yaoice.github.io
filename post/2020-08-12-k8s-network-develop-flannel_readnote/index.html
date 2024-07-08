@@ -1,238 +1,16 @@
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    
-    <meta property="og:site_name" content="爱折腾的工程师">
-    <meta property="og:type" content="article">
-
-    
-    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
-    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
-    
-
-    
-    <meta name="title" content="flannel源码阅读笔记" />
-    <meta property="og:title" content="flannel源码阅读笔记" />
-    <meta property="twitter:title" content="flannel源码阅读笔记" />
-    
-
-    
-    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
-    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
-    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
-    
-
-    
-    <meta property="twitter:card" content="summary" />
-    
-    
-
-    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
-    <link rel="shortcut icon" href="/img/favicon.ico">
-
-    <title>flannel源码阅读笔记 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
-
-    <link rel="canonical" href="/post/2020-08-12-k8s-network-develop-flannel_readnote/">
-
-    
-    
-    
-    <link rel="stylesheet" href="/css/bootstrap.min.css">
-
-    
-    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
-
-    
-    <link rel="stylesheet" href="/css/zanshang.css">
-
-    
-    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
-
-    
-    
-
-    
-    <script src="/js/jquery.min.js"></script>
-
-    
-    <script src="/js/bootstrap.min.js"></script>
-
-    
-    <script src="/js/hux-blog.min.js"></script>
-
-    
-    <script src="/js/lazysizes.min.js"></script>
-
-    
-    
-
-</head>
-
-
-
-  
-    
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
-      <script>
-        var doNotTrack = false;
-        if ( false ) {
-          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
-          var doNotTrack = (dnt == "1" || dnt == "yes");
-        }
-        if (!doNotTrack) {
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-9J7CKFVPPM');
-        }
-      </script>
-    
-  
-
-
-
-
-
-
-
-<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
-
-    <div class="container-fluid">
-        
-        <div class="navbar-header page-scroll">
-            <button type="button" class="navbar-toggle">
-                <span class="sr-only">Toggle navigation</span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </button>
-            <a class="navbar-brand" href="/">爱折腾的工程师</a>
-        </div>
-
-        
-        
-        <div id="huxblog_navbar">
-            <div class="navbar-collapse">
-                <ul class="nav navbar-nav navbar-right">
-                    <li>
-                        <a href="/">All Posts</a>
-                    </li>
-                    
-                        
-                    
-                    
-		    
-                        <li><a href="/archive//">ARCHIVE</a></li>
-                    
-                        <li><a href="/notes//">NOTES</a></li>
-                    
-                        <li><a href="/about//">ABOUT</a></li>
-                    
-		            <li>
-                        <a href="/search"><i class="fa fa-search"></i></a>
-		           </li>
-                </ul>
-            </div>
-        </div>
-        
-    </div>
-    
-</nav>
-<script>
-    
-    
-    
-    var $body   = document.body;
-    var $toggle = document.querySelector('.navbar-toggle');
-    var $navbar = document.querySelector('#huxblog_navbar');
-    var $collapse = document.querySelector('.navbar-collapse');
-
-    $toggle.addEventListener('click', handleMagic)
-    function handleMagic(e){
-        if ($navbar.className.indexOf('in') > 0) {
-        
-            $navbar.className = " ";
-            
-            setTimeout(function(){
-                
-                if($navbar.className.indexOf('in') < 0) {
-                    $collapse.style.height = "0px"
-                }
-            },400)
-        }else{
-        
-            $collapse.style.height = "auto"
-            $navbar.className += " in";
-        }
-    }
-</script>
-
-
-
-
-<style type="text/css">
-    header.intro-header {
-        background-image: url('/img/post-bg-unix-linux.jpg')
-    }
-</style>
-
-<header class="intro-header" >
-
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <div class="post-heading">
-                    <div class="tags">
-                        
-                        <a class="tag" href="/tags/k8s" title="k8s">
-                            k8s
-                        </a>
-                        
-                    </div>
-                    <h1>flannel源码阅读笔记</h1>
-                    <h2 class="subheading"></h2>
-                    <span class="meta">
-                        
-                            Posted by 
-                            
-                                    爱折腾的工程师
-                             
-                            on 
-                            Wednesday, August 12, 2020
-                            
-                            
-                            
-                            
-                    </span>
-                </div>
-            </div>
-        </div>
-    </div>
-</header>
-
-
-
-
-<article>
-    <div class="container">
-        <div class="row">
-
-            
-            <div class="
-                col-lg-8 col-lg-offset-2
-                col-md-10 col-md-offset-1
-                post-container">
-
-                
-                <h3 id="环境">环境</h3>
-<p>flannel版本: v0.12.0</p>
-<h3 id="外部网卡获取">外部网卡获取</h3>
-<p>外部网卡结构体</p>
-<pre tabindex="0"><code>type ExternalInterface struct {
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:site_name" content="爱折腾的工程师"><meta property="og:type" content="article"><meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta name=title content="flannel源码阅读笔记"><meta property="og:title" content="flannel源码阅读笔记"><meta property="twitter:title" content="flannel源码阅读笔记"><meta name=description content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:card" content="summary"><meta name=keyword content="iceyao, IceYao's Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice"><link rel="shortcut icon" href=/img/favicon.ico><title>flannel源码阅读笔记 | 爱折腾的工程师 | IceYao's Blog</title>
+<link rel=canonical href=/post/2020-08-12-k8s-network-develop-flannel_readnote/><link rel=stylesheet href=/css/bootstrap.min.css><link rel=stylesheet href=/css/hugo-theme-cleanwhite.min.css><link rel=stylesheet href=/css/zanshang.css><link rel=stylesheet href=/css/font-awesome.all.min.css><script src=/js/jquery.min.js></script><script src=/js/bootstrap.min.js></script><script src=/js/hux-blog.min.js></script><script src=/js/lazysizes.min.js></script></head><script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-9J7CKFVPPM")}</script><nav class="navbar navbar-default navbar-custom navbar-fixed-top"><div class=container-fluid><div class="navbar-header page-scroll"><button type=button class=navbar-toggle>
+<span class=sr-only>Toggle navigation</span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+</button>
+<a class=navbar-brand href=/>爱折腾的工程师</a></div><div id=huxblog_navbar><div class=navbar-collapse><ul class="nav navbar-nav navbar-right"><li><a href=/>All Posts</a></li><li><a href=/archive//>ARCHIVE</a></li><li><a href=/notes//>NOTES</a></li><li><a href=/about//>ABOUT</a></li><li><a href=/search><i class="fa fa-search"></i></a></li></ul></div></div></div></nav><script>var $body=document.body,$toggle=document.querySelector(".navbar-toggle"),$navbar=document.querySelector("#huxblog_navbar"),$collapse=document.querySelector(".navbar-collapse");$toggle.addEventListener("click",handleMagic);function handleMagic(){$navbar.className.indexOf("in")>0?($navbar.className=" ",setTimeout(function(){$navbar.className.indexOf("in")<0&&($collapse.style.height="0px")},400)):($collapse.style.height="auto",$navbar.className+=" in")}</script><style type=text/css>header.intro-header{background-image:url(/img/post-bg-unix-linux.jpg)}</style><header class=intro-header><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><div class=post-heading><div class=tags><a class=tag href=/tags/k8s title=k8s>k8s</a></div><h1>flannel源码阅读笔记</h1><h2 class=subheading></h2><span class=meta>Posted by
+爱折腾的工程师
+on
+Wednesday, August 12, 2020</span></div></div></div></div></header><article><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+post-container"><h3 id=环境>环境</h3><p>flannel版本: v0.12.0</p><h3 id=外部网卡获取>外部网卡获取</h3><p>外部网卡结构体</p><pre tabindex=0><code>type ExternalInterface struct {
     // 网卡属性
     Iface     *net.Interface
     // 对应网卡的内部IP
@@ -240,8 +18,7 @@
     // 对应网卡的外部IP(类似浮动IP)
     ExtAddr   net.IP
 }
-</code></pre><p>主处理函数逻辑</p>
-<pre tabindex="0"><code>    // Work out which interface to use
+</code></pre><p>主处理函数逻辑</p><pre tabindex=0><code>    // Work out which interface to use
     var extIface *backend.ExternalInterface
     var err error
     // Check the default interface only if no interfaces are specified
@@ -293,9 +70,7 @@
             os.Exit(1)
         }
     }
-</code></pre><h3 id="节点本地子网分配">节点本地子网分配</h3>
-<p>网络配置结构体</p>
-<pre tabindex="0"><code>type Config struct {
+</code></pre><h3 id=节点本地子网分配>节点本地子网分配</h3><p>网络配置结构体</p><pre tabindex=0><code>type Config struct {
     Network     ip.IP4Net
     SubnetMin   ip.IP4
     SubnetMax   ip.IP4
@@ -303,7 +78,7 @@
     BackendType string          `json:&#34;-&#34;`
     Backend     json.RawMessage `json:&#34;,omitempty&#34;`
 }
-</code></pre><pre tabindex="0"><code>func ParseConfig(s string) (*Config, error) {
+</code></pre><pre tabindex=0><code>func ParseConfig(s string) (*Config, error) {
     cfg := new(Config)
     // 这里注意Config中的Network、SubnetMin、SubnetMax自定义了MarshalJSON和UnmarshalJSON函数
     // 例如：&#34;Network&#34;: &#34;172.28.0.0/16&#34;, PrefixLen就是16
@@ -383,17 +158,13 @@
 
     return cfg, nil
 }
-</code></pre><p>等初始化完subnet管理器、backend管理器后，就把subnet配置信息写入本地文件</p>
-<pre tabindex="0"><code>    if err := WriteSubnetFile(opts.subnetFile, config.Network, opts.ipMasq, bn); err != nil {
+</code></pre><p>等初始化完subnet管理器、backend管理器后，就把subnet配置信息写入本地文件</p><pre tabindex=0><code>    if err := WriteSubnetFile(opts.subnetFile, config.Network, opts.ipMasq, bn); err != nil {
         // Continue, even though it failed.
         log.Warningf(&#34;Failed to write subnet file: %s&#34;, err)
     } else {
         log.Infof(&#34;Wrote subnet file to %s&#34;, opts.subnetFile)
     }
-</code></pre><h3 id="子网管理器">子网管理器</h3>
-<p>子网管理器有两种：一种是基于k8s实现的子网管理器，另一种是基于etcd实现的子网管理器</p>
-<p>管理器的接口定义</p>
-<pre tabindex="0"><code>type Manager interface {
+</code></pre><h3 id=子网管理器>子网管理器</h3><p>子网管理器有两种：一种是基于k8s实现的子网管理器，另一种是基于etcd实现的子网管理器</p><p>管理器的接口定义</p><pre tabindex=0><code>type Manager interface {
     GetNetworkConfig(ctx context.Context) (*Config, error)
     AcquireLease(ctx context.Context, attrs *LeaseAttrs) (*Lease, error)
     RenewLease(ctx context.Context, lease *Lease) error
@@ -402,10 +173,8 @@
 
     Name() string
 }
-</code></pre><h4 id="k8s子网管理器">k8s子网管理器</h4>
-<p>如果启用了<code>--kube-subnet-mgr</code>, 集群中的每个节点子网分配取决于kube-controller-manager的<code>--node-cidr-mask-size-ipv4=24</code>和<code>--node-cidr-mask-size-ipv6=64</code>,
-默认&ndash;node-cidr-mask-size-ipv4的值是24，&ndash;node-cidr-mask-size-ipv6的值是64，这两个值会影响到node.spec.podCidrs；没有使用到节点本地子网分配逻辑</p>
-<pre tabindex="0"><code>type kubeSubnetManager struct {
+</code></pre><h4 id=k8s子网管理器>k8s子网管理器</h4><p>如果启用了<code>--kube-subnet-mgr</code>, 集群中的每个节点子网分配取决于kube-controller-manager的<code>--node-cidr-mask-size-ipv4=24</code>和<code>--node-cidr-mask-size-ipv6=64</code>,
+默认&ndash;node-cidr-mask-size-ipv4的值是24，&ndash;node-cidr-mask-size-ipv6的值是64，这两个值会影响到node.spec.podCidrs；没有使用到节点本地子网分配逻辑</p><pre tabindex=0><code>type kubeSubnetManager struct {
     // 节点的annotaions记录子网分配信息
     annotations    annotations
     // k8s clientSet
@@ -421,8 +190,7 @@
     // Event channel，用于Backend类型与Controller之间通信
     events         chan subnet.Event
 }
-</code></pre><p>实际上这是一个监听Node事件的控制器, 估计是比较早期实现的，跟最新的sample-controller写法有异</p>
-<pre tabindex="0"><code>func newKubeSubnetManager(c clientset.Interface, sc *subnet.Config, nodeName, prefix string) (*kubeSubnetManager, error) {
+</code></pre><p>实际上这是一个监听Node事件的控制器, 估计是比较早期实现的，跟最新的sample-controller写法有异</p><pre tabindex=0><code>func newKubeSubnetManager(c clientset.Interface, sc *subnet.Config, nodeName, prefix string) (*kubeSubnetManager, error) {
     var err error
     var ksm kubeSubnetManager
     // 初始化annotations对象，用于标注在K8s Node对象上
@@ -478,8 +246,7 @@
     ksm.nodeStore = listers.NewNodeLister(indexer)
     return &amp;ksm, nil
 }
-</code></pre><p>Add/Update Node事件的处理函数逻辑差不多</p>
-<pre tabindex="0"><code>func (ksm *kubeSubnetManager) handleAddLeaseEvent(et subnet.EventType, obj interface{}) {
+</code></pre><p>Add/Update Node事件的处理函数逻辑差不多</p><pre tabindex=0><code>func (ksm *kubeSubnetManager) handleAddLeaseEvent(et subnet.EventType, obj interface{}) {
     n := obj.(*v1.Node)
     // 校验节点annotations中flannel.alpha.coreos.com/kube-subnet-manager 
     if s, ok := n.Annotations[ksm.annotations.SubnetKubeManaged]; !ok || s != &#34;true&#34; {
@@ -518,9 +285,7 @@ func (ksm *kubeSubnetManager) handleUpdateLeaseEvent(oldObj, newObj interface{})
     // 塞到events channel中
     ksm.events &lt;- subnet.Event{subnet.EventAdded, l}
 }
-</code></pre><p>在哪里从events channel取呢？ 在backend Manager那端获取，backend类型有：alivpc、alloc、awsvpc、extension、gce、hostgw、ipip、ipsec、udp、vxlan</p>
-<p>每种backend类型在main启动函数开始时就进行了注册</p>
-<pre tabindex="0"><code>    // Backends need to be imported for their init() to get executed and them to register
+</code></pre><p>在哪里从events channel取呢？ 在backend Manager那端获取，backend类型有：alivpc、alloc、awsvpc、extension、gce、hostgw、ipip、ipsec、udp、vxlan</p><p>每种backend类型在main启动函数开始时就进行了注册</p><pre tabindex=0><code>    // Backends need to be imported for their init() to get executed and them to register
     &#34;github.com/coreos/flannel/backend&#34;
     _ &#34;github.com/coreos/flannel/backend/alivpc&#34;
     _ &#34;github.com/coreos/flannel/backend/alloc&#34;
@@ -532,15 +297,14 @@ func (ksm *kubeSubnetManager) handleUpdateLeaseEvent(oldObj, newObj interface{})
     _ &#34;github.com/coreos/flannel/backend/ipsec&#34;
     _ &#34;github.com/coreos/flannel/backend/udp&#34;
     _ &#34;github.com/coreos/flannel/backend/vxlan&#34;
-</code></pre><pre tabindex="0"><code>// constructors维护backend类型名称-&gt;初始化backend对象函数的map结构
+</code></pre><pre tabindex=0><code>// constructors维护backend类型名称-&gt;初始化backend对象函数的map结构
 var constructors = make(map[string]BackendCtor)
 
 // 注册函数
 func Register(name string, ctor BackendCtor) {
     constructors[name] = ctor
 }
-</code></pre><p>以hostgw类型为例</p>
-<pre tabindex="0"><code>// hostgw backend类型注册到constructors
+</code></pre><p>以hostgw类型为例</p><pre tabindex=0><code>// hostgw backend类型注册到constructors
 func init() {
     backend.Register(&#34;host-gw&#34;, New)
 }
@@ -705,8 +469,7 @@ func WatchLeases(ctx context.Context, sm Manager, ownLease *Lease, receiver chan
         }
     }
 }
-</code></pre><h4 id="etcd子网管理器">etcd子网管理器</h4>
-<pre tabindex="0"><code>// 初始化连接etcd的配置信息
+</code></pre><h4 id=etcd子网管理器>etcd子网管理器</h4><pre tabindex=0><code>// 初始化连接etcd的配置信息
 cfg := &amp;etcdv2.EtcdConfig{
         Endpoints: strings.Split(opts.etcdEndpoints, &#34;,&#34;),
         Keyfile:   opts.etcdKeyfile,
@@ -722,13 +485,11 @@ cfg := &amp;etcdv2.EtcdConfig{
     prevSubnet := ReadCIDRFromSubnetFile(opts.subnetFile, &#34;FLANNEL_SUBNET&#34;)
     // 返回一个etcd Manager对象
     return etcdv2.NewLocalManager(cfg, prevSubnet)
-</code></pre><p>etcd LocalManager结构体定义</p>
-<pre tabindex="0"><code>type LocalManager struct {
+</code></pre><p>etcd LocalManager结构体定义</p><pre tabindex=0><code>type LocalManager struct {
     registry       Registry
     previousSubnet ip.IP4Net
 }
-</code></pre><p>内部还包含一个Registry内部接口定义</p>
-<pre tabindex="0"><code>type Registry interface {
+</code></pre><p>内部还包含一个Registry内部接口定义</p><pre tabindex=0><code>type Registry interface {
     getNetworkConfig(ctx context.Context) (string, error)
     getSubnets(ctx context.Context) ([]Lease, uint64, error)
     getSubnet(ctx context.Context, sn ip.IP4Net) (*Lease, uint64, error)
@@ -738,11 +499,8 @@ cfg := &amp;etcdv2.EtcdConfig{
     watchSubnets(ctx context.Context, since uint64) (Event, uint64, error)
     watchSubnet(ctx context.Context, since uint64, sn ip.IP4Net) (Event, uint64, error)
 }
-</code></pre><p>这些函数定义简化了操作etcd registry子网配置</p>
-<h3 id="host-gw模式">host-gw模式</h3>
-<pre tabindex="0"><code>New -&gt; RegisterNetwork -&gt; RouteNetwork.Run
-</code></pre><p>更新路由的主要代码</p>
-<pre tabindex="0"><code>    // 初始化routes slice
+</code></pre><p>这些函数定义简化了操作etcd registry子网配置</p><h3 id=host-gw模式>host-gw模式</h3><pre tabindex=0><code>New -&gt; RegisterNetwork -&gt; RouteNetwork.Run
+</code></pre><p>更新路由的主要代码</p><pre tabindex=0><code>    // 初始化routes slice
     n.routes = make([]netlink.Route, 0, 10)
     wg.Add(1)
     go func() {
@@ -763,7 +521,7 @@ cfg := &amp;etcdv2.EtcdConfig{
             return
         }
     }
-</code></pre><pre tabindex="0"><code>func (n *RouteNetwork) handleSubnetEvents(batch []subnet.Event) {
+</code></pre><pre tabindex=0><code>func (n *RouteNetwork) handleSubnetEvents(batch []subnet.Event) {
     // 遍历batch channel
     for _, evt := range batch {
         switch evt.Type {
@@ -827,8 +585,7 @@ cfg := &amp;etcdv2.EtcdConfig{
         }
     }
 }
-</code></pre><h4 id="galaxyflannelhost-gw手动实践">galaxy+flannel+host-gw手动实践</h4>
-<pre tabindex="0"><code>sysctl -w net.ipv4.ip_forward=1
+</code></pre><h4 id=galaxyflannelhost-gw手动实践>galaxy+flannel+host-gw手动实践</h4><pre tabindex=0><code>sysctl -w net.ipv4.ip_forward=1
 ip netns add test1
 ip link add veth1 type veth peer name eth0 netns test1
 ip link set up dev veth1
@@ -841,69 +598,29 @@ ip route add 1.1.1.2/32 dev veth1 scope link
 ip netns exec test1 ip route add 169.254.1.1 dev eth0 scope link
 ip netns exec test1 ip route add default via 169.254.1.1 dev eth0
 ip netns exec test1 ip neigh replace 169.254.1.1 dev eth0 lladdr &lt;宿主机veth1的MAC地址&gt;
-</code></pre><p>在宿主机上进行对1.1.1.2的ping连通测试，连通可达.</p>
-<h3 id="vxlan模式">vxlan模式</h3>
-<h4 id="vxlan介绍">vxlan介绍</h4>
-<blockquote>
-<p>Linux 对 VXLAN 协议的支持时间并不久，2012年Stephen Hemminger才把相关的工作合并到kernel中，并最终出现在kernel 3.7.0版本。
+</code></pre><p>在宿主机上进行对1.1.1.2的ping连通测试，连通可达.</p><h3 id=vxlan模式>vxlan模式</h3><h4 id=vxlan介绍>vxlan介绍</h4><blockquote><p>Linux 对 VXLAN 协议的支持时间并不久，2012年Stephen Hemminger才把相关的工作合并到kernel中，并最终出现在kernel 3.7.0版本。
 为了稳定性和很多的功能，可能会看到某些软件推荐在3.9.0或者3.10.0以后版本的kernel上使用VXLAN。
-到了 kernel 3.12版本，Linux对VXLAN的支持已经完备，支持单播和组播，IPv4和IPv6。利用man查看ip的link子命令，可以查看是否有VXLAN type：</p>
-</blockquote>
-<pre tabindex="0"><code>#查看vxlan是否支持ipv6
+到了 kernel 3.12版本，Linux对VXLAN的支持已经完备，支持单播和组播，IPv4和IPv6。利用man查看ip的link子命令，可以查看是否有VXLAN type：</p></blockquote><pre tabindex=0><code>#查看vxlan是否支持ipv6
 # lsmod |grep vxlan
 vxlan                  69632  0
 ip6_udp_tunnel         16384  1 vxlan
 udp_tunnel             16384  1 vxlan
-</code></pre><blockquote>
-<p>VXLAN的全称为Virtual eXtensible LAN，从名称看，它的目标就是扩展VLAN协议。802.1Q的VLAN TAG只占12位，只能提供4096个网络标识符。
+</code></pre><blockquote><p>VXLAN的全称为Virtual eXtensible LAN，从名称看，它的目标就是扩展VLAN协议。802.1Q的VLAN TAG只占12位，只能提供4096个网络标识符。
 而在VXLAN中，标识符扩展到24位，能提供16777216个逻辑网络标识符，VXLAN的标识符称为VNI(VXLAN Network Identifier)。
-另外，VLAN只能应用在一个二层网络中，而VXLAN通过将原始二层以太网帧封装在IP协议包中，在IP基础网络之上构建overlay的逻辑大二层网络。</p>
-</blockquote>
-<p>vxlan将二层数据帧封装在UDP数据包中，包结构如下：</p>
-<p>
-  <img src="/img/posts/2020-08-12/vxlan_packet.png" alt="">
-
-</p>
-<blockquote>
-<p>从包结构上可以看到，VXLAN会额外消耗50字节的空间。
+另外，VLAN只能应用在一个二层网络中，而VXLAN通过将原始二层以太网帧封装在IP协议包中，在IP基础网络之上构建overlay的逻辑大二层网络。</p></blockquote><p>vxlan将二层数据帧封装在UDP数据包中，包结构如下：</p><p><img src=/img/posts/2020-08-12/vxlan_packet.png alt></p><blockquote><p>从包结构上可以看到，VXLAN会额外消耗50字节的空间。
 为了防止因数据包大小超过网络设备的MTU值而被丢弃，需要将VM的MTU减少50甚至更多，或者调整中间网络设备的MTU。
-VXLAN协议中将对原始数据包进行封装和解封装的设备称为VTEP(VXLAN Tunnel End Point)，它可以由硬件设备实现，也可以由软件实现。</p>
-</blockquote>
-<blockquote>
-<p>我们来看VXLAN的通信过程。在上图的虚拟机VM1和VM2处于逻辑二层网络中。VM1发出的二层以太网帧由VTEP封装进IP数据包，之后发送到VM2所在主机。
+VXLAN协议中将对原始数据包进行封装和解封装的设备称为VTEP(VXLAN Tunnel End Point)，它可以由硬件设备实现，也可以由软件实现。</p></blockquote><blockquote><p>我们来看VXLAN的通信过程。在上图的虚拟机VM1和VM2处于逻辑二层网络中。VM1发出的二层以太网帧由VTEP封装进IP数据包，之后发送到VM2所在主机。
 VM2所在主机接收到IP报文后，解封装出原始的以太网帧再转发给VM2。然而，VM1所在主机的VTEP做完数据封装后，如何知道要将封装后的数据包发到哪个VTEP呢？
 实际上，VTEP通过查询转发表来确定目标VTEP地址，而转发表通过泛洪和学习机制来构建。目标MAC地址在转发表中不存在的流量称为未知单播(Unknown unicast)。
 广播(broadcast)、未知单播(unknown unicast)和组播(multicast)一般统称为BUM流量。
 VXLAN规范要求BUM流量使用IP组播进行洪泛，将数据包发送到除源VTEP外的所有VTEP。
 目标VTEP发送回响应数据包时，源VTEP从中学习MAC地址、VNI和VTEP的映射关系，并添加到转发表中。
-后续VTEP再次发送数据包给该MAC地址时，VTEP会从转发表中直接确定目标VTEP，从而只发送单播数据到目标VTEP。</p>
-</blockquote>
-<blockquote>
-<p>OpenvSwitch没有实现IP组播，而是使用多个单播来实现洪泛。洪泛流量本身对性能有一定影响，可以通过由controller收集相应信息来填充转发表而避免洪泛。</p>
-</blockquote>
-<p>Linux环境中常用的VXLAN实现有两种:</p>
-<ul>
-<li>Linux内核实现</li>
-<li>OpenvSwitch实现</li>
-</ul>
-<p>对于大规模的VXLAN网络中，最核心的问题一般有两个:</p>
-<ul>
-<li>如何发现网络中其他VTEP</li>
-<li>如何降低BUM（Broadcast, Unknown unicast, Multicast)流量</li>
-</ul>
-<p>在对于问题一来说，解决方法是洪泛，对于问题二，则通过源地址学习来确定MAC地址的归属。
-VXLAN的转发过程主要依赖FDB(Forwarding Database)实现。二层网桥的FDB表项格式可表达为:</p>
-<pre tabindex="0"><code>&lt;MAC&gt; &lt;VLAN&gt; &lt;DEV PORT&gt;
-</code></pre><p>VXLAN设备的表项与之类似，可以表达为:</p>
-<pre tabindex="0"><code>&lt;MAC&gt; &lt;VNI&gt; &lt;REMOTE IP&gt;
-</code></pre><blockquote>
-<p>VXLAN设备根据MAC地址来查找相应的VTEP IP地址，继而将二层数据帧封装发送至相应VTEP。
+后续VTEP再次发送数据包给该MAC地址时，VTEP会从转发表中直接确定目标VTEP，从而只发送单播数据到目标VTEP。</p></blockquote><blockquote><p>OpenvSwitch没有实现IP组播，而是使用多个单播来实现洪泛。洪泛流量本身对性能有一定影响，可以通过由controller收集相应信息来填充转发表而避免洪泛。</p></blockquote><p>Linux环境中常用的VXLAN实现有两种:</p><ul><li>Linux内核实现</li><li>OpenvSwitch实现</li></ul><p>对于大规模的VXLAN网络中，最核心的问题一般有两个:</p><ul><li>如何发现网络中其他VTEP</li><li>如何降低BUM（Broadcast, Unknown unicast, Multicast)流量</li></ul><p>在对于问题一来说，解决方法是洪泛，对于问题二，则通过源地址学习来确定MAC地址的归属。
+VXLAN的转发过程主要依赖FDB(Forwarding Database)实现。二层网桥的FDB表项格式可表达为:</p><pre tabindex=0><code>&lt;MAC&gt; &lt;VLAN&gt; &lt;DEV PORT&gt;
+</code></pre><p>VXLAN设备的表项与之类似，可以表达为:</p><pre tabindex=0><code>&lt;MAC&gt; &lt;VNI&gt; &lt;REMOTE IP&gt;
+</code></pre><blockquote><p>VXLAN设备根据MAC地址来查找相应的VTEP IP地址，继而将二层数据帧封装发送至相应VTEP。
 如果我们能够从集中的Controller或者存储中获取VTEP信息以及MAC地址与VTEP的对应信息，
-则问题一和问题二都可以通过根据相应信息动态更新FDB表项来解决，OpenStack的Neutron, VMware的NSX，Docker Overlay都有类似的思路。</p>
-</blockquote>
-<h4 id="手动实践">手动实践</h4>
-<p>手动更新FDB表来实现VXLAN通信，实验环境，如下图</p>
-<pre tabindex="0"><code>node1 192.168.104.111
+则问题一和问题二都可以通过根据相应信息动态更新FDB表项来解决，OpenStack的Neutron, VMware的NSX，Docker Overlay都有类似的思路。</p></blockquote><h4 id=手动实践>手动实践</h4><p>手动更新FDB表来实现VXLAN通信，实验环境，如下图</p><pre tabindex=0><code>node1 192.168.104.111
 node2 192.168.104.128
             
         +-------------------------+               +-------------------------+
@@ -933,8 +650,7 @@ node2   |            | eth0       |               |            | eth0       | no
                      |                                         |
                      |                                         |
          +-----------+-----------------------------------------+---------------+
-</code></pre><p>node1操作</p>
-<pre tabindex="0"><code>sysctl -w net.ipv4.ip_forward=1
+</code></pre><p>node1操作</p><pre tabindex=0><code>sysctl -w net.ipv4.ip_forward=1
 ip netns add test1
 ip link add veth1 type veth peer name eth0 netns test1
 ip netns exec test1 ip link set eth0 up
@@ -948,8 +664,7 @@ ip link set veth1 master br1
 ip link add vxlan100 type vxlan id 100 dstport 4789 local 192.168.104.111 nolearning
 ip link set vxlan100 master br1
 ip link set up vxlan100
-</code></pre><p>node2操作</p>
-<pre tabindex="0"><code>sysctl -w net.ipv4.ip_forward=1
+</code></pre><p>node2操作</p><pre tabindex=0><code>sysctl -w net.ipv4.ip_forward=1
 ip netns add test1
 ip link add veth1 type veth peer name eth0 netns test1
 ip netns exec test1 ip link set eth0 up
@@ -962,8 +677,7 @@ ip link set veth1 master br1
 ip link add vxlan100 type vxlan id 100 dstport 4789 local 192.168.104.128 nolearning
 ip link set vxlan100 master br1
 ip link set up vxlan100
-</code></pre><p>node1上的test1访问不了node2的3.3.3.4</p>
-<pre tabindex="0"><code># ip netns exec test1 ping -c 2 3.3.3.4
+</code></pre><p>node1上的test1访问不了node2的3.3.3.4</p><pre tabindex=0><code># ip netns exec test1 ping -c 2 3.3.3.4
 PING 3.3.3.4 (3.3.3.4) 56(84) bytes of data.
 From 3.3.3.3 icmp_seq=1 Destination Host Unreachable
 From 3.3.3.3 icmp_seq=2 Destination Host Unreachable
@@ -971,9 +685,7 @@ From 3.3.3.3 icmp_seq=2 Destination Host Unreachable
 --- 3.3.3.4 ping statistics ---
 2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 1000ms
 pipe 2
-</code></pre><p>node1上的3.3.3.3接口需要先发送arp广播查询3.3.3.4的mac地址。arp广播到达设备vxlan100后，根据FDB表没有找到VTEP地址</p>
-<p>分别查看node1、node2 test1命名空间里的接口mac地址</p>
-<pre tabindex="0"><code>#node1 test1命名空间里的接口mac地址
+</code></pre><p>node1上的3.3.3.3接口需要先发送arp广播查询3.3.3.4的mac地址。arp广播到达设备vxlan100后，根据FDB表没有找到VTEP地址</p><p>分别查看node1、node2 test1命名空间里的接口mac地址</p><pre tabindex=0><code>#node1 test1命名空间里的接口mac地址
 # ip netns exec test1 ip a
 1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
@@ -987,7 +699,7 @@ pipe 2
        valid_lft forever preferred_lft forever
     inet6 fe80::e8da:eaff:fef7:13be/64 scope link 
        valid_lft forever preferred_lft forever
-</code></pre><pre tabindex="0"><code>#node2 test1命名空间里的接口mac地址
+</code></pre><pre tabindex=0><code>#node2 test1命名空间里的接口mac地址
 # ip netns exec test1 ip a
 1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
@@ -1001,8 +713,7 @@ pipe 2
        valid_lft forever preferred_lft forever
     inet6 fe80::84a7:37ff:fee5:4fe0/64 scope link 
        valid_lft forever preferred_lft forever
-</code></pre><p>node1上增加vxlan FDB表项</p>
-<pre tabindex="0"><code># bridge fdb append 00:00:00:00:00:00 dev vxlan100 dst 192.168.104.128
+</code></pre><p>node1上增加vxlan FDB表项</p><pre tabindex=0><code># bridge fdb append 00:00:00:00:00:00 dev vxlan100 dst 192.168.104.128
 #添加的是对端的mac地址和ip
 # bridge fdb append 86:a7:37:e5:4f:e0 dev vxlan100 dst 192.168.104.128
 
@@ -1012,9 +723,7 @@ pipe 2
 00:00:00:00:00:00 dst 192.168.104.128 self permanent
 86:a7:37:e5:4f:e0 dst 192.168.104.128 self permanent
 </code></pre><p>全零表项表示没有匹配的MAC地址时，就发送到该表项中的VTEP, 用于处理BUM流量.
-查看VXLAN设备vxlan100的FDB表项，两条表项都已成功添加而且永不老化(permanent)</p>
-<p>node2上增加vxlan FDB表项</p>
-<pre tabindex="0"><code># bridge fdb append 00:00:00:00:00:00 dev vxlan100 dst 192.168.104.111
+查看VXLAN设备vxlan100的FDB表项，两条表项都已成功添加而且永不老化(permanent)</p><p>node2上增加vxlan FDB表项</p><pre tabindex=0><code># bridge fdb append 00:00:00:00:00:00 dev vxlan100 dst 192.168.104.111
 # bridge fdb append ea:da:ea:f7:13:be dev vxlan100 dst 192.168.104.111
 
 # bridge fdb show brport vxlan100
@@ -1022,8 +731,7 @@ pipe 2
 36:b2:8d:92:e8:97 master br1 permanent
 00:00:00:00:00:00 dst 192.168.104.111 self permanent
 ea:da:ea:f7:13:be dst 192.168.104.111 self permanent
-</code></pre><p>再次ping测试，可以互相连通了</p>
-<pre tabindex="0"><code># ip netns exec test1 ping -c2 3.3.3.4
+</code></pre><p>再次ping测试，可以互相连通了</p><pre tabindex=0><code># ip netns exec test1 ping -c2 3.3.3.4
 PING 3.3.3.4 (3.3.3.4) 56(84) bytes of data.
 64 bytes from 3.3.3.4: icmp_seq=1 ttl=64 time=2.21 ms
 64 bytes from 3.3.3.4: icmp_seq=2 ttl=64 time=0.631 ms
@@ -1031,7 +739,7 @@ PING 3.3.3.4 (3.3.3.4) 56(84) bytes of data.
 --- 3.3.3.4 ping statistics ---
 2 packets transmitted, 2 received, 0% packet loss, time 1001ms
 rtt min/avg/max/mdev = 0.631/1.423/2.215/0.792 ms
-</code></pre><pre tabindex="0"><code># ip netns exec test1 ping -c2 3.3.3.3
+</code></pre><pre tabindex=0><code># ip netns exec test1 ping -c2 3.3.3.3
 PING 3.3.3.3 (3.3.3.3) 56(84) bytes of data.
 64 bytes from 3.3.3.3: icmp_seq=1 ttl=64 time=0.687 ms
 64 bytes from 3.3.3.3: icmp_seq=2 ttl=64 time=0.982 ms
@@ -1040,9 +748,7 @@ PING 3.3.3.3 (3.3.3.3) 56(84) bytes of data.
 2 packets transmitted, 2 received, 0% packet loss, time 1000ms
 rtt min/avg/max/mdev = 0.687/0.834/0.982/0.150 ms
 </code></pre><p>node1节点上的test1命名空间里的eth0(3.3.3.3)访问node2节点上的test1命名空间里的eth0(3.3.3.4)时，需要发送arp广播先获得3.3.3.4的mac地址。
-在大规模vxlan环境中，arp广播非常消耗资源；其实如果能在本地获取到mac所在的VTEP，可以由vxlan设备实现arp代答，linux vxlan设备支持通过设置<code>proxy</code>参数开启arp代答，将arp广播范围控制在本地。</p>
-<p>node1上重新创建VXLAN接口、开启ARP代答并重新添加FDB表项</p>
-<pre tabindex="0"><code>ip link del vxlan100
+在大规模vxlan环境中，arp广播非常消耗资源；其实如果能在本地获取到mac所在的VTEP，可以由vxlan设备实现arp代答，linux vxlan设备支持通过设置<code>proxy</code>参数开启arp代答，将arp广播范围控制在本地。</p><p>node1上重新创建VXLAN接口、开启ARP代答并重新添加FDB表项</p><pre tabindex=0><code>ip link del vxlan100
 ip link add vxlan100 type vxlan id 100 dstport 4789 local 192.168.104.111 nolearning proxy
 ip link set vxlan100 master br1
 ip link set up vxlan100
@@ -1054,9 +760,7 @@ ip neighbor add 3.3.3.4 lladdr 86:a7:37:e5:4f:e0 dev vxlan100
 
 # ip neighbor show dev vxlan100
 3.3.3.4 lladdr 86:a7:37:e5:4f:e0 PERMANENT
-</code></pre><p>可以通过<code>ip neighbor</code>（可以简写为ip neigh）命令管理ARP缓存</p>
-<p>node2上同样的操作, 重新创建VXLAN接口、开启ARP代答并重新添加FDB表项</p>
-<pre tabindex="0"><code>ip link del vxlan100
+</code></pre><p>可以通过<code>ip neighbor</code>（可以简写为ip neigh）命令管理ARP缓存</p><p>node2上同样的操作, 重新创建VXLAN接口、开启ARP代答并重新添加FDB表项</p><pre tabindex=0><code>ip link del vxlan100
 ip link add vxlan100 type vxlan id 100 dstport 4789 local 192.168.104.128 nolearning proxy
 ip link set vxlan100 master br1
 ip link set up vxlan100
@@ -1068,8 +772,7 @@ ip neighbor add 3.3.3.3 lladdr ea:da:ea:f7:13:be dev vxlan100
 
 # ip neighbor show dev vxlan100
 3.3.3.3 lladdr ea:da:ea:f7:13:be PERMANENT
-</code></pre><p>再次测试连通性</p>
-<pre tabindex="0"><code># ip netns exec test1 ping -c2 3.3.3.4
+</code></pre><p>再次测试连通性</p><pre tabindex=0><code># ip netns exec test1 ping -c2 3.3.3.4
 PING 3.3.3.4 (3.3.3.4) 56(84) bytes of data.
 64 bytes from 3.3.3.4: icmp_seq=1 ttl=64 time=1.16 ms
 64 bytes from 3.3.3.4: icmp_seq=2 ttl=64 time=0.619 ms
@@ -1087,28 +790,14 @@ PING 3.3.3.3 (3.3.3.3) 56(84) bytes of data.
 2 packets transmitted, 2 received, 0% packet loss, time 1002ms
 rtt min/avg/max/mdev = 0.855/1.303/1.751/0.448 ms
 </code></pre><p>为了支持更加灵活的维护ARP和FDB表，Linux的VXLAN设备还支持对于表项匹配MISS的消息通知。内核在发现在ARP或者FDB表项中找不到相应的表项，
-则可以通过NETLINK消息发送通知，用户态进程可以监听相应消息并补充所缺失的表项记录，从而实现动态的表项维护。</p>
-<p>VXLAN设备支持两种消息:</p>
-<ul>
-<li>L2MISS: VXLAN设备在FDB表中找不到目的MAC地址所属的VTEP IP地址。L2MISS消息的发送需要满足如下条件：
-<ul>
-<li>目的MAC地址未知，即在FDB表中没有相应条项</li>
-<li>FDB表中没有全零表项</li>
-<li>目的MAC地址不是组播或多播地址</li>
-</ul>
-</li>
-<li>L3MISS: VXLAN设备在ARP表中找不到目的IP所对应的MAC地址</li>
-</ul>
-<p>node2上删除vxlan100,重新添加开启l2miss和l3miss的vxlan100接口</p>
-<pre tabindex="0"><code>ip link del vxlan100
+则可以通过NETLINK消息发送通知，用户态进程可以监听相应消息并补充所缺失的表项记录，从而实现动态的表项维护。</p><p>VXLAN设备支持两种消息:</p><ul><li>L2MISS: VXLAN设备在FDB表中找不到目的MAC地址所属的VTEP IP地址。L2MISS消息的发送需要满足如下条件：<ul><li>目的MAC地址未知，即在FDB表中没有相应条项</li><li>FDB表中没有全零表项</li><li>目的MAC地址不是组播或多播地址</li></ul></li><li>L3MISS: VXLAN设备在ARP表中找不到目的IP所对应的MAC地址</li></ul><p>node2上删除vxlan100,重新添加开启l2miss和l3miss的vxlan100接口</p><pre tabindex=0><code>ip link del vxlan100
 ip link add vxlan100 type vxlan id 100 dstport 4789 local 192.168.104.128 nolearning proxy l2miss l3miss
 ip link set vxlan100 master br1
 ip link set up vxlan100
 
 #开另一个shell执行
 # ip monitor all dev vxlan100
-</code></pre><p>清除test1命名空间里的arp缓存, 然后ping测试</p>
-<pre tabindex="0"><code>ip netns exec test1 ip neigh flush all
+</code></pre><p>清除test1命名空间里的arp缓存, 然后ping测试</p><pre tabindex=0><code>ip netns exec test1 ip neigh flush all
 
 # ip netns exec test1 ping -c2 3.3.3.3
 PING 3.3.3.3 (3.3.3.3) 56(84) bytes of data.
@@ -1118,18 +807,14 @@ From 3.3.3.4 icmp_seq=2 Destination Host Unreachable
 --- 3.3.3.3 ping statistics ---
 2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 999ms
 pipe 2
-</code></pre><p>ip monitor收到L3MISS的消息</p>
-<pre tabindex="0"><code>[NEIGH]miss 3.3.3.3  STALE
+</code></pre><p>ip monitor收到L3MISS的消息</p><pre tabindex=0><code>[NEIGH]miss 3.3.3.3  STALE
 [NEIGH]miss 3.3.3.3  STALE
-</code></pre><p>手动添加arp缓存</p>
-<pre tabindex="0"><code>ip neighbor replace 3.3.3.3 lladdr ea:da:ea:f7:13:be dev vxlan100 nud reachable
+</code></pre><p>手动添加arp缓存</p><pre tabindex=0><code>ip neighbor replace 3.3.3.3 lladdr ea:da:ea:f7:13:be dev vxlan100 nud reachable
 
 # ip neighbor show dev vxlan100
 3.3.3.3 lladdr ea:da:ea:f7:13:be REACHABLE
 </code></pre><p><code>nud reachable</code>， NUD表示: Neighbour Unreachability Detection, 代表这个表项有过期时间，系统发现它无效后过一定时间会自动删除,
-之后如果再次需要内核会再次发送L3MISS消息，这样就不用自己维护这些添加的表项了</p>
-<p>再次进行ping测试，ip monitor收到L2MISS消息</p>
-<pre tabindex="0"><code># ip netns exec test1 ping -c2 3.3.3.3
+之后如果再次需要内核会再次发送L3MISS消息，这样就不用自己维护这些添加的表项了</p><p>再次进行ping测试，ip monitor收到L2MISS消息</p><pre tabindex=0><code># ip netns exec test1 ping -c2 3.3.3.3
 PING 3.3.3.3 (3.3.3.3) 56(84) bytes of data.
 From 3.3.3.4 icmp_seq=1 Destination Host Unreachable
 From 3.3.3.4 icmp_seq=2 Destination Host Unreachable
@@ -1140,16 +825,10 @@ pipe 2
 
 [NEIGH]miss lladdr ea:da:ea:f7:13:be STALE
 [NEIGH]miss lladdr ea:da:ea:f7:13:be STALE
-</code></pre><p>node2上继续添加FDB表项</p>
-<pre tabindex="0"><code>bridge fdb append ea:da:ea:f7:13:be dev vxlan100 dst 192.168.104.111
-</code></pre><p>再次ping测试，可以连通了</p>
-<h4 id="flannel-vxlan手动实践">flannel vxlan手动实践</h4>
-<p>Docker的libnetwork VXLAN模式以及Flannel的VXLAN模式都使用类似上述模式来实现Docker overlay网络，具体操作如下</p>
-<p>通过<code>man ip-link</code>和<code>man ip-netns</code>可以查看命令使用方式，还可以man其它子命令</p>
-<pre tabindex="0"><code>ip-address(8), ip-addrlabel(8), ip-l2tp(8), ip-link(8), ip-maddress(8), ip-monitor(8), ip-mroute(8), ip-neighbour(8), ip-netns(8), 
+</code></pre><p>node2上继续添加FDB表项</p><pre tabindex=0><code>bridge fdb append ea:da:ea:f7:13:be dev vxlan100 dst 192.168.104.111
+</code></pre><p>再次ping测试，可以连通了</p><h4 id=flannel-vxlan手动实践>flannel vxlan手动实践</h4><p>Docker的libnetwork VXLAN模式以及Flannel的VXLAN模式都使用类似上述模式来实现Docker overlay网络，具体操作如下</p><p>通过<code>man ip-link</code>和<code>man ip-netns</code>可以查看命令使用方式，还可以man其它子命令</p><pre tabindex=0><code>ip-address(8), ip-addrlabel(8), ip-l2tp(8), ip-link(8), ip-maddress(8), ip-monitor(8), ip-mroute(8), ip-neighbour(8), ip-netns(8), 
 ip-ntable(8), ip-route(8), ip-rule(8), ip-tcp_metrics(8), ip-token(8), ip-tunnel(8), ip-xfrm(8)
-</code></pre><p>node1操作</p>
-<pre tabindex="0"><code>sysctl -w net.ipv4.ip_forward=1
+</code></pre><p>node1操作</p><pre tabindex=0><code>sysctl -w net.ipv4.ip_forward=1
 ip netns add test1
 ip link add veth1 type veth peer name eth0 netns test1
 ip netns exec test1 ip link set eth0 up
@@ -1166,8 +845,7 @@ ip addr add 3.3.1.0/32 dev flannel.1
 ip netns exec test1 ip route add 0.0.0.0/0 via 3.3.1.1
 ifconfig veth1 mtu 1450
 ifconfig flannel.1 mtu 1450
-</code></pre><p>node2操作</p>
-<pre tabindex="0"><code>sysctl -w net.ipv4.ip_forward=1
+</code></pre><p>node2操作</p><pre tabindex=0><code>sysctl -w net.ipv4.ip_forward=1
 ip netns add test1
 ip link add veth1 type veth peer name eth0 netns test1
 ip netns exec test1 ip link set eth0 up
@@ -1184,18 +862,14 @@ ip addr add 3.3.2.0/32 dev flannel.1
 ip netns exec test1 ip route add 0.0.0.0/0 via 3.3.2.1
 ifconfig veth1 mtu 1450
 ifconfig flannel.1 mtu 1450
-</code></pre><p>node1路由/fdb/arp缓存设置</p>
-<pre tabindex="0"><code>ip route add 3.3.2.0/24 via 3.3.2.0 dev flannel.1 onlink
+</code></pre><p>node1路由/fdb/arp缓存设置</p><pre tabindex=0><code>ip route add 3.3.2.0/24 via 3.3.2.0 dev flannel.1 onlink
 bridge fdb append ca:d2:6d:70:20:fd dev flannel.1 dst 192.168.104.128
 ip neighbor add 3.3.2.0 lladdr ca:d2:6d:70:20:fd dev flannel.1
-</code></pre><p>node2路由/fdb/arp缓存设置</p>
-<pre tabindex="0"><code>ip route add 3.3.1.0/24 via 3.3.1.0 dev flannel.1 onlink
+</code></pre><p>node2路由/fdb/arp缓存设置</p><pre tabindex=0><code>ip route add 3.3.1.0/24 via 3.3.1.0 dev flannel.1 onlink
 bridge fdb append 42:10:c8:96:4e:e4 dev flannel.1 dst 192.168.104.111
 ip neighbor add 3.3.1.0 lladdr 42:10:c8:96:4e:e4 dev flannel.1
 </code></pre><p>通过增加<code>ip route add 3.3.2.0/24 via 3.3.2.0 dev flannel.1 onlink</code>和<code>ip route add 3.3.1.0/24 via 3.3.1.0 dev flannel.1 onlink</code>路由，
-使得访问3.3.2.0/24网段的目的IP都通过flannel.1出去，回包的路由也有。</p>
-<p>3.3.1.3到3.3.2.4的连通性，测试可达</p>
-<pre tabindex="0"><code># ip netns exec test1 ping -c2 3.3.2.4
+使得访问3.3.2.0/24网段的目的IP都通过flannel.1出去，回包的路由也有。</p><p>3.3.1.3到3.3.2.4的连通性，测试可达</p><pre tabindex=0><code># ip netns exec test1 ping -c2 3.3.2.4
 PING 3.3.2.4 (3.3.2.4) 56(84) bytes of data.
 64 bytes from 3.3.2.4: icmp_seq=1 ttl=62 time=1.12 ms
 64 bytes from 3.3.2.4: icmp_seq=2 ttl=62 time=0.601 ms
@@ -1203,12 +877,9 @@ PING 3.3.2.4 (3.3.2.4) 56(84) bytes of data.
 --- 3.3.2.4 ping statistics ---
 2 packets transmitted, 2 received, 0% packet loss, time 1001ms
 rtt min/avg/max/mdev = 0.601/0.863/1.125/0.262 ms
-</code></pre><h4 id="代码分析">代码分析</h4>
-<p>调用流程</p>
-<pre tabindex="0"><code>New -&gt; RegisterNetwork -&gt; network.Run(flannel/backend/vxlan/vxlan_network.go)
+</code></pre><h4 id=代码分析>代码分析</h4><p>调用流程</p><pre tabindex=0><code>New -&gt; RegisterNetwork -&gt; network.Run(flannel/backend/vxlan/vxlan_network.go)
 </code></pre><p>每种backend类型都会调用RegisterNetwork这个函数, 每种类型都需要一个新的网络对象，比如操作静态路由、vxlan隧道、udp隧道、ipip隧道等；
-这些网络对象抽象成一个公共接口Network，返回结果是一个实现了Network接口的对象</p>
-<pre tabindex="0"><code>type network struct {
+这些网络对象抽象成一个公共接口Network，返回结果是一个实现了Network接口的对象</p><pre tabindex=0><code>type network struct {
     backend.SimpleNetwork
     dev       *vxlanDevice
     subnetMgr subnet.Manager
@@ -1303,8 +974,7 @@ func newVXLANDevice(devAttrs *vxlanDeviceAttrs) (*vxlanDevice, error) {
         link: link,
     }, nil
 }
-</code></pre><p>最终会调用到network对象的Run函数</p>
-<pre tabindex="0"><code>func (nw *network) Run(ctx context.Context) {
+</code></pre><p>最终会调用到network对象的Run函数</p><pre tabindex=0><code>func (nw *network) Run(ctx context.Context) {
     wg := sync.WaitGroup{}
 
     log.V(0).Info(&#34;watching for new subnet leases&#34;)
@@ -1452,10 +1122,7 @@ func (nw *network) handleSubnetEvents(batch []subnet.Event) {
         }
     }
 }
-</code></pre><p>建立vxlan通信的过程基本跟手动实践vxlan通信一致，只不过代码中没有看到设置vxlan接口<code>proxy</code>的属性.</p>
-<h3 id="基于flannel的固定ipmac实现">基于flannel的固定ip/mac实现</h3>
-<p>结合flannel cni二进制源码和cni配置文件中可以得出，默认情况下flannel用的ipam是host-local，创建设备插件用的是bridge.</p>
-<pre tabindex="0"><code>cni-conf.json: |
+</code></pre><p>建立vxlan通信的过程基本跟手动实践vxlan通信一致，只不过代码中没有看到设置vxlan接口<code>proxy</code>的属性.</p><h3 id=基于flannel的固定ipmac实现>基于flannel的固定ip/mac实现</h3><p>结合flannel cni二进制源码和cni配置文件中可以得出，默认情况下flannel用的ipam是host-local，创建设备插件用的是bridge.</p><pre tabindex=0><code>cni-conf.json: |
   {
     &#34;name&#34;: &#34;cbr0&#34;,
     &#34;cniVersion&#34;: &#34;0.3.1&#34;,
@@ -1476,22 +1143,11 @@ func (nw *network) handleSubnetEvents(batch []subnet.Event) {
       }
     ]
 }
-</code></pre><p>思考1：基于flannel实现原地pod固定ip，改造host-local插件就可以？</p>
-<blockquote>
-<p>是的，host-local是基于本地的ip分配机制，按ip递增的方式来分配，每次分配新的ip都会更新记录<code>/var/lib/cni/networks/cbr0/last_reserved_ip.0</code>
-文件中(文件锁保证多写)，在这个基础上新增逻辑：如果启动固定ip/mac开关，也一并记录&lt;pod命名空间&gt;-&lt;pod名称&gt;和ip的映射关系，每次本地重启的时候先从本地映射
-关系中获取，如果没有获取到，还是走原来的逻辑.</p>
-</blockquote>
-<p>思考2：基于flannel实现原地pod固定mac，改造bridge插件就可以？</p>
-<blockquote>
-<p>是的，如果启动固定ip/mac开关，记录&lt;pod命名空间&gt;-&lt;pod名称&gt;和mac的映射关系，每次本地重启的时候先从本地映射
-关系中获取，如果没有获取到，还是走原来的逻辑.</p>
-</blockquote>
-<p>如果是基于crd的方式，可以做到全局pod固定ip/mac，不管是否发生pod迁移，不过需要能访问到k8s apiserver，不太符合
-边缘计算场景下的离线情况。</p>
-<h3 id="代码片段">代码片段</h3>
-<p>网络开发可重复利用的代码片段</p>
-<pre tabindex="0"><code>package ip
+</code></pre><p>思考1：基于flannel实现原地pod固定ip，改造host-local插件就可以？</p><blockquote><p>是的，host-local是基于本地的ip分配机制，按ip递增的方式来分配，每次分配新的ip都会更新记录<code>/var/lib/cni/networks/cbr0/last_reserved_ip.0</code>
+文件中(文件锁保证多写)，在这个基础上新增逻辑：如果启动固定ip/mac开关，也一并记录&lt;pod命名空间>-&lt;pod名称>和ip的映射关系，每次本地重启的时候先从本地映射
+关系中获取，如果没有获取到，还是走原来的逻辑.</p></blockquote><p>思考2：基于flannel实现原地pod固定mac，改造bridge插件就可以？</p><blockquote><p>是的，如果启动固定ip/mac开关，记录&lt;pod命名空间>-&lt;pod名称>和mac的映射关系，每次本地重启的时候先从本地映射
+关系中获取，如果没有获取到，还是走原来的逻辑.</p></blockquote><p>如果是基于crd的方式，可以做到全局pod固定ip/mac，不管是否发生pod迁移，不过需要能访问到k8s apiserver，不太符合
+边缘计算场景下的离线情况。</p><h3 id=代码片段>代码片段</h3><p>网络开发可重复利用的代码片段</p><pre tabindex=0><code>package ip
 
 import (
     &#34;errors&#34;
@@ -1646,407 +1302,28 @@ func EnsureV4AddressOnLink(ipn IP4Net, link netlink.Link) error {
 
     return nil
 }
-</code></pre><h3 id="参考链接">参考链接</h3>
-<ul>
-<li><a href="https://github.com/coreos/flannel">https://github.com/coreos/flannel</a></li>
-<li><a href="http://just4coding.com/2017/05/21/vxlan/">VXLAN原理介绍与实例分析</a></li>
-<li><a href="http://just4coding.com/2020/04/20/vxlan-fdb/">动态维护FDB表项实现VXLAN通信</a></li>
-</ul>
-
-
-                
-                
-<div class="entry-shang text-center">
-    
-	    <p>「真诚赞赏，手留余香」</p>
-	
-	<button class="zs show-zs btn btn-bred">赞赏支持</button>
-</div>
-<div class="zs-modal-bg"></div>
-<div class="zs-modal-box">
-	<div class="zs-modal-head">
-		<button type="button" class="close">×</button>
-		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
-        
-	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
-		
- 
-	</div>
-	<div class="zs-modal-body">
-		<div class="zs-modal-btns">
-			<button class="btn btn-blink" data-num="2">2元</button>
-			<button class="btn btn-blink" data-num="5">5元</button>
-			<button class="btn btn-blink" data-num="10">10元</button>
-			<button class="btn btn-blink" data-num="50">50元</button>
-			<button class="btn btn-blink" data-num="100">100元</button>
-			<button class="btn btn-blink" data-num="1">任意金额</button>
-		</div>
-		<div class="zs-modal-pay">
-			<button class="btn btn-bred" id="pay-text">2元</button>
-			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
-			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
-		</div>
-	</div>
-	<div class="zs-modal-footer">
-		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
-		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
-	</div>
-</div>
-<script type="text/javascript" src="/js/reward.js"></script>
-
-                
-
-                
-                <hr>
-                <ul class="pager">
-                    
-                    <li class="previous">
-                        <a href="/post/2020-08-09-golang_knowledge/" data-toggle="tooltip" data-placement="top" title="Golang知识点大杂烩">&larr;
-                            Previous Post</a>
-                    </li>
-                    
-                    
-                    <li class="next">
-                        <a href="/post/2020-08-31-k8s_scheduler_framework/" data-toggle="tooltip" data-placement="top" title="K8s scheduler framework阅读笔记">Next
-                            Post &rarr;</a>
-                    </li>
-                    
-                </ul>
-                
-
-                
-
-
-<script src="https://giscus.app/client.js"
-        data-repo="yaoice/yaoice.github.io"
-        data-repo-id="R_kgDOJnxqVg"
-        data-category="General"
-        data-category-id="DIC_kwDOJnxqVs4CWwUs"
-        data-mapping="pathname"
-        data-reactions-enabled="1"
-        data-emit-metadata="0"
-        data-theme="light"
-        data-lang="en"
-        crossorigin="anonymous"
-        async>
-</script>
-
-
-            </div>
-
-            
-            
-            <div class="
-                col-lg-2 col-lg-offset-0
-                visible-lg-block
-                sidebar-container
-                catalog-container">
-                <div class="side-catalog">
-                    <hr class="hidden-sm hidden-xs">
-                    <h5>
-                        <a class="catalog-toggle" href="#">CATALOG</a>
-                    </h5>
-                    <ul class="catalog-body"></ul>
-                </div>
-            </div>
-            
-
-            
-            <div class="
-                col-lg-8 col-lg-offset-2
-                col-md-10 col-md-offset-1
-                sidebar-container">
-
-                
-                
-                <section>
-                    <hr class="hidden-sm hidden-xs">
-                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
-                    <div class="tags">
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/devops" title="devops">
-                            devops
-                        </a>
-                        
-                        
-                        
-                        <a href="/tags/go" title="go">
-                            go
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/k8s" title="k8s">
-                            k8s
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/llm" title="llm">
-                            llm
-                        </a>
-                        
-                        
-                        
-                        <a href="/tags/openstack" title="openstack">
-                            openstack
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/tkestack" title="tkestack">
-                            tkestack
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
-                            练车
-                        </a>
-                        
-                        
-                    </div>
-                </section>
-                
-
-                
-                
-            </div>
-        </div>
-    </div>
-</article>
-
-
-
-
-
-
-
-
-
-<footer>
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <ul class="list-inline text-center">                  
-                    
-                    <li>
-                        <a href="mailto:yao3690093@gmail.com">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		           
-                    
-                    
-                    
-                    
-
-		            
-                    
-                    <li>
-                        <a target="_blank" href="/img/wechat.jpeg">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		            
-                    
-                    <li>
-                        <a target="_blank" href="https://github.com/yaoice">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		            
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-            
-            
-            
-           
-                   <li>
-                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
-                           <span class="fa-stack fa-lg">
-                               <i class="fas fa-circle fa-stack-2x"></i>
-                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
-                           </span>
-                       </a>
-                   </li>
-            
-             </ul>
-		<p class="copyright text-muted">
-                    Copyright &copy; 爱折腾的工程师 2024
-                </p>
-            </div>
-        </div>
-    </div>
-</footer>
-
-
-
-
-<script>
-    function loadAsync(u, c) {
-      var d = document, t = 'script',
-          o = d.createElement(t),
-          s = d.getElementsByTagName(t)[0];
-      o.src = u;
-      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
-      s.parentNode.insertBefore(o, s);
-    }
-</script>
-
-
-
-
-
-
-<script>
-    
-    if($('#tag_cloud').length !== 0){
-        loadAsync("/js/jquery.tagcloud.js",function(){
-            $.fn.tagcloud.defaults = {
-                
-                color: {start: '#bbbbee', end: '#0085a1'},
-            };
-            $('#tag_cloud a').tagcloud();
-        })
-    }
-</script>
-
-
-<script>
-    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
-        var $nav = document.querySelector("nav");
-        if($nav) FastClick.attach($nav);
-    })
-</script>
-
-
-
-<script>
-    (function(){
-        var bp = document.createElement('script');
-        var curProtocol = window.location.protocol.split(':')[0];
-        if (curProtocol === 'https'){
-       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
-      }
-      else{
-      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
-      }
-        var s = document.getElementsByTagName("script")[0];
-        s.parentNode.insertBefore(bp, s);
-    })();
-</script>
-
-
-<script>
-    
-    var _baId = '92c175994ded75a3cd2074bc1123e2be';
-
-    
-    var _hmt = _hmt || [];
-    (function() {
-      var hm = document.createElement("script");
-      hm.src = "//hm.baidu.com/hm.js?" + _baId;
-      var s = document.getElementsByTagName("script")[0];
-      s.parentNode.insertBefore(hm, s);
-    })();
-</script>
-
-
-
-
-<script type="text/javascript">
-    function generateCatalog(selector) {
-
-        
-        
-        
-        
-            _containerSelector = 'div.post-container'
-        
-
-        
-        var P = $(_containerSelector), a, n, t, l, i, c;
-        a = P.find('h1,h2,h3,h4,h5,h6');
-
-        
-        $(selector).html('')
-
-        
-        a.each(function () {
-            n = $(this).prop('tagName').toLowerCase();
-            i = "#" + $(this).prop('id');
-            t = $(this).text();
-            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
-            l = $('<li class="' + n + '_nav"></li>').append(c);
-            $(selector).append(l);
-        });
-        return true;
-    }
-
-    generateCatalog(".catalog-body");
-
-    
-    $(".catalog-toggle").click((function (e) {
-        e.preventDefault();
-        $('.side-catalog').toggleClass("fold")
-    }))
-
-    
-
-
-    loadAsync("\/js\/jquery.nav.js", function () {
-        $('.catalog-body').onePageNav({
-            currentClass: "active",
-            changeHash: !1,
-            easing: "swing",
-            filter: "",
-            scrollSpeed: 700,
-            scrollOffset: 0,
-            scrollThreshold: .2,
-            begin: null,
-            end: null,
-            scrollChange: null,
-            padding: 80
-        });
-    });
-</script>
-
-
-
-
-
-
-
-</body>
-</html>
+</code></pre><h3 id=参考链接>参考链接</h3><ul><li><a href=https://github.com/coreos/flannel>https://github.com/coreos/flannel</a></li><li><a href=http://just4coding.com/2017/05/21/vxlan/>VXLAN原理介绍与实例分析</a></li><li><a href=http://just4coding.com/2020/04/20/vxlan-fdb/>动态维护FDB表项实现VXLAN通信</a></li></ul><div class="entry-shang text-center"><p>「真诚赞赏，手留余香」</p><button class="zs show-zs btn btn-bred">赞赏支持</button></div><div class=zs-modal-bg></div><div class=zs-modal-box><div class=zs-modal-head><button type=button class=close>×</button>
+<span class=author><a href=https://www.iceyao.com.cn/><img src=/img/favicon.png>爱折腾的工程师</a></span><p class=tip><i></i><span>真诚赞赏，手留余香</span></p></div><div class=zs-modal-body><div class=zs-modal-btns><button class="btn btn-blink" data-num=2>2元</button>
+<button class="btn btn-blink" data-num=5>5元</button>
+<button class="btn btn-blink" data-num=10>10元</button>
+<button class="btn btn-blink" data-num=50>50元</button>
+<button class="btn btn-blink" data-num=100>100元</button>
+<button class="btn btn-blink" data-num=1>任意金额</button></div><div class=zs-modal-pay><button class="btn btn-bred" id=pay-text>2元</button><p>使用<span id=pay-type>微信</span>扫描二维码完成支付</p><img src=/img/reward/wechat-2.png id=pay-image></div></div><div class=zs-modal-footer><label><input type=radio name=zs-type value=wechat class=zs-type checked><span><span class=zs-wechat><img src=/img/reward/wechat-btn.png></span></label>
+<label><input type=radio name=zs-type value=alipay class=zs-type class=zs-alipay><img src=/img/reward/alipay-btn.png></span></label></div></div><script type=text/javascript src=/js/reward.js></script><hr><ul class=pager><li class=previous><a href=/post/2020-08-09-golang_knowledge/ data-toggle=tooltip data-placement=top title=Golang知识点大杂烩>&larr;
+Previous Post</a></li><li class=next><a href=/post/2020-08-31-k8s_scheduler_framework/ data-toggle=tooltip data-placement=top title="K8s scheduler framework阅读笔记">Next
+Post &rarr;</a></li></ul><script src=https://giscus.app/client.js data-repo=yaoice/yaoice.github.io data-repo-id=R_kgDOJnxqVg data-category=General data-category-id=DIC_kwDOJnxqVs4CWwUs data-mapping=pathname data-reactions-enabled=1 data-emit-metadata=0 data-theme=light data-lang=en crossorigin=anonymous async></script></div><div class="col-lg-2 col-lg-offset-0
+visible-lg-block
+sidebar-container
+catalog-container"><div class=side-catalog><hr class="hidden-sm hidden-xs"><h5><a class=catalog-toggle href=#>CATALOG</a></h5><ul class=catalog-body></ul></div></div><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+sidebar-container"><section><hr class="hidden-sm hidden-xs"><h5><a href=/tags/>FEATURED TAGS</a></h5><div class=tags><a href=/tags/devops title=devops>devops
+</a><a href=/tags/go title=go>go
+</a><a href=/tags/k8s title=k8s>k8s
+</a><a href=/tags/llm title=llm>llm
+</a><a href=/tags/openstack title=openstack>openstack
+</a><a href=/tags/tkestack title=tkestack>tkestack
+</a><a href=/tags/%E7%BB%83%E8%BD%A6 title=练车>练车</a></div></section></div></div></div></article><footer><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><ul class="list-inline text-center"><li><a href=mailto:yao3690093@gmail.com><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-envelope fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=/img/wechat.jpeg><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-weixin fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=https://github.com/yaoice><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-github fa-stack-1x fa-inverse"></i></span></a></li><li><a href rel=alternate type=application/rss+xml title=爱折腾的工程师><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-rss fa-stack-1x fa-inverse"></i></span></a></li></ul><p class="copyright text-muted">Copyright &copy; 爱折腾的工程师 2024</p></div></div></div></footer><script>function loadAsync(e,t){var s=document,o="script",n=s.createElement(o),i=s.getElementsByTagName(o)[0];n.src=e,t&&n.addEventListener("load",function(e){t(null,e)},!1),i.parentNode.insertBefore(n,i)}</script><script>$("#tag_cloud").length!==0&&loadAsync("/js/jquery.tagcloud.js",function(){$.fn.tagcloud.defaults={color:{start:"#bbbbee",end:"#0085a1"}},$("#tag_cloud a").tagcloud()})</script><script>loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js",function(){var e=document.querySelector("nav");e&&FastClick.attach(e)})</script><script>(function(){var t,e=document.createElement("script"),n=window.location.protocol.split(":")[0];n==="https"?e.src="https://zz.bdstatic.com/linksubmit/push.js":e.src="http://push.zhanzhang.baidu.com/push.js",t=document.getElementsByTagName("script")[0],t.parentNode.insertBefore(e,t)})()</script><script>var _baId="92c175994ded75a3cd2074bc1123e2be",_hmt=_hmt||[];(function(){var e,t=document.createElement("script");t.src="//hm.baidu.com/hm.js?"+_baId,e=document.getElementsByTagName("script")[0],e.parentNode.insertBefore(t,e)})()</script><script type=text/javascript>function generateCatalog(e){_containerSelector="div.post-container";var t,n,s,o,i,a=$(_containerSelector),r=a.find("h1,h2,h3,h4,h5,h6");return $(e).html(""),r.each(function(){t=$(this).prop("tagName").toLowerCase(),o="#"+$(this).prop("id"),n=$(this).text(),i=$('<a href="'+o+'" rel="nofollow">'+n+"</a>"),s=$('<li class="'+t+'_nav"></li>').append(i),$(e).append(s)}),!0}generateCatalog(".catalog-body"),$(".catalog-toggle").click(function(e){e.preventDefault(),$(".side-catalog").toggleClass("fold")}),loadAsync("/js/jquery.nav.js",function(){$(".catalog-body").onePageNav({currentClass:"active",changeHash:!1,easing:"swing",filter:"",scrollSpeed:700,scrollOffset:0,scrollThreshold:.2,begin:null,end:null,scrollChange:null,padding:80})})</script></body></html>

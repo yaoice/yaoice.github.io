@@ -1,275 +1,17 @@
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    
-    <meta property="og:site_name" content="爱折腾的工程师">
-    <meta property="og:type" content="article">
-
-    
-    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
-    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
-    
-
-    
-    <meta name="title" content="calico源码阅读笔记" />
-    <meta property="og:title" content="calico源码阅读笔记" />
-    <meta property="twitter:title" content="calico源码阅读笔记" />
-    
-
-    
-    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
-    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
-    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
-    
-
-    
-    <meta property="twitter:card" content="summary" />
-    
-    
-
-    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
-    <link rel="shortcut icon" href="/img/favicon.ico">
-
-    <title>calico源码阅读笔记 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
-
-    <link rel="canonical" href="/post/2020-12-15-calico_readnote/">
-
-    
-    
-    
-    <link rel="stylesheet" href="/css/bootstrap.min.css">
-
-    
-    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
-
-    
-    <link rel="stylesheet" href="/css/zanshang.css">
-
-    
-    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
-
-    
-    
-
-    
-    <script src="/js/jquery.min.js"></script>
-
-    
-    <script src="/js/bootstrap.min.js"></script>
-
-    
-    <script src="/js/hux-blog.min.js"></script>
-
-    
-    <script src="/js/lazysizes.min.js"></script>
-
-    
-    
-
-</head>
-
-
-
-  
-    
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
-      <script>
-        var doNotTrack = false;
-        if ( false ) {
-          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
-          var doNotTrack = (dnt == "1" || dnt == "yes");
-        }
-        if (!doNotTrack) {
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-9J7CKFVPPM');
-        }
-      </script>
-    
-  
-
-
-
-
-
-
-
-<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
-
-    <div class="container-fluid">
-        
-        <div class="navbar-header page-scroll">
-            <button type="button" class="navbar-toggle">
-                <span class="sr-only">Toggle navigation</span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </button>
-            <a class="navbar-brand" href="/">爱折腾的工程师</a>
-        </div>
-
-        
-        
-        <div id="huxblog_navbar">
-            <div class="navbar-collapse">
-                <ul class="nav navbar-nav navbar-right">
-                    <li>
-                        <a href="/">All Posts</a>
-                    </li>
-                    
-                        
-                    
-                    
-		    
-                        <li><a href="/archive//">ARCHIVE</a></li>
-                    
-                        <li><a href="/notes//">NOTES</a></li>
-                    
-                        <li><a href="/about//">ABOUT</a></li>
-                    
-		            <li>
-                        <a href="/search"><i class="fa fa-search"></i></a>
-		           </li>
-                </ul>
-            </div>
-        </div>
-        
-    </div>
-    
-</nav>
-<script>
-    
-    
-    
-    var $body   = document.body;
-    var $toggle = document.querySelector('.navbar-toggle');
-    var $navbar = document.querySelector('#huxblog_navbar');
-    var $collapse = document.querySelector('.navbar-collapse');
-
-    $toggle.addEventListener('click', handleMagic)
-    function handleMagic(e){
-        if ($navbar.className.indexOf('in') > 0) {
-        
-            $navbar.className = " ";
-            
-            setTimeout(function(){
-                
-                if($navbar.className.indexOf('in') < 0) {
-                    $collapse.style.height = "0px"
-                }
-            },400)
-        }else{
-        
-            $collapse.style.height = "auto"
-            $navbar.className += " in";
-        }
-    }
-</script>
-
-
-
-
-<style type="text/css">
-    header.intro-header {
-        background-image: url('/img/post-bg-unix-linux.jpg')
-    }
-</style>
-
-<header class="intro-header" >
-
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <div class="post-heading">
-                    <div class="tags">
-                        
-                        <a class="tag" href="/tags/k8s" title="k8s">
-                            k8s
-                        </a>
-                        
-                    </div>
-                    <h1>calico源码阅读笔记</h1>
-                    <h2 class="subheading"></h2>
-                    <span class="meta">
-                        
-                            Posted by 
-                            
-                                    爱折腾的工程师
-                             
-                            on 
-                            Tuesday, December 15, 2020
-                            
-                            
-                            
-                            
-                    </span>
-                </div>
-            </div>
-        </div>
-    </div>
-</header>
-
-
-
-
-<article>
-    <div class="container">
-        <div class="row">
-
-            
-            <div class="
-                col-lg-8 col-lg-offset-2
-                col-md-10 col-md-offset-1
-                post-container">
-
-                
-                <h3 id="1-calico简介">1 calico简介</h3>
-<p>Calico是针对容器，虚拟机和裸机工作负载的开源网络和网络安全解决方案. Calico使用标准的Linux网络工具为Cloud Native应用程序提供两项主要服务：</p>
-<ul>
-<li>工作负载之间的网络连接。</li>
-<li>工作负载之间的网络安全策略实施。</li>
-</ul>
-<p>Calico的灵活体系结构使用模块化组件，支持广泛的部署选项，其中包括：</p>
-<ul>
-<li>Kubernetes的<a href="https://github.com/projectcalico/cni-plugin">CNI</a>插件可提供高效的Pod网络和IP地址管理（IPAM）</li>
-<li><a href="https://github.com/projectcalico/networking-calico">Neutron ML2</a>插件，用于为OpenStack提供VM网络</li>
-<li>一个策略引擎<a href="https://github.com/projectcalico/felix">Felix</a>，用于实施全套Kubernetes网络策略功能，以及那些需要更丰富的策略功能（Calico网络策略）的用户</li>
-<li>公共云或本地部署中的非overlay和<a href="https://docs.projectcalico.org/networking/vxlan-ipip">overlay（通过IPIP或VXLAN）</a>网络选项</li>
-<li><a href="https://docs.projectcalico.org/networking/bgp">BGP routing stack</a>，可以将工作负载和服务IP地址的路由通告到物理网络基础结构，例如机架顶路由器（ToRs）</li>
-<li>一个简单的命令行界面<a href="https://github.com/projectcalico/calicoctl">calicoctl</a>，用于管理Calico配置和Calico网络策略</li>
-</ul>
-<h4 id="11-名词解释">1.1 名词解释</h4>
-<ul>
-<li>endpoint:  接入到calico网络中的网卡称为endpoint</li>
-<li>AS:        网络自治系统，通过BGP协议与其它AS网络交换路由信息</li>
-<li>ibgp:      AS内部的BGP Speaker，与同一个AS内部的ibgp、ebgp交换路由信息</li>
-<li>ebgp:      AS边界的BGP Speaker，与同一个AS内部的ibgp、其它AS的ebgp交换路由信息</li>
-<li>workloadEndpoint:  虚拟机、容器使用的endpoint</li>
-<li>hostEndpoints:     物理机(node)的地址</li>
-</ul>
-<h4 id="12-核心组件">1.2 核心组件</h4>
-<ul>
-<li>Felix/Calico node: 在每台需要运行负载的节点上，主要负责配置路由及ACLs等信息来确保endpoint的连通状态</li>
-<li>etcd/k8s: 分布式键值存储，主要负责网络元数据一致性，确保Calico网络状态的准确性</li>
-<li>BGP Client(BIRD)：主要负责把Felix写入kernel的路由信息分发到当前Calico网络，确保workload间的通信的有效性</li>
-<li>BGP Route Reflector(BIRD)：大规模部署时使用，摒弃所有节点互联的mesh模式，通过一个或者多个BGP Route Reflector来完成集中式的路由分发</li>
-</ul>
-<h4 id="13-bgp-speaker模式">1.3 BGP Speaker模式</h4>
-<p>AS有多个BGP Speaker, 分为ibgp、ebgp，ebgp与其它AS的ebgp交换路由信息. 最终每个BGP Speaker都拥有整个AS的路由信息</p>
-<p>BPG Spearker模式:</p>
-<ul>
-<li>Mesh模式： 全互联模式，一个BGP Speaker与其它所有的BGP Speaker建立BGP连接(n*(n-1)/2)); Speaker很多时，产生大量连接，扩展性差</li>
-<li>RR模式: Router Reflection模式，就是在网络中指定一个或多个BGP Speaker作为Router Reflection，RR与所有的BGP Speaker建立BGP连接.
-每个BGP Speaker只需要与RR交换路由信息，就可以得到全网路由信息.</li>
-</ul>
-<h3 id="2-部署">2 部署</h3>
-<p>calico-3.17.yaml</p>
-<pre tabindex="0"><code>---
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:site_name" content="爱折腾的工程师"><meta property="og:type" content="article"><meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta name=title content="calico源码阅读笔记"><meta property="og:title" content="calico源码阅读笔记"><meta property="twitter:title" content="calico源码阅读笔记"><meta name=description content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:card" content="summary"><meta name=keyword content="iceyao, IceYao's Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice"><link rel="shortcut icon" href=/img/favicon.ico><title>calico源码阅读笔记 | 爱折腾的工程师 | IceYao's Blog</title>
+<link rel=canonical href=/post/2020-12-15-calico_readnote/><link rel=stylesheet href=/css/bootstrap.min.css><link rel=stylesheet href=/css/hugo-theme-cleanwhite.min.css><link rel=stylesheet href=/css/zanshang.css><link rel=stylesheet href=/css/font-awesome.all.min.css><script src=/js/jquery.min.js></script><script src=/js/bootstrap.min.js></script><script src=/js/hux-blog.min.js></script><script src=/js/lazysizes.min.js></script></head><script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-9J7CKFVPPM")}</script><nav class="navbar navbar-default navbar-custom navbar-fixed-top"><div class=container-fluid><div class="navbar-header page-scroll"><button type=button class=navbar-toggle>
+<span class=sr-only>Toggle navigation</span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+</button>
+<a class=navbar-brand href=/>爱折腾的工程师</a></div><div id=huxblog_navbar><div class=navbar-collapse><ul class="nav navbar-nav navbar-right"><li><a href=/>All Posts</a></li><li><a href=/archive//>ARCHIVE</a></li><li><a href=/notes//>NOTES</a></li><li><a href=/about//>ABOUT</a></li><li><a href=/search><i class="fa fa-search"></i></a></li></ul></div></div></div></nav><script>var $body=document.body,$toggle=document.querySelector(".navbar-toggle"),$navbar=document.querySelector("#huxblog_navbar"),$collapse=document.querySelector(".navbar-collapse");$toggle.addEventListener("click",handleMagic);function handleMagic(){$navbar.className.indexOf("in")>0?($navbar.className=" ",setTimeout(function(){$navbar.className.indexOf("in")<0&&($collapse.style.height="0px")},400)):($collapse.style.height="auto",$navbar.className+=" in")}</script><style type=text/css>header.intro-header{background-image:url(/img/post-bg-unix-linux.jpg)}</style><header class=intro-header><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><div class=post-heading><div class=tags><a class=tag href=/tags/k8s title=k8s>k8s</a></div><h1>calico源码阅读笔记</h1><h2 class=subheading></h2><span class=meta>Posted by
+爱折腾的工程师
+on
+Tuesday, December 15, 2020</span></div></div></div></div></header><article><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+post-container"><h3 id=1-calico简介>1 calico简介</h3><p>Calico是针对容器，虚拟机和裸机工作负载的开源网络和网络安全解决方案. Calico使用标准的Linux网络工具为Cloud Native应用程序提供两项主要服务：</p><ul><li>工作负载之间的网络连接。</li><li>工作负载之间的网络安全策略实施。</li></ul><p>Calico的灵活体系结构使用模块化组件，支持广泛的部署选项，其中包括：</p><ul><li>Kubernetes的<a href=https://github.com/projectcalico/cni-plugin>CNI</a>插件可提供高效的Pod网络和IP地址管理（IPAM）</li><li><a href=https://github.com/projectcalico/networking-calico>Neutron ML2</a>插件，用于为OpenStack提供VM网络</li><li>一个策略引擎<a href=https://github.com/projectcalico/felix>Felix</a>，用于实施全套Kubernetes网络策略功能，以及那些需要更丰富的策略功能（Calico网络策略）的用户</li><li>公共云或本地部署中的非overlay和<a href=https://docs.projectcalico.org/networking/vxlan-ipip>overlay（通过IPIP或VXLAN）</a>网络选项</li><li><a href=https://docs.projectcalico.org/networking/bgp>BGP routing stack</a>，可以将工作负载和服务IP地址的路由通告到物理网络基础结构，例如机架顶路由器（ToRs）</li><li>一个简单的命令行界面<a href=https://github.com/projectcalico/calicoctl>calicoctl</a>，用于管理Calico配置和Calico网络策略</li></ul><h4 id=11-名词解释>1.1 名词解释</h4><ul><li>endpoint: 接入到calico网络中的网卡称为endpoint</li><li>AS: 网络自治系统，通过BGP协议与其它AS网络交换路由信息</li><li>ibgp: AS内部的BGP Speaker，与同一个AS内部的ibgp、ebgp交换路由信息</li><li>ebgp: AS边界的BGP Speaker，与同一个AS内部的ibgp、其它AS的ebgp交换路由信息</li><li>workloadEndpoint: 虚拟机、容器使用的endpoint</li><li>hostEndpoints: 物理机(node)的地址</li></ul><h4 id=12-核心组件>1.2 核心组件</h4><ul><li>Felix/Calico node: 在每台需要运行负载的节点上，主要负责配置路由及ACLs等信息来确保endpoint的连通状态</li><li>etcd/k8s: 分布式键值存储，主要负责网络元数据一致性，确保Calico网络状态的准确性</li><li>BGP Client(BIRD)：主要负责把Felix写入kernel的路由信息分发到当前Calico网络，确保workload间的通信的有效性</li><li>BGP Route Reflector(BIRD)：大规模部署时使用，摒弃所有节点互联的mesh模式，通过一个或者多个BGP Route Reflector来完成集中式的路由分发</li></ul><h4 id=13-bgp-speaker模式>1.3 BGP Speaker模式</h4><p>AS有多个BGP Speaker, 分为ibgp、ebgp，ebgp与其它AS的ebgp交换路由信息. 最终每个BGP Speaker都拥有整个AS的路由信息</p><p>BPG Spearker模式:</p><ul><li>Mesh模式： 全互联模式，一个BGP Speaker与其它所有的BGP Speaker建立BGP连接(n*(n-1)/2)); Speaker很多时，产生大量连接，扩展性差</li><li>RR模式: Router Reflection模式，就是在网络中指定一个或多个BGP Speaker作为Router Reflection，RR与所有的BGP Speaker建立BGP连接.
+每个BGP Speaker只需要与RR交换路由信息，就可以得到全网路由信息.</li></ul><h3 id=2-部署>2 部署</h3><p>calico-3.17.yaml</p><pre tabindex=0><code>---
 # Source: calico/templates/calico-config.yaml
 # This ConfigMap is used to configure a self-hosted Calico installation.
 kind: ConfigMap
@@ -4147,19 +3889,13 @@ spec:
 
 ---
 # Source: calico/templates/configure-canal.yaml
-</code></pre><h3 id="3-工作模式">3 工作模式</h3>
-<h4 id="31-ipip模式">3.1 IPIP模式</h4>
-<p>使用nsenter进入pod命名空间</p>
-<pre tabindex="0"><code># e common-nginx-76457bb678-bcz6l
+</code></pre><h3 id=3-工作模式>3 工作模式</h3><h4 id=31-ipip模式>3.1 IPIP模式</h4><p>使用nsenter进入pod命名空间</p><pre tabindex=0><code># e common-nginx-76457bb678-bcz6l
 entering pod netns for default/common-nginx-76457bb678-bcz6l
 nsenter -n --target 5583
-</code></pre><p>查看容器内部的路由</p>
-<pre tabindex="0"><code># ip route
+</code></pre><p>查看容器内部的路由</p><pre tabindex=0><code># ip route
 default via 169.254.1.1 dev eth0
 169.254.1.1 dev eth0 scope link
-</code></pre><p>发现默认路由是指向一个<code>169.254.1.1</code>的地址，实际上这个地址是不存在的</p>
-<p>查看容器内部的ip地址</p>
-<pre tabindex="0"><code># ip a
+</code></pre><p>发现默认路由是指向一个<code>169.254.1.1</code>的地址，实际上这个地址是不存在的</p><p>查看容器内部的ip地址</p><pre tabindex=0><code># ip a
 1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
     inet 127.0.0.1/8 scope host lo
@@ -4176,12 +3912,9 @@ default via 169.254.1.1 dev eth0
        valid_lft forever preferred_lft forever
     inet6 fe80::58ed:19ff:feb1:f576/64 scope link 
        valid_lft forever preferred_lft forever
-</code></pre><p>eth0@if264，264是宿主机上序号为264的网卡，与eth0构成veth-pair</p>
-<p>宿主机上查看序号为264的网卡</p>
-<pre tabindex="0"><code># ip a  |grep 264
+</code></pre><p>eth0@if264，264是宿主机上序号为264的网卡，与eth0构成veth-pair</p><p>宿主机上查看序号为264的网卡</p><pre tabindex=0><code># ip a  |grep 264
 264: cali85226dd4e4f@if4: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1480 qdisc noqueue state UP group default
-</code></pre><p>宿主机上的路由</p>
-<pre tabindex="0"><code># ip route
+</code></pre><p>宿主机上的路由</p><pre tabindex=0><code># ip route
 default via 192.168.101.254 dev enp129s0f0 
 169.254.0.0/16 dev enp129s0f0 scope link metric 1002 
 172.16.2.0/24 dev cni0 proto kernel scope link src 172.16.2.1 
@@ -4196,12 +3929,7 @@ blackhole 172.16.38.192/26 proto bird
 172.16.38.228 dev cali0258201bc7e scope link 
 172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 
 192.168.101.0/24 dev enp129s0f0 proto kernel scope link src 192.168.101.53 
-</code></pre><h4 id="32-bgp模式">3.2 BGP模式</h4>
-<h3 id="4-代码分析">4 代码分析</h3>
-<h4 id="41-calico-node">4.1 calico-node</h4>
-<p>calico-node负责每个节点上网络策略和路由的生成</p>
-<p>入口函数</p>
-<pre tabindex="0"><code># github.com/projectcalico/node/cmd/calico-node/main.go
+</code></pre><h4 id=32-bgp模式>3.2 BGP模式</h4><h3 id=4-代码分析>4 代码分析</h3><h4 id=41-calico-node>4.1 calico-node</h4><p>calico-node负责每个节点上网络策略和路由的生成</p><p>入口函数</p><pre tabindex=0><code># github.com/projectcalico/node/cmd/calico-node/main.go
 
 func main() {
     //日志标准输出
@@ -4291,8 +4019,7 @@ func main() {
 		os.Exit(1)
 	}
 }
-</code></pre><p>根据calico-node镜像运行的容器内部来看，calico启动服务是用<code>runit</code>这套机制来管理的，默认情况下所有服务都会启动</p>
-<pre tabindex="0"><code>[root@node53 ~]# ps aux |grep -i runsv | grep -v &#34;grep&#34;
+</code></pre><p>根据calico-node镜像运行的容器内部来看，calico启动服务是用<code>runit</code>这套机制来管理的，默认情况下所有服务都会启动</p><pre tabindex=0><code>[root@node53 ~]# ps aux |grep -i runsv | grep -v &#34;grep&#34;
 root     54244  0.0  0.0   4360   528 ?        Ss   Dec11   0:04 /usr/local/bin/runsvdir -P /etc/service/enabled
 root     54355  0.0  0.0   4208   388 ?        Ss   Dec11   0:00 runsv felix
 root     54356  0.0  0.0   4208   392 ?        Ss   Dec11   0:00 runsv monitor-addresses
@@ -4300,408 +4027,28 @@ root     54357  0.0  0.0   4208   392 ?        Ss   Dec11   0:00 runsv allocate-
 root     54358  0.0  0.0   4208   392 ?        Ss   Dec11   0:00 runsv bird
 root     54359  0.0  0.0   4208   392 ?        Ss   Dec11   0:00 runsv bird6
 root     54360  0.0  0.0   4208   392 ?        Ss   Dec11   0:00 runsv confd
-</code></pre><p>默认情况下一个容器里启动6个服务</p>
-<h3 id="参考链接">参考链接</h3>
-<ul>
-<li><a href="https://cloud.tencent.com/developer/article/1195794">runit 快速入门</a></li>
-<li><a href="https://cloud.tencent.com/developer/article/1638845">Calico 介绍、原理与使用</a></li>
-<li><a href="https://www.cnblogs.com/goldsunshine/p/10701242.html#BxJP5nDX">calico网络工作模式</a></li>
-</ul>
-
-
-                
-                
-<div class="entry-shang text-center">
-    
-	    <p>「真诚赞赏，手留余香」</p>
-	
-	<button class="zs show-zs btn btn-bred">赞赏支持</button>
-</div>
-<div class="zs-modal-bg"></div>
-<div class="zs-modal-box">
-	<div class="zs-modal-head">
-		<button type="button" class="close">×</button>
-		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
-        
-	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
-		
- 
-	</div>
-	<div class="zs-modal-body">
-		<div class="zs-modal-btns">
-			<button class="btn btn-blink" data-num="2">2元</button>
-			<button class="btn btn-blink" data-num="5">5元</button>
-			<button class="btn btn-blink" data-num="10">10元</button>
-			<button class="btn btn-blink" data-num="50">50元</button>
-			<button class="btn btn-blink" data-num="100">100元</button>
-			<button class="btn btn-blink" data-num="1">任意金额</button>
-		</div>
-		<div class="zs-modal-pay">
-			<button class="btn btn-bred" id="pay-text">2元</button>
-			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
-			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
-		</div>
-	</div>
-	<div class="zs-modal-footer">
-		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
-		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
-	</div>
-</div>
-<script type="text/javascript" src="/js/reward.js"></script>
-
-                
-
-                
-                <hr>
-                <ul class="pager">
-                    
-                    <li class="previous">
-                        <a href="/post/2020-12-12-linux_performance_tuning/" data-toggle="tooltip" data-placement="top" title="linux系统调优">&larr;
-                            Previous Post</a>
-                    </li>
-                    
-                    
-                    <li class="next">
-                        <a href="/post/2021-01-08-ginkgo_readnote/" data-toggle="tooltip" data-placement="top" title="Ginkgo学习笔记">Next
-                            Post &rarr;</a>
-                    </li>
-                    
-                </ul>
-                
-
-                
-
-
-<script src="https://giscus.app/client.js"
-        data-repo="yaoice/yaoice.github.io"
-        data-repo-id="R_kgDOJnxqVg"
-        data-category="General"
-        data-category-id="DIC_kwDOJnxqVs4CWwUs"
-        data-mapping="pathname"
-        data-reactions-enabled="1"
-        data-emit-metadata="0"
-        data-theme="light"
-        data-lang="en"
-        crossorigin="anonymous"
-        async>
-</script>
-
-
-            </div>
-
-            
-            
-            <div class="
-                col-lg-2 col-lg-offset-0
-                visible-lg-block
-                sidebar-container
-                catalog-container">
-                <div class="side-catalog">
-                    <hr class="hidden-sm hidden-xs">
-                    <h5>
-                        <a class="catalog-toggle" href="#">CATALOG</a>
-                    </h5>
-                    <ul class="catalog-body"></ul>
-                </div>
-            </div>
-            
-
-            
-            <div class="
-                col-lg-8 col-lg-offset-2
-                col-md-10 col-md-offset-1
-                sidebar-container">
-
-                
-                
-                <section>
-                    <hr class="hidden-sm hidden-xs">
-                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
-                    <div class="tags">
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/devops" title="devops">
-                            devops
-                        </a>
-                        
-                        
-                        
-                        <a href="/tags/go" title="go">
-                            go
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/k8s" title="k8s">
-                            k8s
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/llm" title="llm">
-                            llm
-                        </a>
-                        
-                        
-                        
-                        <a href="/tags/openstack" title="openstack">
-                            openstack
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/tkestack" title="tkestack">
-                            tkestack
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
-                            练车
-                        </a>
-                        
-                        
-                    </div>
-                </section>
-                
-
-                
-                
-            </div>
-        </div>
-    </div>
-</article>
-
-
-
-
-
-
-
-
-
-<footer>
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <ul class="list-inline text-center">                  
-                    
-                    <li>
-                        <a href="mailto:yao3690093@gmail.com">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		           
-                    
-                    
-                    
-                    
-
-		            
-                    
-                    <li>
-                        <a target="_blank" href="/img/wechat.jpeg">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		            
-                    
-                    <li>
-                        <a target="_blank" href="https://github.com/yaoice">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		            
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-            
-            
-            
-           
-                   <li>
-                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
-                           <span class="fa-stack fa-lg">
-                               <i class="fas fa-circle fa-stack-2x"></i>
-                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
-                           </span>
-                       </a>
-                   </li>
-            
-             </ul>
-		<p class="copyright text-muted">
-                    Copyright &copy; 爱折腾的工程师 2024
-                </p>
-            </div>
-        </div>
-    </div>
-</footer>
-
-
-
-
-<script>
-    function loadAsync(u, c) {
-      var d = document, t = 'script',
-          o = d.createElement(t),
-          s = d.getElementsByTagName(t)[0];
-      o.src = u;
-      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
-      s.parentNode.insertBefore(o, s);
-    }
-</script>
-
-
-
-
-
-
-<script>
-    
-    if($('#tag_cloud').length !== 0){
-        loadAsync("/js/jquery.tagcloud.js",function(){
-            $.fn.tagcloud.defaults = {
-                
-                color: {start: '#bbbbee', end: '#0085a1'},
-            };
-            $('#tag_cloud a').tagcloud();
-        })
-    }
-</script>
-
-
-<script>
-    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
-        var $nav = document.querySelector("nav");
-        if($nav) FastClick.attach($nav);
-    })
-</script>
-
-
-
-<script>
-    (function(){
-        var bp = document.createElement('script');
-        var curProtocol = window.location.protocol.split(':')[0];
-        if (curProtocol === 'https'){
-       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
-      }
-      else{
-      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
-      }
-        var s = document.getElementsByTagName("script")[0];
-        s.parentNode.insertBefore(bp, s);
-    })();
-</script>
-
-
-<script>
-    
-    var _baId = '92c175994ded75a3cd2074bc1123e2be';
-
-    
-    var _hmt = _hmt || [];
-    (function() {
-      var hm = document.createElement("script");
-      hm.src = "//hm.baidu.com/hm.js?" + _baId;
-      var s = document.getElementsByTagName("script")[0];
-      s.parentNode.insertBefore(hm, s);
-    })();
-</script>
-
-
-
-
-<script type="text/javascript">
-    function generateCatalog(selector) {
-
-        
-        
-        
-        
-            _containerSelector = 'div.post-container'
-        
-
-        
-        var P = $(_containerSelector), a, n, t, l, i, c;
-        a = P.find('h1,h2,h3,h4,h5,h6');
-
-        
-        $(selector).html('')
-
-        
-        a.each(function () {
-            n = $(this).prop('tagName').toLowerCase();
-            i = "#" + $(this).prop('id');
-            t = $(this).text();
-            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
-            l = $('<li class="' + n + '_nav"></li>').append(c);
-            $(selector).append(l);
-        });
-        return true;
-    }
-
-    generateCatalog(".catalog-body");
-
-    
-    $(".catalog-toggle").click((function (e) {
-        e.preventDefault();
-        $('.side-catalog').toggleClass("fold")
-    }))
-
-    
-
-
-    loadAsync("\/js\/jquery.nav.js", function () {
-        $('.catalog-body').onePageNav({
-            currentClass: "active",
-            changeHash: !1,
-            easing: "swing",
-            filter: "",
-            scrollSpeed: 700,
-            scrollOffset: 0,
-            scrollThreshold: .2,
-            begin: null,
-            end: null,
-            scrollChange: null,
-            padding: 80
-        });
-    });
-</script>
-
-
-
-
-
-
-
-</body>
-</html>
+</code></pre><p>默认情况下一个容器里启动6个服务</p><h3 id=参考链接>参考链接</h3><ul><li><a href=https://cloud.tencent.com/developer/article/1195794>runit 快速入门</a></li><li><a href=https://cloud.tencent.com/developer/article/1638845>Calico 介绍、原理与使用</a></li><li><a href=https://www.cnblogs.com/goldsunshine/p/10701242.html#BxJP5nDX>calico网络工作模式</a></li></ul><div class="entry-shang text-center"><p>「真诚赞赏，手留余香」</p><button class="zs show-zs btn btn-bred">赞赏支持</button></div><div class=zs-modal-bg></div><div class=zs-modal-box><div class=zs-modal-head><button type=button class=close>×</button>
+<span class=author><a href=https://www.iceyao.com.cn/><img src=/img/favicon.png>爱折腾的工程师</a></span><p class=tip><i></i><span>真诚赞赏，手留余香</span></p></div><div class=zs-modal-body><div class=zs-modal-btns><button class="btn btn-blink" data-num=2>2元</button>
+<button class="btn btn-blink" data-num=5>5元</button>
+<button class="btn btn-blink" data-num=10>10元</button>
+<button class="btn btn-blink" data-num=50>50元</button>
+<button class="btn btn-blink" data-num=100>100元</button>
+<button class="btn btn-blink" data-num=1>任意金额</button></div><div class=zs-modal-pay><button class="btn btn-bred" id=pay-text>2元</button><p>使用<span id=pay-type>微信</span>扫描二维码完成支付</p><img src=/img/reward/wechat-2.png id=pay-image></div></div><div class=zs-modal-footer><label><input type=radio name=zs-type value=wechat class=zs-type checked><span><span class=zs-wechat><img src=/img/reward/wechat-btn.png></span></label>
+<label><input type=radio name=zs-type value=alipay class=zs-type class=zs-alipay><img src=/img/reward/alipay-btn.png></span></label></div></div><script type=text/javascript src=/js/reward.js></script><hr><ul class=pager><li class=previous><a href=/post/2020-12-12-linux_performance_tuning/ data-toggle=tooltip data-placement=top title=linux系统调优>&larr;
+Previous Post</a></li><li class=next><a href=/post/2021-01-08-ginkgo_readnote/ data-toggle=tooltip data-placement=top title=Ginkgo学习笔记>Next
+Post &rarr;</a></li></ul><script src=https://giscus.app/client.js data-repo=yaoice/yaoice.github.io data-repo-id=R_kgDOJnxqVg data-category=General data-category-id=DIC_kwDOJnxqVs4CWwUs data-mapping=pathname data-reactions-enabled=1 data-emit-metadata=0 data-theme=light data-lang=en crossorigin=anonymous async></script></div><div class="col-lg-2 col-lg-offset-0
+visible-lg-block
+sidebar-container
+catalog-container"><div class=side-catalog><hr class="hidden-sm hidden-xs"><h5><a class=catalog-toggle href=#>CATALOG</a></h5><ul class=catalog-body></ul></div></div><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+sidebar-container"><section><hr class="hidden-sm hidden-xs"><h5><a href=/tags/>FEATURED TAGS</a></h5><div class=tags><a href=/tags/devops title=devops>devops
+</a><a href=/tags/go title=go>go
+</a><a href=/tags/k8s title=k8s>k8s
+</a><a href=/tags/llm title=llm>llm
+</a><a href=/tags/openstack title=openstack>openstack
+</a><a href=/tags/tkestack title=tkestack>tkestack
+</a><a href=/tags/%E7%BB%83%E8%BD%A6 title=练车>练车</a></div></section></div></div></div></article><footer><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><ul class="list-inline text-center"><li><a href=mailto:yao3690093@gmail.com><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-envelope fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=/img/wechat.jpeg><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-weixin fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=https://github.com/yaoice><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-github fa-stack-1x fa-inverse"></i></span></a></li><li><a href rel=alternate type=application/rss+xml title=爱折腾的工程师><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-rss fa-stack-1x fa-inverse"></i></span></a></li></ul><p class="copyright text-muted">Copyright &copy; 爱折腾的工程师 2024</p></div></div></div></footer><script>function loadAsync(e,t){var s=document,o="script",n=s.createElement(o),i=s.getElementsByTagName(o)[0];n.src=e,t&&n.addEventListener("load",function(e){t(null,e)},!1),i.parentNode.insertBefore(n,i)}</script><script>$("#tag_cloud").length!==0&&loadAsync("/js/jquery.tagcloud.js",function(){$.fn.tagcloud.defaults={color:{start:"#bbbbee",end:"#0085a1"}},$("#tag_cloud a").tagcloud()})</script><script>loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js",function(){var e=document.querySelector("nav");e&&FastClick.attach(e)})</script><script>(function(){var t,e=document.createElement("script"),n=window.location.protocol.split(":")[0];n==="https"?e.src="https://zz.bdstatic.com/linksubmit/push.js":e.src="http://push.zhanzhang.baidu.com/push.js",t=document.getElementsByTagName("script")[0],t.parentNode.insertBefore(e,t)})()</script><script>var _baId="92c175994ded75a3cd2074bc1123e2be",_hmt=_hmt||[];(function(){var e,t=document.createElement("script");t.src="//hm.baidu.com/hm.js?"+_baId,e=document.getElementsByTagName("script")[0],e.parentNode.insertBefore(t,e)})()</script><script type=text/javascript>function generateCatalog(e){_containerSelector="div.post-container";var t,n,s,o,i,a=$(_containerSelector),r=a.find("h1,h2,h3,h4,h5,h6");return $(e).html(""),r.each(function(){t=$(this).prop("tagName").toLowerCase(),o="#"+$(this).prop("id"),n=$(this).text(),i=$('<a href="'+o+'" rel="nofollow">'+n+"</a>"),s=$('<li class="'+t+'_nav"></li>').append(i),$(e).append(s)}),!0}generateCatalog(".catalog-body"),$(".catalog-toggle").click(function(e){e.preventDefault(),$(".side-catalog").toggleClass("fold")}),loadAsync("/js/jquery.nav.js",function(){$(".catalog-body").onePageNav({currentClass:"active",changeHash:!1,easing:"swing",filter:"",scrollSpeed:700,scrollOffset:0,scrollThreshold:.2,begin:null,end:null,scrollChange:null,padding:80})})</script></body></html>

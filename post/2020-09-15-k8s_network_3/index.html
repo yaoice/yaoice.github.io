@@ -1,299 +1,25 @@
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    
-    <meta property="og:site_name" content="爱折腾的工程师">
-    <meta property="og:type" content="article">
-
-    
-    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
-    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
-    
-
-    
-    <meta name="title" content="TKEStack Galaxy NetworkPolicy Controller实现" />
-    <meta property="og:title" content="TKEStack Galaxy NetworkPolicy Controller实现" />
-    <meta property="twitter:title" content="TKEStack Galaxy NetworkPolicy Controller实现" />
-    
-
-    
-    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
-    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
-    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
-    
-
-    
-    <meta property="twitter:card" content="summary" />
-    
-    
-
-    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
-    <link rel="shortcut icon" href="/img/favicon.ico">
-
-    <title>TKEStack Galaxy NetworkPolicy Controller实现 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
-
-    <link rel="canonical" href="/post/2020-09-15-k8s_network_3/">
-
-    
-    
-    
-    <link rel="stylesheet" href="/css/bootstrap.min.css">
-
-    
-    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
-
-    
-    <link rel="stylesheet" href="/css/zanshang.css">
-
-    
-    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
-
-    
-    
-
-    
-    <script src="/js/jquery.min.js"></script>
-
-    
-    <script src="/js/bootstrap.min.js"></script>
-
-    
-    <script src="/js/hux-blog.min.js"></script>
-
-    
-    <script src="/js/lazysizes.min.js"></script>
-
-    
-    
-
-</head>
-
-
-
-  
-    
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
-      <script>
-        var doNotTrack = false;
-        if ( false ) {
-          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
-          var doNotTrack = (dnt == "1" || dnt == "yes");
-        }
-        if (!doNotTrack) {
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-9J7CKFVPPM');
-        }
-      </script>
-    
-  
-
-
-
-
-
-
-
-<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
-
-    <div class="container-fluid">
-        
-        <div class="navbar-header page-scroll">
-            <button type="button" class="navbar-toggle">
-                <span class="sr-only">Toggle navigation</span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </button>
-            <a class="navbar-brand" href="/">爱折腾的工程师</a>
-        </div>
-
-        
-        
-        <div id="huxblog_navbar">
-            <div class="navbar-collapse">
-                <ul class="nav navbar-nav navbar-right">
-                    <li>
-                        <a href="/">All Posts</a>
-                    </li>
-                    
-                        
-                    
-                    
-		    
-                        <li><a href="/archive//">ARCHIVE</a></li>
-                    
-                        <li><a href="/notes//">NOTES</a></li>
-                    
-                        <li><a href="/about//">ABOUT</a></li>
-                    
-		            <li>
-                        <a href="/search"><i class="fa fa-search"></i></a>
-		           </li>
-                </ul>
-            </div>
-        </div>
-        
-    </div>
-    
-</nav>
-<script>
-    
-    
-    
-    var $body   = document.body;
-    var $toggle = document.querySelector('.navbar-toggle');
-    var $navbar = document.querySelector('#huxblog_navbar');
-    var $collapse = document.querySelector('.navbar-collapse');
-
-    $toggle.addEventListener('click', handleMagic)
-    function handleMagic(e){
-        if ($navbar.className.indexOf('in') > 0) {
-        
-            $navbar.className = " ";
-            
-            setTimeout(function(){
-                
-                if($navbar.className.indexOf('in') < 0) {
-                    $collapse.style.height = "0px"
-                }
-            },400)
-        }else{
-        
-            $collapse.style.height = "auto"
-            $navbar.className += " in";
-        }
-    }
-</script>
-
-
-
-
-<style type="text/css">
-    header.intro-header {
-        background-image: url('/img/post-bg-unix-linux.jpg')
-    }
-</style>
-
-<header class="intro-header" >
-
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <div class="post-heading">
-                    <div class="tags">
-                        
-                        <a class="tag" href="/tags/k8s" title="k8s">
-                            k8s
-                        </a>
-                        
-                    </div>
-                    <h1>TKEStack Galaxy NetworkPolicy Controller实现</h1>
-                    <h2 class="subheading"></h2>
-                    <span class="meta">
-                        
-                            Posted by 
-                            
-                                    爱折腾的工程师
-                             
-                            on 
-                            Tuesday, September 15, 2020
-                            
-                            
-                            
-                            
-                    </span>
-                </div>
-            </div>
-        </div>
-    </div>
-</header>
-
-
-
-
-<article>
-    <div class="container">
-        <div class="row">
-
-            
-            <div class="
-                col-lg-8 col-lg-offset-2
-                col-md-10 col-md-offset-1
-                post-container">
-
-                
-                <h3 id="networkpolicy简介">NetworkPolicy简介</h3>
-<blockquote>
-<p>如果要在IP地址或端口级别（OSI第3层或第4层）控制流量，则可以考虑对集群中的特定应用程序使用Kubernetes NetworkPolicies。 NetworkPolicies是一种以应用程序为中心的构造，
-可指定如何允许Pod与各种网络“实体”进行通信（此处使用“实体”一词是为了避免使“端点”和“服务”等更常见的术语过载。具有特定的Kubernetes含义）。</p>
-</blockquote>
-<blockquote>
-<p>Pod可以与之通信的实体通过以下3个标识符的组合来标识：</p>
-</blockquote>
-<ul>
-<li>允许的其他Pod（例外：Pod无法阻止对其自身的访问）</li>
-<li>允许的命名空间</li>
-<li>IP块（例外：始终允许往返运行Pod的节点的流量，无论Pod或节点的IP地址如何）</li>
-</ul>
-<blockquote>
-<p>在定义基于Pod或基于命名空间的NetworkPolicy时，可以使用选择器来指定允许与该选择器匹配的Pod进出哪些流量。</p>
-</blockquote>
-<blockquote>
-<p>同时，在创建基于IP的NetworkPolicies时，我们基于IP块（CIDR范围）定义策略。</p>
-</blockquote>
-<h3 id="galaxy-network-policy原理">Galaxy network policy原理</h3>
-<p>network policy的具体实现依赖cni插件，TKEStack galaxy支持network policy功能</p>
-<blockquote>
-<p>Kubernetes网络策略是pod级别的策略，基于这个原因，可能无法通过VXLAN等网络协议来实现网络策略。
-但是iptables很适合用于包过滤，基于iptables与ipset的组合设计来实现，ipset可以批量更新iptables。</p>
-</blockquote>
-<p>以下图片来自<a href="https://github.com/tkestack/galaxy/blob/master/doc/network-policy.md">TKEStack galaxy</a></p>
-<p>NetworkPolic映射为对应的ipset规则</p>
-<p>
-  <img src="/img/posts/2020-09-15/network_policy_ipset.png" alt="">
-
-</p>
-<ul>
-<li>ipset hash:ip用于匹配namespaceSelector和podSelector</li>
-<li>ipset hash:net用于匹配ipBlock，ipset支持nomatch选项以用于服务器以外的情况</li>
-<li>ports，我们可以使用多端口iptables扩展名将相同的协议端口设为单个iptables规则</li>
-</ul>
-<p>cni网络中如果没有bridge，网络策略ingress和egress对应的iptables位置</p>
-<p>ingress规则对应的iptables, 作用在filter表的forward和output链</p>
-<p>
-  <img src="/img/posts/2020-09-15/ingress_iptables.png" alt="">
-
-</p>
-<p>egress规则对应的iptables，作用在filter表的forward和input链</p>
-<p>
-  <img src="/img/posts/2020-09-15/egress_iptables.png" alt="">
-
-</p>
-<p>下面的图会看到为什么要禁用bridge-nf-call-iptables</p>
-<h3 id="禁用bridge-nf-call-iptables">禁用bridge-nf-call-iptables</h3>
-<p>netfilter实际上既可以过滤L3层的包，也可以过滤L2层的包；如下图所示：</p>
-<p>
-  <img src="/img/posts/2020-09-15/bridge_nfs_call_iptables.png" alt="">
-
-</p>
-<p>通过参数设置可以让iptables不对bridge的包进行过滤, 禁用net.bridge.bridge-nf-call-iptables和net.bridge.bridge-nf-call-ip6tables</p>
-<pre tabindex="0"><code># cat &gt;&gt; /etc/sysctl.conf &lt;&lt;EOF
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:site_name" content="爱折腾的工程师"><meta property="og:type" content="article"><meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta name=title content="TKEStack Galaxy NetworkPolicy Controller实现"><meta property="og:title" content="TKEStack Galaxy NetworkPolicy Controller实现"><meta property="twitter:title" content="TKEStack Galaxy NetworkPolicy Controller实现"><meta name=description content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:card" content="summary"><meta name=keyword content="iceyao, IceYao's Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice"><link rel="shortcut icon" href=/img/favicon.ico><title>TKEStack Galaxy NetworkPolicy Controller实现 | 爱折腾的工程师 | IceYao's Blog</title>
+<link rel=canonical href=/post/2020-09-15-k8s_network_3/><link rel=stylesheet href=/css/bootstrap.min.css><link rel=stylesheet href=/css/hugo-theme-cleanwhite.min.css><link rel=stylesheet href=/css/zanshang.css><link rel=stylesheet href=/css/font-awesome.all.min.css><script src=/js/jquery.min.js></script><script src=/js/bootstrap.min.js></script><script src=/js/hux-blog.min.js></script><script src=/js/lazysizes.min.js></script></head><script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-9J7CKFVPPM")}</script><nav class="navbar navbar-default navbar-custom navbar-fixed-top"><div class=container-fluid><div class="navbar-header page-scroll"><button type=button class=navbar-toggle>
+<span class=sr-only>Toggle navigation</span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+</button>
+<a class=navbar-brand href=/>爱折腾的工程师</a></div><div id=huxblog_navbar><div class=navbar-collapse><ul class="nav navbar-nav navbar-right"><li><a href=/>All Posts</a></li><li><a href=/archive//>ARCHIVE</a></li><li><a href=/notes//>NOTES</a></li><li><a href=/about//>ABOUT</a></li><li><a href=/search><i class="fa fa-search"></i></a></li></ul></div></div></div></nav><script>var $body=document.body,$toggle=document.querySelector(".navbar-toggle"),$navbar=document.querySelector("#huxblog_navbar"),$collapse=document.querySelector(".navbar-collapse");$toggle.addEventListener("click",handleMagic);function handleMagic(){$navbar.className.indexOf("in")>0?($navbar.className=" ",setTimeout(function(){$navbar.className.indexOf("in")<0&&($collapse.style.height="0px")},400)):($collapse.style.height="auto",$navbar.className+=" in")}</script><style type=text/css>header.intro-header{background-image:url(/img/post-bg-unix-linux.jpg)}</style><header class=intro-header><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><div class=post-heading><div class=tags><a class=tag href=/tags/k8s title=k8s>k8s</a></div><h1>TKEStack Galaxy NetworkPolicy Controller实现</h1><h2 class=subheading></h2><span class=meta>Posted by
+爱折腾的工程师
+on
+Tuesday, September 15, 2020</span></div></div></div></div></header><article><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+post-container"><h3 id=networkpolicy简介>NetworkPolicy简介</h3><blockquote><p>如果要在IP地址或端口级别（OSI第3层或第4层）控制流量，则可以考虑对集群中的特定应用程序使用Kubernetes NetworkPolicies。 NetworkPolicies是一种以应用程序为中心的构造，
+可指定如何允许Pod与各种网络“实体”进行通信（此处使用“实体”一词是为了避免使“端点”和“服务”等更常见的术语过载。具有特定的Kubernetes含义）。</p></blockquote><blockquote><p>Pod可以与之通信的实体通过以下3个标识符的组合来标识：</p></blockquote><ul><li>允许的其他Pod（例外：Pod无法阻止对其自身的访问）</li><li>允许的命名空间</li><li>IP块（例外：始终允许往返运行Pod的节点的流量，无论Pod或节点的IP地址如何）</li></ul><blockquote><p>在定义基于Pod或基于命名空间的NetworkPolicy时，可以使用选择器来指定允许与该选择器匹配的Pod进出哪些流量。</p></blockquote><blockquote><p>同时，在创建基于IP的NetworkPolicies时，我们基于IP块（CIDR范围）定义策略。</p></blockquote><h3 id=galaxy-network-policy原理>Galaxy network policy原理</h3><p>network policy的具体实现依赖cni插件，TKEStack galaxy支持network policy功能</p><blockquote><p>Kubernetes网络策略是pod级别的策略，基于这个原因，可能无法通过VXLAN等网络协议来实现网络策略。
+但是iptables很适合用于包过滤，基于iptables与ipset的组合设计来实现，ipset可以批量更新iptables。</p></blockquote><p>以下图片来自<a href=https://github.com/tkestack/galaxy/blob/master/doc/network-policy.md>TKEStack galaxy</a></p><p>NetworkPolic映射为对应的ipset规则</p><p><img src=/img/posts/2020-09-15/network_policy_ipset.png alt></p><ul><li>ipset hash:ip用于匹配namespaceSelector和podSelector</li><li>ipset hash:net用于匹配ipBlock，ipset支持nomatch选项以用于服务器以外的情况</li><li>ports，我们可以使用多端口iptables扩展名将相同的协议端口设为单个iptables规则</li></ul><p>cni网络中如果没有bridge，网络策略ingress和egress对应的iptables位置</p><p>ingress规则对应的iptables, 作用在filter表的forward和output链</p><p><img src=/img/posts/2020-09-15/ingress_iptables.png alt></p><p>egress规则对应的iptables，作用在filter表的forward和input链</p><p><img src=/img/posts/2020-09-15/egress_iptables.png alt></p><p>下面的图会看到为什么要禁用bridge-nf-call-iptables</p><h3 id=禁用bridge-nf-call-iptables>禁用bridge-nf-call-iptables</h3><p>netfilter实际上既可以过滤L3层的包，也可以过滤L2层的包；如下图所示：</p><p><img src=/img/posts/2020-09-15/bridge_nfs_call_iptables.png alt></p><p>通过参数设置可以让iptables不对bridge的包进行过滤, 禁用net.bridge.bridge-nf-call-iptables和net.bridge.bridge-nf-call-ip6tables</p><pre tabindex=0><code># cat &gt;&gt; /etc/sysctl.conf &lt;&lt;EOF
   net.bridge.bridge-nf-call-ip6tables = 0
   net.bridge.bridge-nf-call-iptables = 0
   net.bridge.bridge-nf-call-arptables = 0
   EOF
 # sysctl -p /etc/sysctl.conf
-</code></pre><p>或者改用下面的方法解决：</p>
-<pre tabindex="0"><code>iptables -t raw -I PREROUTING -i BRIDGE -s x.x.x.x -j NOTRACK
-</code></pre><h3 id="代码分析">代码分析</h3>
-<h4 id="policymanager结构体">PolicyManager结构体</h4>
-<pre tabindex="0"><code>// PolicyManager implements kubernetes network policy for pods
+</code></pre><p>或者改用下面的方法解决：</p><pre tabindex=0><code>iptables -t raw -I PREROUTING -i BRIDGE -s x.x.x.x -j NOTRACK
+</code></pre><h3 id=代码分析>代码分析</h3><h4 id=policymanager结构体>PolicyManager结构体</h4><pre tabindex=0><code>// PolicyManager implements kubernetes network policy for pods
 // iptable ingress chain topology is like
 //  FORWARD            GLX-POD-XXXX - GLX-PLCY-XXXX
 //        \           /            \ /
@@ -362,9 +88,7 @@ type ipsetTable struct {
     ipset.IPSet
     entries []ipset.Entry
 }
-</code></pre><h4 id="controller主处理逻辑">controller主处理逻辑</h4>
-<p>Galaxy network policy核心代码</p>
-<pre tabindex="0"><code>func NewPolicyManager(
+</code></pre><h4 id=controller主处理逻辑>controller主处理逻辑</h4><p>Galaxy network policy核心代码</p><pre tabindex=0><code>func NewPolicyManager(
     client kubernetes.Interface,
     networkPolicyInformer networkingformers.NetworkPolicyInformer,
     quitChan &lt;-chan struct{}) *PolicyManager {
@@ -404,9 +128,7 @@ func (p *PolicyManager) initInformers(networkPolicyInformer networkingformers.Ne
     })
     p.policyLister = networkPolicyInformer.Lister()
 }
-</code></pre><p>实际上network policy实现也是一个controller，监听的是pod/networkPolicy对象的add/update/delete事件</p>
-<p>controller主处理函数</p>
-<pre tabindex="0"><code>func (p *PolicyManager) Run() {
+</code></pre><p>实际上network policy实现也是一个controller，监听的是pod/networkPolicy对象的add/update/delete事件</p><p>controller主处理函数</p><pre tabindex=0><code>func (p *PolicyManager) Run() {
     glog.Infof(&#34;start resyncing network policies&#34;)
     // 1. 同步集群中所有的networkPolicy规则
     p.syncNetworkPolices()
@@ -415,8 +137,7 @@ func (p *PolicyManager) initInformers(networkPolicyInformer networkingformers.Ne
     // 3. 同步GLX-INGRESS/GLX-EGRESS/GLX-POD-XXXX iptable链规则
     p.syncPods()
 }
-</code></pre><h4 id="syncnetworkpolices">syncNetworkPolices</h4>
-<pre tabindex="0"><code>func (p *PolicyManager) syncNetworkPolices() {
+</code></pre><h4 id=syncnetworkpolices>syncNetworkPolices</h4><pre tabindex=0><code>func (p *PolicyManager) syncNetworkPolices() {
     // 获取所有的NetworkPolicies
     list, err := p.policyLister.NetworkPolicies(v1.NamespaceAll).List(labels.Everything())
     if err != nil {
@@ -445,7 +166,7 @@ func (p *PolicyManager) initInformers(networkPolicyInformer networkingformers.Ne
     p.policies = policies
     p.Unlock()
 }
-</code></pre><pre tabindex="0"><code>// It&#39;s expensive to sync all pods. So don&#39;t start podInformerFactory until there is any network policy object
+</code></pre><pre tabindex=0><code>// It&#39;s expensive to sync all pods. So don&#39;t start podInformerFactory until there is any network policy object
 func (p *PolicyManager) startPodInformerFactory() {
     p.podInformerOnce.Do(func() {
         glog.Infof(&#34;starting pod informer factory&#34;)
@@ -462,8 +183,7 @@ func (p *PolicyManager) startPodInformerFactory() {
         })
     })
 }
-</code></pre><h4 id="syncnetworkpolicyrules">syncNetworkPolicyRules</h4>
-<pre tabindex="0"><code>func (p *PolicyManager) syncNetworkPolicyRules() {
+</code></pre><h4 id=syncnetworkpolicyrules>syncNetworkPolicyRules</h4><pre tabindex=0><code>func (p *PolicyManager) syncNetworkPolicyRules() {
     var policies []policy
     p.Lock()
     policies = p.policies
@@ -510,8 +230,7 @@ func (p *PolicyManager) syncRules(polices []policy) error {
     // 创建相应的iptables规则
     return p.syncIptables(polices)
 }
-</code></pre><h4 id="syncpods">syncPods</h4>
-<pre tabindex="0"><code>func (p *PolicyManager) syncPods() {
+</code></pre><h4 id=syncpods>syncPods</h4><pre tabindex=0><code>func (p *PolicyManager) syncPods() {
     glog.V(4).Infof(&#34;start syncing pods&#34;)
     var wg sync.WaitGroup
     // 同步pod iptables链的函数
@@ -563,42 +282,23 @@ func (p *PolicyManager) syncRules(polices []policy) error {
     }
     wg.Wait()
 }
-</code></pre><h3 id="调试iptables">调试iptables</h3>
-<p>raw表在iptables规则中优先级最高，流入流量经过的第一个点是raw表的prerouting链，流出流量经过的第一个点是raw表的output链表.
-在raw表中支持一个特殊的目标:TRACE，使内核记录下每条匹配该包的对应iptables规则信息。使用raw表内的TRACE target即可实现对iptables规则的跟踪调试。</p>
-<h4 id="模拟操作">模拟操作</h4>
-<p>调试ipv4 icmp报文，并进行日志的采集</p>
-<pre tabindex="0"><code># iptables -t raw -A PREROUTING -p icmp -j TRACE
+</code></pre><h3 id=调试iptables>调试iptables</h3><p>raw表在iptables规则中优先级最高，流入流量经过的第一个点是raw表的prerouting链，流出流量经过的第一个点是raw表的output链表.
+在raw表中支持一个特殊的目标:TRACE，使内核记录下每条匹配该包的对应iptables规则信息。使用raw表内的TRACE target即可实现对iptables规则的跟踪调试。</p><h4 id=模拟操作>模拟操作</h4><p>调试ipv4 icmp报文，并进行日志的采集</p><pre tabindex=0><code># iptables -t raw -A PREROUTING -p icmp -j TRACE
 # iptables -t raw -A OUTPUT -p icmp -j TRACE
-</code></pre><p>加载iptables日志模块</p>
-<pre tabindex="0"><code># modprobe nf_log_ipv4
+</code></pre><p>加载iptables日志模块</p><pre tabindex=0><code># modprobe nf_log_ipv4
 # sysctl net.netfilter.nf_log.2
 net.netfilter.nf_log.2 = nf_log_ipv4
-</code></pre><p>为NONE的话就是加载失败</p>
-<p>修改rsyslog日志配置</p>
-<pre tabindex="0"><code># vim /etc/rsyslog.conf
+</code></pre><p>为NONE的话就是加载失败</p><p>修改rsyslog日志配置</p><pre tabindex=0><code># vim /etc/rsyslog.conf
 kern.*   /var/log/iptables.log
 
 # service rsyslog restart
-</code></pre><p>ping其它节点的ip</p>
-<pre tabindex="0"><code>ping -c 1.1.1.1
-</code></pre><p>如果/var/log/iptables.log下没有任何日志输出的话，继续编辑/etc/rsyslog.conf</p>
-<blockquote>
-<p>找到配置文件 /etc/rsyslog.conf
+</code></pre><p>ping其它节点的ip</p><pre tabindex=0><code>ping -c 1.1.1.1
+</code></pre><p>如果/var/log/iptables.log下没有任何日志输出的话，继续编辑/etc/rsyslog.conf</p><blockquote><p>找到配置文件 /etc/rsyslog.conf
 修改如下：
 解注释：#$ModLoad imklog # reads kernel messages (the same are read from journald)
-修改为：$ModLoad imklog # reads kernel messages (the same are read from journald)</p>
-</blockquote>
-<blockquote>
-<p>增加注释：$OmitLocalLogging on
-修改为：#$OmitLocalLogging on</p>
-</blockquote>
-<blockquote>
-<p>增加注释：$IMJournalStateFile imjournal.state
-修改为：#$IMJournalStateFile imjournal.state</p>
-</blockquote>
-<p>再次查看，发现日志输出了</p>
-<pre tabindex="0"><code>[root@global /var/log]# tailf /var/log/iptables.log 
+修改为：$ModLoad imklog # reads kernel messages (the same are read from journald)</p></blockquote><blockquote><p>增加注释：$OmitLocalLogging on
+修改为：#$OmitLocalLogging on</p></blockquote><blockquote><p>增加注释：$IMJournalStateFile imjournal.state
+修改为：#$IMJournalStateFile imjournal.state</p></blockquote><p>再次查看，发现日志输出了</p><pre tabindex=0><code>[root@global /var/log]# tailf /var/log/iptables.log 
 Sep 28 21:57:16 [localhost] kernel: [66008088.172336] TRACE: raw:OUTPUT:policy:2 IN= OUT=eth1 SRC=2.2.2.2 DST=3.3.3.3 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=18272 DF PROTO=ICMP TYPE=8 CODE=0 ID=3659 SEQ=11 UID=0 GID=0 
 Sep 28 21:57:16 [localhost] kernel: [66008088.172348] TRACE: mangle:OUTPUT:policy:1 IN= OUT=eth1 SRC=2.2.2.2 DST=3.3.3.3 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=18272 DF PROTO=ICMP TYPE=8 CODE=0 ID=3659 SEQ=11 UID=0 GID=0 
 Sep 28 21:57:16 [localhost] kernel: [66008088.172354] TRACE: nat:OUTPUT:rule:1 IN= OUT=eth1 SRC=2.2.2.2 DST=3.3.3.3 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=18272 DF PROTO=ICMP TYPE=8 CODE=0 ID=3659 SEQ=11 UID=0 GID=0 
@@ -609,407 +309,28 @@ Sep 28 21:57:16 [localhost] kernel: [66008088.172410] TRACE: filter:KUBE-FIREWAL
 Sep 28 21:57:16 [localhost] kernel: [66008088.172415] TRACE: filter:OUTPUT:rule:2 IN= OUT=eth1 SRC=2.2.2.2 DST=3.3.3.3 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=18272 DF PROTO=ICMP TYPE=8 CODE=0 ID=3659 SEQ=11 UID=0 GID=0 
 Sep 28 21:57:16 [localhost] kernel: [66008088.172422] TRACE: filter:KUBE-SERVICES:return:1 IN= OUT=eth1 SRC=2.2.2.2 DST=3.3.3.3 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=18272 DF PROTO=ICMP TYPE=8 CODE=0 ID=3659 SEQ=11 UID=0 GID=0 
 Sep 28 21:57:16 [localhost] kernel: [66008088.172426] TRACE: filter:OUTPUT:rule:3 IN= OUT=eth1 SRC=2.2.2.2 DST=3.3.3.3 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=18272 DF PROTO=ICMP TYPE=8 CODE=0 ID=3659 SEQ=11 UID=0 GID=0 
-</code></pre><h3 id="参考链接">参考链接</h3>
-<ul>
-<li><a href="https://github.com/tkestack/galaxy/blob/v1.0.4/doc/network-policy.md">https://github.com/tkestack/galaxy/blob/v1.0.4/doc/network-policy.md</a></li>
-<li><a href="https://blog.csdn.net/tycoon1988/article/details/40826235">https://blog.csdn.net/tycoon1988/article/details/40826235</a></li>
-<li><a href="https://www.frozentux.net/iptables-tutorial/cn/iptables-tutorial-cn-1.1.19.html">https://www.frozentux.net/iptables-tutorial/cn/iptables-tutorial-cn-1.1.19.html</a></li>
-</ul>
-
-
-                
-                
-<div class="entry-shang text-center">
-    
-	    <p>「真诚赞赏，手留余香」</p>
-	
-	<button class="zs show-zs btn btn-bred">赞赏支持</button>
-</div>
-<div class="zs-modal-bg"></div>
-<div class="zs-modal-box">
-	<div class="zs-modal-head">
-		<button type="button" class="close">×</button>
-		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
-        
-	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
-		
- 
-	</div>
-	<div class="zs-modal-body">
-		<div class="zs-modal-btns">
-			<button class="btn btn-blink" data-num="2">2元</button>
-			<button class="btn btn-blink" data-num="5">5元</button>
-			<button class="btn btn-blink" data-num="10">10元</button>
-			<button class="btn btn-blink" data-num="50">50元</button>
-			<button class="btn btn-blink" data-num="100">100元</button>
-			<button class="btn btn-blink" data-num="1">任意金额</button>
-		</div>
-		<div class="zs-modal-pay">
-			<button class="btn btn-bred" id="pay-text">2元</button>
-			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
-			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
-		</div>
-	</div>
-	<div class="zs-modal-footer">
-		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
-		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
-	</div>
-</div>
-<script type="text/javascript" src="/js/reward.js"></script>
-
-                
-
-                
-                <hr>
-                <ul class="pager">
-                    
-                    <li class="previous">
-                        <a href="/post/2020-09-10-tke-platform-controller_health_check/" data-toggle="tooltip" data-placement="top" title="TKEStack tke-platform-controller健康检查">&larr;
-                            Previous Post</a>
-                    </li>
-                    
-                    
-                    <li class="next">
-                        <a href="/post/2020-09-16-k8s_topology_aware_route_readnote/" data-toggle="tooltip" data-placement="top" title="K8s拓扑感知服务路由特性阅读笔记">Next
-                            Post &rarr;</a>
-                    </li>
-                    
-                </ul>
-                
-
-                
-
-
-<script src="https://giscus.app/client.js"
-        data-repo="yaoice/yaoice.github.io"
-        data-repo-id="R_kgDOJnxqVg"
-        data-category="General"
-        data-category-id="DIC_kwDOJnxqVs4CWwUs"
-        data-mapping="pathname"
-        data-reactions-enabled="1"
-        data-emit-metadata="0"
-        data-theme="light"
-        data-lang="en"
-        crossorigin="anonymous"
-        async>
-</script>
-
-
-            </div>
-
-            
-            
-            <div class="
-                col-lg-2 col-lg-offset-0
-                visible-lg-block
-                sidebar-container
-                catalog-container">
-                <div class="side-catalog">
-                    <hr class="hidden-sm hidden-xs">
-                    <h5>
-                        <a class="catalog-toggle" href="#">CATALOG</a>
-                    </h5>
-                    <ul class="catalog-body"></ul>
-                </div>
-            </div>
-            
-
-            
-            <div class="
-                col-lg-8 col-lg-offset-2
-                col-md-10 col-md-offset-1
-                sidebar-container">
-
-                
-                
-                <section>
-                    <hr class="hidden-sm hidden-xs">
-                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
-                    <div class="tags">
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/devops" title="devops">
-                            devops
-                        </a>
-                        
-                        
-                        
-                        <a href="/tags/go" title="go">
-                            go
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/k8s" title="k8s">
-                            k8s
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/llm" title="llm">
-                            llm
-                        </a>
-                        
-                        
-                        
-                        <a href="/tags/openstack" title="openstack">
-                            openstack
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/tkestack" title="tkestack">
-                            tkestack
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
-                            练车
-                        </a>
-                        
-                        
-                    </div>
-                </section>
-                
-
-                
-                
-            </div>
-        </div>
-    </div>
-</article>
-
-
-
-
-
-
-
-
-
-<footer>
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <ul class="list-inline text-center">                  
-                    
-                    <li>
-                        <a href="mailto:yao3690093@gmail.com">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		           
-                    
-                    
-                    
-                    
-
-		            
-                    
-                    <li>
-                        <a target="_blank" href="/img/wechat.jpeg">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		            
-                    
-                    <li>
-                        <a target="_blank" href="https://github.com/yaoice">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		            
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-            
-            
-            
-           
-                   <li>
-                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
-                           <span class="fa-stack fa-lg">
-                               <i class="fas fa-circle fa-stack-2x"></i>
-                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
-                           </span>
-                       </a>
-                   </li>
-            
-             </ul>
-		<p class="copyright text-muted">
-                    Copyright &copy; 爱折腾的工程师 2024
-                </p>
-            </div>
-        </div>
-    </div>
-</footer>
-
-
-
-
-<script>
-    function loadAsync(u, c) {
-      var d = document, t = 'script',
-          o = d.createElement(t),
-          s = d.getElementsByTagName(t)[0];
-      o.src = u;
-      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
-      s.parentNode.insertBefore(o, s);
-    }
-</script>
-
-
-
-
-
-
-<script>
-    
-    if($('#tag_cloud').length !== 0){
-        loadAsync("/js/jquery.tagcloud.js",function(){
-            $.fn.tagcloud.defaults = {
-                
-                color: {start: '#bbbbee', end: '#0085a1'},
-            };
-            $('#tag_cloud a').tagcloud();
-        })
-    }
-</script>
-
-
-<script>
-    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
-        var $nav = document.querySelector("nav");
-        if($nav) FastClick.attach($nav);
-    })
-</script>
-
-
-
-<script>
-    (function(){
-        var bp = document.createElement('script');
-        var curProtocol = window.location.protocol.split(':')[0];
-        if (curProtocol === 'https'){
-       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
-      }
-      else{
-      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
-      }
-        var s = document.getElementsByTagName("script")[0];
-        s.parentNode.insertBefore(bp, s);
-    })();
-</script>
-
-
-<script>
-    
-    var _baId = '92c175994ded75a3cd2074bc1123e2be';
-
-    
-    var _hmt = _hmt || [];
-    (function() {
-      var hm = document.createElement("script");
-      hm.src = "//hm.baidu.com/hm.js?" + _baId;
-      var s = document.getElementsByTagName("script")[0];
-      s.parentNode.insertBefore(hm, s);
-    })();
-</script>
-
-
-
-
-<script type="text/javascript">
-    function generateCatalog(selector) {
-
-        
-        
-        
-        
-            _containerSelector = 'div.post-container'
-        
-
-        
-        var P = $(_containerSelector), a, n, t, l, i, c;
-        a = P.find('h1,h2,h3,h4,h5,h6');
-
-        
-        $(selector).html('')
-
-        
-        a.each(function () {
-            n = $(this).prop('tagName').toLowerCase();
-            i = "#" + $(this).prop('id');
-            t = $(this).text();
-            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
-            l = $('<li class="' + n + '_nav"></li>').append(c);
-            $(selector).append(l);
-        });
-        return true;
-    }
-
-    generateCatalog(".catalog-body");
-
-    
-    $(".catalog-toggle").click((function (e) {
-        e.preventDefault();
-        $('.side-catalog').toggleClass("fold")
-    }))
-
-    
-
-
-    loadAsync("\/js\/jquery.nav.js", function () {
-        $('.catalog-body').onePageNav({
-            currentClass: "active",
-            changeHash: !1,
-            easing: "swing",
-            filter: "",
-            scrollSpeed: 700,
-            scrollOffset: 0,
-            scrollThreshold: .2,
-            begin: null,
-            end: null,
-            scrollChange: null,
-            padding: 80
-        });
-    });
-</script>
-
-
-
-
-
-
-
-</body>
-</html>
+</code></pre><h3 id=参考链接>参考链接</h3><ul><li><a href=https://github.com/tkestack/galaxy/blob/v1.0.4/doc/network-policy.md>https://github.com/tkestack/galaxy/blob/v1.0.4/doc/network-policy.md</a></li><li><a href=https://blog.csdn.net/tycoon1988/article/details/40826235>https://blog.csdn.net/tycoon1988/article/details/40826235</a></li><li><a href=https://www.frozentux.net/iptables-tutorial/cn/iptables-tutorial-cn-1.1.19.html>https://www.frozentux.net/iptables-tutorial/cn/iptables-tutorial-cn-1.1.19.html</a></li></ul><div class="entry-shang text-center"><p>「真诚赞赏，手留余香」</p><button class="zs show-zs btn btn-bred">赞赏支持</button></div><div class=zs-modal-bg></div><div class=zs-modal-box><div class=zs-modal-head><button type=button class=close>×</button>
+<span class=author><a href=https://www.iceyao.com.cn/><img src=/img/favicon.png>爱折腾的工程师</a></span><p class=tip><i></i><span>真诚赞赏，手留余香</span></p></div><div class=zs-modal-body><div class=zs-modal-btns><button class="btn btn-blink" data-num=2>2元</button>
+<button class="btn btn-blink" data-num=5>5元</button>
+<button class="btn btn-blink" data-num=10>10元</button>
+<button class="btn btn-blink" data-num=50>50元</button>
+<button class="btn btn-blink" data-num=100>100元</button>
+<button class="btn btn-blink" data-num=1>任意金额</button></div><div class=zs-modal-pay><button class="btn btn-bred" id=pay-text>2元</button><p>使用<span id=pay-type>微信</span>扫描二维码完成支付</p><img src=/img/reward/wechat-2.png id=pay-image></div></div><div class=zs-modal-footer><label><input type=radio name=zs-type value=wechat class=zs-type checked><span><span class=zs-wechat><img src=/img/reward/wechat-btn.png></span></label>
+<label><input type=radio name=zs-type value=alipay class=zs-type class=zs-alipay><img src=/img/reward/alipay-btn.png></span></label></div></div><script type=text/javascript src=/js/reward.js></script><hr><ul class=pager><li class=previous><a href=/post/2020-09-10-tke-platform-controller_health_check/ data-toggle=tooltip data-placement=top title="TKEStack tke-platform-controller健康检查">&larr;
+Previous Post</a></li><li class=next><a href=/post/2020-09-16-k8s_topology_aware_route_readnote/ data-toggle=tooltip data-placement=top title=K8s拓扑感知服务路由特性阅读笔记>Next
+Post &rarr;</a></li></ul><script src=https://giscus.app/client.js data-repo=yaoice/yaoice.github.io data-repo-id=R_kgDOJnxqVg data-category=General data-category-id=DIC_kwDOJnxqVs4CWwUs data-mapping=pathname data-reactions-enabled=1 data-emit-metadata=0 data-theme=light data-lang=en crossorigin=anonymous async></script></div><div class="col-lg-2 col-lg-offset-0
+visible-lg-block
+sidebar-container
+catalog-container"><div class=side-catalog><hr class="hidden-sm hidden-xs"><h5><a class=catalog-toggle href=#>CATALOG</a></h5><ul class=catalog-body></ul></div></div><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+sidebar-container"><section><hr class="hidden-sm hidden-xs"><h5><a href=/tags/>FEATURED TAGS</a></h5><div class=tags><a href=/tags/devops title=devops>devops
+</a><a href=/tags/go title=go>go
+</a><a href=/tags/k8s title=k8s>k8s
+</a><a href=/tags/llm title=llm>llm
+</a><a href=/tags/openstack title=openstack>openstack
+</a><a href=/tags/tkestack title=tkestack>tkestack
+</a><a href=/tags/%E7%BB%83%E8%BD%A6 title=练车>练车</a></div></section></div></div></div></article><footer><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><ul class="list-inline text-center"><li><a href=mailto:yao3690093@gmail.com><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-envelope fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=/img/wechat.jpeg><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-weixin fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=https://github.com/yaoice><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-github fa-stack-1x fa-inverse"></i></span></a></li><li><a href rel=alternate type=application/rss+xml title=爱折腾的工程师><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-rss fa-stack-1x fa-inverse"></i></span></a></li></ul><p class="copyright text-muted">Copyright &copy; 爱折腾的工程师 2024</p></div></div></div></footer><script>function loadAsync(e,t){var s=document,o="script",n=s.createElement(o),i=s.getElementsByTagName(o)[0];n.src=e,t&&n.addEventListener("load",function(e){t(null,e)},!1),i.parentNode.insertBefore(n,i)}</script><script>$("#tag_cloud").length!==0&&loadAsync("/js/jquery.tagcloud.js",function(){$.fn.tagcloud.defaults={color:{start:"#bbbbee",end:"#0085a1"}},$("#tag_cloud a").tagcloud()})</script><script>loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js",function(){var e=document.querySelector("nav");e&&FastClick.attach(e)})</script><script>(function(){var t,e=document.createElement("script"),n=window.location.protocol.split(":")[0];n==="https"?e.src="https://zz.bdstatic.com/linksubmit/push.js":e.src="http://push.zhanzhang.baidu.com/push.js",t=document.getElementsByTagName("script")[0],t.parentNode.insertBefore(e,t)})()</script><script>var _baId="92c175994ded75a3cd2074bc1123e2be",_hmt=_hmt||[];(function(){var e,t=document.createElement("script");t.src="//hm.baidu.com/hm.js?"+_baId,e=document.getElementsByTagName("script")[0],e.parentNode.insertBefore(t,e)})()</script><script type=text/javascript>function generateCatalog(e){_containerSelector="div.post-container";var t,n,s,o,i,a=$(_containerSelector),r=a.find("h1,h2,h3,h4,h5,h6");return $(e).html(""),r.each(function(){t=$(this).prop("tagName").toLowerCase(),o="#"+$(this).prop("id"),n=$(this).text(),i=$('<a href="'+o+'" rel="nofollow">'+n+"</a>"),s=$('<li class="'+t+'_nav"></li>').append(i),$(e).append(s)}),!0}generateCatalog(".catalog-body"),$(".catalog-toggle").click(function(e){e.preventDefault(),$(".side-catalog").toggleClass("fold")}),loadAsync("/js/jquery.nav.js",function(){$(".catalog-body").onePageNav({currentClass:"active",changeHash:!1,easing:"swing",filter:"",scrollSpeed:700,scrollOffset:0,scrollThreshold:.2,begin:null,end:null,scrollChange:null,padding:80})})</script></body></html>

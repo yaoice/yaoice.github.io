@@ -1,257 +1,26 @@
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    
-    <meta property="og:site_name" content="爱折腾的工程师">
-    <meta property="og:type" content="article">
-
-    
-    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
-    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
-    
-
-    
-    <meta name="title" content="K8s拓扑感知服务路由特性阅读笔记" />
-    <meta property="og:title" content="K8s拓扑感知服务路由特性阅读笔记" />
-    <meta property="twitter:title" content="K8s拓扑感知服务路由特性阅读笔记" />
-    
-
-    
-    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
-    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
-    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
-    
-
-    
-    <meta property="twitter:card" content="summary" />
-    
-    
-
-    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
-    <link rel="shortcut icon" href="/img/favicon.ico">
-
-    <title>K8s拓扑感知服务路由特性阅读笔记 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
-
-    <link rel="canonical" href="/post/2020-09-16-k8s_topology_aware_route_readnote/">
-
-    
-    
-    
-    <link rel="stylesheet" href="/css/bootstrap.min.css">
-
-    
-    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
-
-    
-    <link rel="stylesheet" href="/css/zanshang.css">
-
-    
-    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
-
-    
-    
-
-    
-    <script src="/js/jquery.min.js"></script>
-
-    
-    <script src="/js/bootstrap.min.js"></script>
-
-    
-    <script src="/js/hux-blog.min.js"></script>
-
-    
-    <script src="/js/lazysizes.min.js"></script>
-
-    
-    
-
-</head>
-
-
-
-  
-    
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
-      <script>
-        var doNotTrack = false;
-        if ( false ) {
-          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
-          var doNotTrack = (dnt == "1" || dnt == "yes");
-        }
-        if (!doNotTrack) {
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-9J7CKFVPPM');
-        }
-      </script>
-    
-  
-
-
-
-
-
-
-
-<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
-
-    <div class="container-fluid">
-        
-        <div class="navbar-header page-scroll">
-            <button type="button" class="navbar-toggle">
-                <span class="sr-only">Toggle navigation</span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </button>
-            <a class="navbar-brand" href="/">爱折腾的工程师</a>
-        </div>
-
-        
-        
-        <div id="huxblog_navbar">
-            <div class="navbar-collapse">
-                <ul class="nav navbar-nav navbar-right">
-                    <li>
-                        <a href="/">All Posts</a>
-                    </li>
-                    
-                        
-                    
-                    
-		    
-                        <li><a href="/archive//">ARCHIVE</a></li>
-                    
-                        <li><a href="/notes//">NOTES</a></li>
-                    
-                        <li><a href="/about//">ABOUT</a></li>
-                    
-		            <li>
-                        <a href="/search"><i class="fa fa-search"></i></a>
-		           </li>
-                </ul>
-            </div>
-        </div>
-        
-    </div>
-    
-</nav>
-<script>
-    
-    
-    
-    var $body   = document.body;
-    var $toggle = document.querySelector('.navbar-toggle');
-    var $navbar = document.querySelector('#huxblog_navbar');
-    var $collapse = document.querySelector('.navbar-collapse');
-
-    $toggle.addEventListener('click', handleMagic)
-    function handleMagic(e){
-        if ($navbar.className.indexOf('in') > 0) {
-        
-            $navbar.className = " ";
-            
-            setTimeout(function(){
-                
-                if($navbar.className.indexOf('in') < 0) {
-                    $collapse.style.height = "0px"
-                }
-            },400)
-        }else{
-        
-            $collapse.style.height = "auto"
-            $navbar.className += " in";
-        }
-    }
-</script>
-
-
-
-
-<style type="text/css">
-    header.intro-header {
-        background-image: url('/img/post-bg-unix-linux.jpg')
-    }
-</style>
-
-<header class="intro-header" >
-
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <div class="post-heading">
-                    <div class="tags">
-                        
-                        <a class="tag" href="/tags/k8s" title="k8s">
-                            k8s
-                        </a>
-                        
-                    </div>
-                    <h1>K8s拓扑感知服务路由特性阅读笔记</h1>
-                    <h2 class="subheading"></h2>
-                    <span class="meta">
-                        
-                            Posted by 
-                            
-                                    爱折腾的工程师
-                             
-                            on 
-                            Wednesday, September 16, 2020
-                            
-                            
-                            
-                            
-                    </span>
-                </div>
-            </div>
-        </div>
-    </div>
-</header>
-
-
-
-
-<article>
-    <div class="container">
-        <div class="row">
-
-            
-            <div class="
-                col-lg-8 col-lg-offset-2
-                col-md-10 col-md-offset-1
-                post-container">
-
-                
-                <p>开启拓扑感知服务路由特性需同时启动ServiceTopology=true和EndpointSliceProxying=true的FeatureGate</p>
-<h3 id="环境">环境</h3>
-<p>K8s版本：v1.18.3</p>
-<h3 id="endpointslices简介">EndpointSlices简介</h3>
-<p>FEATURE STATE: Kubernetes v1.17 [beta]</p>
-<blockquote>
-<p>EndpointSlices提供了一种简单的方法来跟踪Kubernetes集群中的网络Endpoints。 它们为Endpoints提供了更可扩展和可扩展的替代方案。
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:site_name" content="爱折腾的工程师"><meta property="og:type" content="article"><meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta name=title content="K8s拓扑感知服务路由特性阅读笔记"><meta property="og:title" content="K8s拓扑感知服务路由特性阅读笔记"><meta property="twitter:title" content="K8s拓扑感知服务路由特性阅读笔记"><meta name=description content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:card" content="summary"><meta name=keyword content="iceyao, IceYao's Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice"><link rel="shortcut icon" href=/img/favicon.ico><title>K8s拓扑感知服务路由特性阅读笔记 | 爱折腾的工程师 | IceYao's Blog</title>
+<link rel=canonical href=/post/2020-09-16-k8s_topology_aware_route_readnote/><link rel=stylesheet href=/css/bootstrap.min.css><link rel=stylesheet href=/css/hugo-theme-cleanwhite.min.css><link rel=stylesheet href=/css/zanshang.css><link rel=stylesheet href=/css/font-awesome.all.min.css><script src=/js/jquery.min.js></script><script src=/js/bootstrap.min.js></script><script src=/js/hux-blog.min.js></script><script src=/js/lazysizes.min.js></script></head><script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-9J7CKFVPPM")}</script><nav class="navbar navbar-default navbar-custom navbar-fixed-top"><div class=container-fluid><div class="navbar-header page-scroll"><button type=button class=navbar-toggle>
+<span class=sr-only>Toggle navigation</span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+</button>
+<a class=navbar-brand href=/>爱折腾的工程师</a></div><div id=huxblog_navbar><div class=navbar-collapse><ul class="nav navbar-nav navbar-right"><li><a href=/>All Posts</a></li><li><a href=/archive//>ARCHIVE</a></li><li><a href=/notes//>NOTES</a></li><li><a href=/about//>ABOUT</a></li><li><a href=/search><i class="fa fa-search"></i></a></li></ul></div></div></div></nav><script>var $body=document.body,$toggle=document.querySelector(".navbar-toggle"),$navbar=document.querySelector("#huxblog_navbar"),$collapse=document.querySelector(".navbar-collapse");$toggle.addEventListener("click",handleMagic);function handleMagic(){$navbar.className.indexOf("in")>0?($navbar.className=" ",setTimeout(function(){$navbar.className.indexOf("in")<0&&($collapse.style.height="0px")},400)):($collapse.style.height="auto",$navbar.className+=" in")}</script><style type=text/css>header.intro-header{background-image:url(/img/post-bg-unix-linux.jpg)}</style><header class=intro-header><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><div class=post-heading><div class=tags><a class=tag href=/tags/k8s title=k8s>k8s</a></div><h1>K8s拓扑感知服务路由特性阅读笔记</h1><h2 class=subheading></h2><span class=meta>Posted by
+爱折腾的工程师
+on
+Wednesday, September 16, 2020</span></div></div></div></div></header><article><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+post-container"><p>开启拓扑感知服务路由特性需同时启动ServiceTopology=true和EndpointSliceProxying=true的FeatureGate</p><h3 id=环境>环境</h3><p>K8s版本：v1.18.3</p><h3 id=endpointslices简介>EndpointSlices简介</h3><p>FEATURE STATE: Kubernetes v1.17 [beta]</p><blockquote><p>EndpointSlices提供了一种简单的方法来跟踪Kubernetes集群中的网络Endpoints。 它们为Endpoints提供了更可扩展和可扩展的替代方案。
 Endpoints API提供了一种简单而直接的方式来跟踪Kubernetes中的网络Endpoints。
 不幸的是，随着Kubernetes集群和服务能够处理更多流量并将其发送到更多后端Pod，该原始API的局限性变得更加明显。
 最值得注意的是，这些挑战包括扩展到更多网络Endpoints的挑战。
 由于服务的所有网络Endpoints都存储在单个Endpoints资源中，因此这些资源可能会变得很大。
 这影响了Kubernetes组件（尤其是主控制平面）的性能，并在Endpoints更改时导致大量网络流量和处理。
-EndpointSlices可帮助您减轻这些问题，并为诸如拓扑路由之类的其他功能提供可扩展的平台。</p>
-</blockquote>
-<h3 id="endpointslice-resources">EndpointSlice resources</h3>
-<blockquote>
-<p>在Kubernetes中，EndpointSlice包含对一组网络Endpoints的引用。
+EndpointSlices可帮助您减轻这些问题，并为诸如拓扑路由之类的其他功能提供可扩展的平台。</p></blockquote><h3 id=endpointslice-resources>EndpointSlice resources</h3><blockquote><p>在Kubernetes中，EndpointSlice包含对一组网络Endpoints的引用。
 控制平面会为指定了选择器的任何Kubernetes服务自动创建EndpointSlices。
 这些EndpointSlice包含对与服务选择器匹配的所有Pod的引用。
 EndpointSlices通过协议，端口号和服务名称的唯一组合将网络Endpoints组合在一起。
-EndpointSlice对象的名称必须是有效的DNS子域名。</p>
-</blockquote>
-<p>作为示例，这是示例Kubernetes服务的示例EndpointSlice资源。</p>
-<pre tabindex="0"><code>apiVersion: discovery.k8s.io/v1beta1
+EndpointSlice对象的名称必须是有效的DNS子域名。</p></blockquote><p>作为示例，这是示例Kubernetes服务的示例EndpointSlice资源。</p><pre tabindex=0><code>apiVersion: discovery.k8s.io/v1beta1
 kind: EndpointSlice
 metadata:
   name: example-abc
@@ -272,140 +41,37 @@ endpoints:
       kubernetes.io/hostname: node-1
       topology.kubernetes.io/zone: us-west2-a
 </code></pre><p>默认情况下，控制平面创建和管理EndpointSlices的每个Endpoints不超过100个。 您可以使用<code>--max-endpoints-per-slice</code>
-kube-controller-manager标志对其进行配置，最大为1000。</p>
-<p>当涉及如何路由内部流量时，EndpointSlices可以充当kube-proxy的真实来源。 启用后，它们应为具有大量Endpoints的服务提供性能改进。</p>
-<h4 id="address-types">Address types</h4>
-<p>EndpointSlice支持三种地址类型：</p>
-<ul>
-<li>IPv4</li>
-<li>IPv6</li>
-<li>FQDN</li>
-</ul>
-<h4 id="topology-information">Topology information</h4>
-<blockquote>
-<p>EndpointSlice中的每个Endpoints都可以包含相关的拓扑信息。
-这用于指示Endpoints在哪里，其中包含有关相应Node，zon和region的信息。 当设置了这种值时，控制平面为EndpointSlices设置以下拓扑标签：</p>
-</blockquote>
-<ul>
-<li>kubernetes.io/hostname - endpoint所在Node的名称</li>
-<li>topology.kubernetes.io/zone - endpoints所在的zone</li>
-<li>topology.kubernetes.io/region - endpoints所在的region</li>
-</ul>
-<p>这些标签的值源自与片中每个Endpoints关联的资源。 Node名标签表示相应Pod上NodeName字段的值。 zone标签和region标签代表相应节点上具有相同名称的标签值。</p>
-<h4 id="management">Management</h4>
-<blockquote>
-<p>通常控制平面（特别是EndpointsSlice控制器）创建和管理EndpointSlice对象。
-EndpointSlices还有许多其他用例，例如服务网格实现，可能导致其他实体或控制器管理其他EndpointSlices。</p>
-</blockquote>
-<blockquote>
-<p>为了确保多个实体可以管理EndpointSlices而不互相干扰，Kubernetes定义了标签<code>endpointslice.kubernetes.io/managed-by</code>，
+kube-controller-manager标志对其进行配置，最大为1000。</p><p>当涉及如何路由内部流量时，EndpointSlices可以充当kube-proxy的真实来源。 启用后，它们应为具有大量Endpoints的服务提供性能改进。</p><h4 id=address-types>Address types</h4><p>EndpointSlice支持三种地址类型：</p><ul><li>IPv4</li><li>IPv6</li><li>FQDN</li></ul><h4 id=topology-information>Topology information</h4><blockquote><p>EndpointSlice中的每个Endpoints都可以包含相关的拓扑信息。
+这用于指示Endpoints在哪里，其中包含有关相应Node，zon和region的信息。 当设置了这种值时，控制平面为EndpointSlices设置以下拓扑标签：</p></blockquote><ul><li>kubernetes.io/hostname - endpoint所在Node的名称</li><li>topology.kubernetes.io/zone - endpoints所在的zone</li><li>topology.kubernetes.io/region - endpoints所在的region</li></ul><p>这些标签的值源自与片中每个Endpoints关联的资源。 Node名标签表示相应Pod上NodeName字段的值。 zone标签和region标签代表相应节点上具有相同名称的标签值。</p><h4 id=management>Management</h4><blockquote><p>通常控制平面（特别是EndpointsSlice控制器）创建和管理EndpointSlice对象。
+EndpointSlices还有许多其他用例，例如服务网格实现，可能导致其他实体或控制器管理其他EndpointSlices。</p></blockquote><blockquote><p>为了确保多个实体可以管理EndpointSlices而不互相干扰，Kubernetes定义了标签<code>endpointslice.kubernetes.io/managed-by</code>，
 该标签指示管理EndpointSlice的实体。 EndpointsSlice控制器在其管理的所有EndpointSlice上将此标签的值设置为<code>endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io</code>
-其他管理EndpointSlices的实体也应为此标签设置唯一值。</p>
-</blockquote>
-<h4 id="ownership">Ownership</h4>
-<blockquote>
-<p>在大多数使用情况下，EndpointSlices由endpoint slice对象跟踪其endpoints的服务拥有。
-该所有权由每个EndpointSlice上的所有者引用以及<code>kubernetes.io/service-name</code>标签指示，该标签可对属于Service的所有EndpointSlice进行简单查找。</p>
-</blockquote>
-<h4 id="endpointslice-mirroring">EndpointSlice mirroring</h4>
-<blockquote>
-<p>在某些情况下，应用程序会创建自定义的Endpoints资源。
-为了确保这些应用程序不需要同时写入Endpoints和EndpointSlice资源，集群的控制平面将大多数Endpoints资源镜像到相应的EndpointSlices。</p>
-</blockquote>
-<p>控制平面镜像的Endpoints资源，除非：</p>
-<ul>
-<li>Endpoints资源的<code>endpointslice.kubernetes.io/skip-mirror</code>标签设置为true。</li>
-<li>Endpoints资源具有<code>control-plane.alpha.kubernetes.io/leader</code> annotation。</li>
-<li>相应的Service资源不存在。</li>
-<li>相应的Service资源具有非空selector。</li>
-</ul>
-<blockquote>
-<p>如果Endpoints资源具有多个subnet或包含具有多个IP栈（IPv4和IPv6）的endpoints，则会发生各个Endpoints资源可能会转换为多个EndpointSlice。
-每个subnet最多1000个地址将镜像到EndpointSlices。</p>
-</blockquote>
-<h4 id="distribution-of-endpointslices">Distribution of EndpointSlices</h4>
-<blockquote>
-<p>每个EndpointSlice都有一组端口，适用于资源内的所有endpoints。
+其他管理EndpointSlices的实体也应为此标签设置唯一值。</p></blockquote><h4 id=ownership>Ownership</h4><blockquote><p>在大多数使用情况下，EndpointSlices由endpoint slice对象跟踪其endpoints的服务拥有。
+该所有权由每个EndpointSlice上的所有者引用以及<code>kubernetes.io/service-name</code>标签指示，该标签可对属于Service的所有EndpointSlice进行简单查找。</p></blockquote><h4 id=endpointslice-mirroring>EndpointSlice mirroring</h4><blockquote><p>在某些情况下，应用程序会创建自定义的Endpoints资源。
+为了确保这些应用程序不需要同时写入Endpoints和EndpointSlice资源，集群的控制平面将大多数Endpoints资源镜像到相应的EndpointSlices。</p></blockquote><p>控制平面镜像的Endpoints资源，除非：</p><ul><li>Endpoints资源的<code>endpointslice.kubernetes.io/skip-mirror</code>标签设置为true。</li><li>Endpoints资源具有<code>control-plane.alpha.kubernetes.io/leader</code> annotation。</li><li>相应的Service资源不存在。</li><li>相应的Service资源具有非空selector。</li></ul><blockquote><p>如果Endpoints资源具有多个subnet或包含具有多个IP栈（IPv4和IPv6）的endpoints，则会发生各个Endpoints资源可能会转换为多个EndpointSlice。
+每个subnet最多1000个地址将镜像到EndpointSlices。</p></blockquote><h4 id=distribution-of-endpointslices>Distribution of EndpointSlices</h4><blockquote><p>每个EndpointSlice都有一组端口，适用于资源内的所有endpoints。
 如果将命名端口用于服务，则Pod可能会为同一命名端口以不同的目标端口号结尾，从而需要不同的EndpointSlice。
-这类似于subnets与Endpoints进行分组的背后逻辑。</p>
-</blockquote>
-<blockquote>
-<p>控制平面尝试将EndpointSlices尽可能填满，但不会主动重新平衡它们。逻辑非常简单：</p>
-</blockquote>
-<ul>
-<li>遍历现有的EndpointSlice，删除不再需要的endpoints，并更新已更改的匹配endpoints。</li>
-<li>遍历上面一个步骤中已修改的EndpointSlice，并用所需的任何新endpoints填充它们。</li>
-<li>如果还有新的endpoints要添加，请尝试将它们放入以前未更改的slice中或创建新的EndpointSlice。</li>
-</ul>
-<blockquote>
-<p>重要的是，上面第三个步骤倾向于限制EndpointSlice更新，而不是完全分发EndpointSlices。
+这类似于subnets与Endpoints进行分组的背后逻辑。</p></blockquote><blockquote><p>控制平面尝试将EndpointSlices尽可能填满，但不会主动重新平衡它们。逻辑非常简单：</p></blockquote><ul><li>遍历现有的EndpointSlice，删除不再需要的endpoints，并更新已更改的匹配endpoints。</li><li>遍历上面一个步骤中已修改的EndpointSlice，并用所需的任何新endpoints填充它们。</li><li>如果还有新的endpoints要添加，请尝试将它们放入以前未更改的slice中或创建新的EndpointSlice。</li></ul><blockquote><p>重要的是，上面第三个步骤倾向于限制EndpointSlice更新，而不是完全分发EndpointSlices。
 例如，如果要添加10个新endpoints，并有2个EndpointSlices，每个EndpointSlices可以容纳5个endpoints，则此方法将创建一个新EndpointSlice，而不是填充2个现有EndpointSlices。
-换句话说，单个EndpointSlice创建优于多个EndpointSlice更新。</p>
-</blockquote>
-<blockquote>
-<p>通过在每个节点上运行kube-proxy并Watch EndpointSlices，对EndpointSlice的每次更改都会变得相对开销很大，因为它将被传输到集群中的每个Node。
-所以上述的这种方式旨在限制需要发送到每个节点的更改的数量，即使它可能导致多个EndpointSlices未满。</p>
-</blockquote>
-<blockquote>
-<p>实际上，这种不理想的分布应该很少见。
+换句话说，单个EndpointSlice创建优于多个EndpointSlice更新。</p></blockquote><blockquote><p>通过在每个节点上运行kube-proxy并Watch EndpointSlices，对EndpointSlice的每次更改都会变得相对开销很大，因为它将被传输到集群中的每个Node。
+所以上述的这种方式旨在限制需要发送到每个节点的更改的数量，即使它可能导致多个EndpointSlices未满。</p></blockquote><blockquote><p>实际上，这种不理想的分布应该很少见。
 EndpointSlice控制器处理的大多数更改都将足够小以适应现有的EndpointSlice，如果不是，则无论如何很快都将有必要使用新的EndpointSlice。
-滚动式Deployment更新还提供了EndpointSlices的自然包装，其中所有Pod及其对应的endpoints均被替换。</p>
-</blockquote>
-<h4 id="duplicate-endpoints">Duplicate endpoints</h4>
-<blockquote>
-<p>由于EndpointSlice更改的性质，endpoints可能会同时在多个EndpointSlice中表示。
+滚动式Deployment更新还提供了EndpointSlices的自然包装，其中所有Pod及其对应的endpoints均被替换。</p></blockquote><h4 id=duplicate-endpoints>Duplicate endpoints</h4><blockquote><p>由于EndpointSlice更改的性质，endpoints可能会同时在多个EndpointSlice中表示。
 由于Kubernetes客户端watch/cache可以在不同的时刻对不同EndpointSlice对象进行更改，因此自然会发生这种情况。
 使用EndpointSlice的实现必须能够使endpoint出现在多个slice中。
-在kube-proxy的EndpointSliceCache实现中可以找到有关如何执行endpoint去重的参考实现。</p>
-</blockquote>
-<h3 id="service-topology">Service Topology</h3>
-<h4 id="service-topology简介">Service Topology简介</h4>
-<blockquote>
-<p>服务拓扑使服务能够基于群集的节点拓扑来路由流量。 例如，服务可以指定将流量优先路由到与客户端位于同一节点上或位于同一可用性区域中的端点。</p>
-</blockquote>
-<blockquote>
-<p>默认情况下，发送到ClusterIP或NodePort服务的流量可以路由到该服务的任何后端地址。从Kubernetes 1.7开始，可以将“外部”流量路由到在接收流量的节点上运行的Pod，但是ClusterIP Services不支持此功能，并且更复杂的拓扑（如分区路由）是不可能的。服务拓扑功能通过允许服务创建者基于源节点和目标节点的节点标签定义用于路由流量的策略来解决此问题。</p>
-</blockquote>
-<blockquote>
-<p>通过使用源和目的地之间的节点标签匹配，操作员可以使用对那个操作员的要求有意义的任何度量来指定彼此“更近”和“更远”的一组节点。
+在kube-proxy的EndpointSliceCache实现中可以找到有关如何执行endpoint去重的参考实现。</p></blockquote><h3 id=service-topology>Service Topology</h3><h4 id=service-topology简介>Service Topology简介</h4><blockquote><p>服务拓扑使服务能够基于群集的节点拓扑来路由流量。 例如，服务可以指定将流量优先路由到与客户端位于同一节点上或位于同一可用性区域中的端点。</p></blockquote><blockquote><p>默认情况下，发送到ClusterIP或NodePort服务的流量可以路由到该服务的任何后端地址。从Kubernetes 1.7开始，可以将“外部”流量路由到在接收流量的节点上运行的Pod，但是ClusterIP Services不支持此功能，并且更复杂的拓扑（如分区路由）是不可能的。服务拓扑功能通过允许服务创建者基于源节点和目标节点的节点标签定义用于路由流量的策略来解决此问题。</p></blockquote><blockquote><p>通过使用源和目的地之间的节点标签匹配，操作员可以使用对那个操作员的要求有意义的任何度量来指定彼此“更近”和“更远”的一组节点。
 例如，对于公共云中的许多运营商而言，倾向于将服务流量保持在同一区域内，因为区域间流量具有与其相关的成本，而区域内流量则没有。
-其他常见需求包括能够将流量路由到由DaemonSet管理的本地Pod，或将流量保持到连接到同一机架顶部交换机的节点，以实现最低延迟。</p>
-</blockquote>
-<h4 id="使用service-topology">使用Service Topology</h4>
-<blockquote>
-<p>如果您的集群启用了服务拓扑，则可以通过在服务规范上指定topologyKeys字段来控制服务流量路由。该字段是节点标签的优先顺序列表，将在访问此服务时用于对端点进行排序。流量将被定向到其第一个标签的值与该标签的始发节点的值匹配的节点。如果在匹配的节点上没有该服务的后端，则将考虑第二个标签，依此类推，直到没有标签剩余为止。</p>
-</blockquote>
-<blockquote>
-<p>如果找不到匹配项，则流量将被拒绝，就像该服务根本没有后端一样。即，基于具有可用后端的第一个拓扑密钥选择端点。如果指定了此字段，并且所有条目都没有与客户端拓扑匹配的后端，则该服务没有该客户端的后端，因此连接将失败。特殊值“ *”可用于表示“任何拓扑”。如果使用此通用值，则仅作为列表中的最后一个值才有意义。</p>
-</blockquote>
-<blockquote>
-<p>如果没有指定topologyKeys或为空，则不会应用拓扑约束。</p>
-</blockquote>
-<blockquote>
-<p>考虑一个带有节点的群集，这些节点用其主机名，区域名称和区域名称标记。然后，您可以按如下所示设置服务的topologyKeys值以定向流量。</p>
-</blockquote>
-<ul>
-<li>仅适用于同一节点上的端点，如果该节点上不存在端点，则失败：[&ldquo;kubernetes.io/hostname&rdquo;]。</li>
-<li>优先使用同一节点上的端点，后退到同一区域中的端点，然后是相同区域，否则失败：[&ldquo;kubernetes.io/hostname&rdquo;、&ldquo;topology.kubernetes.io/zone&rdquo;、&ldquo;topology.kubernetes.io/region&rdquo;]。
-例如，在数据局部性很关键的情况下，这可能很有用。</li>
-<li>优先使用同一区域，但是如果该区域内没有可用端点，则回退到任何可用端点上：[&ldquo;topology.kubernetes.io/zone&rdquo;，&quot;*&quot;]。</li>
-</ul>
-<h3 id="验证测试">验证测试</h3>
-<p>集群所有组件开启<code>--feature-gates=ServiceTopology=true,EndpointSlice=true</code>，其中如果kube-proxy是以这种方式启动的话</p>
-<pre tabindex="0"><code>      containers:
+其他常见需求包括能够将流量路由到由DaemonSet管理的本地Pod，或将流量保持到连接到同一机架顶部交换机的节点，以实现最低延迟。</p></blockquote><h4 id=使用service-topology>使用Service Topology</h4><blockquote><p>如果您的集群启用了服务拓扑，则可以通过在服务规范上指定topologyKeys字段来控制服务流量路由。该字段是节点标签的优先顺序列表，将在访问此服务时用于对端点进行排序。流量将被定向到其第一个标签的值与该标签的始发节点的值匹配的节点。如果在匹配的节点上没有该服务的后端，则将考虑第二个标签，依此类推，直到没有标签剩余为止。</p></blockquote><blockquote><p>如果找不到匹配项，则流量将被拒绝，就像该服务根本没有后端一样。即，基于具有可用后端的第一个拓扑密钥选择端点。如果指定了此字段，并且所有条目都没有与客户端拓扑匹配的后端，则该服务没有该客户端的后端，因此连接将失败。特殊值“ *”可用于表示“任何拓扑”。如果使用此通用值，则仅作为列表中的最后一个值才有意义。</p></blockquote><blockquote><p>如果没有指定topologyKeys或为空，则不会应用拓扑约束。</p></blockquote><blockquote><p>考虑一个带有节点的群集，这些节点用其主机名，区域名称和区域名称标记。然后，您可以按如下所示设置服务的topologyKeys值以定向流量。</p></blockquote><ul><li>仅适用于同一节点上的端点，如果该节点上不存在端点，则失败：[&ldquo;kubernetes.io/hostname&rdquo;]。</li><li>优先使用同一节点上的端点，后退到同一区域中的端点，然后是相同区域，否则失败：[&ldquo;kubernetes.io/hostname&rdquo;、&ldquo;topology.kubernetes.io/zone&rdquo;、&ldquo;topology.kubernetes.io/region&rdquo;]。
+例如，在数据局部性很关键的情况下，这可能很有用。</li><li>优先使用同一区域，但是如果该区域内没有可用端点，则回退到任何可用端点上：[&ldquo;topology.kubernetes.io/zone&rdquo;，"*"]。</li></ul><h3 id=验证测试>验证测试</h3><p>集群所有组件开启<code>--feature-gates=ServiceTopology=true,EndpointSlice=true</code>，其中如果kube-proxy是以这种方式启动的话</p><pre tabindex=0><code>      containers:
       - command:
         - /usr/local/bin/kube-proxy
         - --config=/var/lib/kube-proxy/config.conf
         - --hostname-override=$(NODE_NAME)
-</code></pre><p>kube-proxy加载配置文件的形式加载参数</p>
-<p>以这种形式添加featureGates</p>
-<pre tabindex="0"><code># vim /var/lib/kube-proxy/config.conf
+</code></pre><p>kube-proxy加载配置文件的形式加载参数</p><p>以这种形式添加featureGates</p><pre tabindex=0><code># vim /var/lib/kube-proxy/config.conf
 featureGates:
   EndpointSlice: true
   EndpointSliceProxying: true
   ServiceTopology: true
-</code></pre><p>因为命令行<code>--feature-gates</code>会和<code>--config</code>加载配置文件方式冲突，以后者为主</p>
-<pre tabindex="0"><code># k8s.io/kubernetes/cmd/kube-proxy/app/server.go
+</code></pre><p>因为命令行<code>--feature-gates</code>会和<code>--config</code>加载配置文件方式冲突，以后者为主</p><pre tabindex=0><code># k8s.io/kubernetes/cmd/kube-proxy/app/server.go
 // Complete completes all the required options.
 func (o *Options) Complete() error {
     if len(o.ConfigFile) == 0 &amp;&amp; len(o.WriteConfigTo) == 0 {
@@ -434,13 +100,11 @@ func (o *Options) Complete() error {
 
     return utilfeature.DefaultMutableFeatureGate.SetFromMap(o.config.FeatureGates)
 }
-</code></pre><p>创建一个2副本的应用</p>
-<pre tabindex="0"><code>[root@localhost ~]# kubectl get pod -o wide
+</code></pre><p>创建一个2副本的应用</p><pre tabindex=0><code>[root@localhost ~]# kubectl get pod -o wide
 NAME                           READY   STATUS    RESTARTS   AGE   IP            NODE              NOMINATED NODE   READINESS GATES
 common-nginx-dfff6bd9f-56zt5   1/1     Running   0          21h   172.20.1.13   192.168.104.111   &lt;none&gt;           &lt;none&gt;
 common-nginx-dfff6bd9f-zh7wk   1/1     Running   0          21h   172.20.2.19   192.168.104.128   &lt;none&gt;           &lt;none&gt;
-</code></pre><p>对其service设置topologyKeys</p>
-<pre tabindex="0"><code>[root@localhost ~]# kubectl get svc nginx  -o yaml
+</code></pre><p>对其service设置topologyKeys</p><pre tabindex=0><code>[root@localhost ~]# kubectl get svc nginx  -o yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -460,8 +124,7 @@ spec:
   - &#39;*&#39;
   type: ClusterIP
 </code></pre><p>这里kube-proxy使用的mode是iptables，所以根据优先路由到本地节点的pod特性，上面pod所在的Node来看192.168.104.111和192.168.104.128上Chain KUBE-SVC-xxx
-只会有一条KUBE-SEP-xxx规则，其它节点还是跟以往一样，有两条KUBE-SEP-xxx规则</p>
-<pre tabindex="0"><code># node 192.168.104.111
+只会有一条KUBE-SEP-xxx规则，其它节点还是跟以往一样，有两条KUBE-SEP-xxx规则</p><pre tabindex=0><code># node 192.168.104.111
 Chain KUBE-SVC-4N57TFCL4MD7ZTDA (1 references)
 target     prot opt source               destination         
 KUBE-SEP-K6CY7KOJIC5FECTH  all  --  0.0.0.0/0            0.0.0.0/0            /* default/nginx: */
@@ -476,9 +139,7 @@ Chain KUBE-SVC-4N57TFCL4MD7ZTDA (1 references)
 target     prot opt source               destination         
 KUBE-SEP-K6CY7KOJIC5FECTH  all  --  0.0.0.0/0            0.0.0.0/0            /* default/nginx: */ statistic mode random probability 0.50000000000
 KUBE-SEP-AAUL4QSIESCX3CKK  all  --  0.0.0.0/0            0.0.0.0/0            /* default/nginx: */
-</code></pre><h3 id="代码分析">代码分析</h3>
-<h4 id="topologykeys-validate">TopologyKeys Validate</h4>
-<pre tabindex="0"><code>    if len(service.Spec.TopologyKeys) &gt; 0 {
+</code></pre><h3 id=代码分析>代码分析</h3><h4 id=topologykeys-validate>TopologyKeys Validate</h4><pre tabindex=0><code>    if len(service.Spec.TopologyKeys) &gt; 0 {
         topoPath := specPath.Child(&#34;topologyKeys&#34;)
         // topologyKeys is mutually exclusive with &#39;externalTrafficPolicy=Local&#39;
         // 与externalTrafficPolicy=Local冲突
@@ -508,9 +169,7 @@ KUBE-SEP-AAUL4QSIESCX3CKK  all  --  0.0.0.0/0            0.0.0.0/0            /*
             }
         }
     }
-</code></pre><h4 id="iptablesipvs模式">iptables/ipvs模式</h4>
-<p>iptables/ipvs下拓扑感知主要处理逻辑，把endpoint根据拓扑key设置重新再过滤一遍</p>
-<pre tabindex="0"><code># k8s.io/kubernetes/pkg/proxy/iptables/proxier.go
+</code></pre><h4 id=iptablesipvs模式>iptables/ipvs模式</h4><p>iptables/ipvs下拓扑感知主要处理逻辑，把endpoint根据拓扑key设置重新再过滤一遍</p><pre tabindex=0><code># k8s.io/kubernetes/pkg/proxy/iptables/proxier.go
 # k8s.io/kubernetes/pkg/proxy/ipvs/proxier.go
 
 // Service Topology will not be enabled in the following cases:
@@ -564,19 +223,14 @@ func FilterTopologyEndpoint(nodeLabels map[string]string, topologyKeys []string,
     }
     return filteredEndpoint
 }
-</code></pre><h3 id="应用场景">应用场景</h3>
-<p>同一个交换机下的节点优先访问，这种场景就不说了。这里要说一种特殊的应用场景，k8s controller都知道，运行在k8s集群内部的话，可以使用in-cluster或out-cluster的认证方式，
-一般都是使用in-cluster+rbac的授权方式，通过内部service跟apiserver通信，default命名空间下的kubernetes服务</p>
-<pre tabindex="0"><code>[root@localhost ~]# kubectl get service kubernetes 
+</code></pre><h3 id=应用场景>应用场景</h3><p>同一个交换机下的节点优先访问，这种场景就不说了。这里要说一种特殊的应用场景，k8s controller都知道，运行在k8s集群内部的话，可以使用in-cluster或out-cluster的认证方式，
+一般都是使用in-cluster+rbac的授权方式，通过内部service跟apiserver通信，default命名空间下的kubernetes服务</p><pre tabindex=0><code>[root@localhost ~]# kubectl get service kubernetes 
 NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
 kubernetes   ClusterIP   11.1.252.1   &lt;none&gt;        443/TCP   28d
 </code></pre><p>鉴于k8s controller高可用问题，实际上是在http2中，为了提高网络性能，一个主机只建立一个连接，所有的请求都通过该连接进行，
-默认情况下，即使网络异常，他还是重用这个连接，直到操作系统将连接关闭，而操作系统关闭僵尸连接的时间默认是十几分钟，具体的时间可以调整系统参数</p>
-<pre tabindex="0"><code>net.ipv4.tcp_retries2, net.ipv4.tcp_keepalive_time, net.ipv4.tcp_keepalive_probes, net.ipv4.tcp_keepalive_intvl
+默认情况下，即使网络异常，他还是重用这个连接，直到操作系统将连接关闭，而操作系统关闭僵尸连接的时间默认是十几分钟，具体的时间可以调整系统参数</p><pre tabindex=0><code>net.ipv4.tcp_retries2, net.ipv4.tcp_keepalive_time, net.ipv4.tcp_keepalive_probes, net.ipv4.tcp_keepalive_intvl
 </code></pre><p>所有的controller运行在master节点(即kube-apiserver节点)，同个node的controller优先访问本地的apiserver，这样可以大概率避免apiserver不可用，
-导致大批量controller失效.</p>
-<p>default命名空间下的endpoints默认没有带上nodeName的字段，进而导致endpointslices中也没有topology</p>
-<pre tabindex="0"><code>[root@localhost kubernetes]# kubectl get endpoints kubernetes  -o yaml
+导致大批量controller失效.</p><p>default命名空间下的endpoints默认没有带上nodeName的字段，进而导致endpointslices中也没有topology</p><pre tabindex=0><code>[root@localhost kubernetes]# kubectl get endpoints kubernetes  -o yaml
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -602,8 +256,7 @@ subsets:
   - name: https
     port: 6443
     protocol: TCP
-</code></pre><p>default命名空间下的kubernetes service和kubernetes endpoint是由apiserver自动生成，通过修改apiserver代码把endpoint的缺失字段nodeName补上</p>
-<pre tabindex="0"><code># k8s.io/kubernetes/pkg/master/reconcilers/lease.go
+</code></pre><p>default命名空间下的kubernetes service和kubernetes endpoint是由apiserver自动生成，通过修改apiserver代码把endpoint的缺失字段nodeName补上</p><pre tabindex=0><code># k8s.io/kubernetes/pkg/master/reconcilers/lease.go
 
 func (r *leaseEndpointReconciler) doReconcile(serviceName string, endpointPorts []corev1.EndpointPort, reconcilePorts bool) error {
     ......
@@ -615,7 +268,7 @@ func (r *leaseEndpointReconciler) doReconcile(serviceName string, endpointPorts 
             # 增加NodeName
             e.Subsets[0].Addresses[ind] = corev1.EndpointAddress{IP: ip, NodeName: utilpointer.StringPtr(ip)}
         }
-</code></pre><pre tabindex="0"><code>// UpdateLease resets the TTL on a master IP in storage
+</code></pre><pre tabindex=0><code>// UpdateLease resets the TTL on a master IP in storage
 func (s *storageLeases) UpdateLease(ip string) error {
     key := path.Join(s.baseKey, ip)
     return s.storage.GuaranteedUpdate(apirequest.NewDefaultContext(), key, &amp;corev1.Endpoints{}, true, nil, func(input kruntime.Object, respMeta storage.ResponseMeta) (kruntime.Object, *uint64, error) {
@@ -627,17 +280,14 @@ func (s *storageLeases) UpdateLease(ip string) error {
                 Addresses: []corev1.EndpointAddress{\{IP: ip, NodeName: utilpointer.StringPtr(ip)\}},
             },
         }
-</code></pre><p>编译新镜像<code>GO111MODULE=off KUBE_GIT_TREE_STATE=clean KUBE_GIT_VERSION=v1.18.3 KUBE_BUILD_PLATFORMS=linux/amd64 make release-images</code></p>
-<p>为default/kubernetes service设置topologyKeys</p>
-<pre tabindex="0"><code># kubectl edit svc kubernetes 
+</code></pre><p>编译新镜像<code>GO111MODULE=off KUBE_GIT_TREE_STATE=clean KUBE_GIT_VERSION=v1.18.3 KUBE_BUILD_PLATFORMS=linux/amd64 make release-images</code></p><p>为default/kubernetes service设置topologyKeys</p><pre tabindex=0><code># kubectl edit svc kubernetes 
 spec:
   ......
   # 新增topologyKeys
   topologyKeys:
   - kubernetes.io/hostname
   - &#39;*&#39;
-</code></pre><p>default/kubernetes endpoint对应的endpointslices有生成topology出来</p>
-<pre tabindex="0"><code># kubectl get endpointslices.discovery.k8s.io kubernetes -o yaml
+</code></pre><p>default/kubernetes endpoint对应的endpointslices有生成topology出来</p><pre tabindex=0><code># kubectl get endpointslices.discovery.k8s.io kubernetes -o yaml
 addressType: IPv4
 apiVersion: discovery.k8s.io/v1beta1
 endpoints:
@@ -654,10 +304,7 @@ endpoints:
   topology:
     kubernetes.io/hostname: 192.168.104.117
 kind: EndpointSlice
-</code></pre><h3 id="issue">Issue</h3>
-<p>启用了EndpointSlice和ServiceTopology后，不支持service配置外部的endpoints，kube-proxy没有生成对应的iptables规则</p>
-<p>示例yaml：</p>
-<pre tabindex="0"><code>apiVersion: v1
+</code></pre><h3 id=issue>Issue</h3><p>启用了EndpointSlice和ServiceTopology后，不支持service配置外部的endpoints，kube-proxy没有生成对应的iptables规则</p><p>示例yaml：</p><pre tabindex=0><code>apiVersion: v1
 kind: Service
 metadata:
   name: rgw
@@ -685,8 +332,7 @@ subsets:
   - name: rgw
     port: 22
     protocol: TCP
-</code></pre><p>查阅代码，调用流程如下：</p>
-<pre tabindex="0"><code>syncProxyRules -&gt; proxier.endpointsMap.Update(proxier.endpointsChanges) -&gt;
+</code></pre><p>查阅代码，调用流程如下：</p><pre tabindex=0><code>syncProxyRules -&gt; proxier.endpointsMap.Update(proxier.endpointsChanges) -&gt;
 em.apply -&gt; ect.checkoutChanges()
 
 func (ect *EndpointChangeTracker) checkoutChanges() []*endpointsChange {
@@ -725,8 +371,7 @@ func NewEndpointChangeTracker(hostname string, makeEndpointInfo makeEndpointFunc
 	}
 	return ect
 }
-</code></pre><p>进入ect.endpointSliceCache.checkoutChanges()</p>
-<pre tabindex="0"><code>// checkoutChanges returns a list of all endpointsChanges that are
+</code></pre><p>进入ect.endpointSliceCache.checkoutChanges()</p><pre tabindex=0><code>// checkoutChanges returns a list of all endpointsChanges that are
 // pending and then marks them as applied.
 func (cache *EndpointSliceCache) checkoutChanges() []*endpointsChange {
 	changes := []*endpointsChange{}
@@ -759,8 +404,7 @@ func (cache *EndpointSliceCache) checkoutChanges() []*endpointsChange {
 
 	return changes
 }
-</code></pre><p>会解析所有的endpointSliceCache，然后组装返回[]*endpointsChange，意思是需要手工创建EndpointSlice，才能够生成对应的iptables规则</p>
-<pre tabindex="0"><code>---
+</code></pre><p>会解析所有的endpointSliceCache，然后组装返回[]*endpointsChange，意思是需要手工创建EndpointSlice，才能够生成对应的iptables规则</p><pre tabindex=0><code>---
 addressType: IPv4
 apiVersion: discovery.k8s.io/v1beta1
 endpoints:
@@ -785,406 +429,28 @@ ports:
 - name: rgw
   port: 22
   protocol: TCP
-</code></pre><h3 id="参考链接">参考链接</h3>
-<ul>
-<li><a href="https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/">https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/</a></li>
-<li><a href="https://www.cnblogs.com/gaorong/p/10925480.html">https://www.cnblogs.com/gaorong/p/10925480.html</a></li>
-</ul>
-
-
-                
-                
-<div class="entry-shang text-center">
-    
-	    <p>「真诚赞赏，手留余香」</p>
-	
-	<button class="zs show-zs btn btn-bred">赞赏支持</button>
-</div>
-<div class="zs-modal-bg"></div>
-<div class="zs-modal-box">
-	<div class="zs-modal-head">
-		<button type="button" class="close">×</button>
-		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
-        
-	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
-		
- 
-	</div>
-	<div class="zs-modal-body">
-		<div class="zs-modal-btns">
-			<button class="btn btn-blink" data-num="2">2元</button>
-			<button class="btn btn-blink" data-num="5">5元</button>
-			<button class="btn btn-blink" data-num="10">10元</button>
-			<button class="btn btn-blink" data-num="50">50元</button>
-			<button class="btn btn-blink" data-num="100">100元</button>
-			<button class="btn btn-blink" data-num="1">任意金额</button>
-		</div>
-		<div class="zs-modal-pay">
-			<button class="btn btn-bred" id="pay-text">2元</button>
-			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
-			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
-		</div>
-	</div>
-	<div class="zs-modal-footer">
-		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
-		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
-	</div>
-</div>
-<script type="text/javascript" src="/js/reward.js"></script>
-
-                
-
-                
-                <hr>
-                <ul class="pager">
-                    
-                    <li class="previous">
-                        <a href="/post/2020-09-15-k8s_network_3/" data-toggle="tooltip" data-placement="top" title="TKEStack Galaxy NetworkPolicy Controller实现">&larr;
-                            Previous Post</a>
-                    </li>
-                    
-                    
-                    <li class="next">
-                        <a href="/post/2020-09-21-k8s_apiserver_kubernetes_service/" data-toggle="tooltip" data-placement="top" title="K8s apiserver kubernetes service实现">Next
-                            Post &rarr;</a>
-                    </li>
-                    
-                </ul>
-                
-
-                
-
-
-<script src="https://giscus.app/client.js"
-        data-repo="yaoice/yaoice.github.io"
-        data-repo-id="R_kgDOJnxqVg"
-        data-category="General"
-        data-category-id="DIC_kwDOJnxqVs4CWwUs"
-        data-mapping="pathname"
-        data-reactions-enabled="1"
-        data-emit-metadata="0"
-        data-theme="light"
-        data-lang="en"
-        crossorigin="anonymous"
-        async>
-</script>
-
-
-            </div>
-
-            
-            
-            <div class="
-                col-lg-2 col-lg-offset-0
-                visible-lg-block
-                sidebar-container
-                catalog-container">
-                <div class="side-catalog">
-                    <hr class="hidden-sm hidden-xs">
-                    <h5>
-                        <a class="catalog-toggle" href="#">CATALOG</a>
-                    </h5>
-                    <ul class="catalog-body"></ul>
-                </div>
-            </div>
-            
-
-            
-            <div class="
-                col-lg-8 col-lg-offset-2
-                col-md-10 col-md-offset-1
-                sidebar-container">
-
-                
-                
-                <section>
-                    <hr class="hidden-sm hidden-xs">
-                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
-                    <div class="tags">
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/devops" title="devops">
-                            devops
-                        </a>
-                        
-                        
-                        
-                        <a href="/tags/go" title="go">
-                            go
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/k8s" title="k8s">
-                            k8s
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/llm" title="llm">
-                            llm
-                        </a>
-                        
-                        
-                        
-                        <a href="/tags/openstack" title="openstack">
-                            openstack
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/tkestack" title="tkestack">
-                            tkestack
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
-                            练车
-                        </a>
-                        
-                        
-                    </div>
-                </section>
-                
-
-                
-                
-            </div>
-        </div>
-    </div>
-</article>
-
-
-
-
-
-
-
-
-
-<footer>
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <ul class="list-inline text-center">                  
-                    
-                    <li>
-                        <a href="mailto:yao3690093@gmail.com">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		           
-                    
-                    
-                    
-                    
-
-		            
-                    
-                    <li>
-                        <a target="_blank" href="/img/wechat.jpeg">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		            
-                    
-                    <li>
-                        <a target="_blank" href="https://github.com/yaoice">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		            
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-            
-            
-            
-           
-                   <li>
-                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
-                           <span class="fa-stack fa-lg">
-                               <i class="fas fa-circle fa-stack-2x"></i>
-                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
-                           </span>
-                       </a>
-                   </li>
-            
-             </ul>
-		<p class="copyright text-muted">
-                    Copyright &copy; 爱折腾的工程师 2024
-                </p>
-            </div>
-        </div>
-    </div>
-</footer>
-
-
-
-
-<script>
-    function loadAsync(u, c) {
-      var d = document, t = 'script',
-          o = d.createElement(t),
-          s = d.getElementsByTagName(t)[0];
-      o.src = u;
-      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
-      s.parentNode.insertBefore(o, s);
-    }
-</script>
-
-
-
-
-
-
-<script>
-    
-    if($('#tag_cloud').length !== 0){
-        loadAsync("/js/jquery.tagcloud.js",function(){
-            $.fn.tagcloud.defaults = {
-                
-                color: {start: '#bbbbee', end: '#0085a1'},
-            };
-            $('#tag_cloud a').tagcloud();
-        })
-    }
-</script>
-
-
-<script>
-    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
-        var $nav = document.querySelector("nav");
-        if($nav) FastClick.attach($nav);
-    })
-</script>
-
-
-
-<script>
-    (function(){
-        var bp = document.createElement('script');
-        var curProtocol = window.location.protocol.split(':')[0];
-        if (curProtocol === 'https'){
-       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
-      }
-      else{
-      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
-      }
-        var s = document.getElementsByTagName("script")[0];
-        s.parentNode.insertBefore(bp, s);
-    })();
-</script>
-
-
-<script>
-    
-    var _baId = '92c175994ded75a3cd2074bc1123e2be';
-
-    
-    var _hmt = _hmt || [];
-    (function() {
-      var hm = document.createElement("script");
-      hm.src = "//hm.baidu.com/hm.js?" + _baId;
-      var s = document.getElementsByTagName("script")[0];
-      s.parentNode.insertBefore(hm, s);
-    })();
-</script>
-
-
-
-
-<script type="text/javascript">
-    function generateCatalog(selector) {
-
-        
-        
-        
-        
-            _containerSelector = 'div.post-container'
-        
-
-        
-        var P = $(_containerSelector), a, n, t, l, i, c;
-        a = P.find('h1,h2,h3,h4,h5,h6');
-
-        
-        $(selector).html('')
-
-        
-        a.each(function () {
-            n = $(this).prop('tagName').toLowerCase();
-            i = "#" + $(this).prop('id');
-            t = $(this).text();
-            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
-            l = $('<li class="' + n + '_nav"></li>').append(c);
-            $(selector).append(l);
-        });
-        return true;
-    }
-
-    generateCatalog(".catalog-body");
-
-    
-    $(".catalog-toggle").click((function (e) {
-        e.preventDefault();
-        $('.side-catalog').toggleClass("fold")
-    }))
-
-    
-
-
-    loadAsync("\/js\/jquery.nav.js", function () {
-        $('.catalog-body').onePageNav({
-            currentClass: "active",
-            changeHash: !1,
-            easing: "swing",
-            filter: "",
-            scrollSpeed: 700,
-            scrollOffset: 0,
-            scrollThreshold: .2,
-            begin: null,
-            end: null,
-            scrollChange: null,
-            padding: 80
-        });
-    });
-</script>
-
-
-
-
-
-
-
-</body>
-</html>
+</code></pre><h3 id=参考链接>参考链接</h3><ul><li><a href=https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/>https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/</a></li><li><a href=https://www.cnblogs.com/gaorong/p/10925480.html>https://www.cnblogs.com/gaorong/p/10925480.html</a></li></ul><div class="entry-shang text-center"><p>「真诚赞赏，手留余香」</p><button class="zs show-zs btn btn-bred">赞赏支持</button></div><div class=zs-modal-bg></div><div class=zs-modal-box><div class=zs-modal-head><button type=button class=close>×</button>
+<span class=author><a href=https://www.iceyao.com.cn/><img src=/img/favicon.png>爱折腾的工程师</a></span><p class=tip><i></i><span>真诚赞赏，手留余香</span></p></div><div class=zs-modal-body><div class=zs-modal-btns><button class="btn btn-blink" data-num=2>2元</button>
+<button class="btn btn-blink" data-num=5>5元</button>
+<button class="btn btn-blink" data-num=10>10元</button>
+<button class="btn btn-blink" data-num=50>50元</button>
+<button class="btn btn-blink" data-num=100>100元</button>
+<button class="btn btn-blink" data-num=1>任意金额</button></div><div class=zs-modal-pay><button class="btn btn-bred" id=pay-text>2元</button><p>使用<span id=pay-type>微信</span>扫描二维码完成支付</p><img src=/img/reward/wechat-2.png id=pay-image></div></div><div class=zs-modal-footer><label><input type=radio name=zs-type value=wechat class=zs-type checked><span><span class=zs-wechat><img src=/img/reward/wechat-btn.png></span></label>
+<label><input type=radio name=zs-type value=alipay class=zs-type class=zs-alipay><img src=/img/reward/alipay-btn.png></span></label></div></div><script type=text/javascript src=/js/reward.js></script><hr><ul class=pager><li class=previous><a href=/post/2020-09-15-k8s_network_3/ data-toggle=tooltip data-placement=top title="TKEStack Galaxy NetworkPolicy Controller实现">&larr;
+Previous Post</a></li><li class=next><a href=/post/2020-09-21-k8s_apiserver_kubernetes_service/ data-toggle=tooltip data-placement=top title="K8s apiserver kubernetes service实现">Next
+Post &rarr;</a></li></ul><script src=https://giscus.app/client.js data-repo=yaoice/yaoice.github.io data-repo-id=R_kgDOJnxqVg data-category=General data-category-id=DIC_kwDOJnxqVs4CWwUs data-mapping=pathname data-reactions-enabled=1 data-emit-metadata=0 data-theme=light data-lang=en crossorigin=anonymous async></script></div><div class="col-lg-2 col-lg-offset-0
+visible-lg-block
+sidebar-container
+catalog-container"><div class=side-catalog><hr class="hidden-sm hidden-xs"><h5><a class=catalog-toggle href=#>CATALOG</a></h5><ul class=catalog-body></ul></div></div><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+sidebar-container"><section><hr class="hidden-sm hidden-xs"><h5><a href=/tags/>FEATURED TAGS</a></h5><div class=tags><a href=/tags/devops title=devops>devops
+</a><a href=/tags/go title=go>go
+</a><a href=/tags/k8s title=k8s>k8s
+</a><a href=/tags/llm title=llm>llm
+</a><a href=/tags/openstack title=openstack>openstack
+</a><a href=/tags/tkestack title=tkestack>tkestack
+</a><a href=/tags/%E7%BB%83%E8%BD%A6 title=练车>练车</a></div></section></div></div></div></article><footer><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><ul class="list-inline text-center"><li><a href=mailto:yao3690093@gmail.com><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-envelope fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=/img/wechat.jpeg><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-weixin fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=https://github.com/yaoice><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-github fa-stack-1x fa-inverse"></i></span></a></li><li><a href rel=alternate type=application/rss+xml title=爱折腾的工程师><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-rss fa-stack-1x fa-inverse"></i></span></a></li></ul><p class="copyright text-muted">Copyright &copy; 爱折腾的工程师 2024</p></div></div></div></footer><script>function loadAsync(e,t){var s=document,o="script",n=s.createElement(o),i=s.getElementsByTagName(o)[0];n.src=e,t&&n.addEventListener("load",function(e){t(null,e)},!1),i.parentNode.insertBefore(n,i)}</script><script>$("#tag_cloud").length!==0&&loadAsync("/js/jquery.tagcloud.js",function(){$.fn.tagcloud.defaults={color:{start:"#bbbbee",end:"#0085a1"}},$("#tag_cloud a").tagcloud()})</script><script>loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js",function(){var e=document.querySelector("nav");e&&FastClick.attach(e)})</script><script>(function(){var t,e=document.createElement("script"),n=window.location.protocol.split(":")[0];n==="https"?e.src="https://zz.bdstatic.com/linksubmit/push.js":e.src="http://push.zhanzhang.baidu.com/push.js",t=document.getElementsByTagName("script")[0],t.parentNode.insertBefore(e,t)})()</script><script>var _baId="92c175994ded75a3cd2074bc1123e2be",_hmt=_hmt||[];(function(){var e,t=document.createElement("script");t.src="//hm.baidu.com/hm.js?"+_baId,e=document.getElementsByTagName("script")[0],e.parentNode.insertBefore(t,e)})()</script><script type=text/javascript>function generateCatalog(e){_containerSelector="div.post-container";var t,n,s,o,i,a=$(_containerSelector),r=a.find("h1,h2,h3,h4,h5,h6");return $(e).html(""),r.each(function(){t=$(this).prop("tagName").toLowerCase(),o="#"+$(this).prop("id"),n=$(this).text(),i=$('<a href="'+o+'" rel="nofollow">'+n+"</a>"),s=$('<li class="'+t+'_nav"></li>').append(i),$(e).append(s)}),!0}generateCatalog(".catalog-body"),$(".catalog-toggle").click(function(e){e.preventDefault(),$(".side-catalog").toggleClass("fold")}),loadAsync("/js/jquery.nav.js",function(){$(".catalog-body").onePageNav({currentClass:"active",changeHash:!1,easing:"swing",filter:"",scrollSpeed:700,scrollOffset:0,scrollThreshold:.2,begin:null,end:null,scrollChange:null,padding:80})})</script></body></html>

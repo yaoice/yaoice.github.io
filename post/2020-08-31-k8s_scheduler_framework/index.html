@@ -1,339 +1,32 @@
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    
-    <meta property="og:site_name" content="爱折腾的工程师">
-    <meta property="og:type" content="article">
-
-    
-    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
-    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
-    
-
-    
-    <meta name="title" content="K8s scheduler framework阅读笔记" />
-    <meta property="og:title" content="K8s scheduler framework阅读笔记" />
-    <meta property="twitter:title" content="K8s scheduler framework阅读笔记" />
-    
-
-    
-    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
-    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
-    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
-    
-
-    
-    <meta property="twitter:card" content="summary" />
-    
-    
-
-    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
-    <link rel="shortcut icon" href="/img/favicon.ico">
-
-    <title>K8s scheduler framework阅读笔记 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
-
-    <link rel="canonical" href="/post/2020-08-31-k8s_scheduler_framework/">
-
-    
-    
-    
-    <link rel="stylesheet" href="/css/bootstrap.min.css">
-
-    
-    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
-
-    
-    <link rel="stylesheet" href="/css/zanshang.css">
-
-    
-    <link rel="stylesheet" href="/css/font-awesome.all.min.css">
-
-    
-    
-
-    
-    <script src="/js/jquery.min.js"></script>
-
-    
-    <script src="/js/bootstrap.min.js"></script>
-
-    
-    <script src="/js/hux-blog.min.js"></script>
-
-    
-    <script src="/js/lazysizes.min.js"></script>
-
-    
-    
-
-</head>
-
-
-
-  
-    
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
-      <script>
-        var doNotTrack = false;
-        if ( false ) {
-          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
-          var doNotTrack = (dnt == "1" || dnt == "yes");
-        }
-        if (!doNotTrack) {
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-9J7CKFVPPM');
-        }
-      </script>
-    
-  
-
-
-
-
-
-
-
-<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
-
-    <div class="container-fluid">
-        
-        <div class="navbar-header page-scroll">
-            <button type="button" class="navbar-toggle">
-                <span class="sr-only">Toggle navigation</span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </button>
-            <a class="navbar-brand" href="/">爱折腾的工程师</a>
-        </div>
-
-        
-        
-        <div id="huxblog_navbar">
-            <div class="navbar-collapse">
-                <ul class="nav navbar-nav navbar-right">
-                    <li>
-                        <a href="/">All Posts</a>
-                    </li>
-                    
-                        
-                    
-                    
-		    
-                        <li><a href="/archive//">ARCHIVE</a></li>
-                    
-                        <li><a href="/notes//">NOTES</a></li>
-                    
-                        <li><a href="/about//">ABOUT</a></li>
-                    
-		            <li>
-                        <a href="/search"><i class="fa fa-search"></i></a>
-		           </li>
-                </ul>
-            </div>
-        </div>
-        
-    </div>
-    
-</nav>
-<script>
-    
-    
-    
-    var $body   = document.body;
-    var $toggle = document.querySelector('.navbar-toggle');
-    var $navbar = document.querySelector('#huxblog_navbar');
-    var $collapse = document.querySelector('.navbar-collapse');
-
-    $toggle.addEventListener('click', handleMagic)
-    function handleMagic(e){
-        if ($navbar.className.indexOf('in') > 0) {
-        
-            $navbar.className = " ";
-            
-            setTimeout(function(){
-                
-                if($navbar.className.indexOf('in') < 0) {
-                    $collapse.style.height = "0px"
-                }
-            },400)
-        }else{
-        
-            $collapse.style.height = "auto"
-            $navbar.className += " in";
-        }
-    }
-</script>
-
-
-
-
-<style type="text/css">
-    header.intro-header {
-        background-image: url('/img/post-bg-unix-linux.jpg')
-    }
-</style>
-
-<header class="intro-header" >
-
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <div class="post-heading">
-                    <div class="tags">
-                        
-                        <a class="tag" href="/tags/k8s" title="k8s">
-                            k8s
-                        </a>
-                        
-                    </div>
-                    <h1>K8s scheduler framework阅读笔记</h1>
-                    <h2 class="subheading"></h2>
-                    <span class="meta">
-                        
-                            Posted by 
-                            
-                                    爱折腾的工程师
-                             
-                            on 
-                            Monday, August 31, 2020
-                            
-                            
-                            
-                            
-                    </span>
-                </div>
-            </div>
-        </div>
-    </div>
-</header>
-
-
-
-
-<article>
-    <div class="container">
-        <div class="row">
-
-            
-            <div class="
-                col-lg-8 col-lg-offset-2
-                col-md-10 col-md-offset-1
-                post-container">
-
-                
-                <h3 id="环境">环境</h3>
-<p>k8s版本: v1.18.8</p>
-<h3 id="什么是scheduler-framework">什么是Scheduler Framework</h3>
-<p>Scheduler Framework在Kubernetes v1.15版本中作为alpha功能引入，调度框架是Kubernetes Scheduler的可插拔架构，可简化调度程序的自定义。
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:site_name" content="爱折腾的工程师"><meta property="og:type" content="article"><meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta name=title content="K8s scheduler framework阅读笔记"><meta property="og:title" content="K8s scheduler framework阅读笔记"><meta property="twitter:title" content="K8s scheduler framework阅读笔记"><meta name=description content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:card" content="summary"><meta name=keyword content="iceyao, IceYao's Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice"><link rel="shortcut icon" href=/img/favicon.ico><title>K8s scheduler framework阅读笔记 | 爱折腾的工程师 | IceYao's Blog</title>
+<link rel=canonical href=/post/2020-08-31-k8s_scheduler_framework/><link rel=stylesheet href=/css/bootstrap.min.css><link rel=stylesheet href=/css/hugo-theme-cleanwhite.min.css><link rel=stylesheet href=/css/zanshang.css><link rel=stylesheet href=/css/font-awesome.all.min.css><script src=/js/jquery.min.js></script><script src=/js/bootstrap.min.js></script><script src=/js/hux-blog.min.js></script><script src=/js/lazysizes.min.js></script></head><script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-9J7CKFVPPM")}</script><nav class="navbar navbar-default navbar-custom navbar-fixed-top"><div class=container-fluid><div class="navbar-header page-scroll"><button type=button class=navbar-toggle>
+<span class=sr-only>Toggle navigation</span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+</button>
+<a class=navbar-brand href=/>爱折腾的工程师</a></div><div id=huxblog_navbar><div class=navbar-collapse><ul class="nav navbar-nav navbar-right"><li><a href=/>All Posts</a></li><li><a href=/archive//>ARCHIVE</a></li><li><a href=/notes//>NOTES</a></li><li><a href=/about//>ABOUT</a></li><li><a href=/search><i class="fa fa-search"></i></a></li></ul></div></div></div></nav><script>var $body=document.body,$toggle=document.querySelector(".navbar-toggle"),$navbar=document.querySelector("#huxblog_navbar"),$collapse=document.querySelector(".navbar-collapse");$toggle.addEventListener("click",handleMagic);function handleMagic(){$navbar.className.indexOf("in")>0?($navbar.className=" ",setTimeout(function(){$navbar.className.indexOf("in")<0&&($collapse.style.height="0px")},400)):($collapse.style.height="auto",$navbar.className+=" in")}</script><style type=text/css>header.intro-header{background-image:url(/img/post-bg-unix-linux.jpg)}</style><header class=intro-header><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><div class=post-heading><div class=tags><a class=tag href=/tags/k8s title=k8s>k8s</a></div><h1>K8s scheduler framework阅读笔记</h1><h2 class=subheading></h2><span class=meta>Posted by
+爱折腾的工程师
+on
+Monday, August 31, 2020</span></div></div></div></div></header><article><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+post-container"><h3 id=环境>环境</h3><p>k8s版本: v1.18.8</p><h3 id=什么是scheduler-framework>什么是Scheduler Framework</h3><p>Scheduler Framework在Kubernetes v1.15版本中作为alpha功能引入，调度框架是Kubernetes Scheduler的可插拔架构，可简化调度程序的自定义。
 它将一组新的“插件” API添加到现有的调度程序中。 插件被编译到调度程序中。 这些API允许大多数调度功能实现为插件，同时使调度“核心”保持简单且可维护。
-有关该框架设计的更多技术信息，请参阅<a href="https://github.com/kubernetes/enhancements/blob/master/keps/sig-scheduling/20180409-scheduling-framework.md">调度框架的设计建议</a>。</p>
-<h3 id="scheduler-framework工作流程">Scheduler Framework工作流程</h3>
-<p>调度框架定义了一些扩展点。 Scheduler插件注册以在一个或多个扩展点处调用。 这些插件中的一些可以更改调度决策，而某些仅提供信息。</p>
-<p>每次调度一个Pod的尝试都分为两个阶段，即调度周期和绑定周期。</p>
-<h4 id="调度周期绑定周期">调度周期&amp;绑定周期</h4>
-<p>调度周期为Pod选择一个节点，绑定周期将该决定应用于集群。 调度周期和绑定周期一起被称为“调度上下文”。</p>
-<p>调度周期是串行运行的，而绑定周期可能是同时运行的。</p>
-<p>如果确定Pod不可调度或存在内部错误，则可以中止调度或绑定周期。 Pod将返回队列并重试。</p>
-<h4 id="扩展点">扩展点</h4>
-<p>下图显示了Pod的调度上下文以及调度框架公开的扩展点。 在这张图中，Filter等价于预选(Predicate)，Scoring等价于优选(Priority function).
-在这些扩展点中的一个或多个扩展点处注册了要调用的插件。 在以下部分中，我们将按照每个扩展点的调用顺序对其进行描述。</p>
-<p>一个插件可以在多个扩展点注册以执行更复杂或有状态的任务。</p>
-<p>
-  <img src="/img/posts/2020-08-31/pod-scheduling-context.png" alt="">
-
-</p>
-<ol>
-<li>
-<p>QueueSort</p>
-<p>这些插件用于对调度队列中的Pod进行排序。queue sort插件实质上提供了Less（Pod1，Pod2）函数。一次只能启用一个queue sort插件</p>
-</li>
-<li>
-<p>PreFilter</p>
-<p>这些插件用于预处理有关Pod的信息，或检查集群或Pod必须满足的某些条件。如果PreFilter插件返回错误，则调度周期中止</p>
-</li>
-<li>
-<p>Filter</p>
-<p>这些插件用于过滤无法运行Pod的节点。对于每个节点，调度程序将按其配置顺序调用filter插件。
-如果有任何过滤器插件将该节点标记为不可行，则不会为该节点调用其余插件。节点可以被并发评估</p>
-</li>
-<li>
-<p>PostFilter</p>
-<p>这些插件在Filter阶段之后被调用，但是仅在找不到可行节点时该节点才被调用。
+有关该框架设计的更多技术信息，请参阅<a href=https://github.com/kubernetes/enhancements/blob/master/keps/sig-scheduling/20180409-scheduling-framework.md>调度框架的设计建议</a>。</p><h3 id=scheduler-framework工作流程>Scheduler Framework工作流程</h3><p>调度框架定义了一些扩展点。 Scheduler插件注册以在一个或多个扩展点处调用。 这些插件中的一些可以更改调度决策，而某些仅提供信息。</p><p>每次调度一个Pod的尝试都分为两个阶段，即调度周期和绑定周期。</p><h4 id=调度周期绑定周期>调度周期&绑定周期</h4><p>调度周期为Pod选择一个节点，绑定周期将该决定应用于集群。 调度周期和绑定周期一起被称为“调度上下文”。</p><p>调度周期是串行运行的，而绑定周期可能是同时运行的。</p><p>如果确定Pod不可调度或存在内部错误，则可以中止调度或绑定周期。 Pod将返回队列并重试。</p><h4 id=扩展点>扩展点</h4><p>下图显示了Pod的调度上下文以及调度框架公开的扩展点。 在这张图中，Filter等价于预选(Predicate)，Scoring等价于优选(Priority function).
+在这些扩展点中的一个或多个扩展点处注册了要调用的插件。 在以下部分中，我们将按照每个扩展点的调用顺序对其进行描述。</p><p>一个插件可以在多个扩展点注册以执行更复杂或有状态的任务。</p><p><img src=/img/posts/2020-08-31/pod-scheduling-context.png alt></p><ol><li><p>QueueSort</p><p>这些插件用于对调度队列中的Pod进行排序。queue sort插件实质上提供了Less（Pod1，Pod2）函数。一次只能启用一个queue sort插件</p></li><li><p>PreFilter</p><p>这些插件用于预处理有关Pod的信息，或检查集群或Pod必须满足的某些条件。如果PreFilter插件返回错误，则调度周期中止</p></li><li><p>Filter</p><p>这些插件用于过滤无法运行Pod的节点。对于每个节点，调度程序将按其配置顺序调用filter插件。
+如果有任何过滤器插件将该节点标记为不可行，则不会为该节点调用其余插件。节点可以被并发评估</p></li><li><p>PostFilter</p><p>这些插件在Filter阶段之后被调用，但是仅在找不到可行节点时该节点才被调用。
 插件按其配置顺序调用。 如果有任何postFilter插件将节点标记为Schedulable，则不会调用其余的插件。
-一个典型的PostFilter实现是抢占，它试图通过抢占其他Pod来使Pod可调度</p>
-</li>
-<li>
-<p>PreScore</p>
-<p>这些插件用于执行&quot;预评分&quot;工作，从而为Score插件使用提供可共享的状态。如果PreScore插件返回错误，则调度周期将中止。</p>
-</li>
-<li>
-<p>Score</p>
-<p>这些插件用于对已通过filter阶段的节点进行排名。调度程序将为每个节点调用每个scoring插件。
-将有一个定义明确的整数范围，代表最低分和最高分。在NormalizeScore阶段之后，调度程序将根据配置的插件权重合并所有插件的节点分数</p>
-</li>
-<li>
-<p>NormalizeScore</p>
-<p>这些插件用于在调度程序计算节点的最终排名之前修改分数。注册此扩展点的插件将与同一插件的得分结果一起调用。每个插件每个调度周期调用一次。
-如果任何NormalizeScore插件返回错误，则调度周期将中止。(希望执行&quot;pre-reserve&quot;工作的插件应使用NormalizeScore扩展点)</p>
-</li>
-<li>
-<p>Reserve</p>
-<p>实现Reserve扩展的插件有两种方法，即Reserve和Unreserve，分别支持两个信息调度阶段，分别称为Reserve和Unreserve。
-当为给定Pod保留和不保留节点上的资源时，维护运行时状态的插件（也称为&quot;有状态插件&quot;）应使用这些阶段, 由调度程序通知。</p>
-<p>Reserve阶段发生在调度程序实际将Pod绑定到其指定节点之前。它的存在是为了防止调度程序在等待绑定成功时出现争用情况。
+一个典型的PostFilter实现是抢占，它试图通过抢占其他Pod来使Pod可调度</p></li><li><p>PreScore</p><p>这些插件用于执行"预评分"工作，从而为Score插件使用提供可共享的状态。如果PreScore插件返回错误，则调度周期将中止。</p></li><li><p>Score</p><p>这些插件用于对已通过filter阶段的节点进行排名。调度程序将为每个节点调用每个scoring插件。
+将有一个定义明确的整数范围，代表最低分和最高分。在NormalizeScore阶段之后，调度程序将根据配置的插件权重合并所有插件的节点分数</p></li><li><p>NormalizeScore</p><p>这些插件用于在调度程序计算节点的最终排名之前修改分数。注册此扩展点的插件将与同一插件的得分结果一起调用。每个插件每个调度周期调用一次。
+如果任何NormalizeScore插件返回错误，则调度周期将中止。(希望执行"pre-reserve"工作的插件应使用NormalizeScore扩展点)</p></li><li><p>Reserve</p><p>实现Reserve扩展的插件有两种方法，即Reserve和Unreserve，分别支持两个信息调度阶段，分别称为Reserve和Unreserve。
+当为给定Pod保留和不保留节点上的资源时，维护运行时状态的插件（也称为"有状态插件"）应使用这些阶段, 由调度程序通知。</p><p>Reserve阶段发生在调度程序实际将Pod绑定到其指定节点之前。它的存在是为了防止调度程序在等待绑定成功时出现争用情况。
 每个Reserve插件的Reserve方法可能成功或失败；如果一个Reserve方法调用失败，则不执行后续插件，并且Reserve阶段被视为失败。
-如果所有插件的Reserve方法都成功，则认为Reserve阶段成功，并且将执行其余的调度周期和绑定周期。</p>
-<p>如果Reserve阶段或后续阶段失败，则会触发Unreserve阶段。发生这种情况时，将以与Reserve方法调用相反的顺序执行所有Reserve插件的Unreserve方法。
-存在该阶段以清除与保留的Pod相关联的状态。(Reserve插件中Unreserve方法的实现必须是幂等的，并且不会失败)</p>
-</li>
-<li>
-<p>Permit</p>
-<p>在每个Pod的调度周期结束时，将调用Permit插件，以防止或延迟与候选节点的绑定。 permit插件可以执行以下三项操作之一：</p>
-<ul>
-<li>
-<p>approve</p>
-<p>一旦所有permit插件批准Pod，便将其发送以进行绑定。</p>
-</li>
-<li>
-<p>deny</p>
-<p>如果任何permit插件拒绝Pod，则将其返回到调度队列。 这将触发Reserve插件中的Unreserve阶段。</p>
-</li>
-<li>
-<p>wait(with a timeout)</p>
-<p>如果Permit插件返回&quot;wait&quot;，则Pod会保留在内部的&quot;waiting&quot; Pods列表中，此Pod的绑定周期开始，但会直接阻塞，直到获得批准为止。
-如果发生超时，wait将变为deny，并且Pod将返回到调度队列，从而触发Reserve插件中的Unreserve阶段。</p>
-</li>
-</ul>
-<p>注意：尽管任何插件都可以访问&quot;waiting&quot;的Pod列表并进行批准（请参阅<a href="https://github.com/kubernetes/enhancements/blob/master/keps/sig-scheduling/20180409-scheduling-framework.md#frameworkhandle">FrameworkHandle</a>,但我们希望只有permit插件才能批准处于&quot;waiting&quot;状态的保留Pod的绑定。
-批准Pod后，将其发送到PreBind阶段</p>
-</li>
-<li>
-<p>PreBind</p>
-<p>这些插件用于执行绑定Pod之前所需的任何工作。 例如，PreBind插件可以设置网络卷并将其挂载在目标节点上，然后再允许Pod在此处运行。</p>
-<p>如果任何PreBind插件返回错误，则Pod被拒绝并返回到调度队列</p>
-</li>
-<li>
-<p>Bind</p>
-<p>这些插件用于将Pod绑定到节点。 在所有PreBind插件完成之前，不会调用Bind插件。
+如果所有插件的Reserve方法都成功，则认为Reserve阶段成功，并且将执行其余的调度周期和绑定周期。</p><p>如果Reserve阶段或后续阶段失败，则会触发Unreserve阶段。发生这种情况时，将以与Reserve方法调用相反的顺序执行所有Reserve插件的Unreserve方法。
+存在该阶段以清除与保留的Pod相关联的状态。(Reserve插件中Unreserve方法的实现必须是幂等的，并且不会失败)</p></li><li><p>Permit</p><p>在每个Pod的调度周期结束时，将调用Permit插件，以防止或延迟与候选节点的绑定。 permit插件可以执行以下三项操作之一：</p><ul><li><p>approve</p><p>一旦所有permit插件批准Pod，便将其发送以进行绑定。</p></li><li><p>deny</p><p>如果任何permit插件拒绝Pod，则将其返回到调度队列。 这将触发Reserve插件中的Unreserve阶段。</p></li><li><p>wait(with a timeout)</p><p>如果Permit插件返回"wait"，则Pod会保留在内部的"waiting" Pods列表中，此Pod的绑定周期开始，但会直接阻塞，直到获得批准为止。
+如果发生超时，wait将变为deny，并且Pod将返回到调度队列，从而触发Reserve插件中的Unreserve阶段。</p></li></ul><p>注意：尽管任何插件都可以访问"waiting"的Pod列表并进行批准（请参阅<a href=https://github.com/kubernetes/enhancements/blob/master/keps/sig-scheduling/20180409-scheduling-framework.md#frameworkhandle>FrameworkHandle</a>,但我们希望只有permit插件才能批准处于"waiting"状态的保留Pod的绑定。
+批准Pod后，将其发送到PreBind阶段</p></li><li><p>PreBind</p><p>这些插件用于执行绑定Pod之前所需的任何工作。 例如，PreBind插件可以设置网络卷并将其挂载在目标节点上，然后再允许Pod在此处运行。</p><p>如果任何PreBind插件返回错误，则Pod被拒绝并返回到调度队列</p></li><li><p>Bind</p><p>这些插件用于将Pod绑定到节点。 在所有PreBind插件完成之前，不会调用Bind插件。
 每个Bind插件均按配置顺序调用。 Bind插件可以选择是否处理给定的Pod。
-如果Bind插件选择处理Pod，则会跳过其余的Bind插件。</p>
-</li>
-<li>
-<p>PostBind</p>
-<p>成功绑定Pod后，将调用PostBind插件。绑定周期到此结束，可以用来清理关联的资源。</p>
-</li>
-</ol>
-<h3 id="插件开发">插件开发</h3>
-<p>来看个例子<a href="https://github.com/kubernetes-sigs/scheduler-plugins">coscheduling</a></p>
-<p>coscheduling的启动程序</p>
-<pre tabindex="0"><code>import (
+如果Bind插件选择处理Pod，则会跳过其余的Bind插件。</p></li><li><p>PostBind</p><p>成功绑定Pod后，将调用PostBind插件。绑定周期到此结束，可以用来清理关联的资源。</p></li></ol><h3 id=插件开发>插件开发</h3><p>来看个例子<a href=https://github.com/kubernetes-sigs/scheduler-plugins>coscheduling</a></p><p>coscheduling的启动程序</p><pre tabindex=0><code>import (
 	&#34;math/rand&#34;
 	&#34;os&#34;
 	&#34;time&#34;
@@ -357,9 +50,7 @@ func main() {
 		os.Exit(1)
 	}
 }
-</code></pre><p>app.WithPlugin用于注册out-of-tree插件，每个插件都必须定义一个构造函数并将其添加到硬编码的registry中。 有关构造函数args的更多信息，请参见<a href="https://github.com/kubernetes/enhancements/blob/master/keps/sig-scheduling/20180409-scheduling-framework.md#optional-args">可选参数</a>。</p>
-<h4 id="withplugin函数">WithPlugin函数</h4>
-<pre tabindex="0"><code>// Option configures a framework.Registry.
+</code></pre><p>app.WithPlugin用于注册out-of-tree插件，每个插件都必须定义一个构造函数并将其添加到硬编码的registry中。 有关构造函数args的更多信息，请参见<a href=https://github.com/kubernetes/enhancements/blob/master/keps/sig-scheduling/20180409-scheduling-framework.md#optional-args>可选参数</a>。</p><h4 id=withplugin函数>WithPlugin函数</h4><pre tabindex=0><code>// Option configures a framework.Registry.
 // 输入参数是插件列表的map数据结构
 type Option func(framework.Registry) error
 
@@ -374,7 +65,7 @@ func WithPlugin(name string, factory framework.PluginFactory) Option {
 		return registry.Register(name, factory)
 	}
 }
-</code></pre><pre tabindex="0"><code>// Registry is a collection of all available plugins. The framework uses a
+</code></pre><pre tabindex=0><code>// Registry is a collection of all available plugins. The framework uses a
 // registry to enable and initialize configured plugins.
 // All plugins must be in the registry before initializing the framework.
 // 插件列表的map数据结构
@@ -391,19 +82,13 @@ func (r Registry) Register(name string, factory PluginFactory) error {
 	r[name] = factory
 	return nil
 }
-</code></pre><p>实现插件API有两个步骤。 首先，插件必须注册并配置，然后才能使用扩展点接口。 扩展点接口具有以下形式。</p>
-<h4 id="plugin接口">Plugin接口</h4>
-<p>插件工厂函数返回的是一个Plugin接口类型</p>
-<pre tabindex="0"><code>// PluginFactory is a function that builds a plugin.
+</code></pre><p>实现插件API有两个步骤。 首先，插件必须注册并配置，然后才能使用扩展点接口。 扩展点接口具有以下形式。</p><h4 id=plugin接口>Plugin接口</h4><p>插件工厂函数返回的是一个Plugin接口类型</p><pre tabindex=0><code>// PluginFactory is a function that builds a plugin.
 type PluginFactory = func(configuration *runtime.Unknown, f FrameworkHandle) (Plugin, error)
-</code></pre><p>Plugin接口定义</p>
-<pre tabindex="0"><code>// Plugin is the parent type for all the scheduling framework plugins.
+</code></pre><p>Plugin接口定义</p><pre tabindex=0><code>// Plugin is the parent type for all the scheduling framework plugins.
 type Plugin interface {
 	Name() string
 }
-</code></pre><p>还有很多包含Plugin接口的接口定义</p>
-<h4 id="queuesortplugin接口">QueueSortPlugin接口</h4>
-<pre tabindex="0"><code>// QueueSortPlugin is an interface that must be implemented by &#34;QueueSort&#34; plugins.
+</code></pre><p>还有很多包含Plugin接口的接口定义</p><h4 id=queuesortplugin接口>QueueSortPlugin接口</h4><pre tabindex=0><code>// QueueSortPlugin is an interface that must be implemented by &#34;QueueSort&#34; plugins.
 // These plugins are used to sort pods in the scheduling queue. Only one queue sort
 // plugin may be enabled at a time.
 type QueueSortPlugin interface {
@@ -411,8 +96,7 @@ type QueueSortPlugin interface {
 	// Less are used to sort pods in the scheduling queue.
 	Less(*PodInfo, *PodInfo) bool
 }
-</code></pre><h4 id="prefilterplugin接口">PreFilterPlugin接口</h4>
-<pre tabindex="0"><code>// PreFilterPlugin is an interface that must be implemented by &#34;prefilter&#34; plugins.
+</code></pre><h4 id=prefilterplugin接口>PreFilterPlugin接口</h4><pre tabindex=0><code>// PreFilterPlugin is an interface that must be implemented by &#34;prefilter&#34; plugins.
 // These plugins are called at the beginning of the scheduling cycle.
 type PreFilterPlugin interface {
 	Plugin
@@ -427,8 +111,7 @@ type PreFilterPlugin interface {
 	// Filter again on a specific node.
 	PreFilterExtensions() PreFilterExtensions
 }
-</code></pre><h4 id="filterplugin接口">FilterPlugin接口</h4>
-<pre tabindex="0"><code>// FilterPlugin is an interface for Filter plugins. These plugins are called at the
+</code></pre><h4 id=filterplugin接口>FilterPlugin接口</h4><pre tabindex=0><code>// FilterPlugin is an interface for Filter plugins. These plugins are called at the
 // filter extension point for filtering out hosts that cannot run a pod.
 // This concept used to be called &#39;predicate&#39; in the original scheduler.
 // These plugins should return &#34;Success&#34;, &#34;Unschedulable&#34; or &#34;Error&#34; in Status.code.
@@ -451,8 +134,7 @@ type FilterPlugin interface {
 	// possibility of preempting them to schedule the target pod.
 	Filter(ctx context.Context, state *CycleState, pod *v1.Pod, nodeInfo *schedulernodeinfo.NodeInfo) *Status
 }
-</code></pre><h4 id="prescoreplugin接口">PreScorePlugin接口</h4>
-<pre tabindex="0"><code>// PreScorePlugin is an interface for Pre-score plugin. Pre-score is an
+</code></pre><h4 id=prescoreplugin接口>PreScorePlugin接口</h4><pre tabindex=0><code>// PreScorePlugin is an interface for Pre-score plugin. Pre-score is an
 // informational extension point. Plugins will be called with a list of nodes
 // that passed the filtering phase. A plugin may use this data to update internal
 // state or to generate logs/metrics.
@@ -463,8 +145,7 @@ type PreScorePlugin interface {
 	// the pod will be rejected
 	PreScore(ctx context.Context, state *CycleState, pod *v1.Pod, nodes []*v1.Node) *Status
 }
-</code></pre><h4 id="scoreplugin接口">ScorePlugin接口</h4>
-<pre tabindex="0"><code>// ScorePlugin is an interface that must be implemented by &#34;score&#34; plugins to rank
+</code></pre><h4 id=scoreplugin接口>ScorePlugin接口</h4><pre tabindex=0><code>// ScorePlugin is an interface that must be implemented by &#34;score&#34; plugins to rank
 // nodes that passed the filtering phase.
 type ScorePlugin interface {
 	Plugin
@@ -476,8 +157,7 @@ type ScorePlugin interface {
 	// ScoreExtensions returns a ScoreExtensions interface if it implements one, or nil if does not.
 	ScoreExtensions() ScoreExtensions
 }
-</code></pre><h4 id="reserveplugin接口">ReservePlugin接口</h4>
-<pre tabindex="0"><code>// ReservePlugin is an interface for Reserve plugins. These plugins are called
+</code></pre><h4 id=reserveplugin接口>ReservePlugin接口</h4><pre tabindex=0><code>// ReservePlugin is an interface for Reserve plugins. These plugins are called
 // at the reservation point. These are meant to update the state of the plugin.
 // This concept used to be called &#39;assume&#39; in the original scheduler.
 // These plugins should return only Success or Error in Status.code. However,
@@ -489,8 +169,7 @@ type ReservePlugin interface {
 	// updated.
 	Reserve(ctx context.Context, state *CycleState, p *v1.Pod, nodeName string) *Status
 }
-</code></pre><h4 id="prebindplugin接口">PreBindPlugin接口</h4>
-<pre tabindex="0"><code>// PreBindPlugin is an interface that must be implemented by &#34;prebind&#34; plugins.
+</code></pre><h4 id=prebindplugin接口>PreBindPlugin接口</h4><pre tabindex=0><code>// PreBindPlugin is an interface that must be implemented by &#34;prebind&#34; plugins.
 // These plugins are called before a pod being scheduled.
 type PreBindPlugin interface {
 	Plugin
@@ -498,8 +177,7 @@ type PreBindPlugin interface {
 	// success or the pod will be rejected and won&#39;t be sent for binding.
 	PreBind(ctx context.Context, state *CycleState, p *v1.Pod, nodeName string) *Status
 }
-</code></pre><h4 id="postbindplugin接口">PostBindPlugin接口</h4>
-<pre tabindex="0"><code>// PostBindPlugin is an interface that must be implemented by &#34;postbind&#34; plugins.
+</code></pre><h4 id=postbindplugin接口>PostBindPlugin接口</h4><pre tabindex=0><code>// PostBindPlugin is an interface that must be implemented by &#34;postbind&#34; plugins.
 // These plugins are called after a pod is successfully bound to a node.
 type PostBindPlugin interface {
 	Plugin
@@ -509,8 +187,7 @@ type PostBindPlugin interface {
 	// bound, PostBind is the extension point that it should register.
 	PostBind(ctx context.Context, state *CycleState, p *v1.Pod, nodeName string)
 }
-</code></pre><h4 id="unreserveplugin接口">UnreservePlugin接口</h4>
-<pre tabindex="0"><code>// UnreservePlugin is an interface for Unreserve plugins. This is an informational
+</code></pre><h4 id=unreserveplugin接口>UnreservePlugin接口</h4><pre tabindex=0><code>// UnreservePlugin is an interface for Unreserve plugins. This is an informational
 // extension point. If a pod was reserved and then rejected in a later phase, then
 // un-reserve plugins will be notified. Un-reserve plugins should clean up state
 // associated with the reserved Pod.
@@ -520,8 +197,7 @@ type UnreservePlugin interface {
 	// rejected in a later phase.
 	Unreserve(ctx context.Context, state *CycleState, p *v1.Pod, nodeName string)
 }
-</code></pre><h4 id="permitplugin接口">PermitPlugin接口</h4>
-<pre tabindex="0"><code>// PermitPlugin is an interface that must be implemented by &#34;permit&#34; plugins.
+</code></pre><h4 id=permitplugin接口>PermitPlugin接口</h4><pre tabindex=0><code>// PermitPlugin is an interface that must be implemented by &#34;permit&#34; plugins.
 // These plugins are called before a pod is bound to a node.
 type PermitPlugin interface {
 	Plugin
@@ -533,8 +209,7 @@ type PermitPlugin interface {
 	// after running the remaining plugins given that no other plugin rejects the pod.
 	Permit(ctx context.Context, state *CycleState, p *v1.Pod, nodeName string) (*Status, time.Duration)
 }
-</code></pre><h4 id="bindplugin接口">BindPlugin接口</h4>
-<pre tabindex="0"><code>// BindPlugin is an interface that must be implemented by &#34;bind&#34; plugins. Bind
+</code></pre><h4 id=bindplugin接口>BindPlugin接口</h4><pre tabindex=0><code>// BindPlugin is an interface that must be implemented by &#34;bind&#34; plugins. Bind
 // plugins are used to bind a pod to a Node.
 type BindPlugin interface {
 	Plugin
@@ -546,8 +221,7 @@ type BindPlugin interface {
 	// pod is rejected and will not be bound.
 	Bind(ctx context.Context, state *CycleState, p *v1.Pod, nodeName string) *Status
 }
-</code></pre><h4 id="cyclestate">CycleState</h4>
-<pre tabindex="0"><code>// CycleState provides a mechanism for plugins to store and retrieve arbitrary data.
+</code></pre><h4 id=cyclestate>CycleState</h4><pre tabindex=0><code>// CycleState provides a mechanism for plugins to store and retrieve arbitrary data.
 // StateData stored by one plugin can be read, altered, or deleted by another plugin.
 // CycleState does not provide any data protection, as all plugins are assumed to be
 // trusted.
@@ -557,17 +231,10 @@ type CycleState struct {
 	// if recordPluginMetrics is true, PluginExecutionDuration will be recorded for this cycle.
 	recordPluginMetrics bool
 }
-</code></pre><p>大多数插件函数将使用CycleState这个参数。 CycleState表示当前的调度上下文。</p>
-<p>CycleState将提供API，用于访问范围为当前调度上下文的数据。因为绑定周期可以同时执行，所以插件可以使用CycleState来确保它们正在处理正确的请求。</p>
-<p>CycleState还提供类似于context.WithValue的API，可用于在不同扩展点的插件之间传递数据。多个插件可以共享状态或通过此机制进行通信。
-仅在单个调度上下文中保留状态。值得注意的是，假定插件是受信任的。调度程序不会阻止一个插件访问或修改另一个插件的状态。(唯一的例外是QueueSort插件)</p>
-<p>注：在调度上下文结束后，通过CycleState可用的数据无效，并且插件保存对该数据的引用的时间不应超过必要的时间。</p>
-<h4 id="frameworkhandle接口">FrameworkHandle接口</h4>
-<pre tabindex="0"><code>// PluginFactory is a function that builds a plugin.
+</code></pre><p>大多数插件函数将使用CycleState这个参数。 CycleState表示当前的调度上下文。</p><p>CycleState将提供API，用于访问范围为当前调度上下文的数据。因为绑定周期可以同时执行，所以插件可以使用CycleState来确保它们正在处理正确的请求。</p><p>CycleState还提供类似于context.WithValue的API，可用于在不同扩展点的插件之间传递数据。多个插件可以共享状态或通过此机制进行通信。
+仅在单个调度上下文中保留状态。值得注意的是，假定插件是受信任的。调度程序不会阻止一个插件访问或修改另一个插件的状态。(唯一的例外是QueueSort插件)</p><p>注：在调度上下文结束后，通过CycleState可用的数据无效，并且插件保存对该数据的引用的时间不应超过必要的时间。</p><h4 id=frameworkhandle接口>FrameworkHandle接口</h4><pre tabindex=0><code>// PluginFactory is a function that builds a plugin.
 type PluginFactory = func(configuration *runtime.Unknown, f FrameworkHandle) (Plugin, error)
-</code></pre><p>插件工厂函数，输入参数有两个，一个是配置参数，另一个是FrameworkHandle接口</p>
-<p>FrameworkHandle接口</p>
-<pre tabindex="0"><code>// FrameworkHandle provides data and some tools that plugins can use. It is
+</code></pre><p>插件工厂函数，输入参数有两个，一个是配置参数，另一个是FrameworkHandle接口</p><p>FrameworkHandle接口</p><pre tabindex=0><code>// FrameworkHandle provides data and some tools that plugins can use. It is
 // passed to the plugin factories at the time of plugin initialization. Plugins
 // must store and use this handle to call framework functions.
 type FrameworkHandle interface {
@@ -599,12 +266,8 @@ type FrameworkHandle interface {
 }
 </code></pre><p>虽然CycleState提供与单个调度上下文有关的API，但是FrameworkHandle提供与插件的生命周期有关的API。
 这就是插件如何获取客户端（kubernetes.Interface）和SharedInformerFactory或从调度程序的群集状态缓存读取数据的方式。
-该句柄还将提供API以列出和批准或拒绝等待的Pod。</p>
-<p>注：FrameworkHandle提供对kubernetes API服务器和调度程序内部缓存的访问。不能保证两者都是同步的，编写使用两者数据的插件时应格外小心。</p>
-<p>要实现有用的功能，必须为插件提供对API服务器的访问权限，特别是当这些功能使用了调度程序通常不考虑的对象类型时。
-提供SharedInformerFactory可使插件安全共享缓存。</p>
-<p>注册完plugin后，kube-scheduler会对这些插件进行实例化</p>
-<pre tabindex="0"><code>k8s.io/kubernetes/pkg/scheduler/framework/runtime/framework.go
+该句柄还将提供API以列出和批准或拒绝等待的Pod。</p><p>注：FrameworkHandle提供对kubernetes API服务器和调度程序内部缓存的访问。不能保证两者都是同步的，编写使用两者数据的插件时应格外小心。</p><p>要实现有用的功能，必须为插件提供对API服务器的访问权限，特别是当这些功能使用了调度程序通常不考虑的对象类型时。
+提供SharedInformerFactory可使插件安全共享缓存。</p><p>注册完plugin后，kube-scheduler会对这些插件进行实例化</p><pre tabindex=0><code>k8s.io/kubernetes/pkg/scheduler/framework/runtime/framework.go
 
 // NewFramework initializes plugins given the configuration and the registry.
 func NewFramework(r Registry, plugins *config.Plugins, args []config.PluginConfig, opts ...Option) (framework.Framework, error) {
@@ -703,7 +366,7 @@ func NewFramework(r Registry, plugins *config.Plugins, args []config.PluginConfi
 
 	return f, nil
 }
-</code></pre><pre tabindex="0"><code>// frameworkImpl is the component responsible for initializing and running scheduler
+</code></pre><pre tabindex=0><code>// frameworkImpl is the component responsible for initializing and running scheduler
 // plugins.
 type frameworkImpl struct {
 	registry              Registry
@@ -762,32 +425,8 @@ func (f *frameworkImpl) getExtensionPoints(plugins *config.Plugins) []extensionP
 		{plugins.QueueSort, &amp;f.queueSortPlugins},
 	}
 }
-</code></pre><p>根据Plugins配置初始化需要的插件，并根据插件类型添加到相应的扩展点plugins列表中</p>
-<h4 id="插件生命周期">插件生命周期</h4>
-<p>插件初始化有两个步骤。</p>
-<ul>
-<li>注册插件。</li>
-<li>调度程序使用其配置来确定要实例化的插件。如果插件注册了多个扩展点，则仅实例化一次。</li>
-</ul>
-<p>实例化插件时，将向其传递config args和FrameworkHandle。</p>
-<p>插件编写者应考虑两种并发类型。在评估多个节点时，一个插件可能会被同时调用多次，而一个插件可能会从不同的调度上下文中被并发调用。</p>
-<p>注：在一个调度上下文中，将对每个扩展点进行串行评估。</p>
-<p>在调度程序的主线程中，一次仅处理一个调度周期。在下一个调度周期开始之前，直至并包括保留的任何扩展点都将完成。在保留阶段之后，绑定周期将异步执行。
-这意味着可以从两个不同的调度上下文中并发调用一个插件，前提是至少有一个调用要在reserve后到达扩展点。有状态的插件应谨慎处理这些情况。</p>
-<p>最后，根据拒绝Pod的方式，可以从Permit线程或Bind线程调用unreserve的插件。</p>
-<p>注：QueueSort扩展点是一种特殊情况。它不是调度上下文的一部分，但可以对许多pod对同时调用。</p>
-<p>
-  <img src="/img/posts/2020-08-31/parallel_threads_of_scheduling.png" alt="">
-
-</p>
-<h3 id="配置插件">配置插件</h3>
-<p>调度程序的组件配置将enabled/disabled或以其他方式配置插件。 插件配置分为两部分。</p>
-<ol>
-<li>每个扩展点已启用插件的列表（及其运行顺序）。 如果省略了这些列表之一，则将使用默认列表。</li>
-<li>每个插件的一组可选的自定义插件参数。 省略插件的配置参数等效于使用该插件的默认配置。</li>
-</ol>
-<p>插件配置由扩展点组织。 每个列表中都必须包含一个注册有多个要点的插件。</p>
-<pre tabindex="0"><code># k8s.io/kubernetes@v1.18.8/pkg/scheduler/apis/config/types.go
+</code></pre><p>根据Plugins配置初始化需要的插件，并根据插件类型添加到相应的扩展点plugins列表中</p><h4 id=插件生命周期>插件生命周期</h4><p>插件初始化有两个步骤。</p><ul><li>注册插件。</li><li>调度程序使用其配置来确定要实例化的插件。如果插件注册了多个扩展点，则仅实例化一次。</li></ul><p>实例化插件时，将向其传递config args和FrameworkHandle。</p><p>插件编写者应考虑两种并发类型。在评估多个节点时，一个插件可能会被同时调用多次，而一个插件可能会从不同的调度上下文中被并发调用。</p><p>注：在一个调度上下文中，将对每个扩展点进行串行评估。</p><p>在调度程序的主线程中，一次仅处理一个调度周期。在下一个调度周期开始之前，直至并包括保留的任何扩展点都将完成。在保留阶段之后，绑定周期将异步执行。
+这意味着可以从两个不同的调度上下文中并发调用一个插件，前提是至少有一个调用要在reserve后到达扩展点。有状态的插件应谨慎处理这些情况。</p><p>最后，根据拒绝Pod的方式，可以从Permit线程或Bind线程调用unreserve的插件。</p><p>注：QueueSort扩展点是一种特殊情况。它不是调度上下文的一部分，但可以对许多pod对同时调用。</p><p><img src=/img/posts/2020-08-31/parallel_threads_of_scheduling.png alt></p><h3 id=配置插件>配置插件</h3><p>调度程序的组件配置将enabled/disabled或以其他方式配置插件。 插件配置分为两部分。</p><ol><li>每个扩展点已启用插件的列表（及其运行顺序）。 如果省略了这些列表之一，则将使用默认列表。</li><li>每个插件的一组可选的自定义插件参数。 省略插件的配置参数等效于使用该插件的默认配置。</li></ol><p>插件配置由扩展点组织。 每个列表中都必须包含一个注册有多个要点的插件。</p><pre tabindex=0><code># k8s.io/kubernetes@v1.18.8/pkg/scheduler/apis/config/types.go
 type KubeSchedulerConfiguration struct {
     // ...
 
@@ -894,8 +533,7 @@ type PluginConfig struct {
 	// Args defines the arguments passed to the plugins at the time of initialization. Args can have arbitrary structure.
 	Args runtime.Unknown
 }
-</code></pre><p>配置文件样例</p>
-<pre tabindex="0"><code>{
+</code></pre><p>配置文件样例</p><pre tabindex=0><code>{
   &#34;plugins&#34;: {
     &#34;preFilter&#34;: [
       {
@@ -934,11 +572,7 @@ type PluginConfig struct {
     }
   ]
 }
-</code></pre><p>指定enabled/disabled后，将仅启用特定扩展点的插件列表。 如果配置中省略了扩展点，则默认插件集将用于该扩展点。</p>
-<p>变更评估单相关时，插件评估顺序由插件在配置中出现的顺序指定。 注册多个扩展点的插件在每个扩展点的顺序可以不同。</p>
-<p>可选Args，插件可以使用任意结构从其配置接收参数。 由于一个插件可能出现在多个扩展点中，因此该配置位于PluginConfig的单独列表中。</p>
-<p>举例：</p>
-<pre tabindex="0"><code>{
+</code></pre><p>指定enabled/disabled后，将仅启用特定扩展点的插件列表。 如果配置中省略了扩展点，则默认插件集将用于该扩展点。</p><p>变更评估单相关时，插件评估顺序由插件在配置中出现的顺序指定。 注册多个扩展点的插件在每个扩展点的顺序可以不同。</p><p>可选Args，插件可以使用任意结构从其配置接收参数。 由于一个插件可能出现在多个扩展点中，因此该配置位于PluginConfig的单独列表中。</p><p>举例：</p><pre tabindex=0><code>{
    &#34;name&#34;: &#34;ServiceAffinity&#34;,
    &#34;args&#34;: {
       &#34;LabelName&#34;: &#34;app&#34;,
@@ -961,407 +595,28 @@ func NewServiceAffinity(args *runtime.Unknown, h FrameworkHandle) (Plugin, error
     }
     //...
 }
-</code></pre><h3 id="参考链接">参考链接</h3>
-<ul>
-<li><a href="https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/">https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/</a></li>
-<li><a href="https://developer.aliyun.com/article/756016">Kubernetes Scheduler Framework 扩展: 1. Coscheduling</a></li>
-<li><a href="https://github.com/NJUPT-ISL/Yoda-Scheduler">https://github.com/NJUPT-ISL/Yoda-Scheduler</a></li>
-</ul>
-
-
-                
-                
-<div class="entry-shang text-center">
-    
-	    <p>「真诚赞赏，手留余香」</p>
-	
-	<button class="zs show-zs btn btn-bred">赞赏支持</button>
-</div>
-<div class="zs-modal-bg"></div>
-<div class="zs-modal-box">
-	<div class="zs-modal-head">
-		<button type="button" class="close">×</button>
-		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
-        
-	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
-		
- 
-	</div>
-	<div class="zs-modal-body">
-		<div class="zs-modal-btns">
-			<button class="btn btn-blink" data-num="2">2元</button>
-			<button class="btn btn-blink" data-num="5">5元</button>
-			<button class="btn btn-blink" data-num="10">10元</button>
-			<button class="btn btn-blink" data-num="50">50元</button>
-			<button class="btn btn-blink" data-num="100">100元</button>
-			<button class="btn btn-blink" data-num="1">任意金额</button>
-		</div>
-		<div class="zs-modal-pay">
-			<button class="btn btn-bred" id="pay-text">2元</button>
-			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
-			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
-		</div>
-	</div>
-	<div class="zs-modal-footer">
-		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
-		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
-	</div>
-</div>
-<script type="text/javascript" src="/js/reward.js"></script>
-
-                
-
-                
-                <hr>
-                <ul class="pager">
-                    
-                    <li class="previous">
-                        <a href="/post/2020-08-12-k8s-network-develop-flannel_readnote/" data-toggle="tooltip" data-placement="top" title="flannel源码阅读笔记">&larr;
-                            Previous Post</a>
-                    </li>
-                    
-                    
-                    <li class="next">
-                        <a href="/post/2020-09-10-tke-platform-controller_health_check/" data-toggle="tooltip" data-placement="top" title="TKEStack tke-platform-controller健康检查">Next
-                            Post &rarr;</a>
-                    </li>
-                    
-                </ul>
-                
-
-                
-
-
-<script src="https://giscus.app/client.js"
-        data-repo="yaoice/yaoice.github.io"
-        data-repo-id="R_kgDOJnxqVg"
-        data-category="General"
-        data-category-id="DIC_kwDOJnxqVs4CWwUs"
-        data-mapping="pathname"
-        data-reactions-enabled="1"
-        data-emit-metadata="0"
-        data-theme="light"
-        data-lang="en"
-        crossorigin="anonymous"
-        async>
-</script>
-
-
-            </div>
-
-            
-            
-            <div class="
-                col-lg-2 col-lg-offset-0
-                visible-lg-block
-                sidebar-container
-                catalog-container">
-                <div class="side-catalog">
-                    <hr class="hidden-sm hidden-xs">
-                    <h5>
-                        <a class="catalog-toggle" href="#">CATALOG</a>
-                    </h5>
-                    <ul class="catalog-body"></ul>
-                </div>
-            </div>
-            
-
-            
-            <div class="
-                col-lg-8 col-lg-offset-2
-                col-md-10 col-md-offset-1
-                sidebar-container">
-
-                
-                
-                <section>
-                    <hr class="hidden-sm hidden-xs">
-                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
-                    <div class="tags">
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/devops" title="devops">
-                            devops
-                        </a>
-                        
-                        
-                        
-                        <a href="/tags/go" title="go">
-                            go
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/k8s" title="k8s">
-                            k8s
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/llm" title="llm">
-                            llm
-                        </a>
-                        
-                        
-                        
-                        <a href="/tags/openstack" title="openstack">
-                            openstack
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/tkestack" title="tkestack">
-                            tkestack
-                        </a>
-                        
-                        
-                        
-                        
-                        
-                        
-                        
-                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
-                            练车
-                        </a>
-                        
-                        
-                    </div>
-                </section>
-                
-
-                
-                
-            </div>
-        </div>
-    </div>
-</article>
-
-
-
-
-
-
-
-
-
-<footer>
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <ul class="list-inline text-center">                  
-                    
-                    <li>
-                        <a href="mailto:yao3690093@gmail.com">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		           
-                    
-                    
-                    
-                    
-
-		            
-                    
-                    <li>
-                        <a target="_blank" href="/img/wechat.jpeg">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		            
-                    
-                    <li>
-                        <a target="_blank" href="https://github.com/yaoice">
-                            <span class="fa-stack fa-lg">
-                                <i class="fas fa-circle fa-stack-2x"></i>
-                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-		            
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-            
-            
-            
-           
-                   <li>
-                       <a href='' rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
-                           <span class="fa-stack fa-lg">
-                               <i class="fas fa-circle fa-stack-2x"></i>
-                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
-                           </span>
-                       </a>
-                   </li>
-            
-             </ul>
-		<p class="copyright text-muted">
-                    Copyright &copy; 爱折腾的工程师 2024
-                </p>
-            </div>
-        </div>
-    </div>
-</footer>
-
-
-
-
-<script>
-    function loadAsync(u, c) {
-      var d = document, t = 'script',
-          o = d.createElement(t),
-          s = d.getElementsByTagName(t)[0];
-      o.src = u;
-      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
-      s.parentNode.insertBefore(o, s);
-    }
-</script>
-
-
-
-
-
-
-<script>
-    
-    if($('#tag_cloud').length !== 0){
-        loadAsync("/js/jquery.tagcloud.js",function(){
-            $.fn.tagcloud.defaults = {
-                
-                color: {start: '#bbbbee', end: '#0085a1'},
-            };
-            $('#tag_cloud a').tagcloud();
-        })
-    }
-</script>
-
-
-<script>
-    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
-        var $nav = document.querySelector("nav");
-        if($nav) FastClick.attach($nav);
-    })
-</script>
-
-
-
-<script>
-    (function(){
-        var bp = document.createElement('script');
-        var curProtocol = window.location.protocol.split(':')[0];
-        if (curProtocol === 'https'){
-       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
-      }
-      else{
-      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
-      }
-        var s = document.getElementsByTagName("script")[0];
-        s.parentNode.insertBefore(bp, s);
-    })();
-</script>
-
-
-<script>
-    
-    var _baId = '92c175994ded75a3cd2074bc1123e2be';
-
-    
-    var _hmt = _hmt || [];
-    (function() {
-      var hm = document.createElement("script");
-      hm.src = "//hm.baidu.com/hm.js?" + _baId;
-      var s = document.getElementsByTagName("script")[0];
-      s.parentNode.insertBefore(hm, s);
-    })();
-</script>
-
-
-
-
-<script type="text/javascript">
-    function generateCatalog(selector) {
-
-        
-        
-        
-        
-            _containerSelector = 'div.post-container'
-        
-
-        
-        var P = $(_containerSelector), a, n, t, l, i, c;
-        a = P.find('h1,h2,h3,h4,h5,h6');
-
-        
-        $(selector).html('')
-
-        
-        a.each(function () {
-            n = $(this).prop('tagName').toLowerCase();
-            i = "#" + $(this).prop('id');
-            t = $(this).text();
-            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
-            l = $('<li class="' + n + '_nav"></li>').append(c);
-            $(selector).append(l);
-        });
-        return true;
-    }
-
-    generateCatalog(".catalog-body");
-
-    
-    $(".catalog-toggle").click((function (e) {
-        e.preventDefault();
-        $('.side-catalog').toggleClass("fold")
-    }))
-
-    
-
-
-    loadAsync("\/js\/jquery.nav.js", function () {
-        $('.catalog-body').onePageNav({
-            currentClass: "active",
-            changeHash: !1,
-            easing: "swing",
-            filter: "",
-            scrollSpeed: 700,
-            scrollOffset: 0,
-            scrollThreshold: .2,
-            begin: null,
-            end: null,
-            scrollChange: null,
-            padding: 80
-        });
-    });
-</script>
-
-
-
-
-
-
-
-</body>
-</html>
+</code></pre><h3 id=参考链接>参考链接</h3><ul><li><a href=https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/>https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/</a></li><li><a href=https://developer.aliyun.com/article/756016>Kubernetes Scheduler Framework 扩展: 1. Coscheduling</a></li><li><a href=https://github.com/NJUPT-ISL/Yoda-Scheduler>https://github.com/NJUPT-ISL/Yoda-Scheduler</a></li></ul><div class="entry-shang text-center"><p>「真诚赞赏，手留余香」</p><button class="zs show-zs btn btn-bred">赞赏支持</button></div><div class=zs-modal-bg></div><div class=zs-modal-box><div class=zs-modal-head><button type=button class=close>×</button>
+<span class=author><a href=https://www.iceyao.com.cn/><img src=/img/favicon.png>爱折腾的工程师</a></span><p class=tip><i></i><span>真诚赞赏，手留余香</span></p></div><div class=zs-modal-body><div class=zs-modal-btns><button class="btn btn-blink" data-num=2>2元</button>
+<button class="btn btn-blink" data-num=5>5元</button>
+<button class="btn btn-blink" data-num=10>10元</button>
+<button class="btn btn-blink" data-num=50>50元</button>
+<button class="btn btn-blink" data-num=100>100元</button>
+<button class="btn btn-blink" data-num=1>任意金额</button></div><div class=zs-modal-pay><button class="btn btn-bred" id=pay-text>2元</button><p>使用<span id=pay-type>微信</span>扫描二维码完成支付</p><img src=/img/reward/wechat-2.png id=pay-image></div></div><div class=zs-modal-footer><label><input type=radio name=zs-type value=wechat class=zs-type checked><span><span class=zs-wechat><img src=/img/reward/wechat-btn.png></span></label>
+<label><input type=radio name=zs-type value=alipay class=zs-type class=zs-alipay><img src=/img/reward/alipay-btn.png></span></label></div></div><script type=text/javascript src=/js/reward.js></script><hr><ul class=pager><li class=previous><a href=/post/2020-08-12-k8s-network-develop-flannel_readnote/ data-toggle=tooltip data-placement=top title=flannel源码阅读笔记>&larr;
+Previous Post</a></li><li class=next><a href=/post/2020-09-10-tke-platform-controller_health_check/ data-toggle=tooltip data-placement=top title="TKEStack tke-platform-controller健康检查">Next
+Post &rarr;</a></li></ul><script src=https://giscus.app/client.js data-repo=yaoice/yaoice.github.io data-repo-id=R_kgDOJnxqVg data-category=General data-category-id=DIC_kwDOJnxqVs4CWwUs data-mapping=pathname data-reactions-enabled=1 data-emit-metadata=0 data-theme=light data-lang=en crossorigin=anonymous async></script></div><div class="col-lg-2 col-lg-offset-0
+visible-lg-block
+sidebar-container
+catalog-container"><div class=side-catalog><hr class="hidden-sm hidden-xs"><h5><a class=catalog-toggle href=#>CATALOG</a></h5><ul class=catalog-body></ul></div></div><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+sidebar-container"><section><hr class="hidden-sm hidden-xs"><h5><a href=/tags/>FEATURED TAGS</a></h5><div class=tags><a href=/tags/devops title=devops>devops
+</a><a href=/tags/go title=go>go
+</a><a href=/tags/k8s title=k8s>k8s
+</a><a href=/tags/llm title=llm>llm
+</a><a href=/tags/openstack title=openstack>openstack
+</a><a href=/tags/tkestack title=tkestack>tkestack
+</a><a href=/tags/%E7%BB%83%E8%BD%A6 title=练车>练车</a></div></section></div></div></div></article><footer><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><ul class="list-inline text-center"><li><a href=mailto:yao3690093@gmail.com><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-envelope fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=/img/wechat.jpeg><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-weixin fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=https://github.com/yaoice><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-github fa-stack-1x fa-inverse"></i></span></a></li><li><a href rel=alternate type=application/rss+xml title=爱折腾的工程师><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-rss fa-stack-1x fa-inverse"></i></span></a></li></ul><p class="copyright text-muted">Copyright &copy; 爱折腾的工程师 2024</p></div></div></div></footer><script>function loadAsync(e,t){var s=document,o="script",n=s.createElement(o),i=s.getElementsByTagName(o)[0];n.src=e,t&&n.addEventListener("load",function(e){t(null,e)},!1),i.parentNode.insertBefore(n,i)}</script><script>$("#tag_cloud").length!==0&&loadAsync("/js/jquery.tagcloud.js",function(){$.fn.tagcloud.defaults={color:{start:"#bbbbee",end:"#0085a1"}},$("#tag_cloud a").tagcloud()})</script><script>loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js",function(){var e=document.querySelector("nav");e&&FastClick.attach(e)})</script><script>(function(){var t,e=document.createElement("script"),n=window.location.protocol.split(":")[0];n==="https"?e.src="https://zz.bdstatic.com/linksubmit/push.js":e.src="http://push.zhanzhang.baidu.com/push.js",t=document.getElementsByTagName("script")[0],t.parentNode.insertBefore(e,t)})()</script><script>var _baId="92c175994ded75a3cd2074bc1123e2be",_hmt=_hmt||[];(function(){var e,t=document.createElement("script");t.src="//hm.baidu.com/hm.js?"+_baId,e=document.getElementsByTagName("script")[0],e.parentNode.insertBefore(t,e)})()</script><script type=text/javascript>function generateCatalog(e){_containerSelector="div.post-container";var t,n,s,o,i,a=$(_containerSelector),r=a.find("h1,h2,h3,h4,h5,h6");return $(e).html(""),r.each(function(){t=$(this).prop("tagName").toLowerCase(),o="#"+$(this).prop("id"),n=$(this).text(),i=$('<a href="'+o+'" rel="nofollow">'+n+"</a>"),s=$('<li class="'+t+'_nav"></li>').append(i),$(e).append(s)}),!0}generateCatalog(".catalog-body"),$(".catalog-toggle").click(function(e){e.preventDefault(),$(".side-catalog").toggleClass("fold")}),loadAsync("/js/jquery.nav.js",function(){$(".catalog-body").onePageNav({currentClass:"active",changeHash:!1,easing:"swing",filter:"",scrollSpeed:700,scrollOffset:0,scrollThreshold:.2,begin:null,end:null,scrollChange:null,padding:80})})</script></body></html>
