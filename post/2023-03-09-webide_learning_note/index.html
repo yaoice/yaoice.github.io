@@ -1,20 +1,353 @@
-<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:site_name" content="爱折腾的工程师"><meta property="og:type" content="article"><meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta name=title content="WebIDE技术方案调研"><meta property="og:title" content="WebIDE技术方案调研"><meta property="twitter:title" content="WebIDE技术方案调研"><meta name=description content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:card" content="summary"><meta name=keyword content="iceyao, IceYao's Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice"><link rel="shortcut icon" href=/img/favicon.ico><title>WebIDE技术方案调研 | 爱折腾的工程师 | IceYao's Blog</title>
-<link rel=canonical href=/post/2023-03-09-webide_learning_note/><link rel=stylesheet href=/css/bootstrap.min.css><link rel=stylesheet href=/css/hugo-theme-cleanwhite.min.css><link rel=stylesheet href=/css/zanshang.css><link rel=stylesheet href=/css/font-awesome.all.min.css><script src=/js/jquery.min.js></script><script src=/js/bootstrap.min.js></script><script src=/js/hux-blog.min.js></script><script src=/js/lazysizes.min.js></script></head><script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-9J7CKFVPPM")}</script><nav class="navbar navbar-default navbar-custom navbar-fixed-top"><div class=container-fluid><div class="navbar-header page-scroll"><button type=button class=navbar-toggle>
-<span class=sr-only>Toggle navigation</span>
-<span class=icon-bar></span>
-<span class=icon-bar></span>
-<span class=icon-bar></span>
-</button>
-<a class=navbar-brand href=/>爱折腾的工程师</a></div><div id=huxblog_navbar><div class=navbar-collapse><ul class="nav navbar-nav navbar-right"><li><a href=/>All Posts</a></li><li><a href=/archive//>ARCHIVE</a></li><li><a href=/notes//>NOTES</a></li><li><a href=/about//>ABOUT</a></li><li><a href=/search><i class="fa fa-search"></i></a></li></ul></div></div></div></nav><script>var $body=document.body,$toggle=document.querySelector(".navbar-toggle"),$navbar=document.querySelector("#huxblog_navbar"),$collapse=document.querySelector(".navbar-collapse");$toggle.addEventListener("click",handleMagic);function handleMagic(){$navbar.className.indexOf("in")>0?($navbar.className=" ",setTimeout(function(){$navbar.className.indexOf("in")<0&&($collapse.style.height="0px")},400)):($collapse.style.height="auto",$navbar.className+=" in")}</script><style type=text/css>header.intro-header{background-image:url(/img/post-bg-unix-linux.jpg)}</style><header class=intro-header><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><div class=post-heading><div class=tags><a class=tag href=/tags/k8s title=k8s>k8s</a></div><h1>WebIDE技术方案调研</h1><h2 class=subheading></h2><span class=meta>Posted by
-爱折腾的工程师
-on
-Thursday, March 9, 2023</span></div></div></div></div></header><article><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2
-col-md-10 col-md-offset-1
-post-container"><h1 id=1-背景>1. 背景</h1><ul><li>搭建开发环境复杂，本地开发环境维护需要一定成本；非工作时间响应紧急问题修复缓慢，搭建开发环境耗时；开发人员之间互助协作不便；</li><li>外部生态合作伙伴人员在开发代码的过程中泄漏代码，上传代码至github等其它公共代码托管平台；</li><li>WebIDE打通代码、构建、部署等流程，实现DevOps闭环</li><li>云原生IDE，2023年云原生发展趋势的预测，临时的开发工作区以及为开发人员节省时间，这项技术将成为行业标准，
-优步、Shopify、Slack、Stripe 等公司使用这种开发形式是有原因的，这些最佳实践将通过Codespace和Gitpod等提供的工具扩散到整个行业并成为常态。</li></ul><h1 id=2-应用场景5w1h>2. 应用场景（5W1H）</h1><ul><li>公司内部开发人员（后台开发、业务开发、赋能开发）<ul><li>开发人员在DevOps平台发版到dev环境之前，使用WebIDE进行编码开发（兼容VS Code模式）；</li><li>WebIDE提供git仓库自动打通、可联动流水线自动构建部署到容器集群（比如使用触发器结合Git分支管理策略）；</li><li>提高开发生产力，完全专注在编码上；</li></ul></li><li>生态合作开发人员<ul><li>生态合作开发人员在DevOps平台发版到dev环境之前，使用WebIDE进行编码开发，与公司内部开发人员类似；</li><li>提供一定的安全隔离，防止代码泄露；</li></ul></li><li>测试人员<ul><li>测试人员在DevOps平台发版到qa环境之前，使用WebIDE进行编码开发测试用例；</li><li>WebIDE提供git仓库自动打通；</li></ul></li></ul><h1 id=3-技术选型>3. 技术选型</h1><table><thead><tr><th></th><th>code-server</th><th>opensumi</th><th>theia</th><th>projector</th></tr></thead><tbody><tr><td>Github Star</td><td>59.1k</td><td>2.3k</td><td>17.8k</td><td>1.2k</td></tr><tr><td>简介</td><td>code-server是一个基于VS Code的开源项目，它提供了通过浏览器访问VS Code开发环境的功能。它支持VS Code插件，并提供了与VS Code相同的编辑器功能。它可以在本地或云服务器上运行，并可以与Git和GitHub集成。</td><td>opensumi是一个阿里基于Theia的开源项目，它提供了一个灵活的，可扩展的开发环境。它支持多个编程语言和多种插件，并可以在本地或云服务器上运行。它还提供了与Git和GitHub的集成。</td><td>theia是一个基于Eclipse Theia的开源项目，它提供了一个模块化的开发环境。它支持多个编程语言和多种插件，并可以在本地或云服务器上运行。它还提供了与Git和GitHub的集成。兼容 VS Code 插件，推出了 ​​Eclipse Open VSX​​ 插件市场。(华为云 CodeArtsIDE 、阿里云DevStudio)</td><td>projector是一个基于JetBrains的开源项目，它提供了通过浏览器远程访问JetBrains IDE的功能。它支持多个编程语言和多种插件，并提供了与JetBrains IDE相同的编辑器功能。它可以在本地或云服务器上运行，并可以与Git和GitHub集成。JetBrains IDEA 风格的编辑器，对于 Java 开发人员更友好。(阿里云DevStudio)</td></tr><tr><td>插件市场</td><td><a href=https://open-vsx.org>https://open-vsx.org</a> ，code-server插件市场与VSCode插件市场一致，可以使用VS Code插件市场的插件，也可以使用自己的插件市场。</td><td>opensumi插件市场目前较少，可用插件数量不及VS Code插件市场的1%。但是，由于opensumi使用了Eclipse Theia，可以使用Theia插件市场的插件</td><td><a href=https://open-vsx.org>https://open-vsx.org</a> ，Theia插件市场上有超过300个插件可供选择。Theia插件市场与VS Code插件市场类似</td><td>projector插件市场目前较少，可用插件数量不及VS Code插件市场的1%。但是，由于projector是JetBrains开发的，可以使用JetBrains IDE的插件来扩展。</td></tr><tr><td>性能</td><td>较高，可以处理大型代码库</td><td>处理大型代码库时可能会遇到一些性能问题</td><td>处理大型代码库时可能会遇到一些性能问题</td><td>较高，可以处理大型代码库</td></tr><tr><td>社区支持</td><td>背靠VS Code大社区</td><td>不如VS Code和JetBrains IDE庞大社区</td><td>不如VS Code和JetBrains IDE庞大社区</td><td>背靠JetBrains IDE大社区</td></tr><tr><td>授权方式</td><td>MIT许可证</td><td>MIT许可证</td><td>Eclipse Public v 2.0许可证</td><td>GPLv2许可证和自己的许可证组合</td></tr><tr><td>UI和交互</td><td>采用了类似于本地IDE的UI和交互方式</td><td>更加注重自定义和灵活性，可以根据个人需求进行配置</td><td>更加注重自定义和灵活性，可以根据个人需求进行配置</td><td>采用了类似于本地IDE的UI和交互方式</td></tr><tr><td>支持的语言和框架</td><td>支持VS Code所有编程语言和框架</td><td>支持有限制，需要特定的插件和扩展支持</td><td>支持有限制，需要特定的插件和扩展支持</td><td>支持JetBrains IDE中所有编程语言和框架</td></tr><tr><td>开发语言</td><td>TypeScript</td><td>TypeScript</td><td>TypeScript</td><td>Kotlin</td></tr></tbody></table><p>注：coder-server、opensumi、theia 都支持VS Code扩展，但只有微软产品可以使用并连接到微软的扩展市场。Gitpod 采用了一种变通方法，用户可以上传 .vsix 文件来安装扩展。这导致了不必要的开销，因为用户必须从GitHub下载文件，然后将它们上传到 Gitpod。
-从微软市场下载扩展程序用于微软产品以外的任何用途也是被禁止的。为此Eclipse在开发Theia的时候推出了一个免费的插件市场 <a href=https://open-vsx.org>https://open-vsx.org</a>（2517个插件），而且支持私有化部署。</p><p>theia vs code-server对比：
-<img src=/img/posts/2023-03-09/theia_vs_code-server.png alt>
-综合授权方式、活跃度、插件丰富性，推荐code-server</p><h2 id=31-code-server>3.1 Code-Server</h2><pre tabindex=0><code>#获取code-server镜像
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="WebIDE技术方案调研" />
+    <meta property="og:title" content="WebIDE技术方案调研" />
+    <meta property="twitter:title" content="WebIDE技术方案调研" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>WebIDE技术方案调研 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2023-03-09-webide_learning_note/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>WebIDE技术方案调研</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Thursday, March 9, 2023
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h1 id="1-背景">1. 背景</h1>
+<ul>
+<li>搭建开发环境复杂，本地开发环境维护需要一定成本；非工作时间响应紧急问题修复缓慢，搭建开发环境耗时；开发人员之间互助协作不便；</li>
+<li>外部生态合作伙伴人员在开发代码的过程中泄漏代码，上传代码至github等其它公共代码托管平台；</li>
+<li>WebIDE打通代码、构建、部署等流程，实现DevOps闭环</li>
+<li>云原生IDE，2023年云原生发展趋势的预测，临时的开发工作区以及为开发人员节省时间，这项技术将成为行业标准，
+优步、Shopify、Slack、Stripe 等公司使用这种开发形式是有原因的，这些最佳实践将通过Codespace和Gitpod等提供的工具扩散到整个行业并成为常态。</li>
+</ul>
+<h1 id="2-应用场景5w1h">2. 应用场景（5W1H）</h1>
+<ul>
+<li>公司内部开发人员（后台开发、业务开发、赋能开发）
+<ul>
+<li>开发人员在DevOps平台发版到dev环境之前，使用WebIDE进行编码开发（兼容VS Code模式）；</li>
+<li>WebIDE提供git仓库自动打通、可联动流水线自动构建部署到容器集群（比如使用触发器结合Git分支管理策略）；</li>
+<li>提高开发生产力，完全专注在编码上；</li>
+</ul>
+</li>
+<li>生态合作开发人员
+<ul>
+<li>生态合作开发人员在DevOps平台发版到dev环境之前，使用WebIDE进行编码开发，与公司内部开发人员类似；</li>
+<li>提供一定的安全隔离，防止代码泄露；</li>
+</ul>
+</li>
+<li>测试人员
+<ul>
+<li>测试人员在DevOps平台发版到qa环境之前，使用WebIDE进行编码开发测试用例；</li>
+<li>WebIDE提供git仓库自动打通；</li>
+</ul>
+</li>
+</ul>
+<h1 id="3-技术选型">3. 技术选型</h1>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>code-server</th>
+<th>opensumi</th>
+<th>theia</th>
+<th>projector</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Github Star</td>
+<td>59.1k</td>
+<td>2.3k</td>
+<td>17.8k</td>
+<td>1.2k</td>
+</tr>
+<tr>
+<td>简介</td>
+<td>code-server是一个基于VS Code的开源项目，它提供了通过浏览器访问VS Code开发环境的功能。它支持VS Code插件，并提供了与VS Code相同的编辑器功能。它可以在本地或云服务器上运行，并可以与Git和GitHub集成。</td>
+<td>opensumi是一个阿里基于Theia的开源项目，它提供了一个灵活的，可扩展的开发环境。它支持多个编程语言和多种插件，并可以在本地或云服务器上运行。它还提供了与Git和GitHub的集成。</td>
+<td>theia是一个基于Eclipse Theia的开源项目，它提供了一个模块化的开发环境。它支持多个编程语言和多种插件，并可以在本地或云服务器上运行。它还提供了与Git和GitHub的集成。兼容 VS Code 插件，推出了 ​​Eclipse Open VSX​​ 插件市场。(华为云 CodeArtsIDE 、阿里云DevStudio)</td>
+<td>projector是一个基于JetBrains的开源项目，它提供了通过浏览器远程访问JetBrains IDE的功能。它支持多个编程语言和多种插件，并提供了与JetBrains IDE相同的编辑器功能。它可以在本地或云服务器上运行，并可以与Git和GitHub集成。JetBrains IDEA 风格的编辑器，对于 Java 开发人员更友好。(阿里云DevStudio)</td>
+</tr>
+<tr>
+<td>插件市场</td>
+<td><a href="https://open-vsx.org">https://open-vsx.org</a> ，code-server插件市场与VSCode插件市场一致，可以使用VS Code插件市场的插件，也可以使用自己的插件市场。</td>
+<td>opensumi插件市场目前较少，可用插件数量不及VS Code插件市场的1%。但是，由于opensumi使用了Eclipse Theia，可以使用Theia插件市场的插件</td>
+<td><a href="https://open-vsx.org">https://open-vsx.org</a> ，Theia插件市场上有超过300个插件可供选择。Theia插件市场与VS Code插件市场类似</td>
+<td>projector插件市场目前较少，可用插件数量不及VS Code插件市场的1%。但是，由于projector是JetBrains开发的，可以使用JetBrains IDE的插件来扩展。</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>较高，可以处理大型代码库</td>
+<td>处理大型代码库时可能会遇到一些性能问题</td>
+<td>处理大型代码库时可能会遇到一些性能问题</td>
+<td>较高，可以处理大型代码库</td>
+</tr>
+<tr>
+<td>社区支持</td>
+<td>背靠VS Code大社区</td>
+<td>不如VS Code和JetBrains IDE庞大社区</td>
+<td>不如VS Code和JetBrains IDE庞大社区</td>
+<td>背靠JetBrains IDE大社区</td>
+</tr>
+<tr>
+<td>授权方式</td>
+<td>MIT许可证</td>
+<td>MIT许可证</td>
+<td>Eclipse Public v 2.0许可证</td>
+<td>GPLv2许可证和自己的许可证组合</td>
+</tr>
+<tr>
+<td>UI和交互</td>
+<td>采用了类似于本地IDE的UI和交互方式</td>
+<td>更加注重自定义和灵活性，可以根据个人需求进行配置</td>
+<td>更加注重自定义和灵活性，可以根据个人需求进行配置</td>
+<td>采用了类似于本地IDE的UI和交互方式</td>
+</tr>
+<tr>
+<td>支持的语言和框架</td>
+<td>支持VS Code所有编程语言和框架</td>
+<td>支持有限制，需要特定的插件和扩展支持</td>
+<td>支持有限制，需要特定的插件和扩展支持</td>
+<td>支持JetBrains IDE中所有编程语言和框架</td>
+</tr>
+<tr>
+<td>开发语言</td>
+<td>TypeScript</td>
+<td>TypeScript</td>
+<td>TypeScript</td>
+<td>Kotlin</td>
+</tr>
+</tbody>
+</table>
+<p>注：coder-server、opensumi、theia 都支持VS Code扩展，但只有微软产品可以使用并连接到微软的扩展市场。Gitpod 采用了一种变通方法，用户可以上传 .vsix 文件来安装扩展。这导致了不必要的开销，因为用户必须从GitHub下载文件，然后将它们上传到 Gitpod。
+从微软市场下载扩展程序用于微软产品以外的任何用途也是被禁止的。为此Eclipse在开发Theia的时候推出了一个免费的插件市场 <a href="https://open-vsx.org">https://open-vsx.org</a>（2517个插件），而且支持私有化部署。</p>
+<p>theia vs code-server对比：
+
+  <img src="/img/posts/2023-03-09/theia_vs_code-server.png" alt="">
+
+
+综合授权方式、活跃度、插件丰富性，推荐code-server</p>
+<h2 id="31-code-server">3.1 Code-Server</h2>
+<pre tabindex="0"><code>#获取code-server镜像
 # docker pull codercom/code-server:latest
 
 #启动code-server容器
@@ -29,43 +362,601 @@ codercom/code-server:latest
 # cat ~/.config/code-server/config.yaml
 
 # 中文包扩展插件：“Chinese (Simplified) Language Pack for Visual Studio Code“
-</code></pre><p><img src=/img/posts/2023-03-09/code-server.png alt></p><h1 id=4-业界方案>4. 业界方案</h1><h2 id=41-腾讯云cloud-studio>4.1 腾讯云Cloud Studio</h2><h3 id=411-简介>4.1.1 简介</h3><p>Cloud Studio 是基于浏览器的集成式开发环境（IDE），为开发者提供了一个稳定的云端工作站。
+</code></pre><p>
+  <img src="/img/posts/2023-03-09/code-server.png" alt="">
+
+</p>
+<h1 id="4-业界方案">4. 业界方案</h1>
+<h2 id="41-腾讯云cloud-studio">4.1 腾讯云Cloud Studio</h2>
+<h3 id="411-简介">4.1.1 简介</h3>
+<p>Cloud Studio 是基于浏览器的集成式开发环境（IDE），为开发者提供了一个稳定的云端工作站。
 用户在使用 Cloud Studio 时无需安装，随时随地打开浏览器就能使用。其功能包含代码高亮、自动补全、Git 集成、终端等 IDE 的基础功能，
 同时支持实时调试、插件扩展等，可以帮助开发者快速完成各种应用的开发、编译与部署工作。
-<img src=/img/posts/2023-03-09/tencent_cloud_studio.png alt></p><h3 id=412-产品特性>4.1.2 产品特性</h3><ul><li>协作套件：开发人员之间的工作能够互助联动，使开发工作更具沟通便捷性与高效性。</li><li>控制台：简洁明朗的工作空间管理控制台，提供简便、易操作的项目环境创建。</li><li>持久化：随时保存，弹性扩容，无需担心断电未保存和存储能力不足。</li><li>云端部署套件：支持多种框架一键部署至云函数，同时支持自定义部署，使得开发者专注于代码逻辑的实现。</li><li>全功能：无需下载安装，随时随地开发编码，拥有媲美本地 IDE 的流畅编码体验。</li><li>多插件：如果默认的配置无法满足需求，可以在线安装插件来提升使用体验。</li><li>自定义模版：支持将当前项目作为自定义模板，能够覆盖到 Git 仓库的项目、普通项目、示例项目等等。</li><li>多环境：内置 Node.js、Java、Python 等常用环境，也可以连接到云服务器进行自主配置。</li></ul><h3 id=413-应用场景>4.1.3 应用场景</h3><ul><li>在线编程</li><li>极速开发</li><li>远程面试</li><li>行业集成：提供开发-测试-部署完整闭环的云原生开发体验</li></ul><h3 id=414-产品规格>4.1.4 产品规格</h3><ul><li><p>标准版</p><ul><li>空间规格2核4G</li><li>可用存储80G</li><li>带宽6Mbps</li><li>最大流量包200G/月</li></ul></li><li><p>高级版（推荐）</p><ul><li>空间规格4核8G</li><li>可用存储160G</li><li>带宽8Mbps</li><li>最大流量包400G/月</li></ul></li><li><p>旗舰版</p><ul><li>空间规格8核16G</li><li>可用存储320G</li><li>带宽10Mbps</li><li>最大流量包600G/月
-<img src=/img/posts/2023-03-09/cloud_studio.png alt>
-整体界面vscode风格UI，主要有三个概念：工作空间、工作模版、团队</li></ul></li><li><p>团队：可邀请成员到团队，工作空间属于团队</p></li><li><p>工作模版：WebIDE实例模版（包含语言环境、可关联一个默认代码仓库），有框架模版、云原生模版之分，自定义模版称之为团队模版；用于快速创建出WebIDE工作空间</p></li><li><p>工作空间：使用工作模版+产品规格创建出来的实例就是WebIDE工作空间，工作空间初始化过程：创建工作空间 -> 启动工作空间 -> 连接工作空间（podman技术）；提供升级工作空间配置、停止、删除、SSH连接功能、回收站；</p></li><li><p>代码仓库：支持自家的代码托管服务和Github（通用Git https仅支持公开仓库）
-<img src=/img/posts/2023-03-09/cloud_studio_template.png alt>
-整体定位是WebIDE实例的全生命周期管理服务，提供丰富的工作模版</p></li></ul><h2 id=42-华为云codearts-ide-online>4.2 华为云CodeArts IDE Online</h2><h3 id=421-简介>4.2.1 简介</h3><p>基于云计算的轻量级WebIDE，通过浏览器即可实现环境快速获取和环境访问，完成编码、构建、调试、运行、访问代码仓库和命令执行等工作，
-支持第三方业务集成，支持插件扩展并提供独立插件市场根据使用的计算资源和存储资源按需计费 （基于theia）</p><h3 id=422-功能描述>4.2.2 功能描述</h3><ul><li>一键式环境获取：一键式的获取位于云端的开发环境，计算资源和存储资源按需配置，分秒间即可使用，使用完毕随时释放</li><li>多语言编程：支持100+语言的语法高亮，支持主流开发语言的语法提示和自动补齐</li><li>企业权限管控：针对企业租户提供资源使用管控和实例访问授权能力，同时支持简化的黑名单和白名单权限管理</li><li>预置技术栈支持：预置主流的技术栈支持，Java、C/C++、Python、NodeJS、GO都可以选择，或者索性使用All-in-One</li><li>运行和调试：支持在线调试和在线运行，构建和运行配置可修改，断点调试能力与本地IDE保持一致</li><li>插件支持平台：提供标准的插件开发规范，可以在本平台通过插件方式集成解决方案和构建业务生态</li><li>浏览器访问IDE：通过浏览器就可以访问IDE实现开发，跨越OS平台限制，不需安装软件，不占本地资源，随意移动随心开发</li><li>对接配置管理：无缝对接CodeArts代码托管服务，同时支持其他Git类的配置管理（代码仓库）系统</li></ul><h3 id=423-应用场景>4.2.3 应用场景</h3><p>服务化/Web应用开发，利用基于云计算提供的IDE Online技术，开发者可以快速的获取适合当前业务的开发环境，
-方便完成代码下载和服务调试。基于浏览器的访问，让开发者可以跨越不同的操作系统限制，随时随地可以完成开发工作</p><p><img src=/img/posts/2023-03-09/huaweicloud_codearts_ide.png alt>
-<img src=/img/posts/2023-03-09/codearts_ide_instance_create.png alt>
-WebIDE实例管理（关闭、删除、启动、编辑实例），未开放自定义语言环境模版功能；特色功能：CPU多架构、自动休眠</p><h2 id=43-阿里云devstudio>4.3 阿里云DevStudio</h2><h3 id=431-简介>4.3.1 简介</h3><p>云效云端开发平台DevStudio是面向云原生的WebIDE产品，只需一个浏览器即可获得与本地IDE一致的开发体验。
-通过预置开发环境，使用智能编码能力，即可快速地编辑、调试、运行、部署云端代码。</p><h3 id=432-产品功能>4.3.2 产品功能</h3><ul><li>云端编码：通过浏览器即可使用包括终端在内的原生 IDE 功能</li><li>预置技术栈：预置多种主流的技术栈，已预安装各开发环境所需的软件包和插件</li><li>预览调试：支持在线运行、调试、预览用户自己的服务，提供与本地开发一致的体验</li><li>丰富插件：支持在线安装插件扩展原有功能，兼容所有常用 VSCode 插件</li></ul><p>内置池化技术，秒级打开云端空间；支持自定义环境、IDE框架(Theia、Code-server、自研框架)、插件(语言插件、主题插件、调试插件)</p><h3 id=433-应用场景>4.3.3 应用场景</h3><p><img src=/img/posts/2023-03-09/ali_devstudio_usage.png alt>
+
+  <img src="/img/posts/2023-03-09/tencent_cloud_studio.png" alt="">
+
+</p>
+<h3 id="412-产品特性">4.1.2 产品特性</h3>
+<ul>
+<li>协作套件：开发人员之间的工作能够互助联动，使开发工作更具沟通便捷性与高效性。</li>
+<li>控制台：简洁明朗的工作空间管理控制台，提供简便、易操作的项目环境创建。</li>
+<li>持久化：随时保存，弹性扩容，无需担心断电未保存和存储能力不足。</li>
+<li>云端部署套件：支持多种框架一键部署至云函数，同时支持自定义部署，使得开发者专注于代码逻辑的实现。</li>
+<li>全功能：无需下载安装，随时随地开发编码，拥有媲美本地 IDE 的流畅编码体验。</li>
+<li>多插件：如果默认的配置无法满足需求，可以在线安装插件来提升使用体验。</li>
+<li>自定义模版：支持将当前项目作为自定义模板，能够覆盖到 Git 仓库的项目、普通项目、示例项目等等。</li>
+<li>多环境：内置 Node.js、Java、Python 等常用环境，也可以连接到云服务器进行自主配置。</li>
+</ul>
+<h3 id="413-应用场景">4.1.3 应用场景</h3>
+<ul>
+<li>在线编程</li>
+<li>极速开发</li>
+<li>远程面试</li>
+<li>行业集成：提供开发-测试-部署完整闭环的云原生开发体验</li>
+</ul>
+<h3 id="414-产品规格">4.1.4 产品规格</h3>
+<ul>
+<li>
+<p>标准版</p>
+<ul>
+<li>空间规格2核4G</li>
+<li>可用存储80G</li>
+<li>带宽6Mbps</li>
+<li>最大流量包200G/月</li>
+</ul>
+</li>
+<li>
+<p>高级版（推荐）</p>
+<ul>
+<li>空间规格4核8G</li>
+<li>可用存储160G</li>
+<li>带宽8Mbps</li>
+<li>最大流量包400G/月</li>
+</ul>
+</li>
+<li>
+<p>旗舰版</p>
+<ul>
+<li>空间规格8核16G</li>
+<li>可用存储320G</li>
+<li>带宽10Mbps</li>
+<li>最大流量包600G/月
+
+  <img src="/img/posts/2023-03-09/cloud_studio.png" alt="">
+
+
+整体界面vscode风格UI，主要有三个概念：工作空间、工作模版、团队</li>
+</ul>
+</li>
+<li>
+<p>团队：可邀请成员到团队，工作空间属于团队</p>
+</li>
+<li>
+<p>工作模版：WebIDE实例模版（包含语言环境、可关联一个默认代码仓库），有框架模版、云原生模版之分，自定义模版称之为团队模版；用于快速创建出WebIDE工作空间</p>
+</li>
+<li>
+<p>工作空间：使用工作模版+产品规格创建出来的实例就是WebIDE工作空间，工作空间初始化过程：创建工作空间 -&gt; 启动工作空间 -&gt; 连接工作空间（podman技术）；提供升级工作空间配置、停止、删除、SSH连接功能、回收站；</p>
+</li>
+<li>
+<p>代码仓库：支持自家的代码托管服务和Github（通用Git https仅支持公开仓库）
+
+  <img src="/img/posts/2023-03-09/cloud_studio_template.png" alt="">
+
+
+整体定位是WebIDE实例的全生命周期管理服务，提供丰富的工作模版</p>
+</li>
+</ul>
+<h2 id="42-华为云codearts-ide-online">4.2 华为云CodeArts IDE Online</h2>
+<h3 id="421-简介">4.2.1 简介</h3>
+<p>基于云计算的轻量级WebIDE，通过浏览器即可实现环境快速获取和环境访问，完成编码、构建、调试、运行、访问代码仓库和命令执行等工作，
+支持第三方业务集成，支持插件扩展并提供独立插件市场根据使用的计算资源和存储资源按需计费 （基于theia）</p>
+<h3 id="422-功能描述">4.2.2 功能描述</h3>
+<ul>
+<li>一键式环境获取：一键式的获取位于云端的开发环境，计算资源和存储资源按需配置，分秒间即可使用，使用完毕随时释放</li>
+<li>多语言编程：支持100+语言的语法高亮，支持主流开发语言的语法提示和自动补齐</li>
+<li>企业权限管控：针对企业租户提供资源使用管控和实例访问授权能力，同时支持简化的黑名单和白名单权限管理</li>
+<li>预置技术栈支持：预置主流的技术栈支持，Java、C/C++、Python、NodeJS、GO都可以选择，或者索性使用All-in-One</li>
+<li>运行和调试：支持在线调试和在线运行，构建和运行配置可修改，断点调试能力与本地IDE保持一致</li>
+<li>插件支持平台：提供标准的插件开发规范，可以在本平台通过插件方式集成解决方案和构建业务生态</li>
+<li>浏览器访问IDE：通过浏览器就可以访问IDE实现开发，跨越OS平台限制，不需安装软件，不占本地资源，随意移动随心开发</li>
+<li>对接配置管理：无缝对接CodeArts代码托管服务，同时支持其他Git类的配置管理（代码仓库）系统</li>
+</ul>
+<h3 id="423-应用场景">4.2.3 应用场景</h3>
+<p>服务化/Web应用开发，利用基于云计算提供的IDE Online技术，开发者可以快速的获取适合当前业务的开发环境，
+方便完成代码下载和服务调试。基于浏览器的访问，让开发者可以跨越不同的操作系统限制，随时随地可以完成开发工作</p>
+<p>
+  <img src="/img/posts/2023-03-09/huaweicloud_codearts_ide.png" alt="">
+
+
+
+  <img src="/img/posts/2023-03-09/codearts_ide_instance_create.png" alt="">
+
+
+WebIDE实例管理（关闭、删除、启动、编辑实例），未开放自定义语言环境模版功能；特色功能：CPU多架构、自动休眠</p>
+<h2 id="43-阿里云devstudio">4.3 阿里云DevStudio</h2>
+<h3 id="431-简介">4.3.1 简介</h3>
+<p>云效云端开发平台DevStudio是面向云原生的WebIDE产品，只需一个浏览器即可获得与本地IDE一致的开发体验。
+通过预置开发环境，使用智能编码能力，即可快速地编辑、调试、运行、部署云端代码。</p>
+<h3 id="432-产品功能">4.3.2 产品功能</h3>
+<ul>
+<li>云端编码：通过浏览器即可使用包括终端在内的原生 IDE 功能</li>
+<li>预置技术栈：预置多种主流的技术栈，已预安装各开发环境所需的软件包和插件</li>
+<li>预览调试：支持在线运行、调试、预览用户自己的服务，提供与本地开发一致的体验</li>
+<li>丰富插件：支持在线安装插件扩展原有功能，兼容所有常用 VSCode 插件</li>
+</ul>
+<p>内置池化技术，秒级打开云端空间；支持自定义环境、IDE框架(Theia、Code-server、自研框架)、插件(语言插件、主题插件、调试插件)</p>
+<h3 id="433-应用场景">4.3.3 应用场景</h3>
+<p>
+  <img src="/img/posts/2023-03-09/ali_devstudio_usage.png" alt="">
+
+
 Web应用开发：DevStudio为应用开发提供多种技术栈，可在工作空间中启动并预览Web服务内容，
-使用更智能的代码补全，并打通函数计算发布流程，通过一体化的解决方案，让Web开发更简单、更高效。</p><p><img src=/img/posts/2023-03-09/ali_devstudio.png alt></p><ul><li>工作空间：支持停止、删除功能；提供自定义工作空间，Java技术栈同时提供JetBrains Projector框架和Theia框架实现</li><li>工作模版：提供Java、NodeJs、Python三种默认模版，未开放自定义工作模版；</li><li>代码仓库：支持自家云效代码管理和通用Git（通用Git https仅支持公开仓库）</li></ul><h1 id=我们的方案>我们的方案</h1><h2 id=现状基于code-server>现状（基于code-server）</h2><ul><li>项目管理：实质是代码仓库</li><li>空间管理：WebIDE实例，关联代码仓库、开发环境（镜像模版）、规格配置（Pod资源配额）</li><li>模版管理：各种语言环境、模版用于创建空间</li></ul><h2 id=新方案>新方案</h2><ol><li>基于项目隔离（u5项目）实现WebIDE实例的全生命周期管理</li></ol><ul><li>WebIDE工作空间（WebIDE实例）：一个WebIDE工作空间 = 一个WebIDE实例</li><li>工作模版（定做模版，实质是WebIDE镜像+预装插件）</li><li>代码仓库</li><li>凭证</li><li>配置管理（【WebIDE实例的配额、WebIDE实例关联的K8s集群、WebIDE实例访问方式（ingress：泛域名）】）</li></ul><h3 id=功能架构>功能架构</h3><p><img src=/img/posts/2023-03-09/function_architecture.png alt></p><h3 id=业务架构>业务架构</h3><p><img src=/img/posts/2023-03-09/bussiness_architecture.png alt></p><h3 id=技术架构>技术架构</h3><p><img src=/img/posts/2023-03-09/tech_architecture.png alt></p><p>WebIDE实例访问暴露方式：</p><ul><li>ingress域名访问，申请一段泛域名，一个项目对应一个域名：&lt;项目英文id>.lls.com；项目内不同WebIDE实例，同域名不同path区分</li><li>LB访问，一个项目对应一个LB，项目内不同WebIDE实例，同LB不同path区分</li></ul><p>WebIDE实例pod性能：</p><ul><li>网络插件</li><li>PVC后端存储</li></ul><ol start=2><li>WebIDE联动DevOps
-（类Github Codespaces访问方式）</li></ol><ul><li>项目初始化支持高级设置->是否启动WebIDE</li><li>自动识别开发语言选择对应工作模版+默认产品规格，启动WebIDE实例</li><li>不做WebIDE实例的管理，项目打通的前提下跳转到WebIDE UI进行WebIDE实例管理</li></ul><h1 id=参考链接>参考链接</h1><ul><li><a href=https://www.gitpod.io/cde#principles>https://www.gitpod.io/cde#principles</a></li><li><a href=https://coder.com/docs/code-server/latest/install#docker>code-server docker部署</a></li><li><a href=https://github.com/JetBrains/projector-docker>projector docker部署</a></li><li><a href=https://opensumi.com/zh/docs/integrate/quick-start/web>opensumi docker部署</a></li><li><a href=https://github.com/theia-ide/theia-apps>theia docker部署</a></li><li><a href=https://cloud.tencent.com/document/product/1039/80564>腾讯云Cloud Studio API概览</a></li></ul><div class="entry-shang text-center"><p>「真诚赞赏，手留余香」</p><button class="zs show-zs btn btn-bred">赞赏支持</button></div><div class=zs-modal-bg></div><div class=zs-modal-box><div class=zs-modal-head><button type=button class=close>×</button>
-<span class=author><a href=https://www.iceyao.com.cn/><img src=/img/favicon.png>爱折腾的工程师</a></span><p class=tip><i></i><span>真诚赞赏，手留余香</span></p></div><div class=zs-modal-body><div class=zs-modal-btns><button class="btn btn-blink" data-num=2>2元</button>
-<button class="btn btn-blink" data-num=5>5元</button>
-<button class="btn btn-blink" data-num=10>10元</button>
-<button class="btn btn-blink" data-num=50>50元</button>
-<button class="btn btn-blink" data-num=100>100元</button>
-<button class="btn btn-blink" data-num=1>任意金额</button></div><div class=zs-modal-pay><button class="btn btn-bred" id=pay-text>2元</button><p>使用<span id=pay-type>微信</span>扫描二维码完成支付</p><img src=/img/reward/wechat-2.png id=pay-image></div></div><div class=zs-modal-footer><label><input type=radio name=zs-type value=wechat class=zs-type checked><span><span class=zs-wechat><img src=/img/reward/wechat-btn.png></span></label>
-<label><input type=radio name=zs-type value=alipay class=zs-type class=zs-alipay><img src=/img/reward/alipay-btn.png></span></label></div></div><script type=text/javascript src=/js/reward.js></script><hr><ul class=pager><li class=previous><a href=/post/2022-08-22-argocd_learning_note/ data-toggle=tooltip data-placement=top title="Argo CD学习笔记">&larr;
-Previous Post</a></li><li class=next><a href=/2023/05/09/kubeadm-containerd-to-deploy-k8s/ data-toggle=tooltip data-placement=top title="kubeadm + containerd部署k8s v1.27.1">Next
-Post &rarr;</a></li></ul><script src=https://giscus.app/client.js data-repo=yaoice/yaoice.github.io data-repo-id=R_kgDOJnxqVg data-category=General data-category-id=DIC_kwDOJnxqVs4CWwUs data-mapping=pathname data-reactions-enabled=1 data-emit-metadata=0 data-theme=light data-lang=en crossorigin=anonymous async></script></div><div class="col-lg-2 col-lg-offset-0
-visible-lg-block
-sidebar-container
-catalog-container"><div class=side-catalog><hr class="hidden-sm hidden-xs"><h5><a class=catalog-toggle href=#>CATALOG</a></h5><ul class=catalog-body></ul></div></div><div class="col-lg-8 col-lg-offset-2
-col-md-10 col-md-offset-1
-sidebar-container"><section><hr class="hidden-sm hidden-xs"><h5><a href=/tags/>FEATURED TAGS</a></h5><div class=tags><a href=/tags/devops title=devops>devops
-</a><a href=/tags/go title=go>go
-</a><a href=/tags/k8s title=k8s>k8s
-</a><a href=/tags/llm title=llm>llm
-</a><a href=/tags/openstack title=openstack>openstack
-</a><a href=/tags/tkestack title=tkestack>tkestack
-</a><a href=/tags/%E7%BB%83%E8%BD%A6 title=练车>练车</a></div></section></div></div></div></article><footer><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><ul class="list-inline text-center"><li><a href=mailto:yao3690093@gmail.com><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fas fa-envelope fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=/img/wechat.jpeg><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fab fa-weixin fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=https://github.com/yaoice><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fab fa-github fa-stack-1x fa-inverse"></i></span></a></li><li><a href rel=alternate type=application/rss+xml title=爱折腾的工程师><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fas fa-rss fa-stack-1x fa-inverse"></i></span></a></li></ul><p class="copyright text-muted">Copyright &copy; 爱折腾的工程师 2024</p></div></div></div></footer><script>function loadAsync(e,t){var s=document,o="script",n=s.createElement(o),i=s.getElementsByTagName(o)[0];n.src=e,t&&n.addEventListener("load",function(e){t(null,e)},!1),i.parentNode.insertBefore(n,i)}</script><script>$("#tag_cloud").length!==0&&loadAsync("/js/jquery.tagcloud.js",function(){$.fn.tagcloud.defaults={color:{start:"#bbbbee",end:"#0085a1"}},$("#tag_cloud a").tagcloud()})</script><script>loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js",function(){var e=document.querySelector("nav");e&&FastClick.attach(e)})</script><script>(function(){var t,e=document.createElement("script"),n=window.location.protocol.split(":")[0];n==="https"?e.src="https://zz.bdstatic.com/linksubmit/push.js":e.src="http://push.zhanzhang.baidu.com/push.js",t=document.getElementsByTagName("script")[0],t.parentNode.insertBefore(e,t)})()</script><script>var _baId="92c175994ded75a3cd2074bc1123e2be",_hmt=_hmt||[];(function(){var e,t=document.createElement("script");t.src="//hm.baidu.com/hm.js?"+_baId,e=document.getElementsByTagName("script")[0],e.parentNode.insertBefore(t,e)})()</script><script type=text/javascript>function generateCatalog(e){_containerSelector="div.post-container";var t,n,s,o,i,a=$(_containerSelector),r=a.find("h1,h2,h3,h4,h5,h6");return $(e).html(""),r.each(function(){t=$(this).prop("tagName").toLowerCase(),o="#"+$(this).prop("id"),n=$(this).text(),i=$('<a href="'+o+'" rel="nofollow">'+n+"</a>"),s=$('<li class="'+t+'_nav"></li>').append(i),$(e).append(s)}),!0}generateCatalog(".catalog-body"),$(".catalog-toggle").click(function(e){e.preventDefault(),$(".side-catalog").toggleClass("fold")}),loadAsync("/js/jquery.nav.js",function(){$(".catalog-body").onePageNav({currentClass:"active",changeHash:!1,easing:"swing",filter:"",scrollSpeed:700,scrollOffset:0,scrollThreshold:.2,begin:null,end:null,scrollChange:null,padding:80})})</script></body></html>
+使用更智能的代码补全，并打通函数计算发布流程，通过一体化的解决方案，让Web开发更简单、更高效。</p>
+<p>
+  <img src="/img/posts/2023-03-09/ali_devstudio.png" alt="">
+
+</p>
+<ul>
+<li>工作空间：支持停止、删除功能；提供自定义工作空间，Java技术栈同时提供JetBrains Projector框架和Theia框架实现</li>
+<li>工作模版：提供Java、NodeJs、Python三种默认模版，未开放自定义工作模版；</li>
+<li>代码仓库：支持自家云效代码管理和通用Git（通用Git https仅支持公开仓库）</li>
+</ul>
+<h1 id="我们的方案">我们的方案</h1>
+<h2 id="现状基于code-server">现状（基于code-server）</h2>
+<ul>
+<li>项目管理：实质是代码仓库</li>
+<li>空间管理：WebIDE实例，关联代码仓库、开发环境（镜像模版）、规格配置（Pod资源配额）</li>
+<li>模版管理：各种语言环境、模版用于创建空间</li>
+</ul>
+<h2 id="新方案">新方案</h2>
+<ol>
+<li>基于项目隔离（u5项目）实现WebIDE实例的全生命周期管理</li>
+</ol>
+<ul>
+<li>WebIDE工作空间（WebIDE实例）：一个WebIDE工作空间 = 一个WebIDE实例</li>
+<li>工作模版（定做模版，实质是WebIDE镜像+预装插件）</li>
+<li>代码仓库</li>
+<li>凭证</li>
+<li>配置管理（【WebIDE实例的配额、WebIDE实例关联的K8s集群、WebIDE实例访问方式（ingress：泛域名）】）</li>
+</ul>
+<h3 id="功能架构">功能架构</h3>
+<p>
+  <img src="/img/posts/2023-03-09/function_architecture.png" alt="">
+
+</p>
+<h3 id="业务架构">业务架构</h3>
+<p>
+  <img src="/img/posts/2023-03-09/bussiness_architecture.png" alt="">
+
+</p>
+<h3 id="技术架构">技术架构</h3>
+<p>
+  <img src="/img/posts/2023-03-09/tech_architecture.png" alt="">
+
+</p>
+<p>WebIDE实例访问暴露方式：</p>
+<ul>
+<li>ingress域名访问，申请一段泛域名，一个项目对应一个域名：&lt;项目英文id&gt;.lls.com；项目内不同WebIDE实例，同域名不同path区分</li>
+<li>LB访问，一个项目对应一个LB，项目内不同WebIDE实例，同LB不同path区分</li>
+</ul>
+<p>WebIDE实例pod性能：</p>
+<ul>
+<li>网络插件</li>
+<li>PVC后端存储</li>
+</ul>
+<ol start="2">
+<li>WebIDE联动DevOps
+（类Github Codespaces访问方式）</li>
+</ol>
+<ul>
+<li>项目初始化支持高级设置-&gt;是否启动WebIDE</li>
+<li>自动识别开发语言选择对应工作模版+默认产品规格，启动WebIDE实例</li>
+<li>不做WebIDE实例的管理，项目打通的前提下跳转到WebIDE UI进行WebIDE实例管理</li>
+</ul>
+<h1 id="参考链接">参考链接</h1>
+<ul>
+<li><a href="https://www.gitpod.io/cde#principles">https://www.gitpod.io/cde#principles</a></li>
+<li><a href="https://coder.com/docs/code-server/latest/install#docker">code-server docker部署</a></li>
+<li><a href="https://github.com/JetBrains/projector-docker">projector docker部署</a></li>
+<li><a href="https://opensumi.com/zh/docs/integrate/quick-start/web">opensumi docker部署</a></li>
+<li><a href="https://github.com/theia-ide/theia-apps">theia docker部署</a></li>
+<li><a href="https://cloud.tencent.com/document/product/1039/80564">腾讯云Cloud Studio API概览</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2022-08-22-argocd_learning_note/" data-toggle="tooltip" data-placement="top" title="Argo CD学习笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2023/05/09/kubeadm-containerd-to-deploy-k8s/" data-toggle="tooltip" data-placement="top" title="kubeadm &#43; containerd部署k8s v1.27.1">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2024
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

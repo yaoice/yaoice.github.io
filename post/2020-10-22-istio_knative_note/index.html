@@ -1,60 +1,303 @@
-<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:site_name" content="爱折腾的工程师"><meta property="og:type" content="article"><meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta name=title content="K8s+Istio+Knative实践"><meta property="og:title" content="K8s+Istio+Knative实践"><meta property="twitter:title" content="K8s+Istio+Knative实践"><meta name=description content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:card" content="summary"><meta name=keyword content="iceyao, IceYao's Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice"><link rel="shortcut icon" href=/img/favicon.ico><title>K8s+Istio+Knative实践 | 爱折腾的工程师 | IceYao's Blog</title>
-<link rel=canonical href=/post/2020-10-22-istio_knative_note/><link rel=stylesheet href=/css/bootstrap.min.css><link rel=stylesheet href=/css/hugo-theme-cleanwhite.min.css><link rel=stylesheet href=/css/zanshang.css><link rel=stylesheet href=/css/font-awesome.all.min.css><script src=/js/jquery.min.js></script><script src=/js/bootstrap.min.js></script><script src=/js/hux-blog.min.js></script><script src=/js/lazysizes.min.js></script></head><script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-9J7CKFVPPM")}</script><nav class="navbar navbar-default navbar-custom navbar-fixed-top"><div class=container-fluid><div class="navbar-header page-scroll"><button type=button class=navbar-toggle>
-<span class=sr-only>Toggle navigation</span>
-<span class=icon-bar></span>
-<span class=icon-bar></span>
-<span class=icon-bar></span>
-</button>
-<a class=navbar-brand href=/>爱折腾的工程师</a></div><div id=huxblog_navbar><div class=navbar-collapse><ul class="nav navbar-nav navbar-right"><li><a href=/>All Posts</a></li><li><a href=/archive//>ARCHIVE</a></li><li><a href=/notes//>NOTES</a></li><li><a href=/about//>ABOUT</a></li><li><a href=/search><i class="fa fa-search"></i></a></li></ul></div></div></div></nav><script>var $body=document.body,$toggle=document.querySelector(".navbar-toggle"),$navbar=document.querySelector("#huxblog_navbar"),$collapse=document.querySelector(".navbar-collapse");$toggle.addEventListener("click",handleMagic);function handleMagic(){$navbar.className.indexOf("in")>0?($navbar.className=" ",setTimeout(function(){$navbar.className.indexOf("in")<0&&($collapse.style.height="0px")},400)):($collapse.style.height="auto",$navbar.className+=" in")}</script><style type=text/css>header.intro-header{background-image:url(/img/post-bg-unix-linux.jpg)}</style><header class=intro-header><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><div class=post-heading><div class=tags><a class=tag href=/tags/istio title=istio>istio</a></div><h1>K8s+Istio+Knative实践</h1><h2 class=subheading></h2><span class=meta>Posted by
-爱折腾的工程师
-on
-Thursday, October 22, 2020</span></div></div></div></div></header><article><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2
-col-md-10 col-md-offset-1
-post-container"><h3 id=1-环境>1. 环境</h3><ul><li>系统：Ubuntu 20.04.1 LTS</li><li>kernel: 5.4.0-52-generic</li><li>Kubernetes: v1.19.3</li><li>Istio版本：1.9.4</li></ul><h3 id=2-k8s>2. K8s</h3><h4 id=21-禁用swap>2.1 禁用swap</h4><p>临时关闭swap</p><pre tabindex=0><code># swapoff -a
-</code></pre><p>编辑/etc/fstab,禁用swap分区的挂载; swappiness参数调整</p><pre tabindex=0><code># vim /etc/sysctl.d/k8s.conf   # 添加如下内容
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="K8s&#43;Istio&#43;Knative实践" />
+    <meta property="og:title" content="K8s&#43;Istio&#43;Knative实践" />
+    <meta property="twitter:title" content="K8s&#43;Istio&#43;Knative实践" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>K8s&#43;Istio&#43;Knative实践 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2020-10-22-istio_knative_note/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/istio" title="istio">
+                            istio
+                        </a>
+                        
+                    </div>
+                    <h1>K8s&#43;Istio&#43;Knative实践</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Thursday, October 22, 2020
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h3 id="1-环境">1. 环境</h3>
+<ul>
+<li>系统：Ubuntu 20.04.1 LTS</li>
+<li>kernel: 5.4.0-52-generic</li>
+<li>Kubernetes: v1.19.3</li>
+<li>Istio版本：1.9.4</li>
+</ul>
+<h3 id="2-k8s">2. K8s</h3>
+<h4 id="21-禁用swap">2.1 禁用swap</h4>
+<p>临时关闭swap</p>
+<pre tabindex="0"><code># swapoff -a
+</code></pre><p>编辑/etc/fstab,禁用swap分区的挂载; swappiness参数调整</p>
+<pre tabindex="0"><code># vim /etc/sysctl.d/k8s.conf   # 添加如下内容
 vm.swappiness=0
 
 # sysctl -p /etc/sysctl.d/k8s.conf  # 使之生效
-</code></pre><h4 id=22-设置sysctl>2.2 设置sysctl</h4><p>内核是否加载br_netfilter模块</p><pre tabindex=0><code># lsmod | grep br_netfilter
-</code></pre><p>设置iptables可以过滤bridge traffic</p><pre tabindex=0><code>cat &lt;&lt;EOF | sudo tee /etc/sysctl.d/k8s.conf
+</code></pre><h4 id="22-设置sysctl">2.2 设置sysctl</h4>
+<p>内核是否加载br_netfilter模块</p>
+<pre tabindex="0"><code># lsmod | grep br_netfilter
+</code></pre><p>设置iptables可以过滤bridge traffic</p>
+<pre tabindex="0"><code>cat &lt;&lt;EOF | sudo tee /etc/sysctl.d/k8s.conf
 net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
 sudo sysctl --system 
-</code></pre><p>calico网络插件，而calico需要这个内核参数是0或者1，但是Ubuntu20.04上默认是2，</p><pre tabindex=0><code>cat &lt;&lt;EOF | sudo tee /etc/sysctl.d/10-network-security.conf
+</code></pre><p>calico网络插件，而calico需要这个内核参数是0或者1，但是Ubuntu20.04上默认是2，</p>
+<pre tabindex="0"><code>cat &lt;&lt;EOF | sudo tee /etc/sysctl.d/10-network-security.conf
 net.ipv4.conf.default.rp_filter=1
 net.ipv4.conf.all.rp_filter=1
 EOF
 sudo sysctl --system 
-</code></pre><h4 id=23-安装docker>2.3 安装Docker</h4><pre tabindex=0><code># apt update &amp;&amp; apt install docker.io
+</code></pre><h4 id="23-安装docker">2.3 安装Docker</h4>
+<pre tabindex="0"><code># apt update &amp;&amp; apt install docker.io
 # systemctl start docker
 # systemctl enable docker
-</code></pre><h4 id=24-安装k8s-master>2.4 安装k8s master</h4><pre tabindex=0><code># apt-get update &amp;&amp; sudo apt-get install -y ca-certificates \
+</code></pre><h4 id="24-安装k8s-master">2.4 安装k8s master</h4>
+<pre tabindex="0"><code># apt-get update &amp;&amp; sudo apt-get install -y ca-certificates \
     curl software-properties-common \
     apt-transport-https curl
-</code></pre><pre tabindex=0><code># curl -s https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add -
-</code></pre><pre tabindex=0><code># tee /etc/apt/sources.list.d/kubernetes.list &lt;&lt;EOF 
+</code></pre><pre tabindex="0"><code># curl -s https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add -
+</code></pre><pre tabindex="0"><code># tee /etc/apt/sources.list.d/kubernetes.list &lt;&lt;EOF 
 deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main
 EOF
-</code></pre><pre tabindex=0><code># apt-get update
+</code></pre><pre tabindex="0"><code># apt-get update
 # apt-get install -y kubelet kubeadm kubectl
 # apt-mark hold kubelet kubeadm kubectl
-</code></pre><pre tabindex=0><code># kubeadm init --pod-network-cidr 172.16.0.0/16 \
+</code></pre><pre tabindex="0"><code># kubeadm init --pod-network-cidr 172.16.0.0/16 \
     --image-repository registry.cn-hangzhou.aliyuncs.com/google_containers
-</code></pre><p>172.16.0.0/16 cidr, 待会下面calico也会用到</p><pre tabindex=0><code># mkdir -p $HOME/.kube
+</code></pre><p>172.16.0.0/16 cidr, 待会下面calico也会用到</p>
+<pre tabindex="0"><code># mkdir -p $HOME/.kube
 # cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 # chown $(id -u):$(id -g) $HOME/.kube/config
 
 # kubeadm join 1.2.3.4:6443 --token buoag9.acokh9epbt7m7k8s \
     --discovery-token-ca-cert-hash sha256:4096a2262d64673f6eb583cefaeef705349d2c6ace066ec4ac42828b28e9f4bf 
-</code></pre><p>kubeadm join的命令, 供加入worker节点用</p><p>设置master节点可调度</p><pre tabindex=0><code># kubectl taint nodes --all node-role.kubernetes.io/master-
-</code></pre><h4 id=25-安装calico>2.5 安装calico</h4><pre tabindex=0><code># wget -c https://docs.projectcalico.org/v3.11/manifests/calico.yaml
-</code></pre><p>修改calico.yaml</p><pre tabindex=0><code>CALICO_IPV4POOL_CIDR: 172.16.0.0/16
-</code></pre><pre tabindex=0><code># kubectl apply -f calico.yaml
-</code></pre><pre tabindex=0><code># kubectl get nodes
+</code></pre><p>kubeadm join的命令, 供加入worker节点用</p>
+<p>设置master节点可调度</p>
+<pre tabindex="0"><code># kubectl taint nodes --all node-role.kubernetes.io/master-
+</code></pre><h4 id="25-安装calico">2.5 安装calico</h4>
+<pre tabindex="0"><code># wget -c https://docs.projectcalico.org/v3.11/manifests/calico.yaml
+</code></pre><p>修改calico.yaml</p>
+<pre tabindex="0"><code>CALICO_IPV4POOL_CIDR: 172.16.0.0/16
+</code></pre><pre tabindex="0"><code># kubectl apply -f calico.yaml
+</code></pre><pre tabindex="0"><code># kubectl get nodes
 NAME             STATUS   ROLES    AGE   VERSION
 xiabingyao-lc0   Ready    master   14h   v1.19.3
-</code></pre><pre tabindex=0><code># kubectl get pod -A
+</code></pre><pre tabindex="0"><code># kubectl get pod -A
 NAMESPACE     NAME                                       READY   STATUS    RESTARTS   AGE
 kube-system   calico-kube-controllers-6b8f6f78dc-l4z4r   1/1     Running   0          14h
 kube-system   calico-node-sn8rk                          1/1     Running   0          14h
@@ -65,7 +308,9 @@ kube-system   kube-apiserver-xiabingyao-lc0              1/1     Running   0    
 kube-system   kube-controller-manager-xiabingyao-lc0     1/1     Running   0          14h
 kube-system   kube-proxy-7jbqs                           1/1     Running   0          14h
 kube-system   kube-scheduler-xiabingyao-lc0              1/1     Running   0          14h
-</code></pre><h3 id=3-istio>3. Istio</h3><p>下载istio</p><pre tabindex=0><code># curl -L https://istio.io/downloadIstio | sh -
+</code></pre><h3 id="3-istio">3. Istio</h3>
+<p>下载istio</p>
+<pre tabindex="0"><code># curl -L https://istio.io/downloadIstio | sh -
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100   102  100   102    0     0     28      0  0:00:03  0:00:03 --:--:--    28
@@ -88,12 +333,14 @@ Begin the Istio pre-installation check by running:
      istioctl x precheck 
 
 Need more information? Visit https://istio.io/latest/docs/setup/install/
-</code></pre><p>istioctl加入PATH，kubectl命令行不全，istioctl命令行补全</p><pre tabindex=0><code># vim .bashrc  # 添加如下内容
+</code></pre><p>istioctl加入PATH，kubectl命令行不全，istioctl命令行补全</p>
+<pre tabindex="0"><code># vim .bashrc  # 添加如下内容
 source &lt;(kubectl completion bash)
 export PATH=&#34;$PATH:/root/istio-1.9.4/bin&#34;
 source ~/istio-1.9.4/tools/istioctl.bash
-</code></pre><p>安装 demo 配置</p><pre tabindex=0><code># istioctl manifest install --set profile=demo
-</code></pre><pre tabindex=0><code># kubectl -n istio-system get pod
+</code></pre><p>安装 demo 配置</p>
+<pre tabindex="0"><code># istioctl manifest install --set profile=demo
+</code></pre><pre tabindex="0"><code># kubectl -n istio-system get pod
 NAME                                    READY   STATUS    RESTARTS   AGE
 istio-egressgateway-844fd8c8c6-llxjs    1/1     Running   0          3h58m
 istio-ingressgateway-67fc4949df-bwvh2   1/1     Running   0          3h58m
@@ -104,13 +351,21 @@ NAME                   TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)      
 istio-egressgateway    ClusterIP      10.96.63.196   &lt;none&gt;        80/TCP,443/TCP,15443/TCP                                                     3h58m
 istio-ingressgateway   LoadBalancer   10.107.85.29   &lt;pending&gt;     15021:30197/TCP,80:32242/TCP,443:30567/TCP,31400:31724/TCP,15443:30271/TCP   3h58m
 istiod                 ClusterIP      10.99.20.87    &lt;none&gt;        15010/TCP,15012/TCP,443/TCP,15014/TCP,853/TCP                                4h
-</code></pre><p>集群运行在一个不支持外部负载均衡器的环境中，istio-ingressgateway的EXTERNAL-IP将显示为状态。
-可使用服务的NodePort或端口转发来访问网关.</p><h4 id=31-注入sidecar>3.1 注入Sidecar</h4><blockquote><p>为了充分利用 Istio 的所有特性，网格中的 pod 必须运行一个 Istio sidecar 代理。
+</code></pre><p>集群运行在一个不支持外部负载均衡器的环境中，istio-ingressgateway的EXTERNAL-IP将显示为<!-- raw HTML omitted -->状态。
+可使用服务的NodePort或端口转发来访问网关.</p>
+<h4 id="31-注入sidecar">3.1 注入Sidecar</h4>
+<blockquote>
+<p>为了充分利用 Istio 的所有特性，网格中的 pod 必须运行一个 Istio sidecar 代理。
 下面的章节描述了向 pod 中注入 Istio sidecar 的两种方法：使用<code>istioctl</code>手动注入或启用 pod 所属命名空间的 Istio sidecar 注入器自动注入。
 手动注入直接修改配置，如 deployment，并将代理配置注入其中。
 当pod所属命名空间启用自动注入后，自动注入器会使用准入控制器在创建Pod时自动注入代理配置。
-通过应用<code>istio-sidecar-injector</code>ConfigMap 中定义的模版进行注入。</p></blockquote><h4 id=311-手动注入>3.1.1 手动注入</h4><p>使用<code>istioctl kube-inject</code>实现注入，默认使用集群内的配置完成注入</p><pre tabindex=0><code># istioctl kube-inject -f samples/sleep/sleep.yaml | kubectl apply -f -
-</code></pre><p>也可以使用该配置的本地副本完成注入</p><pre tabindex=0><code>kubectl -n istio-system get configmap istio-sidecar-injector -o=jsonpath=&#39;{.data.config}&#39; &gt; inject-config.yaml
+通过应用<code>istio-sidecar-injector</code>ConfigMap 中定义的模版进行注入。</p>
+</blockquote>
+<h4 id="311-手动注入">3.1.1 手动注入</h4>
+<p>使用<code>istioctl kube-inject</code>实现注入，默认使用集群内的配置完成注入</p>
+<pre tabindex="0"><code># istioctl kube-inject -f samples/sleep/sleep.yaml | kubectl apply -f -
+</code></pre><p>也可以使用该配置的本地副本完成注入</p>
+<pre tabindex="0"><code>kubectl -n istio-system get configmap istio-sidecar-injector -o=jsonpath=&#39;{.data.config}&#39; &gt; inject-config.yaml
 kubectl -n istio-system get configmap istio-sidecar-injector -o=jsonpath=&#39;{.data.values}&#39; &gt; inject-values.yaml
 kubectl -n istio-system get configmap istio -o=jsonpath=&#39;{.data.mesh}&#39; &gt; mesh-config.yaml
 istioctl kube-inject \
@@ -119,17 +374,23 @@ istioctl kube-inject \
     --valuesFile inject-values.yaml \
     --filename samples/sleep/sleep.yaml \
     | kubectl apply -f -
-</code></pre><p>READY 2/2说明sidecar已经被注入到sleep的pod中</p><pre tabindex=0><code>~/istio-1.9.4# kubectl get pod 
+</code></pre><p>READY 2/2说明sidecar已经被注入到sleep的pod中</p>
+<pre tabindex="0"><code>~/istio-1.9.4# kubectl get pod 
 NAME                     READY   STATUS    RESTARTS   AGE
 sleep-77dd9bc8dc-mr7lt   2/2     Running   0          11m
-</code></pre><h4 id=312-自动注入>3.1.2 自动注入</h4><p>使用 Istio 提供的准入控制器变更 webhook，可以将 sidecar 自动添加到可用的 Kubernetes pod 中.</p><p>这个版本的kube-apiserver默认启用<code>MutatingAdmissionWebhook</code>和<code>ValidatingAdmissionWebhook</code></p><pre tabindex=0><code># kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io  -A
+</code></pre><h4 id="312-自动注入">3.1.2 自动注入</h4>
+<p>使用 Istio 提供的准入控制器变更 webhook，可以将 sidecar 自动添加到可用的 Kubernetes pod 中.</p>
+<p>这个版本的kube-apiserver默认启用<code>MutatingAdmissionWebhook</code>和<code>ValidatingAdmissionWebhook</code></p>
+<pre tabindex="0"><code># kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io  -A
 NAME                     WEBHOOKS   AGE
 istio-sidecar-injector   1          46h
  
 # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io 
 NAME                  WEBHOOKS   AGE
 istiod-istio-system   1          46h
-</code></pre><p>当你在一个命名空间中设置了 istio-injection=enabled 标签，且 injection webhook 被启用后，任何新的 pod 都有将在创建时自动添加 sidecar。</p><p>Note: 区别于手动注入，自动注入发生在 pod 层面。你将看不到 deployment 本身有任何更改。取而代之，需要检查单独的 pod（使用 kubectl describe）来查询被注入的代理。</p><pre tabindex=0><code># kubectl label namespace default istio-injection=enabled
+</code></pre><p>当你在一个命名空间中设置了 istio-injection=enabled 标签，且 injection webhook 被启用后，任何新的 pod 都有将在创建时自动添加 sidecar。</p>
+<p>Note: 区别于手动注入，自动注入发生在 pod 层面。你将看不到 deployment 本身有任何更改。取而代之，需要检查单独的 pod（使用 kubectl describe）来查询被注入的代理。</p>
+<pre tabindex="0"><code># kubectl label namespace default istio-injection=enabled
 namespace/default labeled
 # kubectl get namespace -L istio-injection
 NAME              STATUS   AGE     ISTIO-INJECTION
@@ -138,10 +399,10 @@ istio-system      Active   46h     disabled
 kube-node-lease   Active   2d13h   
 kube-public       Active   2d13h   
 kube-system       Active   2d13h 
-</code></pre><pre tabindex=0><code># kubectl get pod
+</code></pre><pre tabindex="0"><code># kubectl get pod
 NAME                     READY   STATUS    RESTARTS   AGE
 sleep-854565cb79-qkklc   2/2     Running   0          52s
-</code></pre><pre tabindex=0><code># kubectl describe pod -l app=sleep
+</code></pre><pre tabindex="0"><code># kubectl describe pod -l app=sleep
 Events:
   Type    Reason     Age   From               Message
   ----    ------     ----  ----               -------
@@ -157,7 +418,9 @@ Events:
   Normal  Pulled     36s   kubelet            Successfully pulled image &#34;docker.io/istio/proxyv2:1.9.4&#34; in 2.598229594s
   Normal  Created    36s   kubelet            Created container istio-proxy
   Normal  Started    36s   kubelet            Started container istio-proxy
-</code></pre><p>istio-proxy容器被注入进去了</p><p>可以设置annotation<code>sidecar.istio.io/inject</code>来禁用sidecar注入</p><pre tabindex=0><code>apiVersion: apps/v1
+</code></pre><p>istio-proxy容器被注入进去了</p>
+<p>可以设置annotation<code>sidecar.istio.io/inject</code>来禁用sidecar注入</p>
+<pre tabindex="0"><code>apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ignored
@@ -171,11 +434,45 @@ spec:
       - name: ignored
         image: tutum/curl
         command: [&#34;/bin/sleep&#34;,&#34;infinity&#34;]
-</code></pre><h4 id=34-卸载istio>3.4 卸载istio</h4><p>卸载程序将删除 RBAC 权限、istio-system 命名空间和所有相关资源。可以忽略那些不存在的资源的报错，因为它们可能已经被删除掉了。</p><pre tabindex=0><code># istioctl manifest generate --set profile=demo | kubectl delete -f -
-</code></pre><h3 id=4-微服务bookinfo应用>4. 微服务Bookinfo应用</h3><h4 id=41-bookinfo应用介绍>4.1 Bookinfo应用介绍</h4><blockquote><p>这个示例部署了一个用于演示多种 Istio 特性的应用，该应用由四个单独的微服务构成。 这个应用模仿在线书店的一个分类，显示一本书的信息。 页面上会显示一本书的描述，书籍的细节（ISBN、页数等），以及关于这本书的一些评论。</p></blockquote><p>Bookinfo应用分为四个单独的微服务：</p><ul><li>productpage: 这个微服务会调用 details 和 reviews 两个微服务，用来生成页面。</li><li>details: 这个微服务中包含了书籍的信息。</li><li>reviews: 这个微服务中包含了书籍相关的评论。它还会调用 ratings 微服务。</li><li>ratings: 这个微服务中包含了由书籍评价组成的评级信息。</li></ul><p>reviews微服务有3个版本：</p><ul><li>v1 版本不会调用 ratings 服务。</li><li>v2 版本会调用 ratings 服务，并使用 1 到 5 个黑色星形图标来显示评分信息。</li><li>v3 版本会调用 ratings 服务，并使用 1 到 5 个红色星形图标来显示评分信息。</li></ul><blockquote><p>Bookinfo 应用中的几个微服务是由不同的语言编写的。
-这些服务对 Istio 并无依赖，但是构成了一个有代表性的服务网格的例子：它由多个服务、多个语言构成，并且reviews服务具有多个版本。</p></blockquote><blockquote><p>要在Istio中运行这一应用，无需对应用自身做出任何改变.您只要简单的在Istio环境中对服务进行配置和运行，具体一点说就是把Envoy sidecar注入到每个服务之中.
-最终的部署结果将如下图所示：</p></blockquote><p><img src=/img/posts/2020-10-22/withistio.svg alt></p><blockquote><p>所有的微服务都和Envoy sidecar集成在一起，被集成服务所有的出入流量都被sidecar所劫持，
-这样就为外部控制准备了所需的Hook，然后就可以利用Istio控制平面为应用提供服务路由、遥测数据收集以及策略实施等功能。</p></blockquote><h4 id=42-部署bookinfo>4.2 部署Bookinfo</h4><pre tabindex=0><code># kubectl label namespace default istio-injection=enabled
+</code></pre><h4 id="34-卸载istio">3.4 卸载istio</h4>
+<p>卸载程序将删除 RBAC 权限、istio-system 命名空间和所有相关资源。可以忽略那些不存在的资源的报错，因为它们可能已经被删除掉了。</p>
+<pre tabindex="0"><code># istioctl manifest generate --set profile=demo | kubectl delete -f -
+</code></pre><h3 id="4-微服务bookinfo应用">4. 微服务Bookinfo应用</h3>
+<h4 id="41-bookinfo应用介绍">4.1 Bookinfo应用介绍</h4>
+<blockquote>
+<p>这个示例部署了一个用于演示多种 Istio 特性的应用，该应用由四个单独的微服务构成。 这个应用模仿在线书店的一个分类，显示一本书的信息。 页面上会显示一本书的描述，书籍的细节（ISBN、页数等），以及关于这本书的一些评论。</p>
+</blockquote>
+<p>Bookinfo应用分为四个单独的微服务：</p>
+<ul>
+<li>productpage: 这个微服务会调用 details 和 reviews 两个微服务，用来生成页面。</li>
+<li>details: 这个微服务中包含了书籍的信息。</li>
+<li>reviews: 这个微服务中包含了书籍相关的评论。它还会调用 ratings 微服务。</li>
+<li>ratings: 这个微服务中包含了由书籍评价组成的评级信息。</li>
+</ul>
+<p>reviews微服务有3个版本：</p>
+<ul>
+<li>v1 版本不会调用 ratings 服务。</li>
+<li>v2 版本会调用 ratings 服务，并使用 1 到 5 个黑色星形图标来显示评分信息。</li>
+<li>v3 版本会调用 ratings 服务，并使用 1 到 5 个红色星形图标来显示评分信息。</li>
+</ul>
+<blockquote>
+<p>Bookinfo 应用中的几个微服务是由不同的语言编写的。
+这些服务对 Istio 并无依赖，但是构成了一个有代表性的服务网格的例子：它由多个服务、多个语言构成，并且reviews服务具有多个版本。</p>
+</blockquote>
+<blockquote>
+<p>要在Istio中运行这一应用，无需对应用自身做出任何改变.您只要简单的在Istio环境中对服务进行配置和运行，具体一点说就是把Envoy sidecar注入到每个服务之中.
+最终的部署结果将如下图所示：</p>
+</blockquote>
+<p>
+  <img src="/img/posts/2020-10-22/withistio.svg" alt="">
+
+</p>
+<blockquote>
+<p>所有的微服务都和Envoy sidecar集成在一起，被集成服务所有的出入流量都被sidecar所劫持，
+这样就为外部控制准备了所需的Hook，然后就可以利用Istio控制平面为应用提供服务路由、遥测数据收集以及策略实施等功能。</p>
+</blockquote>
+<h4 id="42-部署bookinfo">4.2 部署Bookinfo</h4>
+<pre tabindex="0"><code># kubectl label namespace default istio-injection=enabled
 
 # kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
 service/details created
@@ -192,7 +489,8 @@ deployment.apps/reviews-v3 created
 service/productpage created
 serviceaccount/bookinfo-productpage created
 deployment.apps/productpage-v1 created
-</code></pre><p>确认应用已启动</p><pre tabindex=0><code># kubectl get pod
+</code></pre><p>确认应用已启动</p>
+<pre tabindex="0"><code># kubectl get pod
 NAME                              READY   STATUS    RESTARTS   AGE
 details-v1-79c697d759-g2h6w       2/2     Running   0          6m35s
 productpage-v1-65576bb7bf-psdp8   2/2     Running   0          6m33s
@@ -200,27 +498,33 @@ ratings-v1-7d99676f7f-t9jzd       2/2     Running   0          6m35s
 reviews-v1-987d495c-qk6zk         2/2     Running   0          6m34s
 reviews-v2-6c5bf657cf-8httm       2/2     Running   0          6m34s
 reviews-v3-5f7b9f4f77-f2gq5       2/2     Running   0          6m34s
-</code></pre><pre tabindex=0><code># kubectl get service
+</code></pre><pre tabindex="0"><code># kubectl get service
 NAME          TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
 details       ClusterIP   10.105.17.2     &lt;none&gt;        9080/TCP   6m58s
 kubernetes    ClusterIP   10.96.0.1       &lt;none&gt;        443/TCP    2d20h
 productpage   ClusterIP   10.106.98.129   &lt;none&gt;        9080/TCP   6m57s
 ratings       ClusterIP   10.98.209.167   &lt;none&gt;        9080/TCP   6m58s
 reviews       ClusterIP   10.106.27.124   &lt;none&gt;        9080/TCP   6m58s
-</code></pre><h4 id=43-访问bookinfo>4.3 访问Bookinfo</h4><pre tabindex=0><code># kubectl exec -it $(kubectl get pod -l app=ratings -o jsonpath=&#39;{.items[0].metadata.name}&#39;) -c ratings -- curl productpage:9080/productpage | grep -o &#34;&lt;title&gt;.*&lt;/title&gt;&#34;
+</code></pre><h4 id="43-访问bookinfo">4.3 访问Bookinfo</h4>
+<pre tabindex="0"><code># kubectl exec -it $(kubectl get pod -l app=ratings -o jsonpath=&#39;{.items[0].metadata.name}&#39;) -c ratings -- curl productpage:9080/productpage | grep -o &#34;&lt;title&gt;.*&lt;/title&gt;&#34;
 &lt;title&gt;Simple Bookstore App&lt;/title&gt;
-</code></pre><p>使用istio-gateway来访问</p><pre tabindex=0><code># kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+</code></pre><p>使用istio-gateway来访问</p>
+<pre tabindex="0"><code># kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
 # kubectl get gateways.networking.istio.io 
 NAME               AGE
 bookinfo-gateway   3m34s
-</code></pre><p>这里集群没有LoadBalancer, 通过NodePort来访问</p><pre tabindex=0><code># export INGRESS_HOST=&lt;本机IP&gt;
+</code></pre><p>这里集群没有LoadBalancer, 通过NodePort来访问</p>
+<pre tabindex="0"><code># export INGRESS_HOST=&lt;本机IP&gt;
 # export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath=&#39;{.spec.ports[?(@.name==&#34;http2&#34;)].nodePort}&#39;)
 # export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
 
 # curl -s http://${GATEWAY_URL}/productpage | grep -o &#34;&lt;title&gt;.*&lt;/title&gt;&#34;
 &lt;title&gt;Simple Bookstore App&lt;/title&gt;
-</code></pre><h4 id=44-清理bookinfo应用>4.4 清理Bookinfo应用</h4><p>删除路由规则，删除应用pod</p><pre tabindex=0><code># ./samples/bookinfo/platform/kube/cleanup.sh
-</code></pre><p>确认应用已删除</p><pre tabindex=0><code># kubectl get virtualservices.networking.istio.io 
+</code></pre><h4 id="44-清理bookinfo应用">4.4 清理Bookinfo应用</h4>
+<p>删除路由规则，删除应用pod</p>
+<pre tabindex="0"><code># ./samples/bookinfo/platform/kube/cleanup.sh
+</code></pre><p>确认应用已删除</p>
+<pre tabindex="0"><code># kubectl get virtualservices.networking.istio.io 
 No resources found in default namespace. 
 # kubectl get destinationrules.networking.istio.io 
 No resources found in default namespace.
@@ -228,15 +532,52 @@ No resources found in default namespace.
 No resources found in default namespace.
 # kubectl get pods
 No resources found in default namespace.
-</code></pre><h3 id=5-knative>5. Knative</h3><h4 id=51-knative介绍>5.1 Knative介绍</h4><blockquote><p>Knative提供了一系列的k8s组件，为k8s集群引入了事件驱动和无服务能力.
-Knative api是基于k8s api封装的，所以Knative资源和k8s资源是兼容的，用k8s现有的工具也是可以管理knative资源的.</p></blockquote><p>通用的语言和包含对k8s友好的工具框架可以和knative一起顺利结合来减少花在通用部署问题上的时间消耗，例如：</p><ul><li>部署在一个容器里</li><li>蓝绿部署的路由和流量管理</li><li>按需弹性扩缩容</li><li>运行的服务和事件系统绑定</li></ul><p>Knative有两个核心组件，提供不同的功能：</p><ul><li>Knative Serving: 简便管理k8s上的无状态服务，通过减少开发者为弹性扩缩容，网络，部署花费的精力</li><li>Knative Eventing: 通过将事件路由公开为配置而不是嵌入代码中，可以轻松地在群集内组件和群集外组件之间路由事件</li></ul><p>这些组件以Kubernetes定制资源定义(CRD)的形式提供.</p><h4 id=511-serving模块>5.1.1 Serving模块</h4><p>Serving模块定义了一组特定的对象来控制所有功能：</p><ul><li>Revision（修订版本）</li><li>Configuration （配置）</li><li>Route（路由）</li><li>Service（服务）</li></ul><p>这些对象之间的相互关系：
-<img src=/img/posts/2020-10-22/knative_serving.png alt></p><h4 id=52-knative-serving安装>5.2 Knative Serving安装</h4><p>安装serving crd</p><pre tabindex=0><code># kubectl apply -f https://github.com/knative/serving/releases/download/v0.22.0/serving-crds.yaml
-</code></pre><p>安装knative serving组件</p><pre tabindex=0><code># kubectl apply -f https://github.com/knative/serving/releases/download/v0.22.0/serving-core.yaml
-</code></pre><p>安装网络层，这里选择istio（已装istio的话，就忽略）</p><pre tabindex=0><code># kubectl apply -f https://github.com/knative/net-istio/releases/download/v0.22.0/istio.yaml
-</code></pre><p>安装Knative Istio controller</p><pre tabindex=0><code># kubectl apply -f https://github.com/knative/net-istio/releases/download/v0.22.0/net-istio.yaml
-</code></pre><p>如果遇到gcr镜像拉取不下来的问题，可以采用dockerHub自动构建功能，重新编译镜像，然后从dockerHub上拉取镜像，Dockerfile形如：</p><pre tabindex=0><code>FROM gcr.io/knative-releases/knative.dev/serving/cmd/controller@sha256:d772809059033e437d6e98248a334ded37b6f430c2ca23377875cc2459a3b73e
+</code></pre><h3 id="5-knative">5. Knative</h3>
+<h4 id="51-knative介绍">5.1 Knative介绍</h4>
+<blockquote>
+<p>Knative提供了一系列的k8s组件，为k8s集群引入了事件驱动和无服务能力.
+Knative api是基于k8s api封装的，所以Knative资源和k8s资源是兼容的，用k8s现有的工具也是可以管理knative资源的.</p>
+</blockquote>
+<p>通用的语言和包含对k8s友好的工具框架可以和knative一起顺利结合来减少花在通用部署问题上的时间消耗，例如：</p>
+<ul>
+<li>部署在一个容器里</li>
+<li>蓝绿部署的路由和流量管理</li>
+<li>按需弹性扩缩容</li>
+<li>运行的服务和事件系统绑定</li>
+</ul>
+<p>Knative有两个核心组件，提供不同的功能：</p>
+<ul>
+<li>Knative Serving: 简便管理k8s上的无状态服务，通过减少开发者为弹性扩缩容，网络，部署花费的精力</li>
+<li>Knative Eventing: 通过将事件路由公开为配置而不是嵌入代码中，可以轻松地在群集内组件和群集外组件之间路由事件</li>
+</ul>
+<p>这些组件以Kubernetes定制资源定义(CRD)的形式提供.</p>
+<h4 id="511-serving模块">5.1.1 Serving模块</h4>
+<p>Serving模块定义了一组特定的对象来控制所有功能：</p>
+<ul>
+<li>Revision（修订版本）</li>
+<li>Configuration （配置）</li>
+<li>Route（路由）</li>
+<li>Service（服务）</li>
+</ul>
+<p>这些对象之间的相互关系：
+
+  <img src="/img/posts/2020-10-22/knative_serving.png" alt="">
+
+</p>
+<h4 id="52-knative-serving安装">5.2 Knative Serving安装</h4>
+<p>安装serving crd</p>
+<pre tabindex="0"><code># kubectl apply -f https://github.com/knative/serving/releases/download/v0.22.0/serving-crds.yaml
+</code></pre><p>安装knative serving组件</p>
+<pre tabindex="0"><code># kubectl apply -f https://github.com/knative/serving/releases/download/v0.22.0/serving-core.yaml
+</code></pre><p>安装网络层，这里选择istio（已装istio的话，就忽略）</p>
+<pre tabindex="0"><code># kubectl apply -f https://github.com/knative/net-istio/releases/download/v0.22.0/istio.yaml
+</code></pre><p>安装Knative Istio controller</p>
+<pre tabindex="0"><code># kubectl apply -f https://github.com/knative/net-istio/releases/download/v0.22.0/net-istio.yaml
+</code></pre><p>如果遇到gcr镜像拉取不下来的问题，可以采用dockerHub自动构建功能，重新编译镜像，然后从dockerHub上拉取镜像，Dockerfile形如：</p>
+<pre tabindex="0"><code>FROM gcr.io/knative-releases/knative.dev/serving/cmd/controller@sha256:d772809059033e437d6e98248a334ded37b6f430c2ca23377875cc2459a3b73e
 MAINTAINER iceyao
-</code></pre><p>查看Knative serving组件</p><pre tabindex=0><code># kubectl get pods --namespace knative-serving
+</code></pre><p>查看Knative serving组件</p>
+<pre tabindex="0"><code># kubectl get pods --namespace knative-serving
 NAME                                READY   STATUS    RESTARTS   AGE
 activator-8c4654594-kzq2s           1/1     Running   3          18m
 autoscaler-54c787f494-5wztl         1/1     Running   0          7m33s
@@ -244,10 +585,14 @@ controller-564c6bcbc7-vkjdn         1/1     Running   0          11m
 istio-webhook-8575b9d9cf-kzj27      1/1     Running   0          4m24s
 networking-istio-7494bdf9c4-vs8ql   1/1     Running   0          8m27s
 webhook-7777865cf4-pzb2g            1/1     Running   0          13m
-</code></pre><h4 id=53-knative-eventing安装>5.3 Knative Eventing安装</h4><p>安装eventing crd</p><pre tabindex=0><code># kubectl apply -f https://github.com/knative/eventing/releases/download/v0.22.0/eventing-crds.yaml
-</code></pre><p>安装knative eventing组件</p><pre tabindex=0><code># kubectl apply -f https://github.com/knative/eventing/releases/download/v0.22.0/eventing-core.yaml
-</code></pre><h4 id=54-demo应用>5.4 demo应用</h4><pre tabindex=0><code># kn service create helloworld-go --image yao3690093/helloworld-go --env TARGET=&#34;Go Sample v1&#34;
-</code></pre><pre tabindex=0><code># kn service describe helloworld-go
+</code></pre><h4 id="53-knative-eventing安装">5.3 Knative Eventing安装</h4>
+<p>安装eventing crd</p>
+<pre tabindex="0"><code># kubectl apply -f https://github.com/knative/eventing/releases/download/v0.22.0/eventing-crds.yaml
+</code></pre><p>安装knative eventing组件</p>
+<pre tabindex="0"><code># kubectl apply -f https://github.com/knative/eventing/releases/download/v0.22.0/eventing-core.yaml
+</code></pre><h4 id="54-demo应用">5.4 demo应用</h4>
+<pre tabindex="0"><code># kn service create helloworld-go --image yao3690093/helloworld-go --env TARGET=&#34;Go Sample v1&#34;
+</code></pre><pre tabindex="0"><code># kn service describe helloworld-go
 Name:       helloworld-go
 Namespace:  default
 Age:        1h
@@ -262,29 +607,410 @@ Conditions:
   ++ Ready                  58m
   ++ ConfigurationsReady    58m
   ++ RoutesReady            58m
-</code></pre><p>临时dns访问</p><pre tabindex=0><code># curl -H &#34;Host: helloworld-go.default.example.com&#34; http://192.168.39.228:32198
-</code></pre><h3 id=6-参考链接>6. 参考链接</h3><ul><li><a href=https://zhuanlan.zhihu.com/p/138554103>基于Ubuntu 20.04安装Kubernetes 1.18</a></li><li><a href=https://istio.io/latest/zh/docs/setup/additional-setup/sidecar-injection/#manual-sidecar-injection>istio官方文档-设置Sidecar</a></li><li><a href=https://istio.io/latest/zh/docs/setup/getting-started/#platform>istio getting-started</a></li><li><a href=https://knative.dev/docs/>https://knative.dev/docs/</a></li></ul><div class="entry-shang text-center"><p>「真诚赞赏，手留余香」</p><button class="zs show-zs btn btn-bred">赞赏支持</button></div><div class=zs-modal-bg></div><div class=zs-modal-box><div class=zs-modal-head><button type=button class=close>×</button>
-<span class=author><a href=https://www.iceyao.com.cn/><img src=/img/favicon.png>爱折腾的工程师</a></span><p class=tip><i></i><span>真诚赞赏，手留余香</span></p></div><div class=zs-modal-body><div class=zs-modal-btns><button class="btn btn-blink" data-num=2>2元</button>
-<button class="btn btn-blink" data-num=5>5元</button>
-<button class="btn btn-blink" data-num=10>10元</button>
-<button class="btn btn-blink" data-num=50>50元</button>
-<button class="btn btn-blink" data-num=100>100元</button>
-<button class="btn btn-blink" data-num=1>任意金额</button></div><div class=zs-modal-pay><button class="btn btn-bred" id=pay-text>2元</button><p>使用<span id=pay-type>微信</span>扫描二维码完成支付</p><img src=/img/reward/wechat-2.png id=pay-image></div></div><div class=zs-modal-footer><label><input type=radio name=zs-type value=wechat class=zs-type checked><span><span class=zs-wechat><img src=/img/reward/wechat-btn.png></span></label>
-<label><input type=radio name=zs-type value=alipay class=zs-type class=zs-alipay><img src=/img/reward/alipay-btn.png></span></label></div></div><script type=text/javascript src=/js/reward.js></script><hr><ul class=pager><li class=previous><a href=/post/2020-10-09-write_docker_by_self_readnote/ data-toggle=tooltip data-placement=top title=《自己动手写docker》阅读笔记>&larr;
-Previous Post</a></li><li class=next><a href=/post/2020-11-11-device_plugin_learning_note/ data-toggle=tooltip data-placement=top title="K8S device plugin学习笔记">Next
-Post &rarr;</a></li></ul><script src=https://giscus.app/client.js data-repo=yaoice/yaoice.github.io data-repo-id=R_kgDOJnxqVg data-category=General data-category-id=DIC_kwDOJnxqVs4CWwUs data-mapping=pathname data-reactions-enabled=1 data-emit-metadata=0 data-theme=light data-lang=en crossorigin=anonymous async></script></div><div class="col-lg-2 col-lg-offset-0
-visible-lg-block
-sidebar-container
-catalog-container"><div class=side-catalog><hr class="hidden-sm hidden-xs"><h5><a class=catalog-toggle href=#>CATALOG</a></h5><ul class=catalog-body></ul></div></div><div class="col-lg-8 col-lg-offset-2
-col-md-10 col-md-offset-1
-sidebar-container"><section><hr class="hidden-sm hidden-xs"><h5><a href=/tags/>FEATURED TAGS</a></h5><div class=tags><a href=/tags/devops title=devops>devops
-</a><a href=/tags/go title=go>go
-</a><a href=/tags/k8s title=k8s>k8s
-</a><a href=/tags/llm title=llm>llm
-</a><a href=/tags/openstack title=openstack>openstack
-</a><a href=/tags/tkestack title=tkestack>tkestack
-</a><a href=/tags/%E7%BB%83%E8%BD%A6 title=练车>练车</a></div></section></div></div></div></article><footer><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><ul class="list-inline text-center"><li><a href=mailto:yao3690093@gmail.com><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fas fa-envelope fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=/img/wechat.jpeg><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fab fa-weixin fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=https://github.com/yaoice><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fab fa-github fa-stack-1x fa-inverse"></i></span></a></li><li><a href rel=alternate type=application/rss+xml title=爱折腾的工程师><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fas fa-rss fa-stack-1x fa-inverse"></i></span></a></li></ul><p class="copyright text-muted">Copyright &copy; 爱折腾的工程师 2024</p></div></div></div></footer><script>function loadAsync(e,t){var s=document,o="script",n=s.createElement(o),i=s.getElementsByTagName(o)[0];n.src=e,t&&n.addEventListener("load",function(e){t(null,e)},!1),i.parentNode.insertBefore(n,i)}</script><script>$("#tag_cloud").length!==0&&loadAsync("/js/jquery.tagcloud.js",function(){$.fn.tagcloud.defaults={color:{start:"#bbbbee",end:"#0085a1"}},$("#tag_cloud a").tagcloud()})</script><script>loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js",function(){var e=document.querySelector("nav");e&&FastClick.attach(e)})</script><script>(function(){var t,e=document.createElement("script"),n=window.location.protocol.split(":")[0];n==="https"?e.src="https://zz.bdstatic.com/linksubmit/push.js":e.src="http://push.zhanzhang.baidu.com/push.js",t=document.getElementsByTagName("script")[0],t.parentNode.insertBefore(e,t)})()</script><script>var _baId="92c175994ded75a3cd2074bc1123e2be",_hmt=_hmt||[];(function(){var e,t=document.createElement("script");t.src="//hm.baidu.com/hm.js?"+_baId,e=document.getElementsByTagName("script")[0],e.parentNode.insertBefore(t,e)})()</script><script type=text/javascript>function generateCatalog(e){_containerSelector="div.post-container";var t,n,s,o,i,a=$(_containerSelector),r=a.find("h1,h2,h3,h4,h5,h6");return $(e).html(""),r.each(function(){t=$(this).prop("tagName").toLowerCase(),o="#"+$(this).prop("id"),n=$(this).text(),i=$('<a href="'+o+'" rel="nofollow">'+n+"</a>"),s=$('<li class="'+t+'_nav"></li>').append(i),$(e).append(s)}),!0}generateCatalog(".catalog-body"),$(".catalog-toggle").click(function(e){e.preventDefault(),$(".side-catalog").toggleClass("fold")}),loadAsync("/js/jquery.nav.js",function(){$(".catalog-body").onePageNav({currentClass:"active",changeHash:!1,easing:"swing",filter:"",scrollSpeed:700,scrollOffset:0,scrollThreshold:.2,begin:null,end:null,scrollChange:null,padding:80})})</script></body></html>
+</code></pre><p>临时dns访问</p>
+<pre tabindex="0"><code># curl -H &#34;Host: helloworld-go.default.example.com&#34; http://192.168.39.228:32198
+</code></pre><h3 id="6-参考链接">6. 参考链接</h3>
+<ul>
+<li><a href="https://zhuanlan.zhihu.com/p/138554103">基于Ubuntu 20.04安装Kubernetes 1.18</a></li>
+<li><a href="https://istio.io/latest/zh/docs/setup/additional-setup/sidecar-injection/#manual-sidecar-injection">istio官方文档-设置Sidecar</a></li>
+<li><a href="https://istio.io/latest/zh/docs/setup/getting-started/#platform">istio getting-started</a></li>
+<li><a href="https://knative.dev/docs/">https://knative.dev/docs/</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2020-10-09-write_docker_by_self_readnote/" data-toggle="tooltip" data-placement="top" title="《自己动手写docker》阅读笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2020-11-11-device_plugin_learning_note/" data-toggle="tooltip" data-placement="top" title="K8S device plugin学习笔记">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2024
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

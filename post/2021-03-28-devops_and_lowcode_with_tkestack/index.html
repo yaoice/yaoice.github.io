@@ -1,21 +1,276 @@
-<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:site_name" content="爱折腾的工程师"><meta property="og:type" content="article"><meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta name=title content="基于TKEStack构建的DevOps体系"><meta property="og:title" content="基于TKEStack构建的DevOps体系"><meta property="twitter:title" content="基于TKEStack构建的DevOps体系"><meta name=description content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:card" content="summary"><meta name=keyword content="iceyao, IceYao's Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice"><link rel="shortcut icon" href=/img/favicon.ico><title>基于TKEStack构建的DevOps体系 | 爱折腾的工程师 | IceYao's Blog</title>
-<link rel=canonical href=/post/2021-03-28-devops_and_lowcode_with_tkestack/><link rel=stylesheet href=/css/bootstrap.min.css><link rel=stylesheet href=/css/hugo-theme-cleanwhite.min.css><link rel=stylesheet href=/css/zanshang.css><link rel=stylesheet href=/css/font-awesome.all.min.css><script src=/js/jquery.min.js></script><script src=/js/bootstrap.min.js></script><script src=/js/hux-blog.min.js></script><script src=/js/lazysizes.min.js></script></head><script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-9J7CKFVPPM")}</script><nav class="navbar navbar-default navbar-custom navbar-fixed-top"><div class=container-fluid><div class="navbar-header page-scroll"><button type=button class=navbar-toggle>
-<span class=sr-only>Toggle navigation</span>
-<span class=icon-bar></span>
-<span class=icon-bar></span>
-<span class=icon-bar></span>
-</button>
-<a class=navbar-brand href=/>爱折腾的工程师</a></div><div id=huxblog_navbar><div class=navbar-collapse><ul class="nav navbar-nav navbar-right"><li><a href=/>All Posts</a></li><li><a href=/archive//>ARCHIVE</a></li><li><a href=/notes//>NOTES</a></li><li><a href=/about//>ABOUT</a></li><li><a href=/search><i class="fa fa-search"></i></a></li></ul></div></div></div></nav><script>var $body=document.body,$toggle=document.querySelector(".navbar-toggle"),$navbar=document.querySelector("#huxblog_navbar"),$collapse=document.querySelector(".navbar-collapse");$toggle.addEventListener("click",handleMagic);function handleMagic(){$navbar.className.indexOf("in")>0?($navbar.className=" ",setTimeout(function(){$navbar.className.indexOf("in")<0&&($collapse.style.height="0px")},400)):($collapse.style.height="auto",$navbar.className+=" in")}</script><style type=text/css>header.intro-header{background-image:url(/img/post-bg-unix-linux.jpg)}</style><header class=intro-header><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><div class=post-heading><div class=tags><a class=tag href=/tags/devops title=DevOps>DevOps</a></div><h1>基于TKEStack构建的DevOps体系</h1><h2 class=subheading></h2><span class=meta>Posted by
-爱折腾的工程师
-on
-Sunday, March 28, 2021</span></div></div></div></div></header><article><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2
-col-md-10 col-md-offset-1
-post-container"><ul><li>TKEStack版本：v1.6.0</li></ul><h2 id=devops-on-tkestack>DevOps on TKEStack</h2><h3 id=1-tkestack部署>1. TKEStack部署</h3><h4 id=11-部署架构>1.1 部署架构</h4><p>产品架构图：（从<a href=https://tkestack.github.io/docs/installation/installation-architecture.html>https://tkestack.github.io/docs/installation/installation-architecture.html</a>引用）
-<img src=https://tkestack.github.io/docs/images/tkestackhighlevelarchitecture-2x.png alt></p><p>架构说明：</p><blockquote><p>TKEStack 采用了 Kubernetes on Kubernetes 的设计理念。
-即节点仅运行 Kubelet 进程，其他组件均采用容器化部署，由 Kubernetes 进行管理。</p></blockquote><blockquote><p>架构上分为Global集群和业务集群。
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="基于TKEStack构建的DevOps体系" />
+    <meta property="og:title" content="基于TKEStack构建的DevOps体系" />
+    <meta property="twitter:title" content="基于TKEStack构建的DevOps体系" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>基于TKEStack构建的DevOps体系 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2021-03-28-devops_and_lowcode_with_tkestack/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/devops" title="DevOps">
+                            DevOps
+                        </a>
+                        
+                    </div>
+                    <h1>基于TKEStack构建的DevOps体系</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Sunday, March 28, 2021
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <ul>
+<li>TKEStack版本：v1.6.0</li>
+</ul>
+<h2 id="devops-on-tkestack">DevOps on TKEStack</h2>
+<h3 id="1-tkestack部署">1. TKEStack部署</h3>
+<h4 id="11-部署架构">1.1 部署架构</h4>
+<p>产品架构图：（从<a href="https://tkestack.github.io/docs/installation/installation-architecture.html">https://tkestack.github.io/docs/installation/installation-architecture.html</a>引用）
+
+  <img src="https://tkestack.github.io/docs/images/tkestackhighlevelarchitecture-2x.png" alt="">
+
+</p>
+<p>架构说明：</p>
+<blockquote>
+<p>TKEStack 采用了 Kubernetes on Kubernetes 的设计理念。
+即节点仅运行 Kubelet 进程，其他组件均采用容器化部署，由 Kubernetes 进行管理。</p>
+</blockquote>
+<blockquote>
+<p>架构上分为Global集群和业务集群。
 Global集群运行整个容器服务开源版平台自身所需要的组件，业务集群运行用户业务。
-在实际的部署过程中，可根据实际情况进行调整。</p></blockquote><h4 id=12-部署模块>1.2 部署模块</h4><p>模块说明：</p><ul><li>Installer: 运行 tke-installer 安装器的节点，用于提供 Web UI 指导用户在 Global 集群部署TKEStacl控制台；</li><li>Global Cluster: 运行的 TKEStack 控制台的 Kubernetes 集群；</li><li>Cluster: 运行业务的 Kubernetes 集群，可以通过 TKEStack 控制台创建或导入；</li><li>Auth: 权限认证组件，提供用户鉴权、权限对接相关功能；</li><li>Gateway: 网关组件，实现集群后台统一入口、统一鉴权相关的功能，并运行控制台的 Web 界面服务；</li><li>Platform: 集群管理组件，提供 Global 集群管理多个业务集群相关功能；</li><li>Business: 业务管理组件，提供平台业务管理相关功能的后台服务；</li><li>Network Controller：网络服务组件，支撑 Galaxy 网络功能；</li><li>Monitor: 监控服务组件，提供监控采集、上报、告警相关服务；</li><li>Notify: 通知功能组件，提供消息通知相关的功能；</li><li>Registry: 镜像服务组件，提供平台镜像仓库服务；</li></ul><h4 id=13-配置安装>1.3 配置安装</h4><p>初始化install节点</p><pre tabindex=0><code>arch=amd64 version=v1.6.0 &amp;&amp; wget https://tke-release-1251707795.cos.ap-guangzhou.myqcloud.com/tke-installer-linux-$arch-$version.run{,.sha256} &amp;&amp; sha256sum --check --status tke-installer-linux-$arch-$version.run.sha256 &amp;&amp; chmod +x tke-installer-linux-$arch-$version.run &amp;&amp; ./tke-installer-linux-$arch-$version.run
-</code></pre><pre tabindex=0><code>Step.1 prefight
+在实际的部署过程中，可根据实际情况进行调整。</p>
+</blockquote>
+<h4 id="12-部署模块">1.2 部署模块</h4>
+<p>模块说明：</p>
+<ul>
+<li>Installer: 运行 tke-installer 安装器的节点，用于提供 Web UI 指导用户在 Global 集群部署TKEStacl控制台；</li>
+<li>Global Cluster: 运行的 TKEStack 控制台的 Kubernetes 集群；</li>
+<li>Cluster: 运行业务的 Kubernetes 集群，可以通过 TKEStack 控制台创建或导入；</li>
+<li>Auth: 权限认证组件，提供用户鉴权、权限对接相关功能；</li>
+<li>Gateway: 网关组件，实现集群后台统一入口、统一鉴权相关的功能，并运行控制台的 Web 界面服务；</li>
+<li>Platform: 集群管理组件，提供 Global 集群管理多个业务集群相关功能；</li>
+<li>Business: 业务管理组件，提供平台业务管理相关功能的后台服务；</li>
+<li>Network Controller：网络服务组件，支撑 Galaxy 网络功能；</li>
+<li>Monitor: 监控服务组件，提供监控采集、上报、告警相关服务；</li>
+<li>Notify: 通知功能组件，提供消息通知相关的功能；</li>
+<li>Registry: 镜像服务组件，提供平台镜像仓库服务；</li>
+</ul>
+<h4 id="13-配置安装">1.3 配置安装</h4>
+<p>初始化install节点</p>
+<pre tabindex="0"><code>arch=amd64 version=v1.6.0 &amp;&amp; wget https://tke-release-1251707795.cos.ap-guangzhou.myqcloud.com/tke-installer-linux-$arch-$version.run{,.sha256} &amp;&amp; sha256sum --check --status tke-installer-linux-$arch-$version.run.sha256 &amp;&amp; chmod +x tke-installer-linux-$arch-$version.run &amp;&amp; ./tke-installer-linux-$arch-$version.run
+</code></pre><pre tabindex="0"><code>Step.1 prefight
 root: yes
 available disk space(/opt):  44 GiB
 available disk space(/var/lib):  44 GiB
@@ -53,7 +308,10 @@ Step.6 check tke-installer status [doing]
 Step.6 check tke-installer status [ok]
 Please use your browser which can connect this machine to open http://127.0.0.1:8080/index.html 
 for install TKE!
-</code></pre><p>打开http://:8080，根据部署界面提示安装</p><h4 id=14--coredns调优>1.4 CoreDNS调优</h4><p>Coredns性能优化 - 开启autopath插件</p><pre tabindex=0><code># cat coredns-cm.yaml
+</code></pre><p>打开http://<!-- raw HTML omitted -->:8080，根据部署界面提示安装</p>
+<h4 id="14--coredns调优">1.4  CoreDNS调优</h4>
+<p>Coredns性能优化 - 开启autopath插件</p>
+<pre tabindex="0"><code># cat coredns-cm.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -80,82 +338,205 @@ data:
         cache 30
         forward . 12.1.8.6
     }
-</code></pre><h4 id=15-local-pvc-provisioner部署>1.5 local-pvc-provisioner部署</h4><p>这里采用local-pvc-provisioner, 有其它的存储更好了，比如说：ceph、nfs.</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span><span style=color:#6272a4># wget -c https://raw.githubusercontent.com/kubernetes-sigs/sig-storage-local-static-provisioner/master/deployment/kubernetes/example/default_example_provisioner_generated.yaml</span>
-</span></span></code></pre></div><p>这里<code>fsType: xfs</code>, dockerhub上有local-volume-provisioner镜像<code>docker pull googleimages/local-volume-provisioner:v2.4.0</code>，可能无法访问gcr.io镜像仓库地址</p><p>部署local-volume-provisioner</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span><span style=color:#6272a4># kubectl apply -f default_example_provisioner_generated.yaml</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#6272a4># kubectl  get ds</span>
-</span></span><span style=display:flex><span>NAME                       DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
-</span></span><span style=display:flex><span>local-volume-provisioner   <span style=color:#bd93f9>1</span>         <span style=color:#bd93f9>1</span>         <span style=color:#bd93f9>1</span>       <span style=color:#bd93f9>1</span>            <span style=color:#bd93f9>1</span>           &lt;none&gt;          12m
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#6272a4># kubectl  get pod</span>
-</span></span><span style=display:flex><span>NAME                              READY   STATUS    RESTARTS   AGE
-</span></span><span style=display:flex><span>local-volume-provisioner-nrww4    1/1     Running   <span style=color:#bd93f9>0</span>          12m
-</span></span></code></pre></div><p>创建local-volume-storageclass</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#6272a4># kubectl apply -f - &lt;&lt; EOF</span>
-</span></span><span style=display:flex><span><span style=color:#ff79c6>kind</span>: StorageClass
-</span></span><span style=display:flex><span><span style=color:#ff79c6>apiVersion</span>: storage.k8s.io/v1
-</span></span><span style=display:flex><span><span style=color:#ff79c6>metadata</span>:
-</span></span><span style=display:flex><span>  <span style=color:#ff79c6>name</span>: fast-disks
-</span></span><span style=display:flex><span><span style=color:#ff79c6>provisioner</span>: kubernetes.io/no-provisioner
-</span></span><span style=display:flex><span><span style=color:#ff79c6>volumeBindingMode</span>: WaitForFirstConsumer
-</span></span><span style=display:flex><span>EOF
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#6272a4>#设置为默认storageclass</span>
-</span></span><span style=display:flex><span><span style=color:#6272a4># kubectl patch storageclass fast-disks -p &#39;{&#34;metadata&#34;: {&#34;annotations&#34;:{&#34;storageclass.kubernetes.io/is-default-class&#34;:&#34;true&#34;}}}&#39;</span>
-</span></span></code></pre></div><p>local-volume-provisioner默认的可发现目录（discovery directory）是<code>/mnt/fast-disks</code>，挂载到这里的目录必须是mount进来，手动创建目录是不会被自动转换为PV的</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>mkdir -p /opt/k8s/localpv/<span style=color:#ff79c6>{</span>sda,sdb,sdc<span style=color:#ff79c6>}</span>
-</span></span><span style=display:flex><span>mkdir -p /mnt/fast-disks/<span style=color:#ff79c6>{</span>sda,sdb,sdc<span style=color:#ff79c6>}</span>
-</span></span><span style=display:flex><span>mount --bind /opt/k8s/localpv/sda /mnt/fast-disks/sda
-</span></span><span style=display:flex><span>mount --bind /opt/k8s/localpv/sdb /mnt/fast-disks/sdb
-</span></span><span style=display:flex><span>mount --bind /opt/k8s/localpv/sdc /mnt/fast-disks/sdc
-</span></span></code></pre></div><p>创建pod，验证local-pv</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#6272a4># kubectl apply -f - &lt;&lt; EOF</span>
-</span></span><span style=display:flex><span><span style=color:#ff79c6>kind</span>: PersistentVolumeClaim
-</span></span><span style=display:flex><span><span style=color:#ff79c6>apiVersion</span>: v1
-</span></span><span style=display:flex><span><span style=color:#ff79c6>metadata</span>:
-</span></span><span style=display:flex><span>  <span style=color:#ff79c6>name</span>: pvc-local
-</span></span><span style=display:flex><span><span style=color:#ff79c6>spec</span>:
-</span></span><span style=display:flex><span>  <span style=color:#ff79c6>accessModes</span>:
-</span></span><span style=display:flex><span>  - ReadWriteOnce
-</span></span><span style=display:flex><span>  <span style=color:#ff79c6>resources</span>:
-</span></span><span style=display:flex><span>    <span style=color:#ff79c6>requests</span>:
-</span></span><span style=display:flex><span>      <span style=color:#ff79c6>storage</span>: 5Gi
-</span></span><span style=display:flex><span>  <span style=color:#ff79c6>storageClassName</span>: fast-disks
-</span></span><span style=display:flex><span>---
-</span></span><span style=display:flex><span><span style=color:#ff79c6>apiVersion</span>: v1
-</span></span><span style=display:flex><span><span style=color:#ff79c6>kind</span>: Pod
-</span></span><span style=display:flex><span><span style=color:#ff79c6>metadata</span>:
-</span></span><span style=display:flex><span>  <span style=color:#ff79c6>name</span>: pv-local-pod
-</span></span><span style=display:flex><span><span style=color:#ff79c6>spec</span>:
-</span></span><span style=display:flex><span>  <span style=color:#ff79c6>volumes</span>:
-</span></span><span style=display:flex><span>  - <span style=color:#ff79c6>name</span>: example-pv-local
-</span></span><span style=display:flex><span>    <span style=color:#ff79c6>persistentVolumeClaim</span>:
-</span></span><span style=display:flex><span>      <span style=color:#ff79c6>claimName</span>: pvc-local
-</span></span><span style=display:flex><span>  <span style=color:#ff79c6>containers</span>:
-</span></span><span style=display:flex><span>  - <span style=color:#ff79c6>name</span>: example-pv-local
-</span></span><span style=display:flex><span>    <span style=color:#ff79c6>image</span>: nginx
-</span></span><span style=display:flex><span>    <span style=color:#ff79c6>ports</span>:
-</span></span><span style=display:flex><span>    - <span style=color:#ff79c6>containerPort</span>: <span style=color:#bd93f9>80</span>
-</span></span><span style=display:flex><span>    <span style=color:#ff79c6>volumeMounts</span>:
-</span></span><span style=display:flex><span>    - <span style=color:#ff79c6>mountPath</span>: /usr/share/nginx/html
-</span></span><span style=display:flex><span>      <span style=color:#ff79c6>name</span>: example-pv-local
-</span></span><span style=display:flex><span>EOF
-</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#6272a4># kubectl get pod nginx-c48bdb85c-clbtt</span>
-</span></span><span style=display:flex><span>NAME                    READY   STATUS    RESTARTS   AGE
-</span></span><span style=display:flex><span>nginx-c48bdb85c-clbtt   1/1     Running   <span style=color:#bd93f9>0</span>          4d23h
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#6272a4># kubectl get pvc pvc-local</span>
-</span></span><span style=display:flex><span>NAME        STATUS   VOLUME              CAPACITY   ACCESS MODES   STORAGECLASS   AGE
-</span></span><span style=display:flex><span>pvc-local   Bound    local-pv-ffd50f12   208Gi      RWO            fast-disks     46s
-</span></span></code></pre></div><h4 id=16-helm-push插件安装>1.6 helm-push插件安装</h4><p>helm-push插件离线安装</p><pre tabindex=0><code># wget -c https://github.com/chartmuseum/helm-push/releases/download/v0.9.0/helm-push_0.9.0_linux_amd64.tar.gz
+</code></pre><h4 id="15-local-pvc-provisioner部署">1.5 local-pvc-provisioner部署</h4>
+<p>这里采用local-pvc-provisioner, 有其它的存储更好了，比如说：ceph、nfs.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span><span style="color:#6272a4"># wget -c https://raw.githubusercontent.com/kubernetes-sigs/sig-storage-local-static-provisioner/master/deployment/kubernetes/example/default_example_provisioner_generated.yaml</span>
+</span></span></code></pre></div><p>这里<code>fsType: xfs</code>,  dockerhub上有local-volume-provisioner镜像<code>docker pull googleimages/local-volume-provisioner:v2.4.0</code>，可能无法访问gcr.io镜像仓库地址</p>
+<p>部署local-volume-provisioner</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span><span style="color:#6272a4"># kubectl apply -f default_example_provisioner_generated.yaml</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># kubectl  get ds</span>
+</span></span><span style="display:flex;"><span>NAME                       DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+</span></span><span style="display:flex;"><span>local-volume-provisioner   <span style="color:#bd93f9">1</span>         <span style="color:#bd93f9">1</span>         <span style="color:#bd93f9">1</span>       <span style="color:#bd93f9">1</span>            <span style="color:#bd93f9">1</span>           &lt;none&gt;          12m
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># kubectl  get pod</span>
+</span></span><span style="display:flex;"><span>NAME                              READY   STATUS    RESTARTS   AGE
+</span></span><span style="display:flex;"><span>local-volume-provisioner-nrww4    1/1     Running   <span style="color:#bd93f9">0</span>          12m
+</span></span></code></pre></div><p>创建local-volume-storageclass</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#6272a4"># kubectl apply -f - &lt;&lt; EOF</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">kind</span>: StorageClass
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">apiVersion</span>: storage.k8s.io/v1
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">metadata</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">name</span>: fast-disks
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">provisioner</span>: kubernetes.io/no-provisioner
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">volumeBindingMode</span>: WaitForFirstConsumer
+</span></span><span style="display:flex;"><span>EOF
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">#设置为默认storageclass</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># kubectl patch storageclass fast-disks -p &#39;{&#34;metadata&#34;: {&#34;annotations&#34;:{&#34;storageclass.kubernetes.io/is-default-class&#34;:&#34;true&#34;}}}&#39;</span>
+</span></span></code></pre></div><p>local-volume-provisioner默认的可发现目录（discovery directory）是<code>/mnt/fast-disks</code>，挂载到这里的目录必须是mount进来，手动创建目录是不会被自动转换为PV的</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>mkdir -p /opt/k8s/localpv/<span style="color:#ff79c6">{</span>sda,sdb,sdc<span style="color:#ff79c6">}</span>
+</span></span><span style="display:flex;"><span>mkdir -p /mnt/fast-disks/<span style="color:#ff79c6">{</span>sda,sdb,sdc<span style="color:#ff79c6">}</span>
+</span></span><span style="display:flex;"><span>mount --bind /opt/k8s/localpv/sda /mnt/fast-disks/sda
+</span></span><span style="display:flex;"><span>mount --bind /opt/k8s/localpv/sdb /mnt/fast-disks/sdb
+</span></span><span style="display:flex;"><span>mount --bind /opt/k8s/localpv/sdc /mnt/fast-disks/sdc
+</span></span></code></pre></div><p>创建pod，验证local-pv</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#6272a4"># kubectl apply -f - &lt;&lt; EOF</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">kind</span>: PersistentVolumeClaim
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">apiVersion</span>: v1
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">metadata</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">name</span>: pvc-local
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">spec</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">accessModes</span>:
+</span></span><span style="display:flex;"><span>  - ReadWriteOnce
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">resources</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">requests</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">storage</span>: 5Gi
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">storageClassName</span>: fast-disks
+</span></span><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">apiVersion</span>: v1
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">kind</span>: Pod
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">metadata</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">name</span>: pv-local-pod
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">spec</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">volumes</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ff79c6">name</span>: example-pv-local
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">persistentVolumeClaim</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">claimName</span>: pvc-local
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">containers</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ff79c6">name</span>: example-pv-local
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">image</span>: nginx
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">ports</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#ff79c6">containerPort</span>: <span style="color:#bd93f9">80</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">volumeMounts</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#ff79c6">mountPath</span>: /usr/share/nginx/html
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">name</span>: example-pv-local
+</span></span><span style="display:flex;"><span>EOF
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># kubectl get pod nginx-c48bdb85c-clbtt</span>
+</span></span><span style="display:flex;"><span>NAME                    READY   STATUS    RESTARTS   AGE
+</span></span><span style="display:flex;"><span>nginx-c48bdb85c-clbtt   1/1     Running   <span style="color:#bd93f9">0</span>          4d23h
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># kubectl get pvc pvc-local</span>
+</span></span><span style="display:flex;"><span>NAME        STATUS   VOLUME              CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+</span></span><span style="display:flex;"><span>pvc-local   Bound    local-pv-ffd50f12   208Gi      RWO            fast-disks     46s
+</span></span></code></pre></div><h4 id="16-helm-push插件安装">1.6 helm-push插件安装</h4>
+<p>helm-push插件离线安装</p>
+<pre tabindex="0"><code># wget -c https://github.com/chartmuseum/helm-push/releases/download/v0.9.0/helm-push_0.9.0_linux_amd64.tar.gz
 # mkdir -p $HOME/.local/share/helm/plugins/helm-push
 # tar xf helm-push_0.9.0_linux_amd64.tar.gz -C $HOME/.local/share/helm/plugins/helm-push/
-</code></pre><h3 id=2-devops体系构建>2. DevOps体系构建</h3><h4 id=21-整体架构>2.1 整体架构</h4><p><img src=/img/posts/2021-03-28/devops_process.png alt>
-jenkins+gitlab+argocd的组合，就可以构建出完美的devops流程体系.</p><ul><li>gitlab负责存放代码;</li><li>jenkins负责编译构建、创建argo-cd app；</li><li>argo-cd负责更新k8s集群的资源</li></ul><h4 id=22-jenkins简介>2.2 jenkins简介</h4><p>引用至<a href=https://blog.csdn.net/houyefeng/article/details/50912756>https://blog.csdn.net/houyefeng/article/details/50912756</a></p><blockquote><p>Jenkins是一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），
+</code></pre><h3 id="2-devops体系构建">2. DevOps体系构建</h3>
+<h4 id="21-整体架构">2.1 整体架构</h4>
+<p>
+  <img src="/img/posts/2021-03-28/devops_process.png" alt="">
+
+
+jenkins+gitlab+argocd的组合，就可以构建出完美的devops流程体系.</p>
+<ul>
+<li>gitlab负责存放代码;</li>
+<li>jenkins负责编译构建、创建argo-cd app；</li>
+<li>argo-cd负责更新k8s集群的资源</li>
+</ul>
+<h4 id="22-jenkins简介">2.2 jenkins简介</h4>
+<p>引用至<a href="https://blog.csdn.net/houyefeng/article/details/50912756">https://blog.csdn.net/houyefeng/article/details/50912756</a></p>
+<blockquote>
+<p>Jenkins是一个开源的、提供友好操作界面的持续集成(CI)工具，起源于Hudson（Hudson是商用的），
 主要用于持续、自动的构建/测试软件项目、监控外部任务的运行（这个比较抽象，暂且写上，不做解释）。
 Jenkins用Java语言编写，可在Tomcat等流行的servlet容器中运行，也可独立运行。
-通常与版本管理工具(SCM)、构建工具结合使用；常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p></blockquote><p>这里需要安装的jenkins插件有：</p><ul><li>Gitlab Hook</li><li>Build With Parameters</li><li>Git Parameter Plug-In</li><li>Image Tag Parameter Plugin</li><li>Credentials Plugin</li></ul><h4 id=23-gitlab简介>2.3 gitLab简介</h4><p>引用至<a href=https://zh.wikipedia.org/wiki/GitLab>https://zh.wikipedia.org/wiki/GitLab</a></p><blockquote><p>GitLab 是由 GitLab Inc.开发，一款基于 Git 的完全集成的软件开发平台（fully 集成软件 development platform）。
-另外，GitLab 且具有wiki以及在线编辑、issue跟踪功能、CI/CD 等功能。</p></blockquote><p>Gitlab官方架构图：
-<img src=/img/posts/2021-03-28/gitlab_architecture.png alt></p><p>Gitlab组件说明：引用至<a href=https://chegva.com/3229.html>https://chegva.com/3229.html</a></p><ul><li><p>repository：代码库，可以是硬盘或 分布式文件系统</p></li><li><p>Nginx：Web 入口</p></li><li><p>gitlab-workhorse：轻量级反向代理服务器，可以处理一些大的HTTP请求（磁盘上的 CSS、JS 文件、文件上传下载等），处理 Git Push/Pull 请求，处理到Rails 的连接会反向代理给后端的unicorn（修改由 Rails 发送的响应或发送给 Rails 的请求，管理 Rails 的长期 WebSocket 连接等）。</p></li><li><p>gitlab-shell：用于 SSH 交互，而不是 HTTP。gitlab-shell 通过 Redis 与 Sidekiq 进行通信，并直接或通过 TCP 间接访问 Unicorn。用于处理Git命令和修改authorized keys列表</p></li><li><p>Unicorn：Gitlab 自身的 Web 服务器(Ruby Web Server)，包含了 Gitlab 主进程，负责处理快速/一般任务，与 Redis 一起工作，配置参考：CPU核心数 + 1 = unicorn workers数量。工作内容包括：</p><ul><li><p>通过检查存储在 Redis 中的用户会话来检查权限</p></li><li><p>为 Sidekiq 制作任务</p></li><li><p>从仓库（warehouse）取东西或在那里移动东西</p></li></ul></li><li><p>Redis：缓存每个客户端的sessions和后台队列，负责分发任务。Redis需求的存储空间很小，大约每个用户25KB</p></li><li><p>Gitaly：后台服务，专门负责访问磁盘以高效处理 gitlab-shell 和 gitlab-workhorse 的git 操作，并缓存耗时操作。所有的 git 操作都通过 Gitaly 处理，并向 GitLab web 应用程序提供一个 API，以从 git（例如 title, branches, tags, other meta data）获取属性，并获取 blob（例如 diffs，commits，files）</p></li><li><p>Sidekiq：后台核心服务，可以从redis队列中提取作业并对其进行处理。后台作业允许GitLab通过将工作移至后台来提供更快的请求/响应周期。Sidekiq任务需要来自Redis</p></li><li><p>数据库（PostgreSQL/MySQL）：包含以下信息：</p><ul><li><p>repository 中的数据（元数据，issue，合并请求 merge request 等）</p></li><li><p>可以登录 Web 的用户（权限）</p></li></ul></li><li><p>mail_room：处理邮件请求。回复 GitLab 发出的邮件时，GitLab 会调用此服务处理Sidekiq、Unicorn 和 GitLab-shell 的任务</p></li><li><p>logrotate：日志文件管理，切割</p></li></ul><h4 id=24-argo-cd简介>2.4 argo-cd简介</h4><p>引用至<a href=https://zhuanlan.zhihu.com/p/140052719>https://zhuanlan.zhihu.com/p/140052719</a></p><p>Argo CD是一个基于Kubernetes的声明式GitOps持续交付工具。argo-cd功能有：</p><ul><li>将应用程序自动部署到指定的目标环境</li><li>支持多种配置管理/模板工具(Kustomize、Helm、Ksonnet、Jsonnet、plain-YAML)</li><li>能够管理和部署到多个集群</li><li>SSO集成(OIDC, OAuth2, LDAP, SAML 2.0, GitHub, GitLab, Microsoft, LinkedIn)</li><li>授权的多租户和RBAC策略</li><li>回滚/回滚到Git存储库中提交的任何应用程序配置</li><li>应用程序资源的健康状态分析</li><li>自动配置漂移检测和显示</li><li>将应用程序自动或手动同步到所需的状态</li><li>Web UI，提供应用程序活动的实时视图</li><li>用于自动化和CI集成的CLI</li><li>Webhook集成(GitHub, BitBucket, GitLab)</li><li>用于自动化的访问令牌</li><li>PreSync、Sync、PostSync钩子支持复杂的应用程序发布(例如，blue/green & canary升级)</li><li>应用程序事件和API调用的审计跟踪</li><li>Prometheus指标</li><li>在Git中重写ksonnet/helm参数的参数覆盖</li></ul><h4 id=25-argo-cd部署>2.5 argo-cd部署</h4><p>安装部署</p><pre tabindex=0><code># kubectl create namespace argocd
+通常与版本管理工具(SCM)、构建工具结合使用；常用的版本控制工具有SVN、GIT，构建工具有Maven、Ant、Gradle。</p>
+</blockquote>
+<p>这里需要安装的jenkins插件有：</p>
+<ul>
+<li>Gitlab Hook</li>
+<li>Build With Parameters</li>
+<li>Git Parameter Plug-In</li>
+<li>Image Tag Parameter Plugin</li>
+<li>Credentials Plugin</li>
+</ul>
+<h4 id="23-gitlab简介">2.3 gitLab简介</h4>
+<p>引用至<a href="https://zh.wikipedia.org/wiki/GitLab">https://zh.wikipedia.org/wiki/GitLab</a></p>
+<blockquote>
+<p>GitLab 是由 GitLab Inc.开发，一款基于 Git 的完全集成的软件开发平台（fully 集成软件 development platform）。
+另外，GitLab 且具有wiki以及在线编辑、issue跟踪功能、CI/CD 等功能。</p>
+</blockquote>
+<p>Gitlab官方架构图：
+
+  <img src="/img/posts/2021-03-28/gitlab_architecture.png" alt="">
+
+</p>
+<p>Gitlab组件说明：引用至<a href="https://chegva.com/3229.html">https://chegva.com/3229.html</a></p>
+<ul>
+<li>
+<p>repository：代码库，可以是硬盘或 分布式文件系统</p>
+</li>
+<li>
+<p>Nginx：Web 入口</p>
+</li>
+<li>
+<p>gitlab-workhorse：轻量级反向代理服务器，可以处理一些大的HTTP请求（磁盘上的 CSS、JS 文件、文件上传下载等），处理 Git Push/Pull 请求，处理到Rails 的连接会反向代理给后端的unicorn（修改由 Rails 发送的响应或发送给 Rails 的请求，管理 Rails 的长期 WebSocket 连接等）。</p>
+</li>
+<li>
+<p>gitlab-shell：用于 SSH 交互，而不是 HTTP。gitlab-shell 通过 Redis 与 Sidekiq 进行通信，并直接或通过 TCP 间接访问 Unicorn。用于处理Git命令和修改authorized keys列表</p>
+</li>
+<li>
+<p>Unicorn：Gitlab 自身的 Web 服务器(Ruby Web Server)，包含了 Gitlab 主进程，负责处理快速/一般任务，与 Redis 一起工作，配置参考：CPU核心数 + 1 = unicorn workers数量。工作内容包括：</p>
+<ul>
+<li>
+<p>通过检查存储在 Redis 中的用户会话来检查权限</p>
+</li>
+<li>
+<p>为 Sidekiq 制作任务</p>
+</li>
+<li>
+<p>从仓库（warehouse）取东西或在那里移动东西</p>
+</li>
+</ul>
+</li>
+<li>
+<p>Redis：缓存每个客户端的sessions和后台队列，负责分发任务。Redis需求的存储空间很小，大约每个用户25KB</p>
+</li>
+<li>
+<p>Gitaly：后台服务，专门负责访问磁盘以高效处理 gitlab-shell 和 gitlab-workhorse 的git 操作，并缓存耗时操作。所有的 git 操作都通过 Gitaly 处理，并向 GitLab web 应用程序提供一个 API，以从 git（例如 title, branches, tags, other meta data）获取属性，并获取 blob（例如 diffs，commits，files）</p>
+</li>
+<li>
+<p>Sidekiq：后台核心服务，可以从redis队列中提取作业并对其进行处理。后台作业允许GitLab通过将工作移至后台来提供更快的请求/响应周期。Sidekiq任务需要来自Redis</p>
+</li>
+<li>
+<p>数据库（PostgreSQL/MySQL）：包含以下信息：</p>
+<ul>
+<li>
+<p>repository 中的数据（元数据，issue，合并请求 merge request 等）</p>
+</li>
+<li>
+<p>可以登录 Web 的用户（权限）</p>
+</li>
+</ul>
+</li>
+<li>
+<p>mail_room：处理邮件请求。回复 GitLab 发出的邮件时，GitLab 会调用此服务处理Sidekiq、Unicorn 和 GitLab-shell 的任务</p>
+</li>
+<li>
+<p>logrotate：日志文件管理，切割</p>
+</li>
+</ul>
+<h4 id="24-argo-cd简介">2.4 argo-cd简介</h4>
+<p>引用至<a href="https://zhuanlan.zhihu.com/p/140052719">https://zhuanlan.zhihu.com/p/140052719</a></p>
+<p>Argo CD是一个基于Kubernetes的声明式GitOps持续交付工具。argo-cd功能有：</p>
+<ul>
+<li>将应用程序自动部署到指定的目标环境</li>
+<li>支持多种配置管理/模板工具(Kustomize、Helm、Ksonnet、Jsonnet、plain-YAML)</li>
+<li>能够管理和部署到多个集群</li>
+<li>SSO集成(OIDC, OAuth2, LDAP, SAML 2.0, GitHub, GitLab, Microsoft, LinkedIn)</li>
+<li>授权的多租户和RBAC策略</li>
+<li>回滚/回滚到Git存储库中提交的任何应用程序配置</li>
+<li>应用程序资源的健康状态分析</li>
+<li>自动配置漂移检测和显示</li>
+<li>将应用程序自动或手动同步到所需的状态</li>
+<li>Web UI，提供应用程序活动的实时视图</li>
+<li>用于自动化和CI集成的CLI</li>
+<li>Webhook集成(GitHub, BitBucket, GitLab)</li>
+<li>用于自动化的访问令牌</li>
+<li>PreSync、Sync、PostSync钩子支持复杂的应用程序发布(例如，blue/green &amp; canary升级)</li>
+<li>应用程序事件和API调用的审计跟踪</li>
+<li>Prometheus指标</li>
+<li>在Git中重写ksonnet/helm参数的参数覆盖</li>
+</ul>
+<h4 id="25-argo-cd部署">2.5 argo-cd部署</h4>
+<p>安装部署</p>
+<pre tabindex="0"><code># kubectl create namespace argocd
 # kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-</code></pre><h4 id=26-dockerfile范例>2.6 Dockerfile范例</h4><p>gitlab的ssh私钥放到Jenkins slave节点上</p><pre tabindex=0><code># Building stage
+</code></pre><h4 id="26-dockerfile范例">2.6 Dockerfile范例</h4>
+<p>gitlab的ssh私钥放到Jenkins slave节点上</p>
+<pre tabindex="0"><code># Building stage
 FROM maven:3.5.4-jdk-8-alpine as builder
 
 WORKDIR /usr/src/dev
@@ -180,15 +561,19 @@ COPY --from=builder /usr/src/dev/target/xxx.jar /java/bin
 
 EXPOSE 80
 ENTRYPOINT [&#34;java&#34;, &#34;-jar&#34;, &#34;xxx.jar&#34;]
-</code></pre><p>Dockerfile两步编译阶段，第一个编译阶段利用maven镜像编译出来的产物复制给第二个编译阶段</p><h4 id=27-jenkinsfile范例>2.7 Jenkinsfile范例</h4><p>Slave节点预装了argocd客户端，配置gitlab ssh密钥互信</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#6272a4># tree ci</span>
-</span></span><span style=display:flex><span>ci
-</span></span><span style=display:flex><span>├── Build.sh
-</span></span><span style=display:flex><span>├── Clean.sh
-</span></span><span style=display:flex><span>├── Common.sh
-</span></span><span style=display:flex><span>├── Deliver.sh
-</span></span><span style=display:flex><span>├── Jenkinsfile
-</span></span><span style=display:flex><span>└── Update.sh
-</span></span></code></pre></div><p>Jenkinsfile文件</p><pre tabindex=0><code># cat ci/Jenkinsfile
+</code></pre><p>Dockerfile两步编译阶段，第一个编译阶段利用maven镜像编译出来的产物复制给第二个编译阶段</p>
+<h4 id="27-jenkinsfile范例">2.7 Jenkinsfile范例</h4>
+<p>Slave节点预装了argocd客户端，配置gitlab ssh密钥互信</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># tree ci</span>
+</span></span><span style="display:flex;"><span>ci
+</span></span><span style="display:flex;"><span>├── Build.sh
+</span></span><span style="display:flex;"><span>├── Clean.sh
+</span></span><span style="display:flex;"><span>├── Common.sh
+</span></span><span style="display:flex;"><span>├── Deliver.sh
+</span></span><span style="display:flex;"><span>├── Jenkinsfile
+</span></span><span style="display:flex;"><span>└── Update.sh
+</span></span></code></pre></div><p>Jenkinsfile文件</p>
+<pre tabindex="0"><code># cat ci/Jenkinsfile
 node {
 
   def APP_GIT_URL=&#39;git@git.xxx.com:xxx/dev-xxx.git&#39;
@@ -216,7 +601,8 @@ node {
     deleteDir()
   }
 }
-</code></pre><p>Build.sh文件</p><pre tabindex=0><code># cat ci/Build.sh
+</code></pre><p>Build.sh文件</p>
+<pre tabindex="0"><code># cat ci/Build.sh
 #!/bin/bash
 
 set -x
@@ -235,7 +621,8 @@ docker push ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
 
 #rm image
 docker rmi -f ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-</code></pre><p>Update.sh文件</p><pre tabindex=0><code># cat ci/Update.sh
+</code></pre><p>Update.sh文件</p>
+<pre tabindex="0"><code># cat ci/Update.sh
 #!/bin/bash
 
 set -x
@@ -255,7 +642,8 @@ git config --global user.name &#34;Administrator&#34;
 git config --global user.email &#34;test@xxx.com&#34;
 git commit -am &#34;${JOB_NAME}-${BUILD_TAG} image update&#34;
 git push
-</code></pre><p>Deliver.sh文件</p><pre tabindex=0><code># cat ci/Deliver.sh
+</code></pre><p>Deliver.sh文件</p>
+<pre tabindex="0"><code># cat ci/Deliver.sh
 #!/bin/bash
 
 set -x
@@ -279,16 +667,21 @@ argocd app create test-dev-xxx \
          --sync-policy automated \
          --grpc-web \
          --auto-prune
-</code></pre><p>Common.sh文件</p><pre tabindex=0><code># cat ci/Common.sh
+</code></pre><p>Common.sh文件</p>
+<pre tabindex="0"><code># cat ci/Common.sh
 IMAGE_REGISTRY=&#34;default.registry.xxx.com&#34;
 IMAGE_REGISTRY_USER=&#34;tkestack&#34;
 IMAGE_REGISTRY_PASS=&#34;eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.xxx&#34;
 IMAGE_NAME=&#34;devops/dev-xxx&#34;
 GIT_COMMIT_ID=`git describe --always --tags | sed &#39;s/-/./2&#39; | sed &#39;s/-/./2&#39;`
 IMAGE_TAG=${GIT_COMMIT_ID:-&#39;latest&#39;}
-</code></pre><p>Clean.sh文件</p><pre tabindex=0><code># cat ci/Clean.sh
+</code></pre><p>Clean.sh文件</p>
+<pre tabindex="0"><code># cat ci/Clean.sh
 #!/bin/bash
-</code></pre><h4 id=28-更适合api对接的jenkinsfile范例>2.8 更适合api对接的Jenkinsfile范例</h4><p>脚本式流水线范例：（Jenkins 2.x版本之前）</p><p>MANIFEST_GIT_URL、IMAGE_REGISTRY、ARGOCD_URL在Jenkins全局变量那边声明，xxx_CREDENTIALSID在Jenkins全局凭证那边配置</p><pre tabindex=0><code>cat Jenkinsfile
+</code></pre><h4 id="28-更适合api对接的jenkinsfile范例">2.8 更适合api对接的Jenkinsfile范例</h4>
+<p>脚本式流水线范例：（Jenkins 2.x版本之前）</p>
+<p>MANIFEST_GIT_URL、IMAGE_REGISTRY、ARGOCD_URL在Jenkins全局变量那边声明，xxx_CREDENTIALSID在Jenkins全局凭证那边配置</p>
+<pre tabindex="0"><code>cat Jenkinsfile
 node {
   def APP_GIT_URL=&#39;git@git.xxx.com:xxx/dev-xxx.git&#39;
   def APP_NAMESPACE=&#34;devops&#34;
@@ -372,7 +765,8 @@ node {
     deleteDir()
   }
 }
-</code></pre><p>声明式流水线范例：（Jenkins 2.x版本之后新增了声明式流水线语法）</p><pre tabindex=0><code>//def ARGOCD_URL=&#34;${ARGOCD_URL}&#34;
+</code></pre><p>声明式流水线范例：（Jenkins 2.x版本之后新增了声明式流水线语法）</p>
+<pre tabindex="0"><code>//def ARGOCD_URL=&#34;${ARGOCD_URL}&#34;
 //def MANIFEST_GIT_URL=&#34;${MANIFEST_GIT_URL}&#34;
 //def IMAGE_REGISTRY=&#34;${IMAGE_REGISTRY}&#34;
 def IMAGE_TAG = &#34;&#34;
@@ -504,8 +898,13 @@ pipeline {
         }
     }
 }
-</code></pre><h4 id=29-配置gitlab-webhook>2.9 配置gitlab webhook</h4><blockquote><p>Argo CD每三分钟轮询一次Git存储库，以检测清单的变化。为了消除轮询带来的延迟，可以将API服务器配置为接收Webhook事件。
-Argo CD支持来自GitHub，GitLab，Bitbucket，Bitbucket Server和Gogs的Git Webhook通知</p></blockquote><p>1、argocd配置gitlab webhook token</p><pre tabindex=0><code># kubectl -n argocd edit secret argocd-secret
+</code></pre><h4 id="29-配置gitlab-webhook">2.9 配置gitlab webhook</h4>
+<blockquote>
+<p>Argo CD每三分钟轮询一次Git存储库，以检测清单的变化。为了消除轮询带来的延迟，可以将API服务器配置为接收Webhook事件。
+Argo CD支持来自GitHub，GitLab，Bitbucket，Bitbucket Server和Gogs的Git Webhook通知</p>
+</blockquote>
+<p>1、argocd配置gitlab webhook token</p>
+<pre tabindex="0"><code># kubectl -n argocd edit secret argocd-secret
 apiVersion: v1
 kind: Secret
 metadata:
@@ -518,7 +917,7 @@ data:
 stringData:
   # gitlab webhook secret
   webhook.gitlab.secret: admin
-</code></pre><pre tabindex=0><code># kubectl -n argocd describe secret argocd-secret
+</code></pre><pre tabindex="0"><code># kubectl -n argocd describe secret argocd-secret
 Name:         argocd-secret
 Namespace:    argocd
 Labels:       app.kubernetes.io/component=server
@@ -538,7 +937,8 @@ admin.password:         60 bytes
 admin.passwordMtime:    20 bytes
 server.secretkey:       44 bytes
 webhook.gitlab.secret:  5 bytes
-</code></pre><p>2、gitlab仓库配置webhook</p><pre tabindex=0><code>Settings ---&gt; Webhooks ----&gt; 配置URL(http://&lt;Argo-cd-server地址&gt;/api/webhook)
+</code></pre><p>2、gitlab仓库配置webhook</p>
+<pre tabindex="0"><code>Settings ---&gt; Webhooks ----&gt; 配置URL(http://&lt;Argo-cd-server地址&gt;/api/webhook)
                        |
                        |---&gt; 配置Secret Token(也写admin，跟argocd-secret中保持一致)
                        |
@@ -547,21 +947,56 @@ webhook.gitlab.secret:  5 bytes
                        |---&gt; 不勾选Enable SSL verification
                        |
                        |---&gt; Test(执行，返回200即ok)
-</code></pre><h4 id=210-argo-api>2.10 argo api</h4><p>获取bearer token</p><pre tabindex=0><code>$ curl $ARGOCD_SERVER/api/v1/session -d $&#39;{&#34;username&#34;:&#34;admin&#34;,&#34;password&#34;:&#34;password&#34;}&#39;
+</code></pre><h4 id="210-argo-api">2.10 argo api</h4>
+<p>获取bearer token</p>
+<pre tabindex="0"><code>$ curl $ARGOCD_SERVER/api/v1/session -d $&#39;{&#34;username&#34;:&#34;admin&#34;,&#34;password&#34;:&#34;password&#34;}&#39;
 {&#34;token&#34;:&#34;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1Njc4MTIzODcsImlzcyI6ImFyZ29jZCIsIm5iZiI6MTU2NzgxMjM4Nywic3ViIjoiYWRtaW4ifQ.ejyTgFxLhuY9mOBtKhcnvobg3QZXJ4_RusN_KIdVwao&#34;}
-</code></pre><p>获取applications列表</p><pre tabindex=0><code>$ curl $ARGOCD_SERVER/api/v1/applications -H &#34;Authorization: Bearer $ARGOCD_TOKEN&#34;
+</code></pre><p>获取applications列表</p>
+<pre tabindex="0"><code>$ curl $ARGOCD_SERVER/api/v1/applications -H &#34;Authorization: Bearer $ARGOCD_TOKEN&#34;
 {&#34;metadata&#34;:{&#34;selfLink&#34;:&#34;/apis/argoproj.io/v1alpha1/namespaces/argocd/applications&#34;,&#34;resourceVersion&#34;:&#34;37755&#34;},&#34;items&#34;:...}
-</code></pre><h3 id=3-应用发布策略>3. 应用发布策略</h3><p>k8s默认Deployment资源支持两种发布策略：<code>RollingUpdate</code>和<code>Recreate</code></p><ul><li>Recreate：直接重建，毫无平滑，通常用于单副本应用</li><li>RollingUpdate：在完善的pod生命周期前提下，可以做到平滑；滚动更新一旦开始不可中断</li></ul><p>Deployment还支持配置maxSurge、maxUnavailable控制渐进式版本升级过程，不支持版本发布的策略，如灰度发布、蓝绿发布；
-Argo-rollout可以当作是Deployment的扩展，功能的完善，它支持<code>.spec.strategy</code>配置灰度、蓝绿发布策略。</p><h4 id=31-ab测试>3.1 A/B测试</h4><h4 id=32-蓝绿发布>3.2 蓝绿发布</h4><p>蓝绿发布：同时运行两个版本的应用，部署的时候，不停止v1老版本，等v2新版本运行起来后，再将全部流量切换到v2新版本上。由于需要同时运行两种版本的应用，
-所需的资源也是原来的2倍</p><p><img src=/img/posts/2021-03-28/blue_green.png alt></p><h4 id=33-灰度金丝雀发布>3.3 灰度/金丝雀发布</h4><p>灰度发布：也称金丝雀发布，在灰度发布过程中，先启动一个v2新版本应用，并不直接把流量切到v2新版本上，先对这个v2新版本进行测试后，没有问题，把10%的流量
-导向v2新版本；新版本运行正常后，再把所有流量切换到v2新版本上，最后停止v1旧版本</p><p><img src=/img/posts/2021-03-28/canary.png alt></p><h4 id=33-滚动发布>3.3 滚动发布</h4><p>滚动发布：在滚动升级过程中，不是一下启动所有v2新版本，先启动一个v2新版本，再停止一个v1老版本，重复这样的过程，直到所有升级完成；
-在滚动升级过程中，流量会到已经启动的v2新版本，但是不能保证v2新版本一定可用；滚动发布可以避免蓝绿发布所需资源翻倍的问题</p><p><img src=/img/posts/2021-03-28/rolling_update.png alt></p><h4 id=34-红黑发布>3.4 红黑发布</h4><h4 id=35-argo-rollouts部署>3.5 argo-rollouts部署</h4><p>argo-rollouts部署</p><pre tabindex=0><code># kubectl create namespace argo-rollouts
+</code></pre><h3 id="3-应用发布策略">3. 应用发布策略</h3>
+<p>k8s默认Deployment资源支持两种发布策略：<code>RollingUpdate</code>和<code>Recreate</code></p>
+<ul>
+<li>Recreate：直接重建，毫无平滑，通常用于单副本应用</li>
+<li>RollingUpdate：在完善的pod生命周期前提下，可以做到平滑；滚动更新一旦开始不可中断</li>
+</ul>
+<p>Deployment还支持配置maxSurge、maxUnavailable控制渐进式版本升级过程，不支持版本发布的策略，如灰度发布、蓝绿发布；
+Argo-rollout可以当作是Deployment的扩展，功能的完善，它支持<code>.spec.strategy</code>配置灰度、蓝绿发布策略。</p>
+<h4 id="31-ab测试">3.1 A/B测试</h4>
+<h4 id="32-蓝绿发布">3.2 蓝绿发布</h4>
+<p>蓝绿发布：同时运行两个版本的应用，部署的时候，不停止v1老版本，等v2新版本运行起来后，再将全部流量切换到v2新版本上。由于需要同时运行两种版本的应用，
+所需的资源也是原来的2倍</p>
+<p>
+  <img src="/img/posts/2021-03-28/blue_green.png" alt="">
+
+</p>
+<h4 id="33-灰度金丝雀发布">3.3 灰度/金丝雀发布</h4>
+<p>灰度发布：也称金丝雀发布，在灰度发布过程中，先启动一个v2新版本应用，并不直接把流量切到v2新版本上，先对这个v2新版本进行测试后，没有问题，把10%的流量
+导向v2新版本；新版本运行正常后，再把所有流量切换到v2新版本上，最后停止v1旧版本</p>
+<p>
+  <img src="/img/posts/2021-03-28/canary.png" alt="">
+
+</p>
+<h4 id="33-滚动发布">3.3 滚动发布</h4>
+<p>滚动发布：在滚动升级过程中，不是一下启动所有v2新版本，先启动一个v2新版本，再停止一个v1老版本，重复这样的过程，直到所有升级完成；
+在滚动升级过程中，流量会到已经启动的v2新版本，但是不能保证v2新版本一定可用；滚动发布可以避免蓝绿发布所需资源翻倍的问题</p>
+<p>
+  <img src="/img/posts/2021-03-28/rolling_update.png" alt="">
+
+</p>
+<h4 id="34-红黑发布">3.4 红黑发布</h4>
+<h4 id="35-argo-rollouts部署">3.5 argo-rollouts部署</h4>
+<p>argo-rollouts部署</p>
+<pre tabindex="0"><code># kubectl create namespace argo-rollouts
 # kubectl apply -n argo-rollouts -f https://raw.githubusercontent.com/argoproj/argo-rollouts/stable/manifests/install.yaml
-</code></pre><p>kubectl argo-rollouts插件</p><pre tabindex=0><code># curl -LO https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-amd64
+</code></pre><p>kubectl argo-rollouts插件</p>
+<pre tabindex="0"><code># curl -LO https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-amd64
 # chmod +x ./kubectl-argo-rollouts-linux-amd64
 # sudo mv ./kubectl-argo-rollouts-linux-amd64 /usr/local/bin/kubectl-argo-rollouts
 # kubectl argo rollouts version
-</code></pre><h4 id=36-argo-rollouts蓝绿发布>3.6 argo-rollouts蓝绿发布</h4><p><code>spec.strategy</code>指定为blueGreen，配置了两种service，一个是activeService，另一个是previewService，分别负责老版本和新版本的流量转发</p><pre tabindex=0><code># vim rollout-bluegreen.yaml
+</code></pre><h4 id="36-argo-rollouts蓝绿发布">3.6 argo-rollouts蓝绿发布</h4>
+<p><code>spec.strategy</code>指定为blueGreen，配置了两种service，一个是activeService，另一个是previewService，分别负责老版本和新版本的流量转发</p>
+<pre tabindex="0"><code># vim rollout-bluegreen.yaml
 # This example demonstrates a Rollout using the blue-green update strategy, which contains a manual
 # gate before promoting the new stack.
 apiVersion: argoproj.io/v1alpha1
@@ -625,7 +1060,7 @@ spec:
   - protocol: TCP
     port: 80
     targetPort: 8080
-</code></pre><pre tabindex=0><code># kubectl apply -f rollout-bluegreen.yaml
+</code></pre><pre tabindex="0"><code># kubectl apply -f rollout-bluegreen.yaml
 rollout.argoproj.io/rollout-bluegreen created
 service/rollout-bluegreen-active created
 service/rollout-bluegreen-preview created
@@ -633,7 +1068,8 @@ service/rollout-bluegreen-preview created
 # kubectl argo rollouts list rollout
 NAME               STRATEGY   STATUS        STEP  SET-WEIGHT  READY  DESIRED  UP-TO-DATE  AVAILABLE
 rollout-bluegreen  BlueGreen  Healthy       -     -           2/2    2        2           2
-</code></pre><p>更换镜像为rollouts-demo:yellow，查看rollout详情，在没执行promote命令active还是指向的是旧版本</p><pre tabindex=0><code># kubectl argo rollouts set image rollout-bluegreen &#34;*=argoproj/rollouts-demo:yellow&#34;
+</code></pre><p>更换镜像为rollouts-demo:yellow，查看rollout详情，在没执行promote命令active还是指向的是旧版本</p>
+<pre tabindex="0"><code># kubectl argo rollouts set image rollout-bluegreen &#34;*=argoproj/rollouts-demo:yellow&#34;
 rollout &#34;rollout-bluegreen&#34; image updated
 
 # kubectl argo rollouts get rollout  rollout-bluegreen
@@ -688,7 +1124,8 @@ NAME                                           KIND        STATUS     AGE    INF
       ├──□ rollout-bluegreen-5f49884f5c-9d5xw  Pod         ✔ Running  5m25s  ready:1/1
       └──□ rollout-bluegreen-5f49884f5c-fh8zt  Pod         ✔ Running  5m25s  ready:1/1
 </code></pre><p>执行<code>argo rollouts promote</code>命令后active指向了新版本，同时旧版本ReplicaSet在倒计时30s后自动ScaledDown,
-只留下新版本的pod</p><pre tabindex=0><code># kubectl argo rollouts promote rollout-bluegreen
+只留下新版本的pod</p>
+<pre tabindex="0"><code># kubectl argo rollouts promote rollout-bluegreen
 rollout &#39;rollout-bluegreen&#39; promoted
 [root@lianbang-xuexi-server24 argo-rollouts]# kubectl argo rollouts get rollout  rollout-bluegreen
 Name:            rollout-bluegreen
@@ -738,7 +1175,8 @@ NAME                                           KIND        STATUS         AGE   
    └──⧉ rollout-bluegreen-5f49884f5c           ReplicaSet  • ScaledDown   11m
       ├──□ rollout-bluegreen-5f49884f5c-9d5xw  Pod         ◌ Terminating  11m    ready:1/1
       └──□ rollout-bluegreen-5f49884f5c-fh8zt  Pod         ◌ Terminating  11m    ready:1/1
-</code></pre><h4 id=37-argo-rollouts金丝雀发布>3.7 argo-rollouts金丝雀发布</h4><pre tabindex=0><code># cat rollout-canary.yaml
+</code></pre><h4 id="37-argo-rollouts金丝雀发布">3.7 argo-rollouts金丝雀发布</h4>
+<pre tabindex="0"><code># cat rollout-canary.yaml
 # This example demonstrates a Rollout using the canary update strategy with a customized rollout
 # plan. The prescribed steps initially sets a canary weight of 20%, then pauses indefinitely. Once
 # resumed, the rollout performs a gradual, automated 20% weight increase until it reaches 100%.
@@ -805,8 +1243,14 @@ spec:
   - protocol: TCP
     port: 80
     targetPort: 8080
-</code></pre><ul><li>主要关注的是<code>.spec.strategy</code>处的配置，<code>canary</code>策略定义了8个step，pause后面没有带时间的话是一直处于Pause状态，通过<code>promote</code>可以激活。</li><li><code>setWeight: 20</code>, 指的是20%的权重，5个副本的20%就是一个副本，先升级一个副本；后面的40、60、80分别对应2个副本、3个副本、4个副本。</li><li><code>canaryService</code>和<code>stableService</code>用于做流量分配，canaryService用于新版本流量，stableService用于旧版本流量；更换镜像后，会自动给
-canaryService和stableService加上pod-template-hash, 用于区分新旧版本流量。</li></ul><p>更换镜像为rollouts-demo:yellow，查看rollout详情，符合预期，卡在第二步(因为pause没有定义具体时间)</p><pre tabindex=0><code># kubectl argo rollouts set image rollout-canary &#34;*=argoproj/rollouts-demo:yellow&#34;
+</code></pre><ul>
+<li>主要关注的是<code>.spec.strategy</code>处的配置，<code>canary</code>策略定义了8个step，pause后面没有带时间的话是一直处于Pause状态，通过<code>promote</code>可以激活。</li>
+<li><code>setWeight: 20</code>, 指的是20%的权重，5个副本的20%就是一个副本，先升级一个副本；后面的40、60、80分别对应2个副本、3个副本、4个副本。</li>
+<li><code>canaryService</code>和<code>stableService</code>用于做流量分配，canaryService用于新版本流量，stableService用于旧版本流量；更换镜像后，会自动给
+canaryService和stableService加上pod-template-hash, 用于区分新旧版本流量。</li>
+</ul>
+<p>更换镜像为rollouts-demo:yellow，查看rollout详情，符合预期，卡在第二步(因为pause没有定义具体时间)</p>
+<pre tabindex="0"><code># kubectl argo rollouts set image rollout-canary &#34;*=argoproj/rollouts-demo:yellow&#34;
 
 # kubectl argo rollouts get rollout rollout-canary
 Name:            rollout-canary
@@ -837,7 +1281,8 @@ NAME                                        KIND        STATUS     AGE    INFO
       ├──□ rollout-canary-8545c4b6d8-s27dr  Pod         ✔ Running  13m    ready:1/1
       ├──□ rollout-canary-8545c4b6d8-wz9lf  Pod         ✔ Running  13m    ready:1/1
       └──□ rollout-canary-8545c4b6d8-x9kkm  Pod         ✔ Running  13m    ready:1/1
-</code></pre><p>执行promote后，stable指向了新版本，同时旧版本ReplicaSet在倒计时30s后自动ScaledDown</p><pre tabindex=0><code># kubectl argo rollouts promote rollout-canary
+</code></pre><p>执行promote后，stable指向了新版本，同时旧版本ReplicaSet在倒计时30s后自动ScaledDown</p>
+<pre tabindex="0"><code># kubectl argo rollouts promote rollout-canary
 rollout &#39;rollout-canary&#39; promoted
 
 # kubectl argo rollouts get rollout rollout-canary
@@ -870,7 +1315,7 @@ NAME                                        KIND        STATUS               AGE
       ├──□ rollout-canary-8545c4b6d8-s27dr  Pod         ✔ Running            21m  ready:1/1
       ├──□ rollout-canary-8545c4b6d8-wz9lf  Pod         ✔ Running            21m  ready:1/1
       └──□ rollout-canary-8545c4b6d8-x9kkm  Pod         ✔ Running            21m  ready:1/1
-</code></pre><pre tabindex=0><code># kubectl argo rollouts get rollout rollout-canary
+</code></pre><pre tabindex="0"><code># kubectl argo rollouts get rollout rollout-canary
 Name:            rollout-canary
 Namespace:       default
 Status:          ✔ Healthy
@@ -897,7 +1342,9 @@ NAME                                        KIND        STATUS        AGE   INFO
 │     └──□ rollout-canary-55bf57987b-cfpmk  Pod         ✔ Running     18s   ready:1/1
 └──# revision:1
    └──⧉ rollout-canary-8545c4b6d8           ReplicaSet  • ScaledDown  23m
-</code></pre><h4 id=38-argo-rollouts滚动更新>3.8 argo-rollouts滚动更新</h4><p>canary策略中如果没定义steps等价于deployment的rolling-update</p><pre tabindex=0><code># cat rollout-rolling-update.yaml
+</code></pre><h4 id="38-argo-rollouts滚动更新">3.8 argo-rollouts滚动更新</h4>
+<p>canary策略中如果没定义steps等价于deployment的rolling-update</p>
+<pre tabindex="0"><code># cat rollout-rolling-update.yaml
 # This example demonstrates how to use normal rolling update for a Rollout update strategy.
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
@@ -927,7 +1374,17 @@ spec:
     canary:
       maxSurge: 1
       maxUnavailable: 1
-</code></pre><h4 id=38-argo-rollouts支持ingress>3.8 argo-rollouts支持Ingress</h4><p>目前argo-rollouts canary发布支持的ingress类型有：</p><ul><li>Ambassador</li><li>AWS ALB</li><li>lstio</li><li>Nginx</li><li>SMI (Service Mesh Interface)</li></ul><p>以Nginx为例</p><pre tabindex=0><code># cat rollout-canary.yaml
+</code></pre><h4 id="38-argo-rollouts支持ingress">3.8 argo-rollouts支持Ingress</h4>
+<p>目前argo-rollouts canary发布支持的ingress类型有：</p>
+<ul>
+<li>Ambassador</li>
+<li>AWS ALB</li>
+<li>lstio</li>
+<li>Nginx</li>
+<li>SMI (Service Mesh Interface)</li>
+</ul>
+<p>以Nginx为例</p>
+<pre tabindex="0"><code># cat rollout-canary.yaml
 
 ---
 kind: Service
@@ -1016,12 +1473,26 @@ spec:
           serviceName: rollout-canary-stable
           servicePort: 80
 </code></pre><p>创建完ingress后，rollouts controller会自动生成一个<code>rollout-canary-rollout-canary-stable-canary</code>的ingress，用于灰度发布的流量,
-将流量导向rollout-canary-preview的service. 使用<code>trafficRouting</code>就得指定canaryService和stableService</p><pre tabindex=0><code># kubectl get ingress
+将流量导向rollout-canary-preview的service. 使用<code>trafficRouting</code>就得指定canaryService和stableService</p>
+<pre tabindex="0"><code># kubectl get ingress
 NAME                                          CLASS    HOSTS                 ADDRESS         PORTS   AGE
 rollout-canary-rollout-canary-stable-canary   &lt;none&gt;   rollouts-demo.local   10.19.255.156   80      25m
 rollout-canary-stable                         &lt;none&gt;   rollouts-demo.local   10.19.255.156   80      25m
-</code></pre><h4 id=38-argo-analysis>3.8 argo Analysis</h4><p>上面的canary和bluegreen发布都是手动promote发布的，argo提供了类似Kayenta的自动化测试分析的工具，
-能够在金丝雀或者蓝绿发布过程中自动进行分析测试，如果新版本测试不通过，则升级过程会自动终止并回滚到老版本。</p><p>测试指标来源支持:</p><ul><li>Prometheus: 根据prometheus的监控指标分析测试结果</li><li>Kayenta: 通过kayenta工具分析</li><li>Web: 接口测试，如果结果返回OK则测试通过，可以使用服务的健康检查接口进行测试。</li><li>Job: 自定义一个Job进行测试，如果Job返回成功则测试通过。</li><li>DataDog: 根据DataDog的监控指标分析测试结果</li><li>NewRelic</li><li>Wavefront</li></ul><p>以Job指标来源为例：</p><pre tabindex=0><code># vim rollout-canary.yaml
+</code></pre><h4 id="38-argo-analysis">3.8 argo Analysis</h4>
+<p>上面的canary和bluegreen发布都是手动promote发布的，argo提供了类似Kayenta的自动化测试分析的工具，
+能够在金丝雀或者蓝绿发布过程中自动进行分析测试，如果新版本测试不通过，则升级过程会自动终止并回滚到老版本。</p>
+<p>测试指标来源支持:</p>
+<ul>
+<li>Prometheus: 根据prometheus的监控指标分析测试结果</li>
+<li>Kayenta: 通过kayenta工具分析</li>
+<li>Web: 接口测试，如果结果返回OK则测试通过，可以使用服务的健康检查接口进行测试。</li>
+<li>Job: 自定义一个Job进行测试，如果Job返回成功则测试通过。</li>
+<li>DataDog: 根据DataDog的监控指标分析测试结果</li>
+<li>NewRelic</li>
+<li>Wavefront</li>
+</ul>
+<p>以Job指标来源为例：</p>
+<pre tabindex="0"><code># vim rollout-canary.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: AnalysisTemplate
 metadata:
@@ -1117,32 +1588,422 @@ spec:
           # Reference to a Service name, also specified in the Rollout spec.strategy.canary.stableService field
           serviceName: rollout-canary
           servicePort: 80
-</code></pre><p>更新镜像，观察rollout变化</p><pre tabindex=0><code># kubectl argo rollouts set image rollout-canary &#34;*=argoproj/rollouts-demo:yellow&#34;
+</code></pre><p>更新镜像，观察rollout变化</p>
+<pre tabindex="0"><code># kubectl argo rollouts set image rollout-canary &#34;*=argoproj/rollouts-demo:yellow&#34;
 
 # kubectl argo rollouts get rollout rollout-canary
-</code></pre><h4 id=39-argo-rollouts-dashboard>3.9 argo-rollouts dashboard</h4><h3 id=4-tips>4. Tips</h3><p>1、删除tke registry镜像tag</p><pre tabindex=0><code># kubectl edit repositories.registry.tkestack.io -n rns-8lzfpvmd repo-85zxwtmv
-</code></pre><p>编辑status字段，删除对应的tag</p><h3 id=5-参考链接>5. 参考链接</h3><ul><li><a href=https://tkestack.github.io/docs/installation/installation-architecture.html>https://tkestack.github.io/docs/installation/installation-architecture.html</a></li><li><a href=https://linkscue.com/posts/2019-09-18-kubernetes-local-volume-provisioner/>https://linkscue.com/posts/2019-09-18-kubernetes-local-volume-provisioner/</a></li><li><a href=https://argo-cd.readthedocs.io/en/stable/getting_started/>https://argo-cd.readthedocs.io/en/stable/getting_started/</a></li><li><a href=https://my.oschina.net/zeyangli/blog/4772476>基于Jenkins和Argocd实现CI/CD</a></li><li><a href=https://shenxianpeng.github.io/2019/07/Jenkinsfile-example/>Jenkinsfile example - 实现交互、clone 多个仓库以及 git push</a></li><li><a href=https://blog.nowcoder.net/n/1a1f1271a3014526b9ce5ed014f4450e>【通俗易懂】蓝绿部署、滚动发布、灰度发布</a></li><li><a href=https://zhuanlan.zhihu.com/p/181692322>Kubernetes扩展神器Argo实践</a></li><li><a href=https://argoproj.github.io/argo-rollouts/installation/>https://argoproj.github.io/argo-rollouts/installation/</a></li><li><a href=https://particule.io/en/blog/argocd-canary/>Canary deployment with Argo</a></li></ul><div class="entry-shang text-center"><p>「真诚赞赏，手留余香」</p><button class="zs show-zs btn btn-bred">赞赏支持</button></div><div class=zs-modal-bg></div><div class=zs-modal-box><div class=zs-modal-head><button type=button class=close>×</button>
-<span class=author><a href=https://www.iceyao.com.cn/><img src=/img/favicon.png>爱折腾的工程师</a></span><p class=tip><i></i><span>真诚赞赏，手留余香</span></p></div><div class=zs-modal-body><div class=zs-modal-btns><button class="btn btn-blink" data-num=2>2元</button>
-<button class="btn btn-blink" data-num=5>5元</button>
-<button class="btn btn-blink" data-num=10>10元</button>
-<button class="btn btn-blink" data-num=50>50元</button>
-<button class="btn btn-blink" data-num=100>100元</button>
-<button class="btn btn-blink" data-num=1>任意金额</button></div><div class=zs-modal-pay><button class="btn btn-bred" id=pay-text>2元</button><p>使用<span id=pay-type>微信</span>扫描二维码完成支付</p><img src=/img/reward/wechat-2.png id=pay-image></div></div><div class=zs-modal-footer><label><input type=radio name=zs-type value=wechat class=zs-type checked><span><span class=zs-wechat><img src=/img/reward/wechat-btn.png></span></label>
-<label><input type=radio name=zs-type value=alipay class=zs-type class=zs-alipay><img src=/img/reward/alipay-btn.png></span></label></div></div><script type=text/javascript src=/js/reward.js></script><hr><ul class=pager><li class=previous><a href=/post/2021-03-15-k8s_volume/ data-toggle=tooltip data-placement=top title=kubernetes存储相关源码阅读笔记>&larr;
-Previous Post</a></li><li class=next><a href=/post/2021-04-02-common_pass/ data-toggle=tooltip data-placement=top title=常用中间件服务部署方案>Next
-Post &rarr;</a></li></ul><script src=https://giscus.app/client.js data-repo=yaoice/yaoice.github.io data-repo-id=R_kgDOJnxqVg data-category=General data-category-id=DIC_kwDOJnxqVs4CWwUs data-mapping=pathname data-reactions-enabled=1 data-emit-metadata=0 data-theme=light data-lang=en crossorigin=anonymous async></script></div><div class="col-lg-2 col-lg-offset-0
-visible-lg-block
-sidebar-container
-catalog-container"><div class=side-catalog><hr class="hidden-sm hidden-xs"><h5><a class=catalog-toggle href=#>CATALOG</a></h5><ul class=catalog-body></ul></div></div><div class="col-lg-8 col-lg-offset-2
-col-md-10 col-md-offset-1
-sidebar-container"><section><hr class="hidden-sm hidden-xs"><h5><a href=/tags/>FEATURED TAGS</a></h5><div class=tags><a href=/tags/devops title=devops>devops
-</a><a href=/tags/go title=go>go
-</a><a href=/tags/k8s title=k8s>k8s
-</a><a href=/tags/llm title=llm>llm
-</a><a href=/tags/openstack title=openstack>openstack
-</a><a href=/tags/tkestack title=tkestack>tkestack
-</a><a href=/tags/%E7%BB%83%E8%BD%A6 title=练车>练车</a></div></section></div></div></div></article><footer><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><ul class="list-inline text-center"><li><a href=mailto:yao3690093@gmail.com><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fas fa-envelope fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=/img/wechat.jpeg><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fab fa-weixin fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=https://github.com/yaoice><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fab fa-github fa-stack-1x fa-inverse"></i></span></a></li><li><a href rel=alternate type=application/rss+xml title=爱折腾的工程师><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fas fa-rss fa-stack-1x fa-inverse"></i></span></a></li></ul><p class="copyright text-muted">Copyright &copy; 爱折腾的工程师 2024</p></div></div></div></footer><script>function loadAsync(e,t){var s=document,o="script",n=s.createElement(o),i=s.getElementsByTagName(o)[0];n.src=e,t&&n.addEventListener("load",function(e){t(null,e)},!1),i.parentNode.insertBefore(n,i)}</script><script>$("#tag_cloud").length!==0&&loadAsync("/js/jquery.tagcloud.js",function(){$.fn.tagcloud.defaults={color:{start:"#bbbbee",end:"#0085a1"}},$("#tag_cloud a").tagcloud()})</script><script>loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js",function(){var e=document.querySelector("nav");e&&FastClick.attach(e)})</script><script>(function(){var t,e=document.createElement("script"),n=window.location.protocol.split(":")[0];n==="https"?e.src="https://zz.bdstatic.com/linksubmit/push.js":e.src="http://push.zhanzhang.baidu.com/push.js",t=document.getElementsByTagName("script")[0],t.parentNode.insertBefore(e,t)})()</script><script>var _baId="92c175994ded75a3cd2074bc1123e2be",_hmt=_hmt||[];(function(){var e,t=document.createElement("script");t.src="//hm.baidu.com/hm.js?"+_baId,e=document.getElementsByTagName("script")[0],e.parentNode.insertBefore(t,e)})()</script><script type=text/javascript>function generateCatalog(e){_containerSelector="div.post-container";var t,n,s,o,i,a=$(_containerSelector),r=a.find("h1,h2,h3,h4,h5,h6");return $(e).html(""),r.each(function(){t=$(this).prop("tagName").toLowerCase(),o="#"+$(this).prop("id"),n=$(this).text(),i=$('<a href="'+o+'" rel="nofollow">'+n+"</a>"),s=$('<li class="'+t+'_nav"></li>').append(i),$(e).append(s)}),!0}generateCatalog(".catalog-body"),$(".catalog-toggle").click(function(e){e.preventDefault(),$(".side-catalog").toggleClass("fold")}),loadAsync("/js/jquery.nav.js",function(){$(".catalog-body").onePageNav({currentClass:"active",changeHash:!1,easing:"swing",filter:"",scrollSpeed:700,scrollOffset:0,scrollThreshold:.2,begin:null,end:null,scrollChange:null,padding:80})})</script></body></html>
+</code></pre><h4 id="39-argo-rollouts-dashboard">3.9 argo-rollouts dashboard</h4>
+<h3 id="4-tips">4. Tips</h3>
+<p>1、删除tke registry镜像tag</p>
+<pre tabindex="0"><code># kubectl edit repositories.registry.tkestack.io -n rns-8lzfpvmd repo-85zxwtmv
+</code></pre><p>编辑status字段，删除对应的tag</p>
+<h3 id="5-参考链接">5. 参考链接</h3>
+<ul>
+<li><a href="https://tkestack.github.io/docs/installation/installation-architecture.html">https://tkestack.github.io/docs/installation/installation-architecture.html</a></li>
+<li><a href="https://linkscue.com/posts/2019-09-18-kubernetes-local-volume-provisioner/">https://linkscue.com/posts/2019-09-18-kubernetes-local-volume-provisioner/</a></li>
+<li><a href="https://argo-cd.readthedocs.io/en/stable/getting_started/">https://argo-cd.readthedocs.io/en/stable/getting_started/</a></li>
+<li><a href="https://my.oschina.net/zeyangli/blog/4772476">基于Jenkins和Argocd实现CI/CD</a></li>
+<li><a href="https://shenxianpeng.github.io/2019/07/Jenkinsfile-example/">Jenkinsfile example - 实现交互、clone 多个仓库以及 git push</a></li>
+<li><a href="https://blog.nowcoder.net/n/1a1f1271a3014526b9ce5ed014f4450e">【通俗易懂】蓝绿部署、滚动发布、灰度发布</a></li>
+<li><a href="https://zhuanlan.zhihu.com/p/181692322">Kubernetes扩展神器Argo实践</a></li>
+<li><a href="https://argoproj.github.io/argo-rollouts/installation/">https://argoproj.github.io/argo-rollouts/installation/</a></li>
+<li><a href="https://particule.io/en/blog/argocd-canary/">Canary deployment with Argo</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2021-03-15-k8s_volume/" data-toggle="tooltip" data-placement="top" title="kubernetes存储相关源码阅读笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2021-04-02-common_pass/" data-toggle="tooltip" data-placement="top" title="常用中间件服务部署方案">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2024
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

@@ -1,44 +1,365 @@
-<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:site_name" content="爱折腾的工程师"><meta property="og:type" content="article"><meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta name=title content="Argo CD学习笔记"><meta property="og:title" content="Argo CD学习笔记"><meta property="twitter:title" content="Argo CD学习笔记"><meta name=description content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。"><meta property="twitter:card" content="summary"><meta name=keyword content="iceyao, IceYao's Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice"><link rel="shortcut icon" href=/img/favicon.ico><title>Argo CD学习笔记 | 爱折腾的工程师 | IceYao's Blog</title>
-<link rel=canonical href=/post/2022-08-22-argocd_learning_note/><link rel=stylesheet href=/css/bootstrap.min.css><link rel=stylesheet href=/css/hugo-theme-cleanwhite.min.css><link rel=stylesheet href=/css/zanshang.css><link rel=stylesheet href=/css/font-awesome.all.min.css><script src=/js/jquery.min.js></script><script src=/js/bootstrap.min.js></script><script src=/js/hux-blog.min.js></script><script src=/js/lazysizes.min.js></script></head><script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-9J7CKFVPPM")}</script><nav class="navbar navbar-default navbar-custom navbar-fixed-top"><div class=container-fluid><div class="navbar-header page-scroll"><button type=button class=navbar-toggle>
-<span class=sr-only>Toggle navigation</span>
-<span class=icon-bar></span>
-<span class=icon-bar></span>
-<span class=icon-bar></span>
-</button>
-<a class=navbar-brand href=/>爱折腾的工程师</a></div><div id=huxblog_navbar><div class=navbar-collapse><ul class="nav navbar-nav navbar-right"><li><a href=/>All Posts</a></li><li><a href=/archive//>ARCHIVE</a></li><li><a href=/notes//>NOTES</a></li><li><a href=/about//>ABOUT</a></li><li><a href=/search><i class="fa fa-search"></i></a></li></ul></div></div></div></nav><script>var $body=document.body,$toggle=document.querySelector(".navbar-toggle"),$navbar=document.querySelector("#huxblog_navbar"),$collapse=document.querySelector(".navbar-collapse");$toggle.addEventListener("click",handleMagic);function handleMagic(){$navbar.className.indexOf("in")>0?($navbar.className=" ",setTimeout(function(){$navbar.className.indexOf("in")<0&&($collapse.style.height="0px")},400)):($collapse.style.height="auto",$navbar.className+=" in")}</script><style type=text/css>header.intro-header{background-image:url(/img/post-bg-unix-linux.jpg)}</style><header class=intro-header><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><div class=post-heading><div class=tags><a class=tag href=/tags/k8s title=k8s>k8s</a></div><h1>Argo CD学习笔记</h1><h2 class=subheading></h2><span class=meta>Posted by
-爱折腾的工程师
-on
-Monday, August 22, 2022</span></div></div></div></div></header><article><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2
-col-md-10 col-md-offset-1
-post-container"><h1 id=1-argo-cd简介>1. Argo CD简介</h1><p>Argo CD是一个基于Kubernetes的声明式GitOps持续交付工具。Argo CD功能有：</p><ul><li>将应用程序自动部署到指定的目标环境</li><li>支持多种配置管理/模板工具(Kustomize、Helm、Ksonnet、Jsonnet、plain-YAML)</li><li>能够管理和部署到多个集群</li><li>SSO集成(OIDC, OAuth2, LDAP, SAML 2.0, GitHub, GitLab, Microsoft, LinkedIn)</li><li>授权的多租户和RBAC策略</li><li>回滚/回滚到Git存储库中提交的任何应用程序配置</li><li>应用程序资源的健康状态分析</li><li>自动配置漂移检测和显示</li><li>将应用程序自动或手动同步到所需的状态</li><li>Web UI，提供应用程序活动的实时视图</li><li>用于自动化和CI集成的CLI</li><li>Webhook集成(GitHub, BitBucket, GitLab)</li><li>用于自动化的访问令牌</li><li>PreSync、Sync、PostSync钩子支持复杂的应用程序发布(例如，blue/green & canary升级)</li><li>应用程序事件和API调用的审计跟踪</li><li>Prometheus指标</li><li>在Git中重写ksonnet/helm参数的参数覆盖</li></ul><h1 id=2-argo-cd架构>2. Argo CD架构</h1><p><img src=https://argo-cd.readthedocs.io/en/stable/assets/argocd_architecture.png alt></p><p>从上面架构图可以看出，Argo CD包括三个核心服务：API Server、Repository Server和Application Controller</p><h2 id=21-api-server>2.1 API Server</h2><p>API Server提供gRPC、REST接口，与web UI、CLI、CI/CD系统交互，API Server的功能有：</p><ul><li>application管理和状态上报</li><li>application操作(同步、回滚、自定义操作)</li><li>repository和集群证书管理(存为k8s secrets)</li><li>与外部认证provider进行认证/鉴权</li><li>RBAC限制</li><li>监听/转发Git webhook事件</li></ul><h2 id=22-repository-server>2.2 Repository Server</h2><p>Repository Server会克隆application声明式配置清单仓库，并缓存到本地存储；声明式配置清单形式支持
-Kustomize、Helm、Ksonnet、Jsonnet、k8s yaml；提供输入可以生成和返回k8s声明式配置清单.</p><h2 id=23-application-controller>2.3 Application Controller</h2><p>Application Controller是K8s controller实现，持续监控运行中的application并对当前状态与期望状态进行对比.
-如果检测到application OutOfSync状态，就会向期望状态校正.也可以添加任何用户自定义的hook在application生命周期事件上(PreSync，Sync，PostSync)</p><h1 id=3-argo-cd核心概念>3. Argo CD核心概念</h1><h2 id=31-project>3.1 Project</h2><p>Project可用于不同Application的分组，针对每个Project还可以设置一些精细化限制：</p><ul><li>设置Application部署清单的来源Repositories白名单</li><li>设置Application部署的目标集群和目标命名空间白名单</li><li>设置部署Cluster cluster级别、namespace级别资源的白名单/黑名单</li><li>设置GPG签名Key</li><li>设置目标命名空间Application资源级别的监控</li><li>设置项目角色，为Application设置RBAC规则</li><li>设置资源同步时间窗口的白名单/黑名单</li></ul><h2 id=32-application>3.2 Application</h2><p>Application定义了部署清单Repository、目标Cluster、关联Project、同步策略/同步参数设置、部署清单的方式；
-其中部署清单Repository声明的状态最终呈现在目标Cluster. Application是GitOps的最小发布单元.</p><p>单个Application不支持在多个Cluster同时部署，社区有相应的issue讨论：<a href=https://github.com/argoproj/argo-cd/issues/1673>https://github.com/argoproj/argo-cd/issues/1673</a></p><h2 id=33-applicationset>3.3 ApplicationSet</h2><p>ApplicationSet是Application的高级版，支持generators语法，批量创建Application</p><p>支持的generators有：</p><ul><li>List generator：从定义的列表中获取</li><li>Cluster generator：从argocd定义的集群列表种获取</li><li>Git generator：从git仓库获取定义的资源</li><li>Matrix generator：把其它两种generator产生的参数组合起来</li></ul><h2 id=34-cluster>3.4 Cluster</h2><p>即k8s集群列表，Argo CD部署所在集群作为内置集群自动添加，还可以添加外部集群</p><h2 id=35-repositories>3.5 Repositories</h2><p>部署清单Repository，支持ssh、https、Github App方式，其中https方式支持git、helm类型</p><h1 id=4-argo-cd部署>4. Argo CD部署</h1><p>Argo CD有两种部署模式：多租户和Core</p><h2 id=41-多租户模式>4.1 多租户模式</h2><p>多租户模式是最通用部署模式，适用于同一组织下的多个开发团队协同开发. 用户可以使用web UI或argocd命令行</p><h3 id=411-非高可用>4.1.1 非高可用</h3><p>非高可用模式，不建议在生产使用. 通常用于测试和演示环境. 提供两种部署形式：</p><ul><li><a href=https://github.com/argoproj/argo-cd/blob/master/manifests/install.yaml>install.yaml</a>：具有cluster-admin权限的标准部署方式，
-可以使用这个清单文件部署argocd，然后使用argocd在同个集群中部署应用程序. 也还是支持使用其它凭据(如kubeconfig)部署应用到外部集群.</li><li><a href=https://github.com/argoproj/argo-cd/blob/master/manifests/namespace-install.yaml>namespace-install.yaml</a>：命名空间权限级别的部署方式，适用于在
-同个集群为多个开发团队部署多个argocd实例，然后每个argocd实例部署应用到外部集群。也还是支持使用其它凭据(如kubeconfig)部署应用到同个集群. 这种方式下crd需要额外单独安装.</li></ul><h3 id=412-高可用>4.1.2 高可用</h3><p>高可用模式，推荐在生产使用. 同样提供两种部署形式：</p><ul><li><a href=https://github.com/argoproj/argo-cd/blob/master/manifests/ha/install.yaml>ha/install.yaml</a>：与上面的Install.yaml类似，但组件配置了多副本</li><li><a href=https://github.com/argoproj/argo-cd/blob/master/manifests/ha/namespace-install.yaml>ha/namespace-install.yaml</a>：与上面的namespace-install.yaml类似，但组件配置了多副本</li></ul><h2 id=42-core模式>4.2 Core模式</h2><p>Core模式最适用于集群管理员独立使用Argo CD，不需要多租户能力. 这种部署方式只安装更少的组件，API Server、UI都不需要安装，同时每个组件没有高可用.终端用户可以通过以下命令行操作获得k8s权限来管理Argo CD.</p><pre tabindex=0><code># kubectl config set-context --current --namespace=argocd
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Argo CD学习笔记" />
+    <meta property="og:title" content="Argo CD学习笔记" />
+    <meta property="twitter:title" content="Argo CD学习笔记" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Argo CD学习笔记 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2022-08-22-argocd_learning_note/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>Argo CD学习笔记</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Monday, August 22, 2022
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h1 id="1-argo-cd简介">1. Argo CD简介</h1>
+<p>Argo CD是一个基于Kubernetes的声明式GitOps持续交付工具。Argo CD功能有：</p>
+<ul>
+<li>将应用程序自动部署到指定的目标环境</li>
+<li>支持多种配置管理/模板工具(Kustomize、Helm、Ksonnet、Jsonnet、plain-YAML)</li>
+<li>能够管理和部署到多个集群</li>
+<li>SSO集成(OIDC, OAuth2, LDAP, SAML 2.0, GitHub, GitLab, Microsoft, LinkedIn)</li>
+<li>授权的多租户和RBAC策略</li>
+<li>回滚/回滚到Git存储库中提交的任何应用程序配置</li>
+<li>应用程序资源的健康状态分析</li>
+<li>自动配置漂移检测和显示</li>
+<li>将应用程序自动或手动同步到所需的状态</li>
+<li>Web UI，提供应用程序活动的实时视图</li>
+<li>用于自动化和CI集成的CLI</li>
+<li>Webhook集成(GitHub, BitBucket, GitLab)</li>
+<li>用于自动化的访问令牌</li>
+<li>PreSync、Sync、PostSync钩子支持复杂的应用程序发布(例如，blue/green &amp; canary升级)</li>
+<li>应用程序事件和API调用的审计跟踪</li>
+<li>Prometheus指标</li>
+<li>在Git中重写ksonnet/helm参数的参数覆盖</li>
+</ul>
+<h1 id="2-argo-cd架构">2. Argo CD架构</h1>
+<p>
+  <img src="https://argo-cd.readthedocs.io/en/stable/assets/argocd_architecture.png" alt="">
+
+</p>
+<p>从上面架构图可以看出，Argo CD包括三个核心服务：API Server、Repository Server和Application Controller</p>
+<h2 id="21-api-server">2.1 API Server</h2>
+<p>API Server提供gRPC、REST接口，与web UI、CLI、CI/CD系统交互，API Server的功能有：</p>
+<ul>
+<li>application管理和状态上报</li>
+<li>application操作(同步、回滚、自定义操作)</li>
+<li>repository和集群证书管理(存为k8s secrets)</li>
+<li>与外部认证provider进行认证/鉴权</li>
+<li>RBAC限制</li>
+<li>监听/转发Git webhook事件</li>
+</ul>
+<h2 id="22-repository-server">2.2 Repository Server</h2>
+<p>Repository Server会克隆application声明式配置清单仓库，并缓存到本地存储；声明式配置清单形式支持
+Kustomize、Helm、Ksonnet、Jsonnet、k8s yaml；提供输入可以生成和返回k8s声明式配置清单.</p>
+<h2 id="23-application-controller">2.3 Application Controller</h2>
+<p>Application Controller是K8s controller实现，持续监控运行中的application并对当前状态与期望状态进行对比.
+如果检测到application OutOfSync状态，就会向期望状态校正.也可以添加任何用户自定义的hook在application生命周期事件上(PreSync，Sync，PostSync)</p>
+<h1 id="3-argo-cd核心概念">3. Argo CD核心概念</h1>
+<h2 id="31-project">3.1 Project</h2>
+<p>Project可用于不同Application的分组，针对每个Project还可以设置一些精细化限制：</p>
+<ul>
+<li>设置Application部署清单的来源Repositories白名单</li>
+<li>设置Application部署的目标集群和目标命名空间白名单</li>
+<li>设置部署Cluster cluster级别、namespace级别资源的白名单/黑名单</li>
+<li>设置GPG签名Key</li>
+<li>设置目标命名空间Application资源级别的监控</li>
+<li>设置项目角色，为Application设置RBAC规则</li>
+<li>设置资源同步时间窗口的白名单/黑名单</li>
+</ul>
+<h2 id="32-application">3.2 Application</h2>
+<p>Application定义了部署清单Repository、目标Cluster、关联Project、同步策略/同步参数设置、部署清单的方式；
+其中部署清单Repository声明的状态最终呈现在目标Cluster. Application是GitOps的最小发布单元.</p>
+<p>单个Application不支持在多个Cluster同时部署，社区有相应的issue讨论：<a href="https://github.com/argoproj/argo-cd/issues/1673">https://github.com/argoproj/argo-cd/issues/1673</a></p>
+<h2 id="33-applicationset">3.3 ApplicationSet</h2>
+<p>ApplicationSet是Application的高级版，支持generators语法，批量创建Application</p>
+<p>支持的generators有：</p>
+<ul>
+<li>List generator：从定义的列表中获取</li>
+<li>Cluster generator：从argocd定义的集群列表种获取</li>
+<li>Git generator：从git仓库获取定义的资源</li>
+<li>Matrix generator：把其它两种generator产生的参数组合起来</li>
+</ul>
+<h2 id="34-cluster">3.4 Cluster</h2>
+<p>即k8s集群列表，Argo CD部署所在集群作为内置集群自动添加，还可以添加外部集群</p>
+<h2 id="35-repositories">3.5 Repositories</h2>
+<p>部署清单Repository，支持ssh、https、Github App方式，其中https方式支持git、helm类型</p>
+<h1 id="4-argo-cd部署">4. Argo CD部署</h1>
+<p>Argo CD有两种部署模式：多租户和Core</p>
+<h2 id="41-多租户模式">4.1 多租户模式</h2>
+<p>多租户模式是最通用部署模式，适用于同一组织下的多个开发团队协同开发. 用户可以使用web UI或argocd命令行</p>
+<h3 id="411-非高可用">4.1.1 非高可用</h3>
+<p>非高可用模式，不建议在生产使用. 通常用于测试和演示环境. 提供两种部署形式：</p>
+<ul>
+<li><a href="https://github.com/argoproj/argo-cd/blob/master/manifests/install.yaml">install.yaml</a>：具有cluster-admin权限的标准部署方式，
+可以使用这个清单文件部署argocd，然后使用argocd在同个集群中部署应用程序. 也还是支持使用其它凭据(如kubeconfig)部署应用到外部集群.</li>
+<li><a href="https://github.com/argoproj/argo-cd/blob/master/manifests/namespace-install.yaml">namespace-install.yaml</a>：命名空间权限级别的部署方式，适用于在
+同个集群为多个开发团队部署多个argocd实例，然后每个argocd实例部署应用到外部集群。也还是支持使用其它凭据(如kubeconfig)部署应用到同个集群. 这种方式下crd需要额外单独安装.</li>
+</ul>
+<h3 id="412-高可用">4.1.2 高可用</h3>
+<p>高可用模式，推荐在生产使用. 同样提供两种部署形式：</p>
+<ul>
+<li><a href="https://github.com/argoproj/argo-cd/blob/master/manifests/ha/install.yaml">ha/install.yaml</a>：与上面的Install.yaml类似，但组件配置了多副本</li>
+<li><a href="https://github.com/argoproj/argo-cd/blob/master/manifests/ha/namespace-install.yaml">ha/namespace-install.yaml</a>：与上面的namespace-install.yaml类似，但组件配置了多副本</li>
+</ul>
+<h2 id="42-core模式">4.2 Core模式</h2>
+<p>Core模式最适用于集群管理员独立使用Argo CD，不需要多租户能力. 这种部署方式只安装更少的组件，API Server、UI都不需要安装，同时每个组件没有高可用.终端用户可以通过以下命令行操作获得k8s权限来管理Argo CD.</p>
+<pre tabindex="0"><code># kubectl config set-context --current --namespace=argocd
 # argocd login --core
-</code></pre><p>Web UI还是可以手工启用</p><pre tabindex=0><code># argocd admin dashboard 
-</code></pre><p><a href=https://github.com/argoproj/argo-cd/blob/master/manifests/core-install.yaml>core-install.yaml部署清单</a></p><h2 id=43-kustomize模式>4.3 Kustomize模式</h2><p>Argo CD也支持Kustomize模式安装，使用Kustomize patch自定义配置</p><pre tabindex=0><code>apiVersion: kustomize.config.k8s.io/v1beta1
+</code></pre><p>Web UI还是可以手工启用</p>
+<pre tabindex="0"><code># argocd admin dashboard 
+</code></pre><p><a href="https://github.com/argoproj/argo-cd/blob/master/manifests/core-install.yaml">core-install.yaml部署清单</a></p>
+<h2 id="43-kustomize模式">4.3 Kustomize模式</h2>
+<p>Argo CD也支持Kustomize模式安装，使用Kustomize patch自定义配置</p>
+<pre tabindex="0"><code>apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 namespace: argocd
 resources:
 - https://raw.githubusercontent.com/argoproj/argo-cd/v2.0.4/manifests/ha/install.yaml
-</code></pre><h2 id=44-helm模式>4.4 Helm模式</h2><p>Argo CD也支持Helm模式安装, Helm chart维护在：<a href=https://github.com/argoproj/argo-helm/tree/master/charts/argo-cd>argo-helm/charts/argo-cd</a></p><h1 id=5-argo-cd使用>5. Argo CD使用</h1><h2 id=51-argo-cd-login>5.1 Argo CD Login</h2><p>Argo CD CLI下载：<a href=https://argo-cd.readthedocs.io/en/stable/cli_installation/>https://argo-cd.readthedocs.io/en/stable/cli_installation/</a></p><p>Argo CD admin密码查看</p><pre tabindex=0><code># kubectl get secret -n argocd argocd-initial-admin-secret -o jsonpath=&#39;{.data.password}&#39; | base64 -d
-</code></pre><pre tabindex=0><code>[root@devops ~]# argocd login &lt;argocd-server service地址&gt;:443
+</code></pre><h2 id="44-helm模式">4.4 Helm模式</h2>
+<p>Argo CD也支持Helm模式安装, Helm chart维护在：<a href="https://github.com/argoproj/argo-helm/tree/master/charts/argo-cd">argo-helm/charts/argo-cd</a></p>
+<h1 id="5-argo-cd使用">5. Argo CD使用</h1>
+<h2 id="51-argo-cd-login">5.1 Argo CD Login</h2>
+<p>Argo CD CLI下载：<a href="https://argo-cd.readthedocs.io/en/stable/cli_installation/">https://argo-cd.readthedocs.io/en/stable/cli_installation/</a></p>
+<p>Argo CD admin密码查看</p>
+<pre tabindex="0"><code># kubectl get secret -n argocd argocd-initial-admin-secret -o jsonpath=&#39;{.data.password}&#39; | base64 -d
+</code></pre><pre tabindex="0"><code>[root@devops ~]# argocd login &lt;argocd-server service地址&gt;:443
 WARNING: server certificate had error: x509: cannot validate certificate for 10.233.11.240 because it doesn&#39;t contain any IP SANs. Proceed insecurely (y/n)? y
 Username: admin
 Password:
 &#39;admin:login&#39; logged in successfully
 Context &#39;10.233.11.240:443&#39; updated
-</code></pre><h2 id=51-添加外部cluster>5.1 添加外部Cluster</h2><p>Argo CD添加的外部集群需要存在于kubeconfig中的context</p><pre tabindex=0><code># KUBECONFIG=~/.kube/config:/tmp/231-config kubectl config view --flatten &gt; /tmp/config &amp;&amp; mv /tmp/config ~/.kube/config
-</code></pre><pre tabindex=0><code>[root@devops ~]# argocd cluster add kubernetes-admin-231@cluster.local-231 
+</code></pre><h2 id="51-添加外部cluster">5.1 添加外部Cluster</h2>
+<p>Argo CD添加的外部集群需要存在于kubeconfig中的context</p>
+<pre tabindex="0"><code># KUBECONFIG=~/.kube/config:/tmp/231-config kubectl config view --flatten &gt; /tmp/config &amp;&amp; mv /tmp/config ~/.kube/config
+</code></pre><pre tabindex="0"><code>[root@devops ~]# argocd cluster add kubernetes-admin-231@cluster.local-231 
 WARNING: This will create a service account `argocd-manager` on the cluster referenced by context `kubernetes-admin-231@cluster.local-231` with full cluster level privileges. Do you want to continue [y/N]? y
 INFO[0001] ServiceAccount &#34;argocd-manager&#34; already exists in namespace &#34;kube-system&#34; 
 INFO[0001] ClusterRole &#34;argocd-manager-role&#34; updated    
 INFO[0001] ClusterRoleBinding &#34;argocd-manager-role-binding&#34; updated 
 Cluster &#39;https://xxx.xxx.xxx.231:6443&#39; added
-</code></pre><h2 id=52-添加project>5.2 添加Project</h2><pre tabindex=0><code>[root@devops ~]# kubectl get appprojects.argoproj.io test-cd -o yaml
+</code></pre><h2 id="52-添加project">5.2 添加Project</h2>
+<pre tabindex="0"><code>[root@devops ~]# kubectl get appprojects.argoproj.io test-cd -o yaml
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -63,28 +384,407 @@ clusterResourceWhitelist:
   sourceRepos:
 - https://git.xxx.com/xxx/charts.git
   status: {}
-</code></pre><h2 id=52-添加application>5.2 添加Application</h2><p>WebUI上依次创建Repositories、Projects、Applications</p><h1 id=参考链接>参考链接</h1><ul><li><a href=https://argocd-applicationset.readthedocs.io/en/stable/Getting-Started/>https://argocd-applicationset.readthedocs.io/en/stable/Getting-Started/</a></li></ul><div class="entry-shang text-center"><p>「真诚赞赏，手留余香」</p><button class="zs show-zs btn btn-bred">赞赏支持</button></div><div class=zs-modal-bg></div><div class=zs-modal-box><div class=zs-modal-head><button type=button class=close>×</button>
-<span class=author><a href=https://www.iceyao.com.cn/><img src=/img/favicon.png>爱折腾的工程师</a></span><p class=tip><i></i><span>真诚赞赏，手留余香</span></p></div><div class=zs-modal-body><div class=zs-modal-btns><button class="btn btn-blink" data-num=2>2元</button>
-<button class="btn btn-blink" data-num=5>5元</button>
-<button class="btn btn-blink" data-num=10>10元</button>
-<button class="btn btn-blink" data-num=50>50元</button>
-<button class="btn btn-blink" data-num=100>100元</button>
-<button class="btn btn-blink" data-num=1>任意金额</button></div><div class=zs-modal-pay><button class="btn btn-bred" id=pay-text>2元</button><p>使用<span id=pay-type>微信</span>扫描二维码完成支付</p><img src=/img/reward/wechat-2.png id=pay-image></div></div><div class=zs-modal-footer><label><input type=radio name=zs-type value=wechat class=zs-type checked><span><span class=zs-wechat><img src=/img/reward/wechat-btn.png></span></label>
-<label><input type=radio name=zs-type value=alipay class=zs-type class=zs-alipay><img src=/img/reward/alipay-btn.png></span></label></div></div><script type=text/javascript src=/js/reward.js></script><hr><ul class=pager><li class=previous><a href=/post/2022-06-29-zadig_debug_env/ data-toggle=tooltip data-placement=top title=一文教你调试zadig代码>&larr;
-Previous Post</a></li><li class=next><a href=/post/2023-03-09-webide_learning_note/ data-toggle=tooltip data-placement=top title=WebIDE技术方案调研>Next
-Post &rarr;</a></li></ul><script src=https://giscus.app/client.js data-repo=yaoice/yaoice.github.io data-repo-id=R_kgDOJnxqVg data-category=General data-category-id=DIC_kwDOJnxqVs4CWwUs data-mapping=pathname data-reactions-enabled=1 data-emit-metadata=0 data-theme=light data-lang=en crossorigin=anonymous async></script></div><div class="col-lg-2 col-lg-offset-0
-visible-lg-block
-sidebar-container
-catalog-container"><div class=side-catalog><hr class="hidden-sm hidden-xs"><h5><a class=catalog-toggle href=#>CATALOG</a></h5><ul class=catalog-body></ul></div></div><div class="col-lg-8 col-lg-offset-2
-col-md-10 col-md-offset-1
-sidebar-container"><section><hr class="hidden-sm hidden-xs"><h5><a href=/tags/>FEATURED TAGS</a></h5><div class=tags><a href=/tags/devops title=devops>devops
-</a><a href=/tags/go title=go>go
-</a><a href=/tags/k8s title=k8s>k8s
-</a><a href=/tags/llm title=llm>llm
-</a><a href=/tags/openstack title=openstack>openstack
-</a><a href=/tags/tkestack title=tkestack>tkestack
-</a><a href=/tags/%E7%BB%83%E8%BD%A6 title=练车>练车</a></div></section></div></div></div></article><footer><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><ul class="list-inline text-center"><li><a href=mailto:yao3690093@gmail.com><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fas fa-envelope fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=/img/wechat.jpeg><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fab fa-weixin fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=https://github.com/yaoice><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fab fa-github fa-stack-1x fa-inverse"></i></span></a></li><li><a href rel=alternate type=application/rss+xml title=爱折腾的工程师><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
-<i class="fas fa-rss fa-stack-1x fa-inverse"></i></span></a></li></ul><p class="copyright text-muted">Copyright &copy; 爱折腾的工程师 2024</p></div></div></div></footer><script>function loadAsync(e,t){var s=document,o="script",n=s.createElement(o),i=s.getElementsByTagName(o)[0];n.src=e,t&&n.addEventListener("load",function(e){t(null,e)},!1),i.parentNode.insertBefore(n,i)}</script><script>$("#tag_cloud").length!==0&&loadAsync("/js/jquery.tagcloud.js",function(){$.fn.tagcloud.defaults={color:{start:"#bbbbee",end:"#0085a1"}},$("#tag_cloud a").tagcloud()})</script><script>loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js",function(){var e=document.querySelector("nav");e&&FastClick.attach(e)})</script><script>(function(){var t,e=document.createElement("script"),n=window.location.protocol.split(":")[0];n==="https"?e.src="https://zz.bdstatic.com/linksubmit/push.js":e.src="http://push.zhanzhang.baidu.com/push.js",t=document.getElementsByTagName("script")[0],t.parentNode.insertBefore(e,t)})()</script><script>var _baId="92c175994ded75a3cd2074bc1123e2be",_hmt=_hmt||[];(function(){var e,t=document.createElement("script");t.src="//hm.baidu.com/hm.js?"+_baId,e=document.getElementsByTagName("script")[0],e.parentNode.insertBefore(t,e)})()</script><script type=text/javascript>function generateCatalog(e){_containerSelector="div.post-container";var t,n,s,o,i,a=$(_containerSelector),r=a.find("h1,h2,h3,h4,h5,h6");return $(e).html(""),r.each(function(){t=$(this).prop("tagName").toLowerCase(),o="#"+$(this).prop("id"),n=$(this).text(),i=$('<a href="'+o+'" rel="nofollow">'+n+"</a>"),s=$('<li class="'+t+'_nav"></li>').append(i),$(e).append(s)}),!0}generateCatalog(".catalog-body"),$(".catalog-toggle").click(function(e){e.preventDefault(),$(".side-catalog").toggleClass("fold")}),loadAsync("/js/jquery.nav.js",function(){$(".catalog-body").onePageNav({currentClass:"active",changeHash:!1,easing:"swing",filter:"",scrollSpeed:700,scrollOffset:0,scrollThreshold:.2,begin:null,end:null,scrollChange:null,padding:80})})</script></body></html>
+</code></pre><h2 id="52-添加application">5.2 添加Application</h2>
+<p>WebUI上依次创建Repositories、Projects、Applications</p>
+<h1 id="参考链接">参考链接</h1>
+<ul>
+<li><a href="https://argocd-applicationset.readthedocs.io/en/stable/Getting-Started/">https://argocd-applicationset.readthedocs.io/en/stable/Getting-Started/</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2022-06-29-zadig_debug_env/" data-toggle="tooltip" data-placement="top" title="一文教你调试zadig代码">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2023-03-09-webide_learning_note/" data-toggle="tooltip" data-placement="top" title="WebIDE技术方案调研">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2024
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
