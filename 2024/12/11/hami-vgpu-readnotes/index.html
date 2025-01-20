@@ -1480,11 +1480,663 @@ HAMi这套架构就像一个高效运转的智能办公大楼，由四个关键�
 </span></span><span style="display:flex;"><span>CUDA_DEVICE_MEMORY_LIMIT_0 -&gt; 3000m
 </span></span><span style="display:flex;"><span>CUDA_DEVICE_SM_LIMIT -&gt; <span style="color:#bd93f9">25</span>
 </span></span><span style="display:flex;"><span>CUDA_DEVICE_MEMORY_SHARED_CACHE -&gt; /usr/local/vgpu/55202346-8648-4a49-9037-51b28eeb74ba.cache
-</span></span></code></pre></div><p>libvgpu.so替换完为什么就生效？
-在Linux下预加载链接库有好几种方式，动态链接库加载优先级从高到低：</p>
+</span></span></code></pre></div><p><code>NVIDIA_VISIBLE_DEVICES</code>环境变量在<code>nvidia-container-toolkit</code>源码中<code>nvidia-container-runtime</code>服务会根据它用于获取NVIDIA GPU设备。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-golang" data-lang="golang"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">const</span> (
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// NVIDIA_VISIBLE_DEVICES变量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>	EnvVarNvidiaVisibleDevices     = <span style="color:#f1fa8c">&#34;NVIDIA_VISIBLE_DEVICES&#34;</span>
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> (i CUDA) <span style="color:#50fa7b">VisibleDevicesFromEnvVar</span>() []<span style="color:#8be9fd">string</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">return</span> i.<span style="color:#50fa7b">DevicesFromEnvvars</span>(EnvVarNvidiaVisibleDevices).<span style="color:#50fa7b">List</span>()
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// DevicesFromEnvvars returns the devices requested by the image through environment variables
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">func</span> (i CUDA) <span style="color:#50fa7b">DevicesFromEnvvars</span>(envVars <span style="color:#ff79c6">...</span><span style="color:#8be9fd">string</span>) VisibleDevices {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 从指定的环境变量中获取并合并所有设备信息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">var</span> isSet <span style="color:#8be9fd">bool</span>                    <span style="color:#6272a4">// 标记是否有环境变量被设置
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">var</span> devices []<span style="color:#8be9fd">string</span>              <span style="color:#6272a4">// 存储所有找到的设备
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    requested <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>(<span style="color:#8be9fd;font-style:italic">map</span>[<span style="color:#8be9fd">string</span>]<span style="color:#8be9fd">bool</span>) <span style="color:#6272a4">// 用于追踪请求的设备（避免重复）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 遍历所有传入的环境变量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">for</span> _, envVar <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> envVars {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> devs, ok <span style="color:#ff79c6">:=</span> i.env[envVar]; ok {
+</span></span><span style="display:flex;"><span>            isSet = <span style="color:#ff79c6">true</span>  <span style="color:#6272a4">// 标记找到了至少一个环境变量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// 解析环境变量值，按逗号分割
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">for</span> _, d <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> strings.<span style="color:#50fa7b">Split</span>(devs, <span style="color:#f1fa8c">&#34;,&#34;</span>) {
+</span></span><span style="display:flex;"><span>                trimmed <span style="color:#ff79c6">:=</span> strings.<span style="color:#50fa7b">TrimSpace</span>(d)  <span style="color:#6272a4">// 去除空白字符
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>                <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">len</span>(trimmed) <span style="color:#ff79c6">==</span> <span style="color:#bd93f9">0</span> {
+</span></span><span style="display:flex;"><span>                    <span style="color:#ff79c6">continue</span>  <span style="color:#6272a4">// 跳过空值
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>                }
+</span></span><span style="display:flex;"><span>                devices = <span style="color:#8be9fd;font-style:italic">append</span>(devices, trimmed)  <span style="color:#6272a4">// 添加到设备列表
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>                requested[trimmed] = <span style="color:#ff79c6">true</span>           <span style="color:#6272a4">// 记录该设备已被请求
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 特殊情况处理：
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 1. 如果是传统镜像且没有设置环境变量：返回&#34;all&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> !isSet <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#8be9fd;font-style:italic">len</span>(devices) <span style="color:#ff79c6">==</span> <span style="color:#bd93f9">0</span> <span style="color:#ff79c6">&amp;&amp;</span> i.<span style="color:#50fa7b">IsLegacy</span>() {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">NewVisibleDevices</span>(<span style="color:#f1fa8c">&#34;all&#34;</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 2. 如果没有找到设备或明确要求&#34;void&#34;：返回&#34;void&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">len</span>(devices) <span style="color:#ff79c6">==</span> <span style="color:#bd93f9">0</span> <span style="color:#ff79c6">||</span> requested[<span style="color:#f1fa8c">&#34;void&#34;</span>] {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">NewVisibleDevices</span>(<span style="color:#f1fa8c">&#34;void&#34;</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 返回找到的所有设备
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">NewVisibleDevices</span>(devices<span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h2 id="55-hami-core核心逻辑">5.5 hami-core核心逻辑</h2>
+<p>libvgpu.so替换完为什么就生效？在Linux下预加载链接库有好几种方式，动态链接库加载优先级从高到低：</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>LD_PRELOAD &gt; /etc/ld.so.preload &gt; LD_LIBRARY_PATH &gt; /etc/ld.so.conf.d/.conf &gt; 默认系统路径<span style="color:#ff79c6">(</span>/lib, /usr/lib<span style="color:#ff79c6">)</span>
-</span></span></code></pre></div><p>通过/etc/ld.so.preload定义，确保libvgpu.so肯定会被加载。cuda api如何劫持？这部分逻辑定义在<code>HAMi-core</code>实现里</p>
-<h2 id="55-vgpumonitor调试环境">5.5 vGPUMonitor调试环境</h2>
+</span></span></code></pre></div><p>通过/etc/ld.so.preload定义，确保libvgpu.so肯定会被加载。cuda api的请求如何劫持？这部分逻辑定义在<code>HAMi-core</code>实现里，HAMi-core主要实现是在libvgpu.c文件里，实现了一个虚拟GPU库的核心功能。</p>
+<p>核心功能:</p>
+<ul>
+<li>实现了一个动态链接库劫持(hook)系统，用于拦截和重写CUDA和NVML相关的函数调用</li>
+<li>管理GPU资源的虚拟化和分配</li>
+<li>提供多进程间的GPU内存和利用率限制</li>
+</ul>
+<p>CUDA API主要分为三大类：</p>
+<ul>
+<li>CUDA Runtime API：最常用、最高层的API，以cuda为前缀，头文件cuda_runtime.h；用于普通CUDA应用开发</li>
+<li>CUDA Driver API: 底层API，以cu为前缀，头文件：cuda.h；用于底层控制/动态加载</li>
+<li>NVIDIA Management Library (NVML)：系统级管理API，以nvml为前缀，头文件：nvml.h；用于系统监控/管理</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>Runtime API  --&gt;  Driver API  --&gt;  硬件
+</span></span><span style="display:flex;"><span>    ^
+</span></span><span style="display:flex;"><span>    |
+</span></span><span style="display:flex;"><span>  NVML <span style="color:#ff79c6">(</span>系统管理<span style="color:#ff79c6">)</span>
+</span></span></code></pre></div><p>hami-core劫持的请求实际上是cuda-runtime调用cuda-driver的请求</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>+--------------+          +-----------------+
+</span></span><span style="display:flex;"><span>| Nvidia GPU  |          | CUDA Application|
+</span></span><span style="display:flex;"><span>+------+-------+          +---------+-------+
+</span></span><span style="display:flex;"><span>       ^                            |
+</span></span><span style="display:flex;"><span>       |                            v
+</span></span><span style="display:flex;"><span>+--------------+          +-----------------+
+</span></span><span style="display:flex;"><span>|Nvidia Driver |          |   CUDA Library  |
+</span></span><span style="display:flex;"><span>+------+-------+          +---------+-------+
+</span></span><span style="display:flex;"><span>       ^                            |
+</span></span><span style="display:flex;"><span>       |                            v
+</span></span><span style="display:flex;"><span>+--------------+          +-----------------+
+</span></span><span style="display:flex;"><span>| CUDA Driver  |          |  CUDA Runtime   |
+</span></span><span style="display:flex;"><span>+--------------+          +---------+-------+
+</span></span><span style="display:flex;"><span>       ^                            |
+</span></span><span style="display:flex;"><span>       |                            v
+</span></span><span style="display:flex;"><span>       |                  +-----------------+
+</span></span><span style="display:flex;"><span>       +------------------+    HAMi-Core    |
+</span></span><span style="display:flex;"><span>                          +-----------------+
+</span></span></code></pre></div><p>劫持机制的关键点:</p>
+<ul>
+<li>符号拦截：
+<ul>
+<li>当程序调用CUDA或NVML函数时，底层会通过dlsym查找符号</li>
+<li>通过重写dlsym，我们可以拦截这些查找请求</li>
+<li>根据符号名称前缀（&ldquo;cu&rdquo; 或 &ldquo;nvml&rdquo;）来识别目标函数</li>
+</ul>
+</li>
+<li>函数重写：
+<ul>
+<li>在劫持函数中，我们重写了CUDA和NVML函数的实现</li>
+<li>这些重写后的函数会执行虚拟化或限制逻辑</li>
+<li>例如，在CUDA函数中，我们可能模拟了GPU内存的虚拟化</li>
+<li>在NVML函数中，我们可能模拟了GPU利用率的限制</li>
+</ul>
+</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#6272a4">// dlsym函数的重写
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>FUNC_ATTR_VISIBLE <span style="color:#8be9fd">void</span><span style="color:#ff79c6">*</span> <span style="color:#50fa7b">dlsym</span>(<span style="color:#8be9fd">void</span><span style="color:#ff79c6">*</span> handle, <span style="color:#ff79c6">const</span> <span style="color:#8be9fd">char</span><span style="color:#ff79c6">*</span> symbol) {
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">pthread_once</span>(<span style="color:#ff79c6">&amp;</span>dlsym_init_flag, init_dlsym);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 1. 初始化真实的dlsym
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (real_dlsym <span style="color:#ff79c6">==</span> <span style="color:#8be9fd;font-style:italic">NULL</span>) {
+</span></span><span style="display:flex;"><span>        real_dlsym <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">dlvsym</span>(RTLD_NEXT, <span style="color:#f1fa8c">&#34;dlsym&#34;</span>, <span style="color:#f1fa8c">&#34;GLIBC_2.2.5&#34;</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> (real_dlsym <span style="color:#ff79c6">==</span> <span style="color:#8be9fd;font-style:italic">NULL</span>) {
+</span></span><span style="display:flex;"><span>            real_dlsym <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">_dl_sym</span>(RTLD_NEXT, <span style="color:#f1fa8c">&#34;dlsym&#34;</span>, dlsym);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 2. 处理RTLD_NEXT的特殊情况
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (handle <span style="color:#ff79c6">==</span> RTLD_NEXT) {
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd">void</span> <span style="color:#ff79c6">*</span>h <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">real_dlsym</span>(RTLD_NEXT, symbol);
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 防止递归调用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#8be9fd">int</span> tid <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">pthread_self</span>();
+</span></span><span style="display:flex;"><span>        <span style="color:#50fa7b">pthread_mutex_lock</span>(<span style="color:#ff79c6">&amp;</span>dlsym_lock);
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> (<span style="color:#50fa7b">check_dlmap</span>(tid, h)) {
+</span></span><span style="display:flex;"><span>            h <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">NULL</span>;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#50fa7b">pthread_mutex_unlock</span>(<span style="color:#ff79c6">&amp;</span>dlsym_lock);
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> h;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 3. 劫持CUDA函数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (symbol[<span style="color:#bd93f9">0</span>] <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#39;c&#39;</span> <span style="color:#ff79c6">&amp;&amp;</span> symbol[<span style="color:#bd93f9">1</span>] <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#39;u&#39;</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#50fa7b">pthread_once</span>(<span style="color:#ff79c6">&amp;</span>pre_cuinit_flag, preInit);
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 调用__dlsym_hook_section函数，返回劫持后的CUDA函数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#8be9fd">void</span><span style="color:#ff79c6">*</span> f <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">__dlsym_hook_section</span>(handle, symbol);
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> (f <span style="color:#ff79c6">!=</span> <span style="color:#8be9fd;font-style:italic">NULL</span>)
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> f;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 4. 劫持NVML函数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">#ifdef HOOK_NVML_ENABLE
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6"></span>    <span style="color:#ff79c6">if</span> (symbol[<span style="color:#bd93f9">0</span>] <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#39;n&#39;</span> <span style="color:#ff79c6">&amp;&amp;</span> symbol[<span style="color:#bd93f9">1</span>] <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#39;v&#39;</span> <span style="color:#ff79c6">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>        symbol[<span style="color:#bd93f9">2</span>] <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#39;m&#39;</span> <span style="color:#ff79c6">&amp;&amp;</span> symbol[<span style="color:#bd93f9">3</span>] <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#39;l&#39;</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 调用__dlsym_hook_section_nvml函数，返回劫持后的NVML函数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#8be9fd">void</span><span style="color:#ff79c6">*</span> f <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">__dlsym_hook_section_nvml</span>(handle, symbol);
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> (f <span style="color:#ff79c6">!=</span> <span style="color:#8be9fd;font-style:italic">NULL</span>)
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> f;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">#endif
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6"></span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 5. 其他情况使用真实的 dlsym
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">real_dlsym</span>(handle, symbol);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// __dlsym_hook_section hook实现
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd">void</span><span style="color:#ff79c6">*</span> <span style="color:#50fa7b">__dlsym_hook_section</span>(<span style="color:#8be9fd">void</span><span style="color:#ff79c6">*</span> handle, <span style="color:#ff79c6">const</span> <span style="color:#8be9fd">char</span><span style="color:#ff79c6">*</span> symbol) {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 遍历所有需要劫持的CUDA函数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">for</span> (it <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>; it <span style="color:#ff79c6">&lt;</span> CUDA_ENTRY_END; it<span style="color:#ff79c6">++</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> (<span style="color:#50fa7b">strcmp</span>(cuda_library_entry[it].name, symbol) <span style="color:#ff79c6">==</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> (cuda_library_entry[it].fn_ptr <span style="color:#ff79c6">==</span> <span style="color:#8be9fd;font-style:italic">NULL</span>) {
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">NULL</span>;
+</span></span><span style="display:flex;"><span>            } <span style="color:#ff79c6">else</span> {
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">break</span>;
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 使用宏定义批量劫持函数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#50fa7b">DLSYM_HOOK_FUNC</span>(cuCtxGetDevice);
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">DLSYM_HOOK_FUNC</span>(cuCtxCreate);
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ... 更多函数劫持
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// __dlsym_hook_section_nvml hook实现
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd">void</span><span style="color:#ff79c6">*</span> <span style="color:#50fa7b">__dlsym_hook_section_nvml</span>(<span style="color:#8be9fd">void</span><span style="color:#ff79c6">*</span> handle, <span style="color:#ff79c6">const</span> <span style="color:#8be9fd">char</span><span style="color:#ff79c6">*</span> symbol) {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 使用宏定义批量劫持函数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#50fa7b">DLSYM_HOOK_FUNC</span>(nvmlInit);
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/** nvmlShutdown */</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">DLSYM_HOOK_FUNC</span>(nvmlShutdown);
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/** nvmlErrorString */</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">DLSYM_HOOK_FUNC</span>(nvmlErrorString);
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/** nvmlDeviceGetHandleByIndex */</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">DLSYM_HOOK_FUNC</span>(nvmlDeviceGetHandleByIndex);
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ... 更多函数劫持
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">NULL</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>DLSYM_HOOK_FUNC 是一个宏，用于动态符号链接钩子函数，它的基本工作流程是：</p>
+<ul>
+<li>检查请求的符号名称是否匹配目标函数</li>
+<li>如果匹配，返回一个钩子函数的指针，而不是原始函数</li>
+<li>这允许程序在原始函数被调用之前或之后插入自定义代码</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#6272a4">// DLSYM_HOOK_FUNC宏定义，用于批量劫持函数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">#if defined(DLSYM_HOOK_DEBUG)
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6">#define DLSYM_HOOK_FUNC(f)                                       \
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6">    if (0 == strcmp(symbol, #f)) {                               \
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6">        LOG_DEBUG(&#34;Detect dlsym for %s\n&#34;, #f);                     \
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6">        return (void*) f; }                                      \
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6">
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6">#else 
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">#define DLSYM_HOOK_FUNC(f)                                       \
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6">    if (0 == strcmp(symbol, #f)) {                               \
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6">        return (void*) f; }                                      \
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6">
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6">#endif   
+</span></span></span></code></pre></div><p>这种劫持机制的优点是：</p>
+<ol>
+<li>对应用程序透明，不需要修改源代码</li>
+<li>可以完全控制 GPU 资源的分配和使用</li>
+<li>可以实现细粒度的资源管理和监控</li>
+<li>支持动态调整和策略更新</li>
+</ol>
+<p>缺点是：</p>
+<ol>
+<li>需要维护完整的函数映射表</li>
+<li>版本更新时需要同步更新劫持函数</li>
+<li>需要处理复杂的线程安全和递归问题</li>
+<li>可能影响性能（额外的函数调用开销）</li>
+</ol>
+<p>K8s yaml文件中的显存限制和gpu core限制，hami-core具体是如何处理的?</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>        resources:
+</span></span><span style="display:flex;"><span>          limits:
+</span></span><span style="display:flex;"><span>            nvidia.com/gpumem: <span style="color:#bd93f9">3000</span>
+</span></span><span style="display:flex;"><span>            nvidia.com/gpucores: <span style="color:#bd93f9">25</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>hami -&gt; nvidia.com/gpumem -&gt; <span style="color:#8be9fd;font-style:italic">CUDA_DEVICE_MEMORY_LIMIT_0</span><span style="color:#ff79c6">=</span>3000m -&gt; hami-core<span style="color:#ff79c6">(</span>libvgpu.so<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>hami -&gt; nvidia.com/gpucores -&gt; <span style="color:#8be9fd;font-style:italic">CUDA_DEVICE_SM_LIMIT</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">25</span> -&gt; hami-core<span style="color:#ff79c6">(</span>libvgpu.so<span style="color:#ff79c6">)</span>
+</span></span></code></pre></div><p>通过一系列转化后，在hami的源码中可以找到，最终传给hami-core的是这两个环境变量<code>CUDA_DEVICE_MEMORY_LIMIT_0</code>和<code>CUDA_DEVICE_SM_LIMIT</code>,<code>CUDA_DEVICE_MEMORY_LIMIT_i</code>是动态环境变量. 在<code>HAMi-core/src/multiprocess/multiprocess_memory_limit.c</code>源码中有对应的处理逻辑，在进程初始化时通过ensure_initialized()调用,用于初始化共享内存区域</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>ensure_initialized -&gt; initialized -&gt; try_create_shrreg -&gt; do_init_device_memory_limits<span style="color:#ff79c6">(</span>显存限制<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>                                               ｜
+</span></span><span style="display:flex;"><span>                                      do_init_device_sm_limits<span style="color:#ff79c6">(</span>core利用率限制<span style="color:#ff79c6">)</span>       
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#6272a4">// 共享区域信息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">typedef</span> <span style="color:#ff79c6">struct</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">int32_t</span> initialized_flag;  <span style="color:#6272a4">// 初始化标志
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">uint32_t</span> major_version;    <span style="color:#6272a4">// 主版本号
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">uint32_t</span> minor_version;    <span style="color:#6272a4">// 次版本号
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">sem_t</span> sem;                 <span style="color:#6272a4">// 信号量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">uint64_t</span> limit[CUDA_DEVICE_MAX_COUNT];     <span style="color:#6272a4">// 设备内存限制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">uint64_t</span> sm_limit[CUDA_DEVICE_MAX_COUNT];  <span style="color:#6272a4">// SM限制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">shrreg_proc_slot_t</span> procs[SHARED_REGION_MAX_PROCESS_NUM]; <span style="color:#6272a4">// 进程信息数组
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> proc_num;             <span style="color:#6272a4">// 进程数量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> utilization_switch;   <span style="color:#6272a4">// 利用率开关
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> recent_kernel;        <span style="color:#6272a4">// 最近kernel信息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> priority;            <span style="color:#6272a4">// 优先级
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>} <span style="color:#8be9fd">shared_region_t</span>;
+</span></span></code></pre></div><p>do_init_device_memory_limits(region-&gt;limit, CUDA_DEVICE_MAX_COUNT); 往共享内存区域region写入显存限制，为了方便验证测试，直接设置这两个环境变量，通过<code>nvidia-smi</code>查看，设置LIBCUDA_LOG_LEVEL=4，可以查看hami-core打印的 debug日志，比如进到哪个cuda、nvml函数了</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 为挂载的设备添加1GiB内存限制并将最大SM利用率设置为50%</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">LD_PRELOAD</span><span style="color:#ff79c6">=</span>./libvgpu.so
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">CUDA_DEVICE_MEMORY_LIMIT</span><span style="color:#ff79c6">=</span>1g
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">CUDA_DEVICE_SM_LIMIT</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">50</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">(</span>base<span style="color:#ff79c6">)</span> root@vgpu:/libvgpu/build# <span style="color:#8be9fd;font-style:italic">LIBCUDA_LOG_LEVEL</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">4</span> nvidia-smi
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:56<span style="color:#ff79c6">)]</span>: init_dlsym
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:79<span style="color:#ff79c6">)]</span>: into dlsym nvmlInitWithFlags
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:hook.c:442<span style="color:#ff79c6">)]</span>: nvmlInitWithFlags
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:hook.c:296<span style="color:#ff79c6">)]</span>: loading nvmlInit:0
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:multiprocess_memory_limit.c:777<span style="color:#ff79c6">)]</span>: shrreg created
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:device.c:94<span style="color:#ff79c6">)]</span>: into cuDriverGetVersion__
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:79<span style="color:#ff79c6">)]</span>: into dlsym cuDriverGetVersion
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:device.c:99<span style="color:#ff79c6">)]</span>: Hijacking cuDriverGetVersion
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Info<span style="color:#ff79c6">(</span>17398:140432464095040:device.c:102<span style="color:#ff79c6">)]</span>: driver <span style="color:#8be9fd;font-style:italic">version</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">12040</span>
+</span></span><span style="display:flex;"><span>Mon Jan <span style="color:#bd93f9">20</span> 16:55:21 <span style="color:#bd93f9">2025</span>
+</span></span><span style="display:flex;"><span>+-----------------------------------------------------------------------------------------+
+</span></span><span style="display:flex;"><span>| NVIDIA-SMI 550.135                Driver Version: 550.135        CUDA Version: 12.4     |
+</span></span><span style="display:flex;"><span>|-----------------------------------------+------------------------+----------------------+
+</span></span><span style="display:flex;"><span>| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+</span></span><span style="display:flex;"><span>| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+</span></span><span style="display:flex;"><span>|                                         |                        |               MIG M. |
+</span></span><span style="display:flex;"><span>|<span style="color:#ff79c6">=========================================</span>+<span style="color:#ff79c6">========================</span>+<span style="color:#ff79c6">======================</span>|
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:79<span style="color:#ff79c6">)]</span>: into dlsym nvmlDeviceGetIndex
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:79<span style="color:#ff79c6">)]</span>: into dlsym nvmlDeviceGetMemoryInfo_v2
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:hook.c:321<span style="color:#ff79c6">)]</span>: into nvmlDeviceGetMemoryInfo
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:hook.c:328<span style="color:#ff79c6">)]</span>: Hijacking nvmlDeviceGetMemoryInfo_v2
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:hook.c:330<span style="color:#ff79c6">)]</span>: <span style="color:#8be9fd;font-style:italic">origin_free</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">25769803776</span> <span style="color:#8be9fd;font-style:italic">total</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">4192904278781722664</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:hook.c:268<span style="color:#ff79c6">)]</span>: Hijacking nvmlDeviceGetIndex
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:hook.c:437<span style="color:#ff79c6">)]</span>: Hijacking nvmlDeviceGetCount_v2
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Info<span style="color:#ff79c6">(</span>17398:140432464095040:multiprocess_memory_limit.c:289<span style="color:#ff79c6">)]</span>: get_gpu_memory_usage <span style="color:#8be9fd;font-style:italic">dev</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Info<span style="color:#ff79c6">(</span>17398:140432464095040:multiprocess_memory_limit.c:296<span style="color:#ff79c6">)]</span>: <span style="color:#8be9fd;font-style:italic">dev</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span> <span style="color:#8be9fd;font-style:italic">pid</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">17398</span> host <span style="color:#8be9fd;font-style:italic">pid</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span> <span style="color:#8be9fd;font-style:italic">i</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:multiprocess_memory_limit.c:883<span style="color:#ff79c6">)]</span>: get_current_device_memory_usage:tick<span style="color:#ff79c6">=</span><span style="color:#bd93f9">15</span> <span style="color:#8be9fd;font-style:italic">result</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:multiprocess_memory_limit.c:275<span style="color:#ff79c6">)]</span>: get_gpu_memory_monitor <span style="color:#8be9fd;font-style:italic">dev</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:multiprocess_memory_limit.c:281<span style="color:#ff79c6">)]</span>: <span style="color:#8be9fd;font-style:italic">dev</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span> <span style="color:#8be9fd;font-style:italic">i</span><span style="color:#ff79c6">=</span>0,0
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:hook.c:338<span style="color:#ff79c6">)]</span>: <span style="color:#8be9fd;font-style:italic">usage</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span> <span style="color:#8be9fd;font-style:italic">limit</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1073741824</span> <span style="color:#8be9fd;font-style:italic">monitor</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:79<span style="color:#ff79c6">)]</span>: into dlsym nvmlDeviceGetUtilizationRates
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:nvml_entry.c:753<span style="color:#ff79c6">)]</span>: Hijacking nvmlDeviceGetUtilizationRates
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:79<span style="color:#ff79c6">)]</span>: into dlsym nvmlDeviceGetComputeMode
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:nvml_entry.c:220<span style="color:#ff79c6">)]</span>: Hijacking nvmlDeviceGetComputeMode
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:79<span style="color:#ff79c6">)]</span>: into dlsym nvmlDeviceGetMigMode
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:nvml_entry.c:1445<span style="color:#ff79c6">)]</span>: Hijacking nvmlDeviceGetMigMode
+</span></span><span style="display:flex;"><span>|   <span style="color:#bd93f9">0</span>  NVIDIA GeForce RTX <span style="color:#bd93f9">3090</span>        Off |   00000000:00:05.0 Off |                  N/A |
+</span></span><span style="display:flex;"><span>|  0%   27C    P8              7W /  370W |       0MiB /   1024MiB |      0%      Default |
+</span></span><span style="display:flex;"><span>|                                         |                        |                  N/A |
+</span></span><span style="display:flex;"><span>+-----------------------------------------+------------------------+----------------------+
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:nvml_entry.c:1445<span style="color:#ff79c6">)]</span>: Hijacking nvmlDeviceGetMigMode
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>+-----------------------------------------------------------------------------------------+
+</span></span><span style="display:flex;"><span>| Processes:                                                                              |
+</span></span><span style="display:flex;"><span>|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+</span></span><span style="display:flex;"><span>|        ID   ID                                                               Usage      |
+</span></span><span style="display:flex;"><span>|<span style="color:#ff79c6">=========================================================================================</span>|
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:79<span style="color:#ff79c6">)]</span>: into dlsym nvmlDeviceGetVirtualizationMode
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:nvml_entry.c:798<span style="color:#ff79c6">)]</span>: Hijacking nvmlDeviceGetVirtualizationMode
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:79<span style="color:#ff79c6">)]</span>: into dlsym nvmlDeviceGetMaxMigDeviceCount
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:nvml_entry.c:1422<span style="color:#ff79c6">)]</span>: Hijacking nvmlDeviceGetMaxMigDeviceCount
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:79<span style="color:#ff79c6">)]</span>: into dlsym nvmlDeviceIsMigDeviceHandle
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:nvml_entry.c:1467<span style="color:#ff79c6">)]</span>: Hijacking nvmlDeviceIsMigDeviceHandle
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:hook.c:268<span style="color:#ff79c6">)]</span>: Hijacking nvmlDeviceGetIndex
+</span></span><span style="display:flex;"><span>|  No running processes found                                                             |
+</span></span><span style="display:flex;"><span>+-----------------------------------------------------------------------------------------+
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:libvgpu.c:79<span style="color:#ff79c6">)]</span>: into dlsym nvmlShutdown
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Debug<span style="color:#ff79c6">(</span>17398:140432464095040:nvml_entry.c:32<span style="color:#ff79c6">)]</span>: Hijacking nvmlShutdown
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Msg<span style="color:#ff79c6">(</span>17398:140432464095040:multiprocess_memory_limit.c:497<span style="color:#ff79c6">)]</span>: Calling <span style="color:#8be9fd;font-style:italic">exit</span> handler <span style="color:#bd93f9">17398</span>
+</span></span></code></pre></div><p>从输出的debug日志<code>[HAMI-core Debug(17398:140432464095040:hook.c:328)]: Hijacking nvmlDeviceGetMemoryInfo_v2</code>来看，nvmlDeviceGetMemoryInfo_v2函数被劫持了. 使用gdb调试进入到<code>nvmlDeviceGetMemoryInfo_v2</code>函数，gdb调试设置参考<a href="#56-hami-core-gdb%E8%B0%83%E8%AF%95">5.6 hami-core gdb调试</a></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">(</span>base<span style="color:#ff79c6">)</span> root@vgpu:/libvgpu/build# gdb nvidia-smi
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>No debugging symbols found in nvidia-smi<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>gdb<span style="color:#ff79c6">)</span> b nvmlDeviceGetMemoryInfo_v2
+</span></span><span style="display:flex;"><span>Function <span style="color:#f1fa8c">&#34;nvmlDeviceGetMemoryInfo_v2&#34;</span> not defined.
+</span></span><span style="display:flex;"><span>Make breakpoint pending on future shared library load? <span style="color:#ff79c6">(</span>y or <span style="color:#ff79c6">[</span>n<span style="color:#ff79c6">])</span> y
+</span></span><span style="display:flex;"><span>Breakpoint <span style="color:#bd93f9">1</span> <span style="color:#ff79c6">(</span>nvmlDeviceGetMemoryInfo_v2<span style="color:#ff79c6">)</span> pending.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>gdb<span style="color:#ff79c6">)</span> r
+</span></span><span style="display:flex;"><span>Starting program: /usr/bin/nvidia-smi
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>Thread debugging using libthread_db enabled<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span>Using host libthread_db library <span style="color:#f1fa8c">&#34;/lib/x86_64-linux-gnu/libthread_db.so.1&#34;</span>.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>HAMI-core Msg<span style="color:#ff79c6">(</span>24206:140737321068352:libvgpu.c:836<span style="color:#ff79c6">)]</span>: Initializing.....
+</span></span><span style="display:flex;"><span>Mon Jan <span style="color:#bd93f9">20</span> 17:10:36 <span style="color:#bd93f9">2025</span>
+</span></span><span style="display:flex;"><span>+-----------------------------------------------------------------------------------------+
+</span></span><span style="display:flex;"><span>| NVIDIA-SMI 550.135                Driver Version: 550.135        CUDA Version: 12.4     |
+</span></span><span style="display:flex;"><span>|-----------------------------------------+------------------------+----------------------+
+</span></span><span style="display:flex;"><span>| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+</span></span><span style="display:flex;"><span>| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+</span></span><span style="display:flex;"><span>|                                         |                        |               MIG M. |
+</span></span><span style="display:flex;"><span>|<span style="color:#ff79c6">=========================================</span>+<span style="color:#ff79c6">========================</span>+<span style="color:#ff79c6">======================</span>|
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Breakpoint 1, nvmlDeviceGetMemoryInfo_v2 <span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">device</span><span style="color:#ff79c6">=</span>0x7ffff51fbf38, <span style="color:#8be9fd;font-style:italic">memory</span><span style="color:#ff79c6">=</span>0x7fffffffd730<span style="color:#ff79c6">)</span> at /libvgpu/src/nvml/hook.c:375
+</span></span><span style="display:flex;"><span>375	    <span style="color:#ff79c6">return</span> _nvmlDeviceGetMemoryInfo<span style="color:#ff79c6">(</span>device,memory,2<span style="color:#ff79c6">)</span>;
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>gdb<span style="color:#ff79c6">)</span> info sharedlibrary
+</span></span><span style="display:flex;"><span>From                To                  Syms Read   Shared Object Library
+</span></span><span style="display:flex;"><span>0x00007ffff7fc5090  0x00007ffff7fee315  Yes         /lib64/ld-linux-x86-64.so.2
+</span></span><span style="display:flex;"><span>0x00007ffff7f73850  0x00007ffff7fa1050  Yes         ./libvgpu.so
+</span></span><span style="display:flex;"><span>0x00007ffff7f62040  0x00007ffff7f62105  Yes         /lib/x86_64-linux-gnu/libpthread.so.0
+</span></span><span style="display:flex;"><span>0x00007ffff7e883a0  0x00007ffff7f038c8  Yes         /lib/x86_64-linux-gnu/libm.so.6
+</span></span><span style="display:flex;"><span>0x00007ffff7e76040  0x00007ffff7e76105  Yes         /lib/x86_64-linux-gnu/libdl.so.2
+</span></span><span style="display:flex;"><span>0x00007ffff7c74700  0x00007ffff7e0693d  Yes         /lib/x86_64-linux-gnu/libc.so.6
+</span></span><span style="display:flex;"><span>0x00007ffff7c46080  0x00007ffff7c46275  Yes         /lib/x86_64-linux-gnu/librt.so.1
+</span></span><span style="display:flex;"><span>0x00007ffff6157d80  0x00007ffff662b504  Yes <span style="color:#ff79c6">(</span>*<span style="color:#ff79c6">)</span>     /lib/x86_64-linux-gnu/libcuda.so.1
+</span></span><span style="display:flex;"><span>0x00007ffff4e18740  0x00007ffff4f6aef2  Yes <span style="color:#ff79c6">(</span>*<span style="color:#ff79c6">)</span>     /lib/x86_64-linux-gnu/libnvidia-ml.so.1
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>*<span style="color:#ff79c6">)</span>: Shared library is missing debugging information.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>gdb<span style="color:#ff79c6">)</span> s
+</span></span><span style="display:flex;"><span>_nvmlDeviceGetMemoryInfo <span style="color:#ff79c6">(</span><span style="color:#8be9fd;font-style:italic">device</span><span style="color:#ff79c6">=</span>0x7ffff51fbf38, <span style="color:#8be9fd;font-style:italic">memory</span><span style="color:#ff79c6">=</span>0x7fffffffd730, <span style="color:#8be9fd;font-style:italic">version</span><span style="color:#ff79c6">=</span>2<span style="color:#ff79c6">)</span> at /libvgpu/src/nvml/hook.c:319
+</span></span><span style="display:flex;"><span>319	nvmlReturn_t _nvmlDeviceGetMemoryInfo<span style="color:#ff79c6">(</span>nvmlDevice_t device,nvmlMemory_t* memory,int version<span style="color:#ff79c6">)</span> <span style="color:#ff79c6">{</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>gdb<span style="color:#ff79c6">)</span> l
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#8be9fd">nvmlReturn_t</span> <span style="color:#50fa7b">nvmlDeviceGetMemoryInfo_v2</span>(<span style="color:#8be9fd">nvmlDevice_t</span> device, <span style="color:#8be9fd">nvmlMemory_v2_t</span><span style="color:#ff79c6">*</span> memory) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">_nvmlDeviceGetMemoryInfo</span>(device,memory,<span style="color:#bd93f9">2</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">/**
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"> * 获取设备内存信息的内部函数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"> * 这是一个hook函数，用于拦截和修改NVML的内存信息查询结果，实现GPU内存使用的限制和监控
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"> */</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd">nvmlReturn_t</span> <span style="color:#50fa7b">_nvmlDeviceGetMemoryInfo</span>(<span style="color:#8be9fd">nvmlDevice_t</span> device, <span style="color:#8be9fd">nvmlMemory_t</span><span style="color:#ff79c6">*</span> memory, <span style="color:#8be9fd">int</span> version) {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 用于存储设备ID的变量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">unsigned</span> <span style="color:#8be9fd">int</span> dev_id;
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 记录函数入口的调试日志
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#50fa7b">LOG_DEBUG</span>(<span style="color:#f1fa8c">&#34;into nvmlDeviceGetMemoryInfo&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 根据API版本调用相应的原始NVML函数获取基础内存信息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 这一步会获取GPU的原始内存信息，后续可能会根据限制进行修改
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">switch</span> (version) {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">case</span> <span style="color:#bd93f9">1</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4">// v1版本API调用，直接使用nvmlMemory_t结构体
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// NVML_OVERRIDE_CALL宏用于调用原始的NVML库函数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            <span style="color:#50fa7b">CHECK_NVML_API</span>(<span style="color:#50fa7b">NVML_OVERRIDE_CALL</span>(nvml_library_entry, nvmlDeviceGetMemoryInfo, device, memory));
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">break</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">case</span> <span style="color:#bd93f9">2</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4">// v2版本API调用，需要将memory指针转换为nvmlMemory_v2_t*类型
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            <span style="color:#6272a4">// nvmlMemory_v2_t结构体包含了更多的内存相关信息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            <span style="color:#50fa7b">CHECK_NVML_API</span>(<span style="color:#50fa7b">NVML_OVERRIDE_CALL</span>(nvml_library_entry, nvmlDeviceGetMemoryInfo_v2, device, (<span style="color:#8be9fd">nvmlMemory_v2_t</span> <span style="color:#ff79c6">*</span>)memory));
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 记录从NVML获取的原始内存信息，用于调试和比较
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#50fa7b">LOG_DEBUG</span>(<span style="color:#f1fa8c">&#34;origin_free=%lld total=%lld</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>, memory<span style="color:#ff79c6">-&gt;</span>free, memory<span style="color:#ff79c6">-&gt;</span>total);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 获取NVML设备索引，并转换为CUDA设备索引
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// NVML和CUDA的设备索引可能不同，需要进行映射
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#50fa7b">CHECK_NVML_API</span>(<span style="color:#50fa7b">nvmlDeviceGetIndex</span>(device, <span style="color:#ff79c6">&amp;</span>dev_id));
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">int</span> cudadev <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">nvml_to_cuda_map</span>(dev_id);
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (cudadev <span style="color:#ff79c6">&lt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 设备映射失败，说明找不到对应的CUDA设备
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#6272a4">// 此时返回原始的NVML信息，不做修改
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">return</span> NVML_SUCCESS;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 获取当前设备的实际内存使用情况和限制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 这些信息来自我们自己的内存跟踪系统，而不是NVML
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">size_t</span> usage <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">get_current_device_memory_usage</span>(cudadev);     <span style="color:#6272a4">// 获取当前实际使用的GPU内存量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">size_t</span> monitor <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">get_current_device_memory_monitor</span>(cudadev); <span style="color:#6272a4">// 获取内存监控的阈值设置
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 从共享内存region中获取limit，跟上面的do_init_device_memory_limits函数有关
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">size_t</span> limit <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">get_current_device_memory_limit</span>(cudadev);     <span style="color:#6272a4">// 获取设置的内存使用上限
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 记录实际的内存使用情况，用于调试
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#50fa7b">LOG_DEBUG</span>(<span style="color:#f1fa8c">&#34;usage=%ld limit=%ld monitor=%ld&#34;</span>, usage, limit, monitor);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 检查传入的memory指针是否为空
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 这是一个安全检查，防止访问空指针
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (memory <span style="color:#ff79c6">==</span> <span style="color:#8be9fd;font-style:italic">NULL</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> NVML_SUCCESS;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 根据是否设置了内存限制来更新返回的内存信息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (limit <span style="color:#ff79c6">==</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 未设置内存限制的情况（limit = 0）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#6272a4">// 此时只更新已用内存信息，保持其他信息（如total）不变
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">switch</span> (version) {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">case</span> <span style="color:#bd93f9">1</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4">// 更新v1版本结构体中的已用内存字段
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            memory<span style="color:#ff79c6">-&gt;</span>used <span style="color:#ff79c6">=</span> usage;
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> NVML_SUCCESS;
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">case</span> <span style="color:#bd93f9">2</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4">// 更新v2版本结构体中的已用内存字段
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            ((<span style="color:#8be9fd">nvmlMemory_v2_t</span> <span style="color:#ff79c6">*</span>)memory)<span style="color:#ff79c6">-&gt;</span>used <span style="color:#ff79c6">=</span> usage;
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> NVML_SUCCESS;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    } <span style="color:#ff79c6">else</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 设置了内存限制的情况
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#6272a4">// 需要更新所有内存相关字段，包括total、free和used
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">switch</span> (version) {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">case</span> <span style="color:#bd93f9">1</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4">// 更新v1版本结构体的所有字段
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            memory<span style="color:#ff79c6">-&gt;</span>free <span style="color:#ff79c6">=</span> (limit <span style="color:#ff79c6">-</span> usage);  <span style="color:#6272a4">// 可用内存为限制值减去已用内存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            memory<span style="color:#ff79c6">-&gt;</span>total <span style="color:#ff79c6">=</span> limit;           <span style="color:#6272a4">// 将总内存设置为限制值
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            memory<span style="color:#ff79c6">-&gt;</span>used <span style="color:#ff79c6">=</span> usage;            <span style="color:#6272a4">// 设置已用内存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">return</span> NVML_SUCCESS;
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">case</span> <span style="color:#bd93f9">2</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4">// 更新v2版本结构体的所有字段
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            ((<span style="color:#8be9fd">nvmlMemory_v2_t</span> <span style="color:#ff79c6">*</span>)memory)<span style="color:#ff79c6">-&gt;</span>used <span style="color:#ff79c6">=</span> usage;   <span style="color:#6272a4">// 设置已用内存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            ((<span style="color:#8be9fd">nvmlMemory_v2_t</span> <span style="color:#ff79c6">*</span>)memory)<span style="color:#ff79c6">-&gt;</span>total <span style="color:#ff79c6">=</span> limit;  <span style="color:#6272a4">// 将总内存设置为限制值
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            ((<span style="color:#8be9fd">nvmlMemory_v2_t</span> <span style="color:#ff79c6">*</span>)memory)<span style="color:#ff79c6">-&gt;</span>used <span style="color:#ff79c6">=</span> usage;   <span style="color:#6272a4">// BUG: 这行是重复的，应该删除
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>                                                        <span style="color:#6272a4">// 可能是复制粘贴导致的错误
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">return</span> NVML_SUCCESS;
+</span></span><span style="display:flex;"><span>        } 
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 所有情况都已在switch语句中返回
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 这个return语句实际上永远不会被执行到
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">return</span> NVML_SUCCESS;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>CUDA_DEVICE_SM_LIMIT=50，是如何控制GPU利用率稳定在50%的，有个监控在watcher吗？通过源码查看，大概率就是这个文件了<code>HAMi-core/src/multiprocess/multiprocess_utilization_watcher.c</code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>cuInit -&gt; postInit -&gt; init_utilization_watcher -&gt; utilization_watcher
+</span></span></code></pre></div><p>在cuInit初始化驱动API的时候，被hook劫持，最后会调用到<code>utilization_watcher</code>函数，这个函数会持续监控GPU利用率，并根据设置的CUDA_DEVICE_SM_LIMIT来调整GPU利用率。</p>
+<p>监控线程函数</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#8be9fd">void</span><span style="color:#ff79c6">*</span> <span style="color:#50fa7b">utilization_watcher</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">nvmlInit</span>();  <span style="color:#6272a4">// 初始化NVIDIA管理库
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> userutil[CUDA_DEVICE_MAX_COUNT];  <span style="color:#6272a4">// 存储每个设备的用户使用率
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> sysprocnum;  <span style="color:#6272a4">// 系统进程数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> share <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>;   <span style="color:#6272a4">// 当前分配的share值
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> upper_limit <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">get_current_device_sm_limit</span>(<span style="color:#bd93f9">0</span>);  <span style="color:#6272a4">// 获取SM使用率上限
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#50fa7b">LOG_DEBUG</span>(<span style="color:#f1fa8c">&#34;upper_limit=%d</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>,upper_limit);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 持续监控循环
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">while</span> (<span style="color:#bd93f9">1</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#50fa7b">nanosleep</span>(<span style="color:#ff79c6">&amp;</span>g_wait, <span style="color:#8be9fd;font-style:italic">NULL</span>);  <span style="color:#6272a4">// 周期性休眠
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 确保目标进程存在
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">if</span> (pidfound<span style="color:#ff79c6">==</span><span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>            <span style="color:#50fa7b">update_host_pid</span>();  <span style="color:#6272a4">// 更新主机进程ID
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">if</span> (pidfound<span style="color:#ff79c6">==</span><span style="color:#bd93f9">0</span>)
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">continue</span>;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 初始化GPU设备SM使用率
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#50fa7b">init_gpu_device_sm_utilization</span>();
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 获取当前GPU使用情况
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#50fa7b">get_used_gpu_utilization</span>(userutil,<span style="color:#ff79c6">&amp;</span>sysprocnum);
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 动态扩容机制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#6272a4">// 当share达到最大值且没有可用核心时,翻倍总容量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">if</span> ((share<span style="color:#ff79c6">==</span>g_total_cuda_cores) <span style="color:#ff79c6">&amp;&amp;</span> (g_cur_cuda_cores<span style="color:#ff79c6">&lt;</span><span style="color:#bd93f9">0</span>)) {
+</span></span><span style="display:flex;"><span>            g_total_cuda_cores <span style="color:#ff79c6">*=</span> <span style="color:#bd93f9">2</span>;
+</span></span><span style="display:flex;"><span>            share <span style="color:#ff79c6">=</span> g_total_cuda_cores;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 计算新的share值
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        share <span style="color:#ff79c6">=</span> <span style="color:#50fa7b">delta</span>(upper_limit, userutil[<span style="color:#bd93f9">0</span>], share);
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#50fa7b">LOG_DEBUG</span>(<span style="color:#f1fa8c">&#34;userutil=%d currentcores=%d total=%d limit=%d share=%d</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>,
+</span></span><span style="display:flex;"><span>                 userutil[<span style="color:#bd93f9">0</span>],g_cur_cuda_cores,g_total_cuda_cores,upper_limit,share);
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 更新令牌数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#50fa7b">change_token</span>(share);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这个GPU SM(Stream Multiprocessor)资源的动态分配和限制机制其实是基于令牌桶思想. 接下来来看下GPU利用率令牌桶的实现：</p>
+<ol>
+<li>关键全局变量</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#ff79c6">static</span> <span style="color:#8be9fd">int</span> g_sm_num;                    <span style="color:#6272a4">// GPU中的Stream Multiprocessor数量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">static</span> <span style="color:#8be9fd">int</span> g_max_thread_per_sm;         <span style="color:#6272a4">// 每个SM支持的最大线程数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">static</span> <span style="color:#ff79c6">volatile</span> <span style="color:#8be9fd">int</span> g_cur_cuda_cores;   <span style="color:#6272a4">// 当前可用的CUDA核心数(令牌数)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">static</span> <span style="color:#ff79c6">volatile</span> <span style="color:#8be9fd">int</span> g_total_cuda_cores; <span style="color:#6272a4">// 总的CUDA核心数(桶容量)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">extern</span> <span style="color:#8be9fd">int</span> pidfound;                    <span style="color:#6272a4">// 是否找到目标进程的标志
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd">int</span> cuda_to_nvml_map[<span style="color:#bd93f9">16</span>];              <span style="color:#6272a4">// CUDA设备到NVML设备的映射关系
+</span></span></span></code></pre></div><ol start="2">
+<li>令牌消耗函数</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#8be9fd">void</span> <span style="color:#50fa7b">rate_limiter</span>(<span style="color:#8be9fd">int</span> grids, <span style="color:#8be9fd">int</span> blocks) {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">int</span> before_cuda_cores <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>;  <span style="color:#6272a4">// 消耗令牌前的数量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> after_cuda_cores <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>;   <span style="color:#6272a4">// 消耗令牌后的数量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> kernel_size <span style="color:#ff79c6">=</span> grids;    <span style="color:#6272a4">// 将要启动的kernel大小(需要消耗的令牌数)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 等待直到有最近的kernel信息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">while</span> (<span style="color:#50fa7b">get_recent_kernel</span>()<span style="color:#ff79c6">&lt;</span><span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#50fa7b">sleep</span>(<span style="color:#bd93f9">1</span>);  <span style="color:#6272a4">// 如果没有最近的kernel信息,睡眠1秒后重试
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">set_recent_kernel</span>(<span style="color:#bd93f9">2</span>);  <span style="color:#6272a4">// 设置kernel状态为2
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 检查是否需要进行限制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 如果SM利用率限制&gt;=100%或为0,表示不需要限制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> ((<span style="color:#50fa7b">get_current_device_sm_limit</span>(<span style="color:#bd93f9">0</span>)<span style="color:#ff79c6">&gt;=</span><span style="color:#bd93f9">100</span>) <span style="color:#ff79c6">||</span> (<span style="color:#50fa7b">get_current_device_sm_limit</span>(<span style="color:#bd93f9">0</span>)<span style="color:#ff79c6">==</span><span style="color:#bd93f9">0</span>))
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 如果利用率开关未打开,也不需要限制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (<span style="color:#50fa7b">get_utilization_switch</span>()<span style="color:#ff79c6">==</span><span style="color:#bd93f9">0</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">LOG_DEBUG</span>(<span style="color:#f1fa8c">&#34;grid: %d, blocks: %d&#34;</span>, grids, blocks);
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">LOG_DEBUG</span>(<span style="color:#f1fa8c">&#34;launch kernel %d, curr core: %d&#34;</span>, kernel_size, g_cur_cuda_cores);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 循环尝试消耗令牌
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">do</span> {
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">CHECK</span>:
+</span></span><span style="display:flex;"><span>        before_cuda_cores <span style="color:#ff79c6">=</span> g_cur_cuda_cores;  <span style="color:#6272a4">// 获取当前可用令牌数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#50fa7b">LOG_DEBUG</span>(<span style="color:#f1fa8c">&#34;current core: %d&#34;</span>, g_cur_cuda_cores);
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 如果没有足够的令牌,等待一段时间后重试
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">if</span> (before_cuda_cores <span style="color:#ff79c6">&lt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>            <span style="color:#50fa7b">nanosleep</span>(<span style="color:#ff79c6">&amp;</span>g_cycle, <span style="color:#8be9fd;font-style:italic">NULL</span>);  <span style="color:#6272a4">// 使用nanosleep避免忙等待
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            <span style="color:#ff79c6">goto</span> CHECK;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 计算消耗令牌后的数量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        after_cuda_cores <span style="color:#ff79c6">=</span> before_cuda_cores <span style="color:#ff79c6">-</span> kernel_size;
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// CAS操作确保原子性,如果失败则重试整个过程
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    } <span style="color:#ff79c6">while</span> (<span style="color:#ff79c6">!</span><span style="color:#50fa7b">CAS</span>(<span style="color:#ff79c6">&amp;</span>g_cur_cuda_cores, before_cuda_cores, after_cuda_cores));
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>rate_limiter</code>在hook的<code>cuLaunchKernel</code>中被调用，拦截了原始的<code>cuLaunchKernel</code>调用，在原始调用前后添加了资源控制逻辑，保持了与原始CUDA API相同的接口. 什么时候会触发cuLaunchKernel？大多数CUDA计算最终都会转化为kernel的执行，而cuLaunchKernel是启动kernel的底层API.</p>
+<ol start="3">
+<li>令牌更新函数</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#ff79c6">static</span> <span style="color:#8be9fd">void</span> <span style="color:#50fa7b">change_token</span>(<span style="color:#8be9fd">int</span> delta) {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">int</span> cuda_cores_before <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>;  <span style="color:#6272a4">// 更新前的令牌数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> cuda_cores_after <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>;   <span style="color:#6272a4">// 更新后的令牌数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">LOG_DEBUG</span>(<span style="color:#f1fa8c">&#34;delta: %d, curr: %d&#34;</span>, delta, g_cur_cuda_cores);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 循环尝试更新令牌数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">do</span> {
+</span></span><span style="display:flex;"><span>        cuda_cores_before <span style="color:#ff79c6">=</span> g_cur_cuda_cores;  <span style="color:#6272a4">// 获取当前令牌数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        cuda_cores_after <span style="color:#ff79c6">=</span> cuda_cores_before <span style="color:#ff79c6">+</span> delta;  <span style="color:#6272a4">// 计算新的令牌数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 确保不超过最大容量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">if</span> (cuda_cores_after <span style="color:#ff79c6">&gt;</span> g_total_cuda_cores) {
+</span></span><span style="display:flex;"><span>            cuda_cores_after <span style="color:#ff79c6">=</span> g_total_cuda_cores;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// CAS操作确保原子性,如果失败则重试
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    } <span style="color:#ff79c6">while</span> (<span style="color:#ff79c6">!</span><span style="color:#50fa7b">CAS</span>(<span style="color:#ff79c6">&amp;</span>g_cur_cuda_cores, cuda_cores_before, cuda_cores_after));
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><ol start="4">
+<li>令牌计算函数</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#8be9fd">int</span> <span style="color:#50fa7b">delta</span>(<span style="color:#8be9fd">int</span> up_limit, <span style="color:#8be9fd">int</span> user_current, <span style="color:#8be9fd">int</span> share) {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 计算实际使用率与限制之间的差异
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 如果差异小于5%,则使用5%作为最小调整单位
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> utilization_diff <span style="color:#ff79c6">=</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#50fa7b">abs</span>(up_limit <span style="color:#ff79c6">-</span> user_current) <span style="color:#ff79c6">&lt;</span> <span style="color:#bd93f9">5</span> <span style="color:#ff79c6">?</span> <span style="color:#bd93f9">5</span> <span style="color:#ff79c6">:</span> <span style="color:#50fa7b">abs</span>(up_limit <span style="color:#ff79c6">-</span> user_current);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 计算基础增量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 公式: (SM数量)² * 每个SM的最大线程数 * 使用率差异 / 2560
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 2560是一个经验值,用于将增量控制在合理范围
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd">int</span> increment <span style="color:#ff79c6">=</span>
+</span></span><span style="display:flex;"><span>        g_sm_num <span style="color:#ff79c6">*</span> g_sm_num <span style="color:#ff79c6">*</span> g_max_thread_per_sm <span style="color:#ff79c6">*</span> utilization_diff <span style="color:#ff79c6">/</span> <span style="color:#bd93f9">2560</span>;
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 当使用率差异大于限制的一半时,加速调整
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 这是为了在使用率变化剧烈时能快速响应
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (utilization_diff <span style="color:#ff79c6">&gt;</span> up_limit <span style="color:#ff79c6">/</span> <span style="color:#bd93f9">2</span>) {
+</span></span><span style="display:flex;"><span>        increment <span style="color:#ff79c6">=</span> increment <span style="color:#ff79c6">*</span> utilization_diff <span style="color:#ff79c6">*</span> <span style="color:#bd93f9">2</span> <span style="color:#ff79c6">/</span> (up_limit <span style="color:#ff79c6">+</span> <span style="color:#bd93f9">1</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 根据当前使用率调整share值
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (user_current <span style="color:#ff79c6">&lt;=</span> up_limit) {
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 使用率低于限制时,增加share
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#6272a4">// 但确保不超过总容量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        share <span style="color:#ff79c6">=</span> share <span style="color:#ff79c6">+</span> increment <span style="color:#ff79c6">&gt;</span> g_total_cuda_cores <span style="color:#ff79c6">?</span> 
+</span></span><span style="display:flex;"><span>                <span style="color:#8be9fd;font-style:italic">g_total_cuda_cores</span> : share <span style="color:#ff79c6">+</span> increment;
+</span></span><span style="display:flex;"><span>    } <span style="color:#ff79c6">else</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 使用率高于限制时,减少share
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#6272a4">// 但确保不小于0
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        share <span style="color:#ff79c6">=</span> share <span style="color:#ff79c6">-</span> increment <span style="color:#ff79c6">&lt;</span> <span style="color:#bd93f9">0</span> <span style="color:#ff79c6">?</span> <span style="color:#bd93f9">0</span> <span style="color:#ff79c6">:</span> share <span style="color:#ff79c6">-</span> increment;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> share;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h2 id="56-hami-core-gdb调试">5.6 hami-core gdb调试</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 检查动态库是否包含调试符号</span>
+</span></span><span style="display:flex;"><span>readelf -S libvgpu.so | grep debug
+</span></span></code></pre></div><p>修改CMakeLists.txt编译参数, <code>-g</code>是生成调试信息，包括源代码行号、变量名等，可以被GDB等调试器更好地调试；<code>-fvisibility=hidden</code>控制共享库中符号的可见性，可以减少动态链接时的符号冲突，提高加载速度，并减小二进制大小</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># Compile flags</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> <span style="color:#ff79c6">(</span>CMAKE_BUILD_TYPE STREQUAL Debug<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>    set<span style="color:#ff79c6">(</span>LIBRARY_COMPILE_FLAGS -shared -fPIC -g -D_GNU_SOURCE -fvisibility<span style="color:#ff79c6">=</span>hidden -Wall<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>    set<span style="color:#ff79c6">(</span>TEST_COMPILE_FLAGS -O1 -g<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">else</span><span style="color:#ff79c6">()</span>
+</span></span><span style="display:flex;"><span>    ......
+</span></span></code></pre></div><p>编译时候设置<code>-fvisibility=hidden</code>，针对hook的函数，需要设置<code>__attribute__((visibility(&quot;default&quot;)))</code>，否则无法被gdb调试.所有需要批量把cuda、nvml hook的函数都设置为默认可见</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#6272a4">// 以nvmlDeviceGetMemoryInfo函数为例，设置为默认可见
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#50fa7b">__attribute__</span>((<span style="color:#50fa7b">visibility</span>(<span style="color:#f1fa8c">&#34;default&#34;</span>)))
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd">nvmlReturn_t</span> <span style="color:#50fa7b">nvmlDeviceGetMemoryInfo</span>(<span style="color:#8be9fd">nvmlDevice_t</span> device, <span style="color:#8be9fd">nvmlMemory_t</span><span style="color:#ff79c6">*</span> memory) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">_nvmlDeviceGetMemoryInfo</span>(device,memory,<span style="color:#bd93f9">1</span>); 
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>gdb单步调试，libvgpu.so的函数被调用</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">(</span>base<span style="color:#ff79c6">)</span> root@vgpu:/libvgpu/build# <span style="color:#8be9fd;font-style:italic">LD_PRELOAD</span><span style="color:#ff79c6">=</span>./libvgpu.so gdb test/test_alloc
+</span></span><span style="display:flex;"><span>GNU gdb <span style="color:#ff79c6">(</span>Ubuntu 12.1-0ubuntu1~22.04.2<span style="color:#ff79c6">)</span> 12.1
+</span></span><span style="display:flex;"><span>Copyright <span style="color:#ff79c6">(</span>C<span style="color:#ff79c6">)</span> <span style="color:#bd93f9">2022</span> Free Software Foundation, Inc.
+</span></span><span style="display:flex;"><span>License GPLv3+: GNU GPL version <span style="color:#bd93f9">3</span> or later &lt;http://gnu.org/licenses/gpl.html&gt;
+</span></span><span style="display:flex;"><span>This is free software: you are free to change and redistribute it.
+</span></span><span style="display:flex;"><span>There is NO WARRANTY, to the extent permitted by law.
+</span></span><span style="display:flex;"><span>Type <span style="color:#f1fa8c">&#34;show copying&#34;</span> and <span style="color:#f1fa8c">&#34;show warranty&#34;</span> <span style="color:#ff79c6">for</span> details.
+</span></span><span style="display:flex;"><span>This GDB was configured as <span style="color:#f1fa8c">&#34;x86_64-linux-gnu&#34;</span>.
+</span></span><span style="display:flex;"><span>Type <span style="color:#f1fa8c">&#34;show configuration&#34;</span> <span style="color:#ff79c6">for</span> configuration details.
+</span></span><span style="display:flex;"><span>For bug reporting instructions, please see:
+</span></span><span style="display:flex;"><span>&lt;https://www.gnu.org/software/gdb/bugs/&gt;.
+</span></span><span style="display:flex;"><span>Find the GDB manual and other documentation resources online at:
+</span></span><span style="display:flex;"><span>    &lt;http://www.gnu.org/software/gdb/documentation/&gt;.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>For help, <span style="color:#8be9fd;font-style:italic">type</span> <span style="color:#f1fa8c">&#34;help&#34;</span>.
+</span></span><span style="display:flex;"><span>Type <span style="color:#f1fa8c">&#34;apropos word&#34;</span> to search <span style="color:#ff79c6">for</span> commands related to <span style="color:#f1fa8c">&#34;word&#34;</span>...
+</span></span><span style="display:flex;"><span>Reading symbols from test/test_alloc...
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>gdb<span style="color:#ff79c6">)</span> b main
+</span></span><span style="display:flex;"><span>Breakpoint <span style="color:#bd93f9">1</span> at 0x17c1: file /libvgpu/test/test_alloc.c, line 68.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>gdb<span style="color:#ff79c6">)</span> r
+</span></span><span style="display:flex;"><span>Starting program: /libvgpu/build/test/test_alloc
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">[</span>Thread debugging using libthread_db enabled<span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span>Using host libthread_db library <span style="color:#f1fa8c">&#34;/lib/x86_64-linux-gnu/libthread_db.so.1&#34;</span>.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Breakpoint 1, main <span style="color:#ff79c6">()</span> at /libvgpu/test/test_alloc.c:68
+</span></span><span style="display:flex;"><span>68	int main<span style="color:#ff79c6">()</span> <span style="color:#ff79c6">{</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>gdb<span style="color:#ff79c6">)</span> sharedlibrary libvgpu.so
+</span></span><span style="display:flex;"><span>Symbols already loaded <span style="color:#ff79c6">for</span> ./libvgpu.so
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>gdb<span style="color:#ff79c6">)</span> b _nvmlDeviceGetMemoryInfo
+</span></span><span style="display:flex;"><span>Breakpoint <span style="color:#bd93f9">2</span> at 0x7ffff7f86075: file /libvgpu/src/nvml/hook.c, line 317.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>gdb<span style="color:#ff79c6">)</span> b /libvgpu/src/nvml/hook.c:317
+</span></span><span style="display:flex;"><span>Note: breakpoint <span style="color:#bd93f9">2</span> also <span style="color:#8be9fd;font-style:italic">set</span> at pc 0x7ffff7f86075.
+</span></span><span style="display:flex;"><span>Breakpoint <span style="color:#bd93f9">3</span> at 0x7ffff7f86075: file /libvgpu/src/nvml/hook.c, line 317.
+</span></span></code></pre></div><h2 id="57-vgpumonitor调试环境">5.7 vGPUMonitor调试环境</h2>
 <p>远程gpu服务器上dlv启动vGPUMonitor，本地goland添加Go Remote Debugger指向<!-- raw HTML omitted -->:2347</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">KUBECONFIG</span><span style="color:#ff79c6">=</span>/root/.kube/config <span style="color:#f1fa8c">\
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span><span style="color:#8be9fd;font-style:italic">NODE_NAME</span><span style="color:#ff79c6">=</span>vgpu <span style="color:#f1fa8c">\
@@ -1492,7 +2144,7 @@ HAMi这套架构就像一个高效运转的智能办公大楼，由四个关键�
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span><span style="color:#8be9fd;font-style:italic">NVIDIA_MIG_MONITOR_DEVICES</span><span style="color:#ff79c6">=</span>all <span style="color:#f1fa8c">\
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span><span style="color:#8be9fd;font-style:italic">HOOK_PATH</span><span style="color:#ff79c6">=</span>/usr/local/vgpu <span style="color:#f1fa8c">\
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>dlv <span style="color:#8be9fd;font-style:italic">exec</span> bin/vGPUmonitor --headless -l 0.0.0.0:2347 --api-version<span style="color:#ff79c6">=</span><span style="color:#bd93f9">2</span>
-</span></span></code></pre></div><h2 id="56-vgpumonitor核心逻辑">5.6 vGPUMonitor核心逻辑</h2>
+</span></span></code></pre></div><h2 id="58-vgpumonitor核心逻辑">5.8 vGPUMonitor核心逻辑</h2>
 <p>启动函数，程序的主要功能是监控vGPU的使用情况，并提供相应的指标收集和反馈机制</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-golang" data-lang="golang"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">main</span>() {
 </span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 校验环境变量HOOK_PATH必须存在
