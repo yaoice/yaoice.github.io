@@ -456,88 +456,58 @@
 </span></span><span style="display:flex;"><span>}
 </span></span></code></pre></div><p>如果源码编译dify-web失败的话，可以使用docker容器启动dify-web</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>docker run -it -d -p 3000:3000 -e <span style="color:#8be9fd;font-style:italic">CONSOLE_URL</span><span style="color:#ff79c6">=</span>http://127.0.0.1:5001 -e <span style="color:#8be9fd;font-style:italic">APP_URL</span><span style="color:#ff79c6">=</span>http://127.0.0.1:5001 langgenius/dify-web:main
-</span></span></code></pre></div><h1 id="源码分析">源码分析</h1>
-<h2 id="dify-api">dify-api</h2>
-<p>api基于flask框架实现</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>app <span style="color:#ff79c6">=</span> create_app()
+</span></span></code></pre></div><h1 id="4-源码分析">4. 源码分析</h1>
+<p>以git commit:<code>da67916843249390ee75438207042b215e752183</code>的代码为例</p>
+<p>dify-api启动函数，整个项目基于flask框架实现</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">import</span> os
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">import</span> sys
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">create_app</span>() <span style="color:#ff79c6">-&gt;</span> Flask:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">is_db_command</span>():
 </span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;
-</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    创建并配置Flask应用实例。
-</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">
-</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    该函数负责初始化一个Flask应用，设置其密钥，配置日志处理，以及注册各种扩展、蓝本和命令。
-</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">
-</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    Returns:
-</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        Flask: 配置好的Flask应用实例。
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    检查当前是否在执行 Flask 数据库相关命令
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    返回值：如果是数据库命令返回 True，否则返回 False
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;&#34;&#34;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 初始化Flask应用并应用配置</span>
-</span></span><span style="display:flex;"><span>    app <span style="color:#ff79c6">=</span> create_flask_app_with_configs()
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">len</span>(sys<span style="color:#ff79c6">.</span>argv) <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">1</span> <span style="color:#ff79c6">and</span> sys<span style="color:#ff79c6">.</span>argv[<span style="color:#bd93f9">0</span>]<span style="color:#ff79c6">.</span>endswith(<span style="color:#f1fa8c">&#34;flask&#34;</span>) <span style="color:#ff79c6">and</span> sys<span style="color:#ff79c6">.</span>argv[<span style="color:#bd93f9">1</span>] <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;db&#34;</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">True</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">False</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 设置Flask应用的secret_key，这对于会话管理是必要的</span>
-</span></span><span style="display:flex;"><span>    app<span style="color:#ff79c6">.</span>secret_key <span style="color:#ff79c6">=</span> app<span style="color:#ff79c6">.</span>config[<span style="color:#f1fa8c">&#34;SECRET_KEY&#34;</span>]
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 默认情况下没有日志处理器</span>
-</span></span><span style="display:flex;"><span>    log_handlers <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 创建应用程序</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> is_db_command():
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 如果是数据库命令，使用专门的工厂函数创建用于数据库迁移的应用实例</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">from</span> app_factory <span style="color:#ff79c6">import</span> create_migrations_app
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 从配置中获取日志文件路径</span>
-</span></span><span style="display:flex;"><span>    log_file <span style="color:#ff79c6">=</span> app<span style="color:#ff79c6">.</span>config<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;LOG_FILE&#34;</span>)
-</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> log_file:
-</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 确保日志文件的目录存在，如果不存在则创建</span>
-</span></span><span style="display:flex;"><span>        log_dir <span style="color:#ff79c6">=</span> os<span style="color:#ff79c6">.</span>path<span style="color:#ff79c6">.</span>dirname(log_file)
-</span></span><span style="display:flex;"><span>        os<span style="color:#ff79c6">.</span>makedirs(log_dir, exist_ok<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>)
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 配置日志处理器，包括文件日志和控制台日志</span>
-</span></span><span style="display:flex;"><span>        log_handlers <span style="color:#ff79c6">=</span> [
-</span></span><span style="display:flex;"><span>            RotatingFileHandler(
-</span></span><span style="display:flex;"><span>                filename<span style="color:#ff79c6">=</span>log_file,
-</span></span><span style="display:flex;"><span>                maxBytes<span style="color:#ff79c6">=</span><span style="color:#bd93f9">1024</span> <span style="color:#ff79c6">*</span> <span style="color:#bd93f9">1024</span> <span style="color:#ff79c6">*</span> <span style="color:#bd93f9">1024</span>,  <span style="color:#6272a4"># 1GB</span>
-</span></span><span style="display:flex;"><span>                backupCount<span style="color:#ff79c6">=</span><span style="color:#bd93f9">5</span>,  <span style="color:#6272a4"># 保留5个备份文件</span>
-</span></span><span style="display:flex;"><span>            ),
-</span></span><span style="display:flex;"><span>            logging<span style="color:#ff79c6">.</span>StreamHandler(sys<span style="color:#ff79c6">.</span>stdout),  <span style="color:#6272a4"># 将日志输出到控制台</span>
-</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>    app <span style="color:#ff79c6">=</span> create_migrations_app()
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">else</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># JetBrains Python 调试器似乎与 gevent 不兼容，</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 因此在调试模式下需要禁用 gevent。</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 如果您使用 debugpy 并设置 GEVENT_SUPPORT=True，则可以使用 gevent 进行调试。</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (flask_debug <span style="color:#ff79c6">:=</span> os<span style="color:#ff79c6">.</span>environ<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;FLASK_DEBUG&#34;</span>, <span style="color:#f1fa8c">&#34;0&#34;</span>)) <span style="color:#ff79c6">and</span> flask_debug<span style="color:#ff79c6">.</span>lower() <span style="color:#ff79c6">in</span> {<span style="color:#f1fa8c">&#34;false&#34;</span>, <span style="color:#f1fa8c">&#34;0&#34;</span>, <span style="color:#f1fa8c">&#34;no&#34;</span>}:
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 导入并初始化 gevent</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">from</span> gevent <span style="color:#ff79c6">import</span> monkey  <span style="color:#6272a4"># type: ignore</span>
+</span></span><span style="display:flex;"><span>        monkey<span style="color:#ff79c6">.</span>patch_all()  <span style="color:#6272a4"># 使用 gevent 替换标准库中的阻塞操作</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 配置基本的日志记录设置</span>
-</span></span><span style="display:flex;"><span>    logging<span style="color:#ff79c6">.</span>basicConfig(
-</span></span><span style="display:flex;"><span>        level<span style="color:#ff79c6">=</span>app<span style="color:#ff79c6">.</span>config<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;LOG_LEVEL&#34;</span>),  <span style="color:#6272a4"># 日志级别</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">format</span><span style="color:#ff79c6">=</span>app<span style="color:#ff79c6">.</span>config<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;LOG_FORMAT&#34;</span>),  <span style="color:#6272a4"># 日志格式</span>
-</span></span><span style="display:flex;"><span>        datefmt<span style="color:#ff79c6">=</span>app<span style="color:#ff79c6">.</span>config<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;LOG_DATEFORMAT&#34;</span>),  <span style="color:#6272a4"># 日期格式</span>
-</span></span><span style="display:flex;"><span>        handlers<span style="color:#ff79c6">=</span>log_handlers,  <span style="color:#6272a4"># 使用之前配置的日志处理器</span>
-</span></span><span style="display:flex;"><span>        force<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>,  <span style="color:#6272a4"># 强制重新配置日志设置，以确保上述配置生效</span>
-</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 初始化 gRPC 的 gevent 支持</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">from</span> grpc.experimental <span style="color:#ff79c6">import</span> gevent <span style="color:#ff79c6">as</span> grpc_gevent  <span style="color:#6272a4"># type: ignore</span>
+</span></span><span style="display:flex;"><span>        grpc_gevent<span style="color:#ff79c6">.</span>init_gevent()
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 如果配置中指定了日志时区，则进行时区配置</span>
-</span></span><span style="display:flex;"><span>    log_tz <span style="color:#ff79c6">=</span> app<span style="color:#ff79c6">.</span>config<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;LOG_TZ&#34;</span>)
-</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> log_tz:
-</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">from</span> datetime <span style="color:#ff79c6">import</span> datetime
-</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">import</span> pytz
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 为 psycopg（PostgreSQL 驱动）添加 gevent 支持</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">import</span> psycogreen.gevent  <span style="color:#6272a4"># type: ignore</span>
+</span></span><span style="display:flex;"><span>        psycogreen<span style="color:#ff79c6">.</span>gevent<span style="color:#ff79c6">.</span>patch_psycopg()
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 创建时区对象</span>
-</span></span><span style="display:flex;"><span>        timezone <span style="color:#ff79c6">=</span> pytz<span style="color:#ff79c6">.</span>timezone(log_tz)
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 创建常规应用实例</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">from</span> app_factory <span style="color:#ff79c6">import</span> create_app
+</span></span><span style="display:flex;"><span>    app <span style="color:#ff79c6">=</span> create_app()
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 获取 Celery 扩展实例</span>
+</span></span><span style="display:flex;"><span>    celery <span style="color:#ff79c6">=</span> app<span style="color:#ff79c6">.</span>extensions[<span style="color:#f1fa8c">&#34;celery&#34;</span>]
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 定义将UTC时间转换为指定时区时间的函数</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">time_converter</span>(seconds):
-</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> datetime<span style="color:#ff79c6">.</span>utcfromtimestamp(seconds)<span style="color:#ff79c6">.</span>astimezone(timezone)<span style="color:#ff79c6">.</span>timetuple()
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 将所有根记录器的处理器的格式化器的时间转换函数设置为上面定义的函数</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">for</span> handler <span style="color:#ff79c6">in</span> logging<span style="color:#ff79c6">.</span>root<span style="color:#ff79c6">.</span>handlers:
-</span></span><span style="display:flex;"><span>            handler<span style="color:#ff79c6">.</span>formatter<span style="color:#ff79c6">.</span>converter <span style="color:#ff79c6">=</span> time_converter
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 初始化应用所需的扩展</span>
-</span></span><span style="display:flex;"><span>    initialize_extensions(app)
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 注册蓝本，蓝本是Flask中组织路由的一种方式</span>
-</span></span><span style="display:flex;"><span>    register_blueprints(app)
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 注册命令行命令</span>
-</span></span><span style="display:flex;"><span>    register_commands(app)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 返回配置好的应用实例</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> app
-</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 当作为主程序运行时，启动Flask应用程序</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 通过指定host为&#34;0.0.0.0&#34;，允许网络中的其他设备访问该服务</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 端口号设置为5001，与其他设备通信时使用此端口</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> __name__ <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;__main__&#34;</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 当直接运行此文件时，启动Flask开发服务器</span>
 </span></span><span style="display:flex;"><span>    app<span style="color:#ff79c6">.</span>run(host<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;0.0.0.0&#34;</span>, port<span style="color:#ff79c6">=</span><span style="color:#bd93f9">5001</span>)
-</span></span></code></pre></div><p>flask api启动基于Gevent库，在api的docker entrypoint.sh脚本中可以查看</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">[[</span> <span style="color:#f1fa8c">&#34;</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">DEBUG</span><span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&#34;</span> <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;true&#34;</span> <span style="color:#ff79c6">]]</span>; <span style="color:#ff79c6">then</span>
+</span></span></code></pre></div><p>api是如何启动的？dify-api启动基于Gevent库，在api的<code>api/docker/entrypoint.sh</code>脚本中可以查看</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">[[</span> <span style="color:#f1fa8c">&#34;</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">DEBUG</span><span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&#34;</span> <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;true&#34;</span> <span style="color:#ff79c6">]]</span>; <span style="color:#ff79c6">then</span>
 </span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">exec</span> flask run --host<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">DIFY_BIND_ADDRESS</span><span style="color:#ff79c6">:-</span><span style="color:#8be9fd;font-style:italic">0</span>.0.0.0<span style="color:#f1fa8c">}</span> --port<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">DIFY_PORT</span><span style="color:#ff79c6">:-</span><span style="color:#8be9fd;font-style:italic">5001</span><span style="color:#f1fa8c">}</span> --debug
 </span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">else</span>
 </span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">exec</span> gunicorn <span style="color:#f1fa8c">\
@@ -547,12 +517,1026 @@
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>      --timeout <span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">GUNICORN_TIMEOUT</span><span style="color:#ff79c6">:-</span><span style="color:#8be9fd;font-style:italic">200</span><span style="color:#f1fa8c">}</span> <span style="color:#f1fa8c">\
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>      --preload <span style="color:#f1fa8c">\
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>      app:app
+</span></span><span style="display:flex;"><span>...
 </span></span></code></pre></div><p>Gevent与asyncio的区别：</p>
+<table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>Gevent</th>
+<th>asyncio</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>实现机制</td>
+<td>基于greenlet实现协程，通过monkey patching修改标准库</td>
+<td>基于Python原生的async/await语法和事件循环</td>
+</tr>
+<tr>
+<td>编程模型</td>
+<td>同步编程风格，代码看起来像普通同步代码</td>
+<td>异步编程风格，需要显式使用async/await关键字</td>
+</tr>
+<tr>
+<td>生态系统</td>
+<td>成熟稳定但生态相对较小，适合老项目改造</td>
+<td>Python 3.4后的标准库，生态系统不断扩大</td>
+</tr>
+<tr>
+<td>使用场景</td>
+<td>适合需要高并发但不想改变代码结构的项目</td>
+<td>适合从零开始的新项目，充分利用现代异步特性</td>
+</tr>
+<tr>
+<td>性能特点</td>
+<td>由于monkey patching开销，某些场景性能略低</td>
+<td>原生异步实现，理论性能更好，需要全栈异步支持</td>
+</tr>
+</tbody>
+</table>
+<p>需要分析的功能特性列表汇总：</p>
 <ul>
-<li>Gevent依赖基于协程的greenlet和monkey patching，使标准库的阻塞操作非阻塞，通过切换协程来实现异步。这种方法不需要async/await关键字。</li>
-<li>asyncio则是Python标准库提供的异步I/O框架，依赖async/await关键字和原生的事件循环机制（asyncio.get_event_loop()）来实现非阻塞操作。</li>
+<li>API路由&amp;Middleware机制</li>
+<li>多租户&amp;成员管理&amp;角色管理</li>
+<li>LLM管理</li>
+<li>对象存储管理</li>
+<li>向量数据库管理</li>
+<li>Chatbot应用类型</li>
+<li>Agent应用类型</li>
+<li>文本生成应用类型</li>
+<li>Chatflow应用类型</li>
+<li>Workflow应用类型</li>
+<li>知识库</li>
+<li>工具/插件（v1.0.0-beta重构了这块，跟主干代码解耦）</li>
+<li>&hellip;</li>
 </ul>
-<h2 id="dify-worker">dify-worker</h2>
+<h2 id="api路由">API路由</h2>
+<p>dify-api使用Flask Blueprint来组织路由,主要分为以下几个模块:</p>
+<ol>
+<li>主要路由模块:</li>
+</ol>
+<ul>
+<li>service_api_bp: 服务 API 路由 (/api/v1)</li>
+<li>web_bp: Web API 路由 (/api)</li>
+<li>console_app_bp: 控制台 API 路由 (/console/api)</li>
+<li>files_bp: 文件处理 API 路由</li>
+<li>inner_api_bp: 内部 API 路由</li>
+</ul>
+<ol start="2">
+<li>路由注册:</li>
+</ol>
+<ul>
+<li>在<code>ext_blueprints.py</code>中统一注册所有 blueprint</li>
+<li>每个模块都配置了相应的 CORS 策略</li>
+<li>使用 Flask-RESTful 来实现 RESTful API</li>
+</ul>
+<ol start="3">
+<li>主要 API 分组:</li>
+</ol>
+<ul>
+<li>应用相关 API (/apps/*)</li>
+<li>认证相关 API (/account/<em>, /oauth/</em>)</li>
+<li>工作区相关 API</li>
+<li>文件上传 API</li>
+<li>对话/聊天相关 API</li>
+</ul>
+<p>举例：看一个登录API实现</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">LoginApi</span>(Resource):
+</span></span><span style="display:flex;"><span>    @setup_required
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">post</span>(self):
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 1. 参数验证</span>
+</span></span><span style="display:flex;"><span>        parser <span style="color:#ff79c6">=</span> reqparse<span style="color:#ff79c6">.</span>RequestParser()
+</span></span><span style="display:flex;"><span>        parser<span style="color:#ff79c6">.</span>add_argument(<span style="color:#f1fa8c">&#34;email&#34;</span>, <span style="color:#8be9fd;font-style:italic">type</span><span style="color:#ff79c6">=</span>email, required<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>, location<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;json&#34;</span>)
+</span></span><span style="display:flex;"><span>        parser<span style="color:#ff79c6">.</span>add_argument(<span style="color:#f1fa8c">&#34;password&#34;</span>, <span style="color:#8be9fd;font-style:italic">type</span><span style="color:#ff79c6">=</span>valid_password, required<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>, location<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;json&#34;</span>)
+</span></span><span style="display:flex;"><span>        parser<span style="color:#ff79c6">.</span>add_argument(<span style="color:#f1fa8c">&#34;remember_me&#34;</span>, <span style="color:#8be9fd;font-style:italic">type</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">bool</span>, required<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>, default<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>)
+</span></span><span style="display:flex;"><span>        parser<span style="color:#ff79c6">.</span>add_argument(<span style="color:#f1fa8c">&#34;invite_token&#34;</span>, <span style="color:#8be9fd;font-style:italic">type</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">str</span>, required<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>)
+</span></span><span style="display:flex;"><span>        parser<span style="color:#ff79c6">.</span>add_argument(<span style="color:#f1fa8c">&#34;language&#34;</span>, <span style="color:#8be9fd;font-style:italic">type</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">str</span>, required<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>, default<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;en-US&#34;</span>)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 2. 账户状态检查</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> dify_config<span style="color:#ff79c6">.</span>BILLING_ENABLED <span style="color:#ff79c6">and</span> BillingService<span style="color:#ff79c6">.</span>is_email_in_freeze(args[<span style="color:#f1fa8c">&#34;email&#34;</span>]):
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">raise</span> AccountInFreezeError()
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 3. 登录频率限制</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> AccountService<span style="color:#ff79c6">.</span>is_login_error_rate_limit(args[<span style="color:#f1fa8c">&#34;email&#34;</span>]):
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">raise</span> EmailPasswordLoginLimitError()
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 4. 邀请码验证</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> invitation:
+</span></span><span style="display:flex;"><span>            invitation <span style="color:#ff79c6">=</span> RegisterService<span style="color:#ff79c6">.</span>get_invitation_if_token_valid(
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">None</span>, args[<span style="color:#f1fa8c">&#34;email&#34;</span>], invitation
+</span></span><span style="display:flex;"><span>            )
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 5. 认证流程</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">try</span>:
+</span></span><span style="display:flex;"><span>            account <span style="color:#ff79c6">=</span> AccountService<span style="color:#ff79c6">.</span>authenticate(args[<span style="color:#f1fa8c">&#34;email&#34;</span>], args[<span style="color:#f1fa8c">&#34;password&#34;</span>])
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">except</span> services<span style="color:#ff79c6">.</span>errors<span style="color:#ff79c6">.</span>account<span style="color:#ff79c6">.</span>AccountLoginError:
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">raise</span> AccountBannedError()
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">except</span> services<span style="color:#ff79c6">.</span>errors<span style="color:#ff79c6">.</span>account<span style="color:#ff79c6">.</span>AccountPasswordError:
+</span></span><span style="display:flex;"><span>            AccountService<span style="color:#ff79c6">.</span>add_login_error_rate_limit(args[<span style="color:#f1fa8c">&#34;email&#34;</span>])
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">raise</span> EmailOrPasswordMismatchError()
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 6. 工作区检查</span>
+</span></span><span style="display:flex;"><span>        tenants <span style="color:#ff79c6">=</span> TenantService<span style="color:#ff79c6">.</span>get_join_tenants(account)
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">len</span>(tenants) <span style="color:#ff79c6">==</span> <span style="color:#bd93f9">0</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> {<span style="color:#f1fa8c">&#34;result&#34;</span>: <span style="color:#f1fa8c">&#34;fail&#34;</span>, <span style="color:#f1fa8c">&#34;data&#34;</span>: <span style="color:#f1fa8c">&#34;workspace not found&#34;</span>}
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 7. 生成令牌</span>
+</span></span><span style="display:flex;"><span>        token_pair <span style="color:#ff79c6">=</span> AccountService<span style="color:#ff79c6">.</span>login(
+</span></span><span style="display:flex;"><span>            account<span style="color:#ff79c6">=</span>account, 
+</span></span><span style="display:flex;"><span>            ip_address<span style="color:#ff79c6">=</span>extract_remote_ip(request)
+</span></span><span style="display:flex;"><span>        )
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 8. 重置错误计数</span>
+</span></span><span style="display:flex;"><span>        AccountService<span style="color:#ff79c6">.</span>reset_login_error_rate_limit(args[<span style="color:#f1fa8c">&#34;email&#34;</span>])
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> {<span style="color:#f1fa8c">&#34;result&#34;</span>: <span style="color:#f1fa8c">&#34;success&#34;</span>, <span style="color:#f1fa8c">&#34;data&#34;</span>: token_pair<span style="color:#ff79c6">.</span>model_dump()}
+</span></span></code></pre></div><h2 id="middleware实现">Middleware实现</h2>
+<p>通过Flask扩展系统实现中间件功能,主要包括:</p>
+<ol>
+<li>核心中间件:</li>
+</ol>
+<ul>
+<li>ext_timezone: 时区处理</li>
+<li>ext_logging: 日志系统</li>
+<li>ext_compress: 响应压缩</li>
+<li>ext_database: 数据库连接</li>
+<li>ext_redis: Redis 缓存</li>
+<li>ext_celery: 异步任务</li>
+</ul>
+<ol start="2">
+<li>安全相关中间件:</li>
+</ol>
+<ul>
+<li>ext_login: 用户认证</li>
+<li>ext_set_secretkey: 密钥设置</li>
+<li>ext_proxy_fix: 代理修复</li>
+</ul>
+<ol start="3">
+<li>功能性中间件:</li>
+</ol>
+<ul>
+<li>ext_storage: 存储服务</li>
+<li>ext_mail: 邮件服务</li>
+<li>ext_sentry: 错误追踪</li>
+<li>ext_app_metrics: 应用指标</li>
+</ul>
+<ol start="4">
+<li>中间件初始化:</li>
+</ol>
+<ul>
+<li>在app_factory.py中通过 initialize_extensions()函数初始化所有中间件</li>
+<li>中间件按照特定顺序加载,确保依赖关系</li>
+<li>支持通过配置启用/禁用特定中间件</li>
+</ul>
+<p>5.请求处理装饰器:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>@setup_required
+</span></span><span style="display:flex;"><span>@login_required
+</span></span><span style="display:flex;"><span>@account_initialization_required
+</span></span><span style="display:flex;"><span>@validate_app_token
+</span></span><span style="display:flex;"><span>@cloud_edition_billing_resource_check
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">...</span>
+</span></span></code></pre></div><p>这些装饰器在路由处理前进行各种验证和检查</p>
+<p>举例：来看一个用于API认证和授权的中间件</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">validate_app_token</span>(view: Optional[Callable] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>, <span style="color:#ff79c6">*</span>, fetch_user_arg: Optional[FetchUserArg] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">decorator</span>(view_func):
+</span></span><span style="display:flex;"><span>        @wraps(view_func)
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">decorated_view</span>(<span style="color:#ff79c6">*</span>args, <span style="color:#ff79c6">**</span>kwargs):
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4"># 1. 验证并获取 API Token</span>
+</span></span><span style="display:flex;"><span>            api_token <span style="color:#ff79c6">=</span> validate_and_get_api_token(<span style="color:#f1fa8c">&#34;app&#34;</span>)
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4"># 2. 应用状态检查</span>
+</span></span><span style="display:flex;"><span>            app_model <span style="color:#ff79c6">=</span> db<span style="color:#ff79c6">.</span>session<span style="color:#ff79c6">.</span>query(App)<span style="color:#ff79c6">.</span>filter(App<span style="color:#ff79c6">.</span>id <span style="color:#ff79c6">==</span> api_token<span style="color:#ff79c6">.</span>app_id)<span style="color:#ff79c6">.</span>first()
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> app_model:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">raise</span> Forbidden(<span style="color:#f1fa8c">&#34;The app no longer exists.&#34;</span>)
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> app_model<span style="color:#ff79c6">.</span>status <span style="color:#ff79c6">!=</span> <span style="color:#f1fa8c">&#34;normal&#34;</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">raise</span> Forbidden(<span style="color:#f1fa8c">&#34;The app&#39;s status is abnormal.&#34;</span>)
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> app_model<span style="color:#ff79c6">.</span>enable_api:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">raise</span> Forbidden(<span style="color:#f1fa8c">&#34;The app&#39;s API service has been disabled.&#34;</span>)
+</span></span><span style="display:flex;"><span>                
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4"># 3. 租户状态检查</span>
+</span></span><span style="display:flex;"><span>            tenant <span style="color:#ff79c6">=</span> db<span style="color:#ff79c6">.</span>session<span style="color:#ff79c6">.</span>query(Tenant)<span style="color:#ff79c6">.</span>filter(Tenant<span style="color:#ff79c6">.</span>id <span style="color:#ff79c6">==</span> app_model<span style="color:#ff79c6">.</span>tenant_id)<span style="color:#ff79c6">.</span>first()
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> tenant<span style="color:#ff79c6">.</span>status <span style="color:#ff79c6">==</span> TenantStatus<span style="color:#ff79c6">.</span>ARCHIVE:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">raise</span> Forbidden(<span style="color:#f1fa8c">&#34;The workspace&#39;s status is archived.&#34;</span>)
+</span></span><span style="display:flex;"><span>                
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4"># 4. 用户信息处理</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> fetch_user_arg:
+</span></span><span style="display:flex;"><span>                user_id <span style="color:#ff79c6">=</span> get_user_id_from_request(fetch_user_arg)
+</span></span><span style="display:flex;"><span>                kwargs[<span style="color:#f1fa8c">&#34;end_user&#34;</span>] <span style="color:#ff79c6">=</span> create_or_update_end_user_for_user_id(
+</span></span><span style="display:flex;"><span>                    app_model, user_id
+</span></span><span style="display:flex;"><span>                )
+</span></span><span style="display:flex;"><span>                
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> view_func(<span style="color:#ff79c6">*</span>args, <span style="color:#ff79c6">**</span>kwargs)
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> decorated_view
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> decorator <span style="color:#ff79c6">if</span> view <span style="color:#ff79c6">is</span> <span style="color:#ff79c6">None</span> <span style="color:#ff79c6">else</span> decorator(view)
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># Token验证实现</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">validate_and_get_api_token</span>(scope: <span style="color:#8be9fd;font-style:italic">str</span> <span style="color:#ff79c6">|</span> <span style="color:#ff79c6">None</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 1. 验证 Authorization Header</span>
+</span></span><span style="display:flex;"><span>    auth_header <span style="color:#ff79c6">=</span> request<span style="color:#ff79c6">.</span>headers<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;Authorization&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> auth_header <span style="color:#ff79c6">is</span> <span style="color:#ff79c6">None</span> <span style="color:#ff79c6">or</span> <span style="color:#f1fa8c">&#34; &#34;</span> <span style="color:#ff79c6">not</span> <span style="color:#ff79c6">in</span> auth_header:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">raise</span> Unauthorized(<span style="color:#f1fa8c">&#34;Authorization header must be provided&#34;</span>)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 2. 验证认证方案</span>
+</span></span><span style="display:flex;"><span>    auth_scheme, auth_token <span style="color:#ff79c6">=</span> auth_header<span style="color:#ff79c6">.</span>split(<span style="color:#ff79c6">None</span>, <span style="color:#bd93f9">1</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> auth_scheme<span style="color:#ff79c6">.</span>lower() <span style="color:#ff79c6">!=</span> <span style="color:#f1fa8c">&#34;bearer&#34;</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">raise</span> Unauthorized(<span style="color:#f1fa8c">&#34;Authorization scheme must be &#39;Bearer&#39;&#34;</span>)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 3. Token 使用时间更新</span>
+</span></span><span style="display:flex;"><span>    current_time <span style="color:#ff79c6">=</span> datetime<span style="color:#ff79c6">.</span>now(UTC)<span style="color:#ff79c6">.</span>replace(tzinfo<span style="color:#ff79c6">=</span><span style="color:#ff79c6">None</span>)
+</span></span><span style="display:flex;"><span>    cutoff_time <span style="color:#ff79c6">=</span> current_time <span style="color:#ff79c6">-</span> timedelta(minutes<span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">with</span> Session(db<span style="color:#ff79c6">.</span>engine, expire_on_commit<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>) <span style="color:#ff79c6">as</span> session:
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 4. 更新 Token 最后使用时间</span>
+</span></span><span style="display:flex;"><span>        update_stmt <span style="color:#ff79c6">=</span> (
+</span></span><span style="display:flex;"><span>            update(ApiToken)
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">.</span>where(
+</span></span><span style="display:flex;"><span>                ApiToken<span style="color:#ff79c6">.</span>token <span style="color:#ff79c6">==</span> auth_token,
+</span></span><span style="display:flex;"><span>                (ApiToken<span style="color:#ff79c6">.</span>last_used_at<span style="color:#ff79c6">.</span>is_(<span style="color:#ff79c6">None</span>) <span style="color:#ff79c6">|</span> (ApiToken<span style="color:#ff79c6">.</span>last_used_at <span style="color:#ff79c6">&lt;</span> cutoff_time)),
+</span></span><span style="display:flex;"><span>                ApiToken<span style="color:#ff79c6">.</span>type <span style="color:#ff79c6">==</span> scope,
+</span></span><span style="display:flex;"><span>            )
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">.</span>values(last_used_at<span style="color:#ff79c6">=</span>current_time)
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">.</span>returning(ApiToken)
+</span></span><span style="display:flex;"><span>        )
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 5. Token 有效性验证</span>
+</span></span><span style="display:flex;"><span>        api_token <span style="color:#ff79c6">=</span> result<span style="color:#ff79c6">.</span>scalar_one_or_none()
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> api_token:
+</span></span><span style="display:flex;"><span>            stmt <span style="color:#ff79c6">=</span> select(ApiToken)<span style="color:#ff79c6">.</span>where(
+</span></span><span style="display:flex;"><span>                ApiToken<span style="color:#ff79c6">.</span>token <span style="color:#ff79c6">==</span> auth_token, 
+</span></span><span style="display:flex;"><span>                ApiToken<span style="color:#ff79c6">.</span>type <span style="color:#ff79c6">==</span> scope
+</span></span><span style="display:flex;"><span>            )
+</span></span><span style="display:flex;"><span>            api_token <span style="color:#ff79c6">=</span> session<span style="color:#ff79c6">.</span>scalar(stmt)
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> api_token:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">raise</span> Unauthorized(<span style="color:#f1fa8c">&#34;Access token is invalid&#34;</span>)
+</span></span><span style="display:flex;"><span>                
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> api_token
+</span></span></code></pre></div><h2 id="多租户成员管理角色管理">多租户&amp;成员管理&amp;角色管理</h2>
+<ol>
+<li>多租户系统的核心模型：</li>
+</ol>
+<ul>
+<li>Tenant（租户）：
+<ul>
+<li>代表一个独立的工作空间</li>
+<li>包含基本信息：id、name、plan（计划）、status（状态）等</li>
+<li>可以配置自定义设置（custom_config）</li>
+</ul>
+</li>
+<li>Account（账户）：
+<ul>
+<li>代表系统中的用户</li>
+<li>包含用户基本信息：name、email、password 等</li>
+<li>可以属于多个租户</li>
+</ul>
+</li>
+</ul>
+<ol start="2">
+<li>
+<p>租户-成员关系管理：</p>
+<ul>
+<li>TenantAccountJoin：</li>
+<li>实现租户和账户的多对多关系</li>
+<li>记录用户在租户中的角色（role）</li>
+<li>记录邀请人（invited_by）</li>
+<li>通过 unique_tenant_account_join 约束确保一个用户在同一租户中只有一个角色</li>
+</ul>
+</li>
+<li>
+<p>角色权限体系（TenantAccountRole）：</p>
+</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">TenantAccountRole</span>(enum<span style="color:#ff79c6">.</span>StrEnum):
+</span></span><span style="display:flex;"><span>    OWNER <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;owner&#34;</span>      <span style="color:#6272a4"># 租户所有者</span>
+</span></span><span style="display:flex;"><span>    ADMIN <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;admin&#34;</span>      <span style="color:#6272a4"># 管理员</span>
+</span></span><span style="display:flex;"><span>    EDITOR <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;editor&#34;</span>    <span style="color:#6272a4"># 编辑者</span>
+</span></span><span style="display:flex;"><span>    NORMAL <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;normal&#34;</span>    <span style="color:#6272a4"># 普通成员</span>
+</span></span><span style="display:flex;"><span>    DATASET_OPERATOR <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;dataset_operator&#34;</span>  <span style="color:#6272a4"># 数据集操作员</span>
+</span></span></code></pre></div><p>每个角色都有特定的权限：</p>
+<ul>
+<li>is_privileged_role: 判断是否为特权角色（owner 或 admin）</li>
+<li>is_editing_role: 判断是否有编辑权限</li>
+<li>is_dataset_edit_role: 判断是否有数据集编辑权限</li>
+</ul>
+<ol start="4">
+<li>租户状态管理：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">TenantStatus</span>(enum<span style="color:#ff79c6">.</span>StrEnum):
+</span></span><span style="display:flex;"><span>    NORMAL <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;normal&#34;</span>   <span style="color:#6272a4"># 正常状态</span>
+</span></span><span style="display:flex;"><span>    ARCHIVE <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;archive&#34;</span> <span style="color:#6272a4"># 归档状态</span>
+</span></span></code></pre></div><ol start="5">
+<li>成员管理功能：</li>
+</ol>
+<ul>
+<li>租户可以通过 get_accounts() 方法获取所有成员</li>
+<li>用户可以通过 current_tenant 属性访问当前所在的租户</li>
+<li>用户可以通过 current_role 属性获取在当前租户中的角色</li>
+<li>提供了一系列角色判断方法：
+<ul>
+<li>is_admin_or_owner</li>
+<li>is_admin</li>
+<li>is_editor</li>
+<li>is_dataset_editor</li>
+<li>is_dataset_operator</li>
+</ul>
+</li>
+</ul>
+<p>角色定义在代码中硬编码了，需要修改角色定义的地方方可实现，以下是一种思路实现，可能还有遗漏处：</p>
+<ol>
+<li>在TenantAccountRole枚举类中添加新角色：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">TenantAccountRole</span>(enum<span style="color:#ff79c6">.</span>StrEnum):
+</span></span><span style="display:flex;"><span>    OWNER <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;owner&#34;</span>
+</span></span><span style="display:flex;"><span>    ADMIN <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;admin&#34;</span>
+</span></span><span style="display:flex;"><span>    EDITOR <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;editor&#34;</span>
+</span></span><span style="display:flex;"><span>    NORMAL <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;normal&#34;</span>
+</span></span><span style="display:flex;"><span>    DATASET_OPERATOR <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;dataset_operator&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 添加新角色，例如：</span>
+</span></span><span style="display:flex;"><span>    VIEWER <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;viewer&#34;</span>  <span style="color:#6272a4"># 只读角色</span>
+</span></span></code></pre></div><ol start="2">
+<li>更新角色验证方法：
+在 TenantAccountRole 类中的 is_valid_role 方法中添加新角色：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>@staticmethod
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">is_valid_role</span>(role: <span style="color:#8be9fd;font-style:italic">str</span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">bool</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> role <span style="color:#ff79c6">in</span> {
+</span></span><span style="display:flex;"><span>        TenantAccountRole<span style="color:#ff79c6">.</span>OWNER,
+</span></span><span style="display:flex;"><span>        TenantAccountRole<span style="color:#ff79c6">.</span>ADMIN,
+</span></span><span style="display:flex;"><span>        TenantAccountRole<span style="color:#ff79c6">.</span>EDITOR,
+</span></span><span style="display:flex;"><span>        TenantAccountRole<span style="color:#ff79c6">.</span>NORMAL,
+</span></span><span style="display:flex;"><span>        TenantAccountRole<span style="color:#ff79c6">.</span>DATASET_OPERATOR,
+</span></span><span style="display:flex;"><span>        TenantAccountRole<span style="color:#ff79c6">.</span>VIEWER,  <span style="color:#6272a4"># 添加新角色</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span></code></pre></div><ol start="3">
+<li>定义新角色的权限：
+根据新角色的权限需求，在 TenantAccountRole 类中添加或修改相应的权限判断方法：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>@staticmethod
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">is_viewing_role</span>(role: <span style="color:#8be9fd;font-style:italic">str</span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">bool</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> role <span style="color:#ff79c6">in</span> {
+</span></span><span style="display:flex;"><span>        TenantAccountRole<span style="color:#ff79c6">.</span>OWNER,
+</span></span><span style="display:flex;"><span>        TenantAccountRole<span style="color:#ff79c6">.</span>ADMIN,
+</span></span><span style="display:flex;"><span>        TenantAccountRole<span style="color:#ff79c6">.</span>EDITOR,
+</span></span><span style="display:flex;"><span>        TenantAccountRole<span style="color:#ff79c6">.</span>NORMAL,
+</span></span><span style="display:flex;"><span>        TenantAccountRole<span style="color:#ff79c6">.</span>VIEWER
+</span></span><span style="display:flex;"><span>    }
+</span></span></code></pre></div><ol start="4">
+<li>在 Account 类中添加角色判断属性：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>@property
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">is_viewer</span>(self):
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> self<span style="color:#ff79c6">.</span>_current_tenant<span style="color:#ff79c6">.</span>current_role <span style="color:#ff79c6">==</span> TenantAccountRole<span style="color:#ff79c6">.</span>VIEWER
+</span></span></code></pre></div><ol start="5">
+<li>同步更新 TenantAccountJoinRole 枚举</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">TenantAccountJoinRole</span>(enum<span style="color:#ff79c6">.</span>Enum):
+</span></span><span style="display:flex;"><span>    OWNER <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;owner&#34;</span>
+</span></span><span style="display:flex;"><span>    ADMIN <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;admin&#34;</span>
+</span></span><span style="display:flex;"><span>    NORMAL <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;normal&#34;</span>
+</span></span><span style="display:flex;"><span>    DATASET_OPERATOR <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;dataset_operator&#34;</span>
+</span></span><span style="display:flex;"><span>    VIEWER <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;viewer&#34;</span>  <span style="color:#6272a4"># 添加新角色</span>
+</span></span></code></pre></div><ol start="6">
+<li>数据库迁移：
+由于角色是以字符串形式存储在数据库中，所以不需要修改数据库结构。但是建议添加数据库约束来确保角色值的有效性：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 在 TenantAccountJoin 模型中添加角色约束</span>
+</span></span><span style="display:flex;"><span>role <span style="color:#ff79c6">=</span> db<span style="color:#ff79c6">.</span>Column(db<span style="color:#ff79c6">.</span>String(<span style="color:#bd93f9">16</span>), 
+</span></span><span style="display:flex;"><span>                nullable<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>, 
+</span></span><span style="display:flex;"><span>                server_default<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;normal&#34;</span>,
+</span></span><span style="display:flex;"><span>                db<span style="color:#ff79c6">.</span>CheckConstraint(<span style="color:#f1fa8c">&#34;role IN (&#39;owner&#39;, &#39;admin&#39;, &#39;normal&#39;, &#39;dataset_operator&#39;, &#39;viewer&#39;)&#34;</span>))
+</span></span></code></pre></div><p>更新相关的权限检查逻辑</p>
+<h2 id="llm管理">LLM管理</h2>
+<p>Dify中LLM管理系统的具体实现过程：</p>
+<ol>
+<li>基础架构设计</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 基础模型类</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">AIModel</span>:
+</span></span><span style="display:flex;"><span>    model_type: ModelType  <span style="color:#6272a4"># 模型类型(LLM/Embedding等)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># LLM基类</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">LargeLanguageModel</span>(AIModel):
+</span></span><span style="display:flex;"><span>    model_type <span style="color:#ff79c6">=</span> ModelType<span style="color:#ff79c6">.</span>LLM
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">invoke</span>(self, model: <span style="color:#8be9fd;font-style:italic">str</span>, credentials: <span style="color:#8be9fd;font-style:italic">dict</span>, prompt_messages: <span style="color:#8be9fd;font-style:italic">list</span>[PromptMessage], 
+</span></span><span style="display:flex;"><span>              model_parameters: <span style="color:#8be9fd;font-style:italic">dict</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>, tools: <span style="color:#8be9fd;font-style:italic">list</span>[PromptMessageTool] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>              stop: <span style="color:#8be9fd;font-style:italic">list</span>[<span style="color:#8be9fd;font-style:italic">str</span>] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>, stream: <span style="color:#8be9fd;font-style:italic">bool</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">True</span>, user: <span style="color:#8be9fd;font-style:italic">str</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>) <span style="color:#ff79c6">-&gt;</span> Union[LLMResult, Generator]:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;调用LLM模型的核心方法&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">pass</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">get_parameter_rules</span>(self, model: <span style="color:#8be9fd;font-style:italic">str</span>, credentials: <span style="color:#8be9fd;font-style:italic">dict</span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">list</span>[ParameterRule]:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;获取模型参数规则&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">pass</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">get_model_mode</span>(self, model: <span style="color:#8be9fd;font-style:italic">str</span>, credentials: <span style="color:#8be9fd;font-style:italic">dict</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>) <span style="color:#ff79c6">-&gt;</span> LLMMode:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;获取模型模式(对话/补全)&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">pass</span>
+</span></span></code></pre></div><ol start="2">
+<li>模型实例管理</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">ModelInstance</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> __init__(self):
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>tenant_id: <span style="color:#8be9fd;font-style:italic">str</span>  <span style="color:#6272a4"># 租户ID</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>model_type: ModelType  <span style="color:#6272a4"># 模型类型</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>provider: <span style="color:#8be9fd;font-style:italic">str</span>  <span style="color:#6272a4"># 提供商</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>model: <span style="color:#8be9fd;font-style:italic">str</span>  <span style="color:#6272a4"># 模型名称</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>credentials: <span style="color:#8be9fd;font-style:italic">dict</span>  <span style="color:#6272a4"># 认证信息</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>model_type_instance: Union[LargeLanguageModel, TextEmbeddingModel]  <span style="color:#6272a4"># 具体模型实例</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">get_llm_num_tokens</span>(self, prompt_messages: <span style="color:#8be9fd;font-style:italic">list</span>[PromptMessage], 
+</span></span><span style="display:flex;"><span>                          tools: <span style="color:#8be9fd;font-style:italic">list</span>[PromptMessageTool] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">int</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;计算token数量&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">pass</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">invoke_text_embedding</span>(self, texts: <span style="color:#8be9fd;font-style:italic">list</span>[<span style="color:#8be9fd;font-style:italic">str</span>], user: <span style="color:#8be9fd;font-style:italic">str</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>                            input_type: EmbeddingInputType <span style="color:#ff79c6">=</span> EmbeddingInputType<span style="color:#ff79c6">.</span>DOCUMENT) <span style="color:#ff79c6">-&gt;</span> TextEmbeddingResult:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;调用文本嵌入&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">pass</span>
+</span></span></code></pre></div><ol start="3">
+<li>模型管理器实现</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">ModelManager</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">get_model_instance</span>(self, tenant_id: <span style="color:#8be9fd;font-style:italic">str</span>, model_type: ModelType,
+</span></span><span style="display:flex;"><span>                          provider: <span style="color:#8be9fd;font-style:italic">str</span>, model: <span style="color:#8be9fd;font-style:italic">str</span>) <span style="color:#ff79c6">-&gt;</span> ModelInstance:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;获取模型实例&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 1. 获取提供商配置</span>
+</span></span><span style="display:flex;"><span>        provider_configurations <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_get_provider_configurations(tenant_id)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 2. 验证模型是否存在</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> provider <span style="color:#ff79c6">not</span> <span style="color:#ff79c6">in</span> provider_configurations:
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">f</span><span style="color:#f1fa8c">&#34;Provider </span><span style="color:#f1fa8c">{</span>provider<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c"> does not exist&#34;</span>)
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 3. 创建模型实例</span>
+</span></span><span style="display:flex;"><span>        model_instance <span style="color:#ff79c6">=</span> ModelInstance(
+</span></span><span style="display:flex;"><span>            tenant_id<span style="color:#ff79c6">=</span>tenant_id,
+</span></span><span style="display:flex;"><span>            model_type<span style="color:#ff79c6">=</span>model_type,
+</span></span><span style="display:flex;"><span>            provider<span style="color:#ff79c6">=</span>provider,
+</span></span><span style="display:flex;"><span>            model<span style="color:#ff79c6">=</span>model
+</span></span><span style="display:flex;"><span>        )
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> model_instance
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">invoke_llm</span>(self, model_instance: ModelInstance, 
+</span></span><span style="display:flex;"><span>                   prompt_messages: <span style="color:#8be9fd;font-style:italic">list</span>[PromptMessage],
+</span></span><span style="display:flex;"><span>                   stream: <span style="color:#8be9fd;font-style:italic">bool</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">True</span>,
+</span></span><span style="display:flex;"><span>                   user: <span style="color:#8be9fd;font-style:italic">str</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>) <span style="color:#ff79c6">-&gt;</span> Union[LLMResult, Generator]:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;调用LLM模型&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">pass</span>
+</span></span></code></pre></div><ol start="4">
+<li>具体LLM提供商实现</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># OpenAI实现</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">OpenAILargeLanguageModel</span>(LargeLanguageModel):
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">_invoke</span>(self, model: <span style="color:#8be9fd;font-style:italic">str</span>, credentials: <span style="color:#8be9fd;font-style:italic">dict</span>,
+</span></span><span style="display:flex;"><span>                prompt_messages: <span style="color:#8be9fd;font-style:italic">list</span>[PromptMessage],
+</span></span><span style="display:flex;"><span>                model_parameters: <span style="color:#8be9fd;font-style:italic">dict</span>,
+</span></span><span style="display:flex;"><span>                tools: <span style="color:#8be9fd;font-style:italic">list</span>[PromptMessageTool] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>                stop: <span style="color:#8be9fd;font-style:italic">list</span>[<span style="color:#8be9fd;font-style:italic">str</span>] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>                stream: <span style="color:#8be9fd;font-style:italic">bool</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">True</span>,
+</span></span><span style="display:flex;"><span>                user: <span style="color:#8be9fd;font-style:italic">str</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>) <span style="color:#ff79c6">-&gt;</span> Union[LLMResult, Generator]:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;实现OpenAI模型调用&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 1. 处理认证信息</span>
+</span></span><span style="display:flex;"><span>        client <span style="color:#ff79c6">=</span> OpenAI(<span style="color:#ff79c6">**</span>credentials)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 2. 转换消息格式</span>
+</span></span><span style="display:flex;"><span>        messages <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_convert_messages(prompt_messages)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 3. 调用API</span>
+</span></span><span style="display:flex;"><span>        response <span style="color:#ff79c6">=</span> client<span style="color:#ff79c6">.</span>chat<span style="color:#ff79c6">.</span>completions<span style="color:#ff79c6">.</span>create(
+</span></span><span style="display:flex;"><span>            model<span style="color:#ff79c6">=</span>model,
+</span></span><span style="display:flex;"><span>            messages<span style="color:#ff79c6">=</span>messages,
+</span></span><span style="display:flex;"><span>            stream<span style="color:#ff79c6">=</span>stream,
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">**</span>model_parameters
+</span></span><span style="display:flex;"><span>        )
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 4. 处理响应</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> self<span style="color:#ff79c6">.</span>_handle_response(response, stream)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">remote_models</span>(self, credentials: <span style="color:#8be9fd;font-style:italic">dict</span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">list</span>[AIModelEntity]:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;获取远程可用模型列表&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">pass</span>
+</span></span></code></pre></div><ol start="5">
+<li>模型配置管理</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">ModelProperties</span>(BaseModel):
+</span></span><span style="display:flex;"><span>    context_size: <span style="color:#8be9fd;font-style:italic">int</span>  <span style="color:#6272a4"># 上下文窗口大小</span>
+</span></span><span style="display:flex;"><span>    max_tokens: <span style="color:#8be9fd;font-style:italic">int</span>    <span style="color:#6272a4"># 最大token数</span>
+</span></span><span style="display:flex;"><span>    mode: LLMMode     <span style="color:#6272a4"># 模型模式</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">ModelConfig</span>(BaseModel):
+</span></span><span style="display:flex;"><span>    properties: ModelProperties
+</span></span><span style="display:flex;"><span>    features: <span style="color:#8be9fd;font-style:italic">list</span>[ModelFeature]  <span style="color:#6272a4"># 模型特性</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 模型配置示例</span>
+</span></span><span style="display:flex;"><span>MODEL_CONFIGS <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;gpt-4&#34;</span>: ModelConfig(
+</span></span><span style="display:flex;"><span>        properties<span style="color:#ff79c6">=</span>ModelProperties(
+</span></span><span style="display:flex;"><span>            context_size<span style="color:#ff79c6">=</span><span style="color:#bd93f9">8192</span>,
+</span></span><span style="display:flex;"><span>            max_tokens<span style="color:#ff79c6">=</span><span style="color:#bd93f9">4096</span>,
+</span></span><span style="display:flex;"><span>            mode<span style="color:#ff79c6">=</span>LLMMode<span style="color:#ff79c6">.</span>CHAT
+</span></span><span style="display:flex;"><span>        ),
+</span></span><span style="display:flex;"><span>        features<span style="color:#ff79c6">=</span>[
+</span></span><span style="display:flex;"><span>            ModelFeature<span style="color:#ff79c6">.</span>AGENT_THOUGHT,
+</span></span><span style="display:flex;"><span>            ModelFeature<span style="color:#ff79c6">.</span>TOOL_CALL
+</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><ol start="6">
+<li>提供商管理</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">ProviderManager</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">update_default_model_record</span>(self, tenant_id: <span style="color:#8be9fd;font-style:italic">str</span>, 
+</span></span><span style="display:flex;"><span>                                  model_type: ModelType,
+</span></span><span style="display:flex;"><span>                                  provider: <span style="color:#8be9fd;font-style:italic">str</span>, 
+</span></span><span style="display:flex;"><span>                                  model: <span style="color:#8be9fd;font-style:italic">str</span>) <span style="color:#ff79c6">-&gt;</span> TenantDefaultModel:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;更新默认模型记录&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 1. 验证提供商</span>
+</span></span><span style="display:flex;"><span>        provider_configurations <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>get_configurations(tenant_id)
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> provider <span style="color:#ff79c6">not</span> <span style="color:#ff79c6">in</span> provider_configurations:
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">f</span><span style="color:#f1fa8c">&#34;Provider </span><span style="color:#f1fa8c">{</span>provider<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c"> does not exist&#34;</span>)
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 2. 验证模型</span>
+</span></span><span style="display:flex;"><span>        available_models <span style="color:#ff79c6">=</span> provider_configurations<span style="color:#ff79c6">.</span>get_models(
+</span></span><span style="display:flex;"><span>            model_type<span style="color:#ff79c6">=</span>model_type,
+</span></span><span style="display:flex;"><span>            only_active<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>
+</span></span><span style="display:flex;"><span>        )
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 3. 更新数据库记录</span>
+</span></span><span style="display:flex;"><span>        default_model <span style="color:#ff79c6">=</span> TenantDefaultModel<span style="color:#ff79c6">.</span>query<span style="color:#ff79c6">.</span>filter(
+</span></span><span style="display:flex;"><span>            tenant_id<span style="color:#ff79c6">=</span>tenant_id,
+</span></span><span style="display:flex;"><span>            model_type<span style="color:#ff79c6">=</span>model_type
+</span></span><span style="display:flex;"><span>        )<span style="color:#ff79c6">.</span>first()
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> default_model:
+</span></span><span style="display:flex;"><span>            default_model<span style="color:#ff79c6">.</span>provider_name <span style="color:#ff79c6">=</span> provider
+</span></span><span style="display:flex;"><span>            default_model<span style="color:#ff79c6">.</span>model_name <span style="color:#ff79c6">=</span> model
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">else</span>:
+</span></span><span style="display:flex;"><span>            default_model <span style="color:#ff79c6">=</span> TenantDefaultModel(
+</span></span><span style="display:flex;"><span>                tenant_id<span style="color:#ff79c6">=</span>tenant_id,
+</span></span><span style="display:flex;"><span>                model_type<span style="color:#ff79c6">=</span>model_type,
+</span></span><span style="display:flex;"><span>                provider_name<span style="color:#ff79c6">=</span>provider,
+</span></span><span style="display:flex;"><span>                model_name<span style="color:#ff79c6">=</span>model
+</span></span><span style="display:flex;"><span>            )
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>        db<span style="color:#ff79c6">.</span>session<span style="color:#ff79c6">.</span>commit()
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> default_model
+</span></span></code></pre></div><p>模型调用流程示例：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 1. 创建模型实例</span>
+</span></span><span style="display:flex;"><span>model_instance <span style="color:#ff79c6">=</span> model_manager<span style="color:#ff79c6">.</span>get_model_instance(
+</span></span><span style="display:flex;"><span>    tenant_id<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;tenant_123&#34;</span>,
+</span></span><span style="display:flex;"><span>    model_type<span style="color:#ff79c6">=</span>ModelType<span style="color:#ff79c6">.</span>LLM,
+</span></span><span style="display:flex;"><span>    provider<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;openai&#34;</span>,
+</span></span><span style="display:flex;"><span>    model<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;gpt-4&#34;</span>
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 2. 准备提示消息</span>
+</span></span><span style="display:flex;"><span>messages <span style="color:#ff79c6">=</span> [
+</span></span><span style="display:flex;"><span>    SystemPromptMessage(content<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;You are a helpful assistant&#34;</span>),
+</span></span><span style="display:flex;"><span>    UserPromptMessage(content<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;Tell me about LLMs&#34;</span>)
+</span></span><span style="display:flex;"><span>]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 3. 设置模型参数</span>
+</span></span><span style="display:flex;"><span>model_parameters <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;temperature&#34;</span>: <span style="color:#bd93f9">0.7</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;max_tokens&#34;</span>: <span style="color:#bd93f9">1000</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 4. 调用模型</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">try</span>:
+</span></span><span style="display:flex;"><span>    response <span style="color:#ff79c6">=</span> model_instance<span style="color:#ff79c6">.</span>model_type_instance<span style="color:#ff79c6">.</span>invoke(
+</span></span><span style="display:flex;"><span>        model<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;gpt-4&#34;</span>,
+</span></span><span style="display:flex;"><span>        credentials<span style="color:#ff79c6">=</span>model_instance<span style="color:#ff79c6">.</span>credentials,
+</span></span><span style="display:flex;"><span>        prompt_messages<span style="color:#ff79c6">=</span>messages,
+</span></span><span style="display:flex;"><span>        model_parameters<span style="color:#ff79c6">=</span>model_parameters,
+</span></span><span style="display:flex;"><span>        stream<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 5. 处理流式响应</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> chunk <span style="color:#ff79c6">in</span> response:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">yield</span> chunk<span style="color:#ff79c6">.</span>delta<span style="color:#ff79c6">.</span>content
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">except</span> Exception <span style="color:#ff79c6">as</span> e:
+</span></span><span style="display:flex;"><span>    logger<span style="color:#ff79c6">.</span>error(<span style="color:#f1fa8c">f</span><span style="color:#f1fa8c">&#34;Model invocation failed: </span><span style="color:#f1fa8c">{</span><span style="color:#8be9fd;font-style:italic">str</span>(e)<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">raise</span>
+</span></span></code></pre></div><h2 id="对象存储管理">对象存储管理</h2>
+<p>Dify中的对象存储系统主要用于以下几个方面：</p>
+<ol>
+<li>文件上传管理</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">FileService</span>:
+</span></span><span style="display:flex;"><span>    @staticmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">upload_file</span>(
+</span></span><span style="display:flex;"><span>        filename: <span style="color:#8be9fd;font-style:italic">str</span>,
+</span></span><span style="display:flex;"><span>        content: <span style="color:#8be9fd;font-style:italic">bytes</span>,
+</span></span><span style="display:flex;"><span>        mimetype: <span style="color:#8be9fd;font-style:italic">str</span>,
+</span></span><span style="display:flex;"><span>        user: Union[Account, EndUser, Any],
+</span></span><span style="display:flex;"><span>        source: Literal[<span style="color:#f1fa8c">&#34;datasets&#34;</span>] <span style="color:#ff79c6">|</span> <span style="color:#ff79c6">None</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>        source_url: <span style="color:#8be9fd;font-style:italic">str</span> <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;&#34;</span>,
+</span></span><span style="display:flex;"><span>    ) <span style="color:#ff79c6">-&gt;</span> UploadFile:
+</span></span></code></pre></div><p>主要用于:</p>
+<ul>
+<li>数据集文档上传</li>
+<li>图片文件存储</li>
+<li>其他用户上传的文件</li>
+</ul>
+<ol start="2">
+<li>存储实现支持多种对象存储服务:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">StorageType</span>(StrEnum):
+</span></span><span style="display:flex;"><span>    ALIYUN_OSS <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;aliyun-oss&#34;</span>  <span style="color:#6272a4"># 阿里云OSS</span>
+</span></span><span style="display:flex;"><span>    AZURE_BLOB <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;azure-blob&#34;</span>  <span style="color:#6272a4"># Azure Blob存储</span>
+</span></span><span style="display:flex;"><span>    BAIDU_OBS <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;baidu-obs&#34;</span>    <span style="color:#6272a4"># 百度对象存储</span>
+</span></span><span style="display:flex;"><span>    GOOGLE_STORAGE <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;google-storage&#34;</span>  <span style="color:#6272a4"># Google Cloud Storage</span>
+</span></span><span style="display:flex;"><span>    HUAWEI_OBS <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;huawei-obs&#34;</span>  <span style="color:#6272a4"># 华为对象存储</span>
+</span></span><span style="display:flex;"><span>    LOCAL <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;local&#34;</span>            <span style="color:#6272a4"># 本地存储</span>
+</span></span><span style="display:flex;"><span>    S3 <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;s3&#34;</span>                 <span style="color:#6272a4"># AWS S3</span>
+</span></span><span style="display:flex;"><span>    TENCENT_COS <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;tencent-cos&#34;</span> <span style="color:#6272a4"># 腾讯云COS</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># ...等</span>
+</span></span></code></pre></div><ol start="3">
+<li>基础存储接口定义:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">BaseStorage</span>(ABC):
+</span></span><span style="display:flex;"><span>    @abstractmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">save</span>(self, filename, data):
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;保存文件&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    @abstractmethod  
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">load_once</span>(self, filename: <span style="color:#8be9fd;font-style:italic">str</span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">bytes</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;一次性加载文件&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    @abstractmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">load_stream</span>(self, filename: <span style="color:#8be9fd;font-style:italic">str</span>) <span style="color:#ff79c6">-&gt;</span> Generator:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;流式加载文件&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    @abstractmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">download</span>(self, filename, target_filepath):
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;下载文件&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    @abstractmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">exists</span>(self, filename):
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;检查文件是否存在&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    @abstractmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">delete</span>(self, filename):
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;删除文件&#34;&#34;&#34;</span>
+</span></span></code></pre></div><ol start="4">
+<li>具体实现示例(以S3为例):</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">AwsS3Storage</span>(BaseStorage):
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> __init__(self):
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>bucket_name <span style="color:#ff79c6">=</span> dify_config<span style="color:#ff79c6">.</span>S3_BUCKET_NAME
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>client <span style="color:#ff79c6">=</span> boto3<span style="color:#ff79c6">.</span>client(
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;s3&#34;</span>,
+</span></span><span style="display:flex;"><span>            aws_secret_access_key<span style="color:#ff79c6">=</span>dify_config<span style="color:#ff79c6">.</span>S3_SECRET_KEY,
+</span></span><span style="display:flex;"><span>            aws_access_key_id<span style="color:#ff79c6">=</span>dify_config<span style="color:#ff79c6">.</span>S3_ACCESS_KEY,
+</span></span><span style="display:flex;"><span>            endpoint_url<span style="color:#ff79c6">=</span>dify_config<span style="color:#ff79c6">.</span>S3_ENDPOINT,
+</span></span><span style="display:flex;"><span>            region_name<span style="color:#ff79c6">=</span>dify_config<span style="color:#ff79c6">.</span>S3_REGION
+</span></span><span style="display:flex;"><span>        )
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">save</span>(self, filename, data):
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>client<span style="color:#ff79c6">.</span>put_object(
+</span></span><span style="display:flex;"><span>            Bucket<span style="color:#ff79c6">=</span>self<span style="color:#ff79c6">.</span>bucket_name,
+</span></span><span style="display:flex;"><span>            Key<span style="color:#ff79c6">=</span>filename,
+</span></span><span style="display:flex;"><span>            Body<span style="color:#ff79c6">=</span>data
+</span></span><span style="display:flex;"><span>        )
+</span></span></code></pre></div><ol start="5">
+<li>文件上传限制:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">FileApi</span>(Resource):
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">get</span>(self):
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;file_size_limit&#34;</span>: dify_config<span style="color:#ff79c6">.</span>UPLOAD_FILE_SIZE_LIMIT,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;batch_count_limit&#34;</span>: dify_config<span style="color:#ff79c6">.</span>UPLOAD_FILE_BATCH_LIMIT,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;image_file_size_limit&#34;</span>: dify_config<span style="color:#ff79c6">.</span>UPLOAD_IMAGE_FILE_SIZE_LIMIT,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;video_file_size_limit&#34;</span>: dify_config<span style="color:#ff79c6">.</span>UPLOAD_VIDEO_FILE_SIZE_LIMIT,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;audio_file_size_limit&#34;</span>: dify_config<span style="color:#ff79c6">.</span>UPLOAD_AUDIO_FILE_SIZE_LIMIT
+</span></span><span style="display:flex;"><span>        }
+</span></span></code></pre></div><ol start="6">
+<li>文件数据模型:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">UploadFile</span>(db<span style="color:#ff79c6">.</span>Model):
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">id</span>: Mapped[<span style="color:#8be9fd;font-style:italic">str</span>]
+</span></span><span style="display:flex;"><span>    tenant_id: Mapped[<span style="color:#8be9fd;font-style:italic">str</span>]  <span style="color:#6272a4"># 租户ID</span>
+</span></span><span style="display:flex;"><span>    storage_type: Mapped[<span style="color:#8be9fd;font-style:italic">str</span>]  <span style="color:#6272a4"># 存储类型</span>
+</span></span><span style="display:flex;"><span>    key: Mapped[<span style="color:#8be9fd;font-style:italic">str</span>]  <span style="color:#6272a4"># 存储键</span>
+</span></span><span style="display:flex;"><span>    name: Mapped[<span style="color:#8be9fd;font-style:italic">str</span>]  <span style="color:#6272a4"># 文件名</span>
+</span></span><span style="display:flex;"><span>    size: Mapped[<span style="color:#8be9fd;font-style:italic">int</span>]  <span style="color:#6272a4"># 文件大小</span>
+</span></span><span style="display:flex;"><span>    extension: Mapped[<span style="color:#8be9fd;font-style:italic">str</span>]  <span style="color:#6272a4"># 扩展名</span>
+</span></span><span style="display:flex;"><span>    mime_type: Mapped[<span style="color:#8be9fd;font-style:italic">str</span>]  <span style="color:#6272a4"># MIME类型</span>
+</span></span><span style="display:flex;"><span>    created_by: Mapped[<span style="color:#8be9fd;font-style:italic">str</span>]  <span style="color:#6272a4"># 创建者</span>
+</span></span><span style="display:flex;"><span>    created_at: Mapped[datetime]  <span style="color:#6272a4"># 创建时间</span>
+</span></span></code></pre></div><h2 id="向量数据库管理">向量数据库管理</h2>
+<p>Dify中向量数据库管理的实现:</p>
+<ol>
+<li>整体架构设计:</li>
+</ol>
+<ul>
+<li>采用工厂模式和策略模式,通过 AbstractVectorFactory 抽象工厂类和 BaseVector 基类来管理不同的向量数据库实现</li>
+<li>支持多种向量数据库,包括:PGVector、MyScale、Qdrant、ElasticSearch、OceanBase、TiDB等</li>
+<li>统一的向量操作接口,包括:创建、添加、搜索、删除等基本操作</li>
+</ul>
+<ol start="2">
+<li>核心组件:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 基类定义向量数据库的基本接口</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">BaseVector</span>(ABC):
+</span></span><span style="display:flex;"><span>    @abstractmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">create</span>(self, texts, embeddings, <span style="color:#ff79c6">**</span>kwargs)  <span style="color:#6272a4"># 创建集合</span>
+</span></span><span style="display:flex;"><span>    @abstractmethod 
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">add_texts</span>(self, documents, embeddings, <span style="color:#ff79c6">**</span>kwargs) <span style="color:#6272a4"># 添加文档</span>
+</span></span><span style="display:flex;"><span>    @abstractmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">search_by_vector</span>(self, query_vector, <span style="color:#ff79c6">**</span>kwargs) <span style="color:#6272a4"># 向量搜索</span>
+</span></span><span style="display:flex;"><span>    @abstractmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">search_by_full_text</span>(self, query, <span style="color:#ff79c6">**</span>kwargs) <span style="color:#6272a4"># 全文搜索</span>
+</span></span><span style="display:flex;"><span>    @abstractmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">delete</span>(self) <span style="color:#6272a4"># 删除集合</span>
+</span></span></code></pre></div><p>主要功能实现:
+a) 向量集合管理:</p>
+<ul>
+<li>创建集合时自动创建表结构和索引</li>
+<li>支持设置维度、距离计算方式等参数</li>
+<li>使用Redis锁避免并发创建问题</li>
+</ul>
+<p>b) 文档管理:</p>
+<ul>
+<li>支持批量添加文档和向量</li>
+<li>文档包含文本内容、元数据、向量等信息</li>
+<li>支持文档去重和ID管理</li>
+</ul>
+<p>c) 向量检索:</p>
+<ul>
+<li>支持KNN近邻搜索</li>
+<li>可配置top_k、score_threshold等参数</li>
+<li>支持不同的距离计算方式(cosine、l2等)</li>
+</ul>
+<p>d) 全文检索:</p>
+<ul>
+<li>部分实现支持全文搜索功能</li>
+<li>可与向量检索结合使用</li>
+</ul>
+<h2 id="chatbot应用类型">Chatbot应用类型</h2>
+<p>五种应用类型覆盖了从简单到复杂的不同使用场景,为用户提供了灵活的选择。其中:</p>
+<ul>
+<li>Chatbot和Completion是基础应用类型</li>
+<li>Agent提供了更智能的自主决策能力</li>
+<li>Chatflow和Workflow则提供了更高级的编排和自定义能力</li>
+</ul>
+<p>介绍应用类型之前，了解下消息队列管理(所有类型共用)，核心实现类：<code>MessageBasedAppQueueManager</code>
+主要实现：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">_publish</span>(self, event: AppQueueEvent, pub_from: PublishFrom) <span style="color:#ff79c6">-&gt;</span> <span style="color:#ff79c6">None</span>:
+</span></span><span style="display:flex;"><span>    message <span style="color:#ff79c6">=</span> MessageQueueMessage(
+</span></span><span style="display:flex;"><span>        task_id<span style="color:#ff79c6">=</span>self<span style="color:#ff79c6">.</span>_task_id,
+</span></span><span style="display:flex;"><span>        message_id<span style="color:#ff79c6">=</span>self<span style="color:#ff79c6">.</span>_message_id,
+</span></span><span style="display:flex;"><span>        conversation_id<span style="color:#ff79c6">=</span>self<span style="color:#ff79c6">.</span>_conversation_id,
+</span></span><span style="display:flex;"><span>        app_mode<span style="color:#ff79c6">=</span>self<span style="color:#ff79c6">.</span>_app_mode,
+</span></span><span style="display:flex;"><span>        event<span style="color:#ff79c6">=</span>event,
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    self<span style="color:#ff79c6">.</span>_q<span style="color:#ff79c6">.</span>put(message)
+</span></span></code></pre></div><ul>
+<li>消息事件管理</li>
+<li>队列操作封装</li>
+<li>支持多种事件类型</li>
+<li>错误处理机制</li>
+</ul>
+<p>Chatbot应用类型核心实现类：<code>ChatAppGenerator</code>，具体工作流程</p>
+<ol>
+<li>初始化阶段</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">generate</span>(
+</span></span><span style="display:flex;"><span>    self,
+</span></span><span style="display:flex;"><span>    app_model: App,
+</span></span><span style="display:flex;"><span>    user: Union[Account, EndUser],
+</span></span><span style="display:flex;"><span>    args: Mapping[<span style="color:#8be9fd;font-style:italic">str</span>, Any],
+</span></span><span style="display:flex;"><span>    invoke_from: InvokeFrom,
+</span></span><span style="display:flex;"><span>    streaming: <span style="color:#8be9fd;font-style:italic">bool</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">True</span>,
+</span></span><span style="display:flex;"><span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 验证必要参数</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> args<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;query&#34;</span>):
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">&#34;query is required&#34;</span>)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 获取会话信息</span>
+</span></span><span style="display:flex;"><span>    conversation <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> args<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;conversation_id&#34;</span>):
+</span></span><span style="display:flex;"><span>        conversation <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_get_conversation_by_user(<span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 加载应用模型配置</span>
+</span></span><span style="display:flex;"><span>    app_model_config <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_get_app_model_config(<span style="color:#ff79c6">...</span>)
+</span></span></code></pre></div><ol start="2">
+<li>生成过程</li>
+</ol>
+<ul>
+<li>处理文件上传配置</li>
+<li>转换为应用配置(ChatAppConfigManager)</li>
+<li>初始化追踪管理器(TraceQueueManager)</li>
+<li>创建生成实体(ChatAppGenerateEntity)</li>
+</ul>
+<ol start="3">
+<li>消息处理</li>
+</ol>
+<ul>
+<li>使用 MessageBasedAppQueueManager管理消息队列</li>
+<li>支持流式响应和阻塞响应</li>
+<li>通过线程处理生成任务</li>
+</ul>
+<ol start="4">
+<li>错误处理</li>
+</ol>
+<ul>
+<li>处理验证错误(ValidationError)</li>
+<li>处理授权错误(InvokeAuthorizationError)</li>
+<li>处理任务停止错误(GenerateTaskStoppedError)</li>
+</ul>
+<h2 id="agent应用类型-agent-chat">Agent应用类型 (Agent Chat)</h2>
+<p>核心实现类：<code>AgentChatAppGenerator</code></p>
+<ol>
+<li>初始化阶段</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">generate</span>(
+</span></span><span style="display:flex;"><span>    self,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">*</span>,
+</span></span><span style="display:flex;"><span>    app_model: App,
+</span></span><span style="display:flex;"><span>    user: Union[Account, EndUser],
+</span></span><span style="display:flex;"><span>    args: Mapping[<span style="color:#8be9fd;font-style:italic">str</span>, Any],
+</span></span><span style="display:flex;"><span>    invoke_from: InvokeFrom,
+</span></span><span style="display:flex;"><span>    streaming: <span style="color:#8be9fd;font-style:italic">bool</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">True</span>,
+</span></span><span style="display:flex;"><span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 验证流式响应</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> streaming:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">&#34;Agent Chat App does not support blocking mode&#34;</span>)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 验证必要参数</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> args<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;query&#34;</span>):
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">&#34;query is required&#34;</span>)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 获取会话信息</span>
+</span></span><span style="display:flex;"><span>    conversation <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> args<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;conversation_id&#34;</span>):
+</span></span><span style="display:flex;"><span>        conversation <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_get_conversation_by_user(<span style="color:#ff79c6">...</span>)
+</span></span></code></pre></div><ol start="2">
+<li>代理配置过程</li>
+</ol>
+<ul>
+<li>初始化代理配置(AgentChatAppConfigManager)</li>
+<li>配置文件处理能力</li>
+<li>设置工具使用权限</li>
+<li>创建代理生成实体(AgentChatAppGenerateEntity)</li>
+</ul>
+<ol start="3">
+<li>任务执行</li>
+</ol>
+<ul>
+<li>初始化追踪管理器(TraceQueueManager)</li>
+<li>创建工作线程处理生成任务</li>
+<li>支持工具调用和结果处理</li>
+<li>维护代理状态和上下文</li>
+</ul>
+<ol start="4">
+<li>错误处理</li>
+</ol>
+<ul>
+<li>处理验证错误(ValidationError)</li>
+<li>处理授权错误(InvokeAuthorizationError)</li>
+<li>处理任务中断(GenerateTaskStoppedError)</li>
+</ul>
+<h2 id="chatflow应用类型-advanced-chat">Chatflow应用类型 (Advanced Chat)</h2>
+<p>核心实现类：<code>AdvancedChatAppGenerator</code></p>
+<ol>
+<li>初始化阶段</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">generate</span>(
+</span></span><span style="display:flex;"><span>    self,
+</span></span><span style="display:flex;"><span>    app_model: App,
+</span></span><span style="display:flex;"><span>    workflow: Workflow,
+</span></span><span style="display:flex;"><span>    user: Union[Account, EndUser],
+</span></span><span style="display:flex;"><span>    args: Mapping[<span style="color:#8be9fd;font-style:italic">str</span>, Any],
+</span></span><span style="display:flex;"><span>    invoke_from: InvokeFrom,
+</span></span><span style="display:flex;"><span>    streaming: <span style="color:#8be9fd;font-style:italic">bool</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">True</span>,
+</span></span><span style="display:flex;"><span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 验证工作流</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> workflow:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">&#34;workflow is required&#34;</span>)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 验证输入</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> args<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;query&#34;</span>):
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">&#34;query is required&#34;</span>)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 初始化上下文</span>
+</span></span><span style="display:flex;"><span>    contexts<span style="color:#ff79c6">.</span>tenant_id<span style="color:#ff79c6">.</span>set(app_model<span style="color:#ff79c6">.</span>tenant_id)
+</span></span></code></pre></div><ol start="2">
+<li>工作流配置</li>
+</ol>
+<ul>
+<li>加载工作流配置</li>
+<li>设置节点执行顺序</li>
+<li>配置变量和参数</li>
+<li>创建工作流生成实体(AdvancedChatAppGenerateEntity)</li>
+</ul>
+<ol start="3">
+<li>执行流程</li>
+</ol>
+<ul>
+<li>初始化工作流运行环境</li>
+<li>按序执行节点任务</li>
+<li>处理节点间数据传递</li>
+<li>维护执行状态和上下文</li>
+</ul>
+<ol start="4">
+<li>错误处理</li>
+</ol>
+<ul>
+<li>处理节点执行错误</li>
+<li>处理工作流中断</li>
+<li>支持部分成功状态</li>
+</ul>
+<h2 id="workflow应用类型">Workflow应用类型</h2>
+<p>核心实现类：<code>WorkflowAppGenerator</code></p>
+<ol>
+<li>初始化阶段</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">generate</span>(
+</span></span><span style="display:flex;"><span>    self,
+</span></span><span style="display:flex;"><span>    app_model: App,
+</span></span><span style="display:flex;"><span>    workflow_config: <span style="color:#8be9fd;font-style:italic">dict</span>,
+</span></span><span style="display:flex;"><span>    user: Union[Account, EndUser],
+</span></span><span style="display:flex;"><span>    args: Mapping[<span style="color:#8be9fd;font-style:italic">str</span>, Any],
+</span></span><span style="display:flex;"><span>    invoke_from: InvokeFrom,
+</span></span><span style="display:flex;"><span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 验证工作流配置</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> workflow_config:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">&#34;workflow_config is required&#34;</span>)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 初始化工作流状态</span>
+</span></span><span style="display:flex;"><span>    workflow_state <span style="color:#ff79c6">=</span> WorkflowState(workflow_config)
+</span></span></code></pre></div><ol start="2">
+<li>工作流编排</li>
+</ol>
+<ul>
+<li>解析工作流配置</li>
+<li>构建执行图</li>
+<li>设置数据流向</li>
+<li>创建工作流执行实体</li>
+</ul>
+<ol start="3">
+<li>执行管理</li>
+</ol>
+<ul>
+<li>使用 WorkflowAppQueueManager 管理执行队列</li>
+<li>处理节点执行结果</li>
+<li>支持条件分支和循环</li>
+<li>维护执行状态</li>
+</ul>
+<ol start="4">
+<li>错误处理</li>
+</ol>
+<ul>
+<li>处理节点失败</li>
+<li>支持部分成功(QueueWorkflowPartialSuccessEvent)</li>
+<li>处理完全失败(QueueWorkflowFailedEvent)</li>
+<li>支持成功完成(QueueWorkflowSucceededEvent)</li>
+</ul>
+<h2 id="文本生成应用类型-completion">文本生成应用类型 (Completion)</h2>
+<p>核心实现类：<code>CompletionAppGenerator</code></p>
+<ol>
+<li>初始化阶段</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">generate</span>(
+</span></span><span style="display:flex;"><span>    self,
+</span></span><span style="display:flex;"><span>    app_model: App,
+</span></span><span style="display:flex;"><span>    user: Union[Account, EndUser],
+</span></span><span style="display:flex;"><span>    args: Mapping[<span style="color:#8be9fd;font-style:italic">str</span>, Any],
+</span></span><span style="display:flex;"><span>    invoke_from: InvokeFrom,
+</span></span><span style="display:flex;"><span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 验证输入文本</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> args<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;prompt&#34;</span>):
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">&#34;prompt is required&#34;</span>)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 加载模型配置</span>
+</span></span><span style="display:flex;"><span>    model_config <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_get_model_config(app_model)
+</span></span></code></pre></div><ol start="2">
+<li>生成配置</li>
+</ol>
+<ul>
+<li>设置模型参数</li>
+<li>配置输出格式</li>
+<li>设置生成约束</li>
+<li>创建生成实体(CompletionGenerateEntity)</li>
+</ul>
+<ol start="3">
+<li>执行过程</li>
+</ol>
+<ul>
+<li>调用模型生成</li>
+<li>处理生成结果</li>
+<li>格式化输出</li>
+<li>保存生成历史</li>
+</ul>
+<ol start="4">
+<li>错误处理</li>
+</ol>
+<ul>
+<li>处理模型调用错误</li>
+<li>处理格式验证错误</li>
+<li>处理生成限制错误</li>
+</ul>
+<p>注：文本生成应用类型(Completion)已被标记为废弃，不建议在新项目中使用。建议使用 Chatflow 或 Workflow 类型替代。</p>
 <h2 id="如何添加一个内置工具">如何添加一个内置工具</h2>
 <ul>
 <li>代码参考实现：<a href="https://github.com/langgenius/dify/pull/7991">https://github.com/langgenius/dify/pull/7991</a></li>
@@ -576,6 +1560,8 @@
 <ul>
 <li><a href="https://github.com/langgenius/dify/blob/main/README_CN.md">https://github.com/langgenius/dify/blob/main/README_CN.md</a></li>
 <li><a href="https://docs.dify.ai/getting-started/install-self-hosted/local-source-code#access-dify">如何在本地源码启动dify</a></li>
+<li><a href="https://langgenius.github.io/dify-helm/">Dify Enterprise Helm Chart</a></li>
+<li><a href="https://enterprise-docs.dify.ai/zh-cn/introduction">Dify Enterprise部署文档</a></li>
 </ul>
 
 
