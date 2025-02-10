@@ -2313,7 +2313,15 @@ user: end
 </ul>
 <h2 id="xinference">Xinference</h2>
 <p>企业级分布式推理框架<a href="https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html">Xinference</a></p>
-<h2 id="docker部署">Docker部署</h2>
+<p>后台命令行启动模型</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>xinference launch --model_path /root/DeepSeek-R1-Distill-Qwen-32B <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --model-name deepseek-v2.5  <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --model-uid deepseek-r1  <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --model-engine vllm <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --model-format pytorch <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --n-gpu <span style="color:#bd93f9">4</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --max_model_len <span style="color:#bd93f9">32768</span>
+</span></span></code></pre></div><h2 id="docker部署">Docker部署</h2>
 <h3 id="准备工作">准备工作</h3>
 <h4 id="硬件环境">硬件环境</h4>
 <table>
@@ -2769,7 +2777,8 @@ user: end
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>--enforce-eager <span style="color:#f1fa8c">\
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>--trust-remote-code <span style="color:#f1fa8c">\
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>--tensor-parallel-size <span style="color:#bd93f9">2</span>
-</span></span></code></pre></div><p>注：vLLM方式启动带的<code>--model</code>这个参数，调用api接口的时候也需要传入同样的值；<code>--tensor-parallel-size</code>用于在多个GPU间分配工作，<code>max-model-len</code>指定模型上下文长度，<code>--served-model-name Qwen1.5-7B-Chat</code>可以指定模型的名字，没指定的话默认就用<code>--model</code>用于模型名</p>
+</span></span></code></pre></div><p>注：vLLM方式启动带的<code>--model</code>这个参数，调用api接口的时候也需要传入同样的值；<code>--tensor-parallel-size</code>用于在多个GPU间分配工作，<code>max-model-len</code>指定模型上下文长度，
+<code>--served-model-name Qwen1.5-7B-Chat</code>可以指定模型的名字，没指定的话默认就用<code>--model</code>用于模型名，<code>--api-key</code>用于指定 api_key</p>
 <p>python源码方式启动</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>python3 -m vllm.entrypoints.openai.api_server <span style="color:#f1fa8c">\
 </span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --model /opt/qwen-14b-chat <span style="color:#f1fa8c">\
@@ -2818,6 +2827,49 @@ user: end
 </span></span><span style="display:flex;"><span>INFO:     Waiting <span style="color:#ff79c6">for</span> application startup.
 </span></span><span style="display:flex;"><span>INFO:     Application startup complete.
 </span></span><span style="display:flex;"><span>INFO:     Uvicorn running on http://0.0.0.0:8000 <span style="color:#ff79c6">(</span>Press CTRL+C to quit<span style="color:#ff79c6">)</span>
+</span></span></code></pre></div><h3 id="vllm集成deepseek-r1">vLLM集成DeepSeek-R1</h3>
+<p>vLLM已支持DeepSeek-R1这种Reasoning模型：<a href="https://docs.vllm.ai/en/latest/features/reasoning_outputs.html">https://docs.vllm.ai/en/latest/features/reasoning_outputs.html</a></p>
+<p>vLLM启动DeepSeek-R1模型</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>docker run -it -d --gpus all <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --restart always <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    -v /root/DeepSeek-R1-Distill-Qwen-32B:/root/DeepSeek-R1-Distill-Qwen-32B <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --name vllm-server <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    -p 8000:8000 --ipc<span style="color:#ff79c6">=</span>host vllm/vllm-openai:v0.7.2 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --model /root/DeepSeek-R1-Distill-Qwen-32B <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --max-model-len <span style="color:#bd93f9">32768</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --served-model-name deepseek-r1 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --enable-reasoning --reasoning-parser deepseek_r1 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>    --tensor-parallel-size <span style="color:#bd93f9">4</span>
+</span></span></code></pre></div><p>python脚本验证思考过程和内容流式输出</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">from</span> openai <span style="color:#ff79c6">import</span> OpenAI
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># Modify OpenAI&#39;s API key and API base to use vLLM&#39;s API server.</span>
+</span></span><span style="display:flex;"><span>openai_api_key <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;EMPTY&#34;</span>
+</span></span><span style="display:flex;"><span>openai_api_base <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;http://xxx:8000/v1&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>client <span style="color:#ff79c6">=</span> OpenAI(
+</span></span><span style="display:flex;"><span>    api_key<span style="color:#ff79c6">=</span>openai_api_key,
+</span></span><span style="display:flex;"><span>    base_url<span style="color:#ff79c6">=</span>openai_api_base,
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>models <span style="color:#ff79c6">=</span> client<span style="color:#ff79c6">.</span>models<span style="color:#ff79c6">.</span>list()
+</span></span><span style="display:flex;"><span>model <span style="color:#ff79c6">=</span> models<span style="color:#ff79c6">.</span>data[<span style="color:#bd93f9">0</span>]<span style="color:#ff79c6">.</span>id
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># Round 1</span>
+</span></span><span style="display:flex;"><span>messages <span style="color:#ff79c6">=</span> [{<span style="color:#f1fa8c">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;user&#34;</span>, <span style="color:#f1fa8c">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;帮我写一个冒泡排序。你是一位编程的资深专家，擅长编写各种程序。要求用Java来编写功能。&#34;</span>}]
+</span></span><span style="display:flex;"><span>response <span style="color:#ff79c6">=</span> client<span style="color:#ff79c6">.</span>chat<span style="color:#ff79c6">.</span>completions<span style="color:#ff79c6">.</span>create(
+</span></span><span style="display:flex;"><span>    model<span style="color:#ff79c6">=</span>model,
+</span></span><span style="display:flex;"><span>    messages<span style="color:#ff79c6">=</span>messages,
+</span></span><span style="display:flex;"><span>    stream<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>  <span style="color:#6272a4"># 启用流式输出</span>
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 通过迭代处理流式响应</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">for</span> chunk <span style="color:#ff79c6">in</span> response:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> chunk<span style="color:#ff79c6">.</span>choices[<span style="color:#bd93f9">0</span>]<span style="color:#ff79c6">.</span>delta<span style="color:#ff79c6">.</span>content:
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">print</span>(chunk<span style="color:#ff79c6">.</span>choices[<span style="color:#bd93f9">0</span>]<span style="color:#ff79c6">.</span>delta<span style="color:#ff79c6">.</span>content, end<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;&#34;</span>, flush<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 如果需要获取 reasoning_content</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">hasattr</span>(chunk<span style="color:#ff79c6">.</span>choices[<span style="color:#bd93f9">0</span>]<span style="color:#ff79c6">.</span>delta, <span style="color:#f1fa8c">&#39;reasoning_content&#39;</span>) <span style="color:#ff79c6">and</span> chunk<span style="color:#ff79c6">.</span>choices[<span style="color:#bd93f9">0</span>]<span style="color:#ff79c6">.</span>delta<span style="color:#ff79c6">.</span>reasoning_content:
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">print</span>(chunk<span style="color:#ff79c6">.</span>choices[<span style="color:#bd93f9">0</span>]<span style="color:#ff79c6">.</span>delta<span style="color:#ff79c6">.</span>reasoning_content, end<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;&#34;</span>, flush<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>)
 </span></span></code></pre></div><h2 id="sglang">SGLang</h2>
 <p>SGLang(Structured Generation Language)是伯克利开发的一个用于LLM应用开发的特定领域语言(DSL)，采用基于RadixAttention的高性能推理引擎。通过在多轮对话中智能复用KV缓存，大幅提升了复杂LLM程序的执行效率。此外，它还集成了连续批处理(Continuous Batching)和张量并行(Tensor Parallelism)等主流推理优化技术.</p>
 <p>python源码方式启动</p>
