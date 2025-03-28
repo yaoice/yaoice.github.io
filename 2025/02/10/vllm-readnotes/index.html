@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="vLLM学习笔记(AI编程工具分析)" />
+    <meta property="og:title" content="vLLM学习笔记(AI编程工具分析)" />
+    <meta property="twitter:title" content="vLLM学习笔记(AI编程工具分析)" />
+    
+
+    
+    <meta name="description" content="vLLM学习笔记">
+    <meta property="og:description" content="vLLM学习笔记" />
+    <meta property="twitter:description" content="vLLM学习笔记" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>vLLM学习笔记(AI编程工具分析) | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2025/02/10/vllm-readnotes/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/" title="">
+                            
+                        </a>
+                        
+                    </div>
+                    <h1>vLLM学习笔记(AI编程工具分析)</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Monday, February 10, 2025
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h1 id="1-vllm是什么">1. vLLM是什么</h1>
+<p>vLLM是由伯克利大学LMSYS组织开源的大语言模型高速推理框架，旨在极大提升实时场景下语言模型服务的吞吐量和内存使用效率。vLLM采用了PagedAttention算法，通过引入操作系统中的虚拟内存和分页管理思想，有效管理注意力机制中的键值（KV cache），显著提高了显存利用率，减少了显存碎片。支持分布式推理，能够在多台GPU上并行运行模型。</p>
+<h1 id="2-源码编译安装">2. 源码编译安装</h1>
+<p>以v0.7.2 tag的代码为例</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">(</span>vllm<span style="color:#ff79c6">)</span> root@vgpu:/data# git clone https://github.com/vllm-project/vllm.git
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>vllm<span style="color:#ff79c6">)</span> root@vgpu:/data# git checkout v0.7.3
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>vllm<span style="color:#ff79c6">)</span> root@vgpu:/data# <span style="color:#8be9fd;font-style:italic">cd</span> vllm
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># export MAX_JOBS=6 # 编译并发数设置，默认值是系统CPU核数</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>vllm<span style="color:#ff79c6">)</span> root@vgpu:/data/vllm# <span style="color:#8be9fd;font-style:italic">VLLM_USE_PRECOMPILED</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span> pip install -e .  <span style="color:#6272a4"># 只修改了Python代码，不需要重新编译</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>vllm<span style="color:#ff79c6">)</span> root@vgpu:~# python
+</span></span><span style="display:flex;"><span>Python 3.12.9 | packaged by Anaconda, Inc. | <span style="color:#ff79c6">(</span>main, Feb  <span style="color:#bd93f9">6</span> 2025, 18:56:27<span style="color:#ff79c6">)</span> <span style="color:#ff79c6">[</span>GCC 11.2.0<span style="color:#ff79c6">]</span> on linux
+</span></span><span style="display:flex;"><span>Type <span style="color:#f1fa8c">&#34;help&#34;</span>, <span style="color:#f1fa8c">&#34;copyright&#34;</span>, <span style="color:#f1fa8c">&#34;credits&#34;</span> or <span style="color:#f1fa8c">&#34;license&#34;</span> <span style="color:#ff79c6">for</span> more information.
+</span></span><span style="display:flex;"><span>&gt;&gt;&gt; import vllm
+</span></span><span style="display:flex;"><span>&gt;&gt;&gt; print<span style="color:#ff79c6">(</span>vllm.__file__<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>/data/vllm/vllm/__init__.py   <span style="color:#6272a4"># 从这个输出可以看到vllm的源码是在python包中，所以可以直接修改源码，不需要重新编译</span>
+</span></span></code></pre></div><p>如果要完整构建，包含编译的话</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>pip install -e .
+</span></span></code></pre></div><p>vllm项目涉及多种开发语言，其中85%是python、10%是cuda、3.3%是C++，剩下是shell、cmake、dockerfile脚本相关.涉及到静态编译语言的修改，通过<code>conda install ccache</code>或<code>apt install ccache</code>来安装<a href="https://github.com/ccache/ccache">ccache</a>可以加速编译。除了ccache外，<a href="https://github.com/mozilla/sccache">sccache</a>也可以实现类似功能，功能甚至更强大，还支持分布式编译。</p>
+<h1 id="3-源码分析">3. 源码分析</h1>
+<p>以v0.7.3 tag的代码为例，使用vscode Remote SSH方式进行源码分析</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>vllm serve /data/Qwen2.5-0.5B/ --served-model-name qwen
+</span></span></code></pre></div><p>要用到vscode IDE来调试代码，所以必须vscode来启动vllm apiserver服务，上述命令行启动方式转成vscode launch.json方式</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">{</span>
+</span></span><span style="display:flex;"><span>    // Use IntelliSense to learn about possible attributes.
+</span></span><span style="display:flex;"><span>    // Hover to view descriptions of existing attributes.
+</span></span><span style="display:flex;"><span>    // For more information, visit: https://go.microsoft.com/fwlink/?linkid<span style="color:#ff79c6">=</span><span style="color:#bd93f9">830387</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;version&#34;</span>: <span style="color:#f1fa8c">&#34;0.2.0&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;configurations&#34;</span>: <span style="color:#ff79c6">[</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;name&#34;</span>: <span style="color:#f1fa8c">&#34;vllm serve&#34;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;type&#34;</span>: <span style="color:#f1fa8c">&#34;debugpy&#34;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;request&#34;</span>: <span style="color:#f1fa8c">&#34;launch&#34;</span>,
+</span></span><span style="display:flex;"><span>            // <span style="color:#f1fa8c">&#34;program&#34;</span>: <span style="color:#f1fa8c">&#34;/data/miniconda3/envs/vllm/bin/vllm&#34;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;module&#34;</span>: <span style="color:#f1fa8c">&#34;vllm.entrypoints.cli.main&#34;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;justMyCode&#34;</span>: false,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;args&#34;</span>: <span style="color:#ff79c6">[</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f1fa8c">&#34;serve&#34;</span>,
+</span></span><span style="display:flex;"><span>                <span style="color:#f1fa8c">&#34;/data/Qwen1.5-0.5B-Chat/&#34;</span>,
+</span></span><span style="display:flex;"><span>                <span style="color:#f1fa8c">&#34;--served-model-name&#34;</span>,
+</span></span><span style="display:flex;"><span>                <span style="color:#f1fa8c">&#34;qwen&#34;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">]</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;console&#34;</span>: <span style="color:#f1fa8c">&#34;integratedTerminal&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">}</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">}</span>
+</span></span></code></pre></div><p>启动完vllm-apiserver后，查看显存使用情况</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">(</span>vllm<span style="color:#ff79c6">)</span> root@vgpu:/data/vllm# nvidia-smi 
+</span></span><span style="display:flex;"><span>Wed Feb <span style="color:#bd93f9">26</span> 07:20:12 <span style="color:#bd93f9">2025</span>       
+</span></span><span style="display:flex;"><span>+-----------------------------------------------------------------------------------------+
+</span></span><span style="display:flex;"><span>| NVIDIA-SMI 550.135                Driver Version: 550.135        CUDA Version: 12.4     |
+</span></span><span style="display:flex;"><span>|-----------------------------------------+------------------------+----------------------+
+</span></span><span style="display:flex;"><span>| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+</span></span><span style="display:flex;"><span>| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+</span></span><span style="display:flex;"><span>|                                         |                        |               MIG M. |
+</span></span><span style="display:flex;"><span>|<span style="color:#ff79c6">=========================================</span>+<span style="color:#ff79c6">========================</span>+<span style="color:#ff79c6">======================</span>|
+</span></span><span style="display:flex;"><span>|   <span style="color:#bd93f9">0</span>  NVIDIA GeForce RTX <span style="color:#bd93f9">3090</span>        Off |   00000000:00:05.0 Off |                  N/A |
+</span></span><span style="display:flex;"><span>| 36%   40C    P8              8W /  370W |   20854MiB /  24576MiB |      0%      Default |
+</span></span><span style="display:flex;"><span>|                                         |                        |                  N/A |
+</span></span><span style="display:flex;"><span>+-----------------------------------------+------------------------+----------------------+
+</span></span><span style="display:flex;"><span>                                                                                         
+</span></span><span style="display:flex;"><span>+-----------------------------------------------------------------------------------------+
+</span></span><span style="display:flex;"><span>| Processes:                                                                              |
+</span></span><span style="display:flex;"><span>|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+</span></span><span style="display:flex;"><span>|        ID   ID                                                               Usage      |
+</span></span><span style="display:flex;"><span>|<span style="color:#ff79c6">=========================================================================================</span>|
+</span></span><span style="display:flex;"><span>|    <span style="color:#bd93f9">0</span>   N/A  N/A     <span style="color:#bd93f9">10257</span>      C   /data/miniconda3/envs/vllm/bin/python       20836MiB |
+</span></span><span style="display:flex;"><span>+-----------------------------------------------------------------------------------------+
+</span></span></code></pre></div><p>待vllm apiserver完全启动后，可以通过curl命令行来测试</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># model就是前面启动服务时的--served-model-name参数</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">(</span>vllm<span style="color:#ff79c6">)</span> root@vgpu:/data/vllm# curl http://localhost:8000/v1/chat/completions -H <span style="color:#f1fa8c">&#34;Content-Type: application/json&#34;</span> -d <span style="color:#f1fa8c">&#39;{
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        &#34;model&#34;: &#34;qwen&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        &#34;messages&#34;: [
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">            {&#34;role&#34;: &#34;system&#34;, &#34;content&#34;: &#34;You are a helpful assistant.&#34;},
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">            {&#34;role&#34;: &#34;user&#34;, &#34;content&#34;: &#34;你是谁？&#34;}
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        ]
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    }&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">{</span><span style="color:#f1fa8c">&#34;id&#34;</span>:<span style="color:#f1fa8c">&#34;chatcmpl-44c835030dcb4aaba493b051a716d269&#34;</span>,<span style="color:#f1fa8c">&#34;object&#34;</span>:<span style="color:#f1fa8c">&#34;chat.completion&#34;</span>,<span style="color:#f1fa8c">&#34;created&#34;</span>:1740560485,<span style="color:#f1fa8c">&#34;model&#34;</span>:<span style="color:#f1fa8c">&#34;qwen&#34;</span>,<span style="color:#f1fa8c">&#34;choices&#34;</span>:<span style="color:#ff79c6">[{</span><span style="color:#f1fa8c">&#34;index&#34;</span>:0,<span style="color:#f1fa8c">&#34;message&#34;</span>:<span style="color:#ff79c6">{</span><span style="color:#f1fa8c">&#34;role&#34;</span>:<span style="color:#f1fa8c">&#34;assistant&#34;</span>,<span style="color:#f1fa8c">&#34;reasoning_content&#34;</span>:null,<span style="color:#f1fa8c">&#34;content&#34;</span>:<span style="color:#f1fa8c">&#34;我是来自阿里云的超大规模语言模型。我叫通义千问，是阿里云自主研发的预训练语言模型。我与人类科学家们一同研究，努力达到最高的准确率和性能。&#34;</span>,<span style="color:#f1fa8c">&#34;tool_calls&#34;</span>:<span style="color:#ff79c6">[]}</span>,<span style="color:#f1fa8c">&#34;logprobs&#34;</span>:null,<span style="color:#f1fa8c">&#34;finish_reason&#34;</span>:<span style="color:#f1fa8c">&#34;stop&#34;</span>,<span style="color:#f1fa8c">&#34;stop_reason&#34;</span>:null<span style="color:#ff79c6">}]</span>,<span style="color:#f1fa8c">&#34;usage&#34;</span>:<span style="color:#ff79c6">{</span><span style="color:#f1fa8c">&#34;prompt_tokens&#34;</span>:22,<span style="color:#f1fa8c">&#34;total_tokens&#34;</span>:66,<span style="color:#f1fa8c">&#34;completion_tokens&#34;</span>:44,<span style="color:#f1fa8c">&#34;prompt_tokens_details&#34;</span>:null<span style="color:#ff79c6">}</span>,<span style="color:#f1fa8c">&#34;prompt_logprobs&#34;</span>:null<span style="color:#ff79c6">}</span>
+</span></span></code></pre></div><h2 id="代码结构">代码结构</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>vllm/
+</span></span><span style="display:flex;"><span>├── vllm/                          <span style="color:#6272a4"># 主要源代码目录</span>
+</span></span><span style="display:flex;"><span>│   ├── core/                      <span style="color:#6272a4"># 核心功能实现</span>
+</span></span><span style="display:flex;"><span>│   ├── engine/                    <span style="color:#6272a4"># 推理引擎</span>
+</span></span><span style="display:flex;"><span>│   ├── model_executor/           <span style="color:#6272a4"># 模型执行器</span>
+</span></span><span style="display:flex;"><span>│   ├── executor/                 <span style="color:#6272a4"># 执行器实现</span>
+</span></span><span style="display:flex;"><span>│   ├── attention/                <span style="color:#6272a4"># 注意力机制实现</span>
+</span></span><span style="display:flex;"><span>│   ├── distributed/              <span style="color:#6272a4"># 分布式计算支持</span>
+</span></span><span style="display:flex;"><span>│   ├── worker/                   <span style="color:#6272a4"># 工作进程实现</span>
+</span></span><span style="display:flex;"><span>│   ├── device_allocator/         <span style="color:#6272a4"># 设备内存分配</span>
+</span></span><span style="display:flex;"><span>│   ├── vllm_flash_attn/         <span style="color:#6272a4"># Flash Attention 优化</span>
+</span></span><span style="display:flex;"><span>│   ├── triton_utils/            <span style="color:#6272a4"># Triton 相关工具</span>
+</span></span><span style="display:flex;"><span>│   ├── transformers_utils/       <span style="color:#6272a4"># HuggingFace 工具</span>
+</span></span><span style="display:flex;"><span>│   ├── lora/                    <span style="color:#6272a4"># LoRA 适配器</span>
+</span></span><span style="display:flex;"><span>│   ├── multimodal/              <span style="color:#6272a4"># 多模态支持</span>
+</span></span><span style="display:flex;"><span>│   ├── prompt_adapter/          <span style="color:#6272a4"># 提示词适配器</span>
+</span></span><span style="display:flex;"><span>│   ├── spec_decode/             <span style="color:#6272a4"># 特殊解码实现</span>
+</span></span><span style="display:flex;"><span>│   ├── platforms/               <span style="color:#6272a4"># 平台特定实现</span>
+</span></span><span style="display:flex;"><span>│   ├── plugins/                 <span style="color:#6272a4"># 插件系统</span>
+</span></span><span style="display:flex;"><span>│   ├── adapter_commons/         <span style="color:#6272a4"># 适配器公共组件</span>
+</span></span><span style="display:flex;"><span>│   ├── inputs/                  <span style="color:#6272a4"># 输入处理</span>
+</span></span><span style="display:flex;"><span>│   ├── compilation/             <span style="color:#6272a4"># 编译相关</span>
+</span></span><span style="display:flex;"><span>│   ├── logging_utils/           <span style="color:#6272a4"># 日志工具</span>
+</span></span><span style="display:flex;"><span>│   ├── profiler/               <span style="color:#6272a4"># 性能分析工具</span>
+</span></span><span style="display:flex;"><span>│   ├── usage/                  <span style="color:#6272a4"># 使用统计</span>
+</span></span><span style="display:flex;"><span>│   ├── entrypoints/           <span style="color:#6272a4"># 入口点定义</span>
+</span></span><span style="display:flex;"><span>│   ├── third_party/           <span style="color:#6272a4"># 第三方代码</span>
+</span></span><span style="display:flex;"><span>│   └── v1/                    <span style="color:#6272a4"># v1 版本代码</span>
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── csrc/                        <span style="color:#6272a4"># C++源代码目录</span>
+</span></span><span style="display:flex;"><span>│   ├── core/                    <span style="color:#6272a4"># C++核心实现</span>
+</span></span><span style="display:flex;"><span>│   ├── attention/              <span style="color:#6272a4"># 注意力机制CUDA实现</span>
+</span></span><span style="display:flex;"><span>│   ├── mamba/                  <span style="color:#6272a4"># Mamba架构支持</span>
+</span></span><span style="display:flex;"><span>│   ├── quantization/           <span style="color:#6272a4"># 量化实现</span>
+</span></span><span style="display:flex;"><span>│   ├── sparse/                 <span style="color:#6272a4"># 稀疏计算支持</span>
+</span></span><span style="display:flex;"><span>│   ├── moe/                    <span style="color:#6272a4"># Mixture of Experts</span>
+</span></span><span style="display:flex;"><span>│   ├── cutlass_extensions/     <span style="color:#6272a4"># CUTLASS库扩展</span>
+</span></span><span style="display:flex;"><span>│   ├── prepare_inputs/         <span style="color:#6272a4"># 输入预处理</span>
+</span></span><span style="display:flex;"><span>│   ├── cpu/                    <span style="color:#6272a4"># CPU实现</span>
+</span></span><span style="display:flex;"><span>│   └── rocm/                   <span style="color:#6272a4"># AMD ROCm支持</span>
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── examples/                    <span style="color:#6272a4"># 示例代码目录</span>
+</span></span><span style="display:flex;"><span>│   ├── online_serving/         <span style="color:#6272a4"># 在线服务示例</span>
+</span></span><span style="display:flex;"><span>│   ├── offline_inference/      <span style="color:#6272a4"># 离线推理示例</span>
+</span></span><span style="display:flex;"><span>│   ├── ice_test/              <span style="color:#6272a4"># ICE测试</span>
+</span></span><span style="display:flex;"><span>│   └── other/                 <span style="color:#6272a4"># 其他示例</span>
+</span></span><span style="display:flex;"><span>│   └── *.jinja                <span style="color:#6272a4"># 各种模型的对话模板</span>
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── tests/                      <span style="color:#6272a4"># 测试代码目录</span>
+</span></span><span style="display:flex;"><span>│   ├── basic_correctness/     <span style="color:#6272a4"># 基础正确性测试</span>
+</span></span><span style="display:flex;"><span>│   ├── kernels/              <span style="color:#6272a4"># 内核测试</span>
+</span></span><span style="display:flex;"><span>│   ├── model_executor/       <span style="color:#6272a4"># 模型执行器测试</span>
+</span></span><span style="display:flex;"><span>│   ├── multimodal/          <span style="color:#6272a4"># 多模态测试</span>
+</span></span><span style="display:flex;"><span>│   ├── distributed/         <span style="color:#6272a4"># 分布式测试</span>
+</span></span><span style="display:flex;"><span>│   ├── quantization/        <span style="color:#6272a4"># 量化测试</span>
+</span></span><span style="display:flex;"><span>│   ├── lora/               <span style="color:#6272a4"># LoRA测试</span>
+</span></span><span style="display:flex;"><span>│   ├── tool_use/           <span style="color:#6272a4"># 工具使用测试</span>
+</span></span><span style="display:flex;"><span>│   ├── spec_decode/        <span style="color:#6272a4"># 特殊解码测试</span>
+</span></span><span style="display:flex;"><span>│   ├── prompt_adapter/     <span style="color:#6272a4"># 提示词适配器测试</span>
+</span></span><span style="display:flex;"><span>│   ├── prefix_caching/     <span style="color:#6272a4"># 前缀缓存测试</span>
+</span></span><span style="display:flex;"><span>│   ├── mq_llm_engine/      <span style="color:#6272a4"># MQ LLM引擎测试</span>
+</span></span><span style="display:flex;"><span>│   ├── neuron/            <span style="color:#6272a4"># AWS Neuron测试</span>
+</span></span><span style="display:flex;"><span>│   ├── tpu/               <span style="color:#6272a4"># TPU支持测试</span>
+</span></span><span style="display:flex;"><span>│   ├── worker/            <span style="color:#6272a4"># 工作进程测试</span>
+</span></span><span style="display:flex;"><span>│   └── vllm_test_utils/   <span style="color:#6272a4"># 测试工具</span>
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── benchmarks/              <span style="color:#6272a4"># 性能基准测试</span>
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── tools/                   <span style="color:#6272a4"># 工具脚本</span>
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── cmake/                   <span style="color:#6272a4"># CMake构建配置</span>
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── requirements/            <span style="color:#6272a4"># 依赖配置文件</span>
+</span></span><span style="display:flex;"><span>│   ├── requirements-common.txt    <span style="color:#6272a4"># 通用依赖</span>
+</span></span><span style="display:flex;"><span>│   ├── requirements-cuda.txt      <span style="color:#6272a4"># CUDA依赖</span>
+</span></span><span style="display:flex;"><span>│   ├── requirements-cpu.txt       <span style="color:#6272a4"># CPU依赖</span>
+</span></span><span style="display:flex;"><span>│   ├── requirements-rocm.txt      <span style="color:#6272a4"># ROCm依赖</span>
+</span></span><span style="display:flex;"><span>│   ├── requirements-tpu.txt       <span style="color:#6272a4"># TPU依赖</span>
+</span></span><span style="display:flex;"><span>│   ├── requirements-neuron.txt    <span style="color:#6272a4"># AWS Neuron依赖</span>
+</span></span><span style="display:flex;"><span>│   ├── requirements-hpu.txt       <span style="color:#6272a4"># HPU依赖</span>
+</span></span><span style="display:flex;"><span>│   ├── requirements-xpu.txt       <span style="color:#6272a4"># Intel XPU依赖</span>
+</span></span><span style="display:flex;"><span>│   ├── requirements-openvino.txt  <span style="color:#6272a4"># OpenVINO依赖</span>
+</span></span><span style="display:flex;"><span>│   └── requirements-test.txt      <span style="color:#6272a4"># 测试依赖</span>
+</span></span></code></pre></div><h2 id="vllm启动流程">vLLM启动流程</h2>
+<ol>
+<li>入口点分析:
+vLLM的主要入口在<code>vllm/entrypoints/cli/main.py</code>中,它定义了两个主要的命令模块:</li>
+</ol>
+<ul>
+<li><code>vllm.entrypoints.cli.openai</code> - OpenAI兼容的API命令</li>
+<li><code>vllm.entrypoints.cli.serve</code> - 服务器启动命令</li>
+</ul>
+<ol start="2">
+<li>serve命令的实现:
+serve命令的主要实现在<code>vllm/entrypoints/cli/serve.py</code>中的ServeSubcommand类:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">ServeSubcommand</span>(CLISubcommand):
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">cmd</span>(args: argparse<span style="color:#ff79c6">.</span>Namespace) <span style="color:#ff79c6">-&gt;</span> <span style="color:#ff79c6">None</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 将model_tag参数赋值给args.model</span>
+</span></span><span style="display:flex;"><span>        args<span style="color:#ff79c6">.</span>model <span style="color:#ff79c6">=</span> args<span style="color:#ff79c6">.</span>model_tag
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 使用uvloop运行服务器</span>
+</span></span><span style="display:flex;"><span>        uvloop<span style="color:#ff79c6">.</span>run(run_server(args))
+</span></span></code></pre></div><ol start="3">
+<li>服务器启动流程:
+服务器的启动流程在<code>vllm/entrypoints/openai/api_server.py</code>中的run_server函数:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">async</span> <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">run_server</span>(args, <span style="color:#ff79c6">**</span>uvicorn_kwargs) <span style="color:#ff79c6">-&gt;</span> <span style="color:#ff79c6">None</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 1. 初始化engine client，建立zmp server</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">with</span> build_async_engine_client(args) <span style="color:#ff79c6">as</span> engine_client:
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 2. 构建FastAPI应用</span>
+</span></span><span style="display:flex;"><span>        app <span style="color:#ff79c6">=</span> build_app(args)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 3. 获取模型配置</span>
+</span></span><span style="display:flex;"><span>        model_config <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> engine_client<span style="color:#ff79c6">.</span>get_model_config()
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 4. 初始化应用状态</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">await</span> init_app_state(engine_client, model_config, app<span style="color:#ff79c6">.</span>state, args)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 5. 启动HTTP服务器</span>
+</span></span><span style="display:flex;"><span>        shutdown_task <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> serve_http(
+</span></span><span style="display:flex;"><span>            app,
+</span></span><span style="display:flex;"><span>            host<span style="color:#ff79c6">=</span>args<span style="color:#ff79c6">.</span>host,
+</span></span><span style="display:flex;"><span>            port<span style="color:#ff79c6">=</span>args<span style="color:#ff79c6">.</span>port,
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span>        )
+</span></span></code></pre></div><ol start="4">
+<li>
+<p>应用状态初始化:</p>
+<p>在<code>init_app_state</code>函数中,会初始化各种服务组件:</p>
+<ul>
+<li>OpenAIServingModels - 管理模型加载</li>
+<li>OpenAIServingChat - 处理聊天完成请求</li>
+<li>OpenAIServingCompletion - 处理文本完成请求</li>
+<li>OpenAIServingPooling - 处理池化请求</li>
+<li>OpenAIServingEmbedding - 处理嵌入请求</li>
+<li>OpenAIServingScores - 处理评分请求</li>
+<li>OpenAIServingTokenization - 处理分词请求</li>
+</ul>
+</li>
+<li>
+<p>主要API接口:</p>
+<p>vLLM提供了多个OpenAI兼容的API端点:</p>
+<ul>
+<li>/v1/completions - 文本生成API</li>
+<li>/v1/chat/completions - 聊天完成API</li>
+<li>/v1/embeddings - 文本嵌入API</li>
+<li>/v1/audio/transcriptions - 语音转写API</li>
+<li>/tokenize, /detokenize - 分词API</li>
+</ul>
+</li>
+</ol>
+<p>总结一下vLLM的启动流程:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>命令行解析<span style="color:#ff79c6">(</span>解析serve命令及其参数<span style="color:#ff79c6">)</span> -&gt; 引擎初始化<span style="color:#ff79c6">(</span>初始化LLM引擎和相关组件<span style="color:#ff79c6">)</span> -&gt; 应用构建<span style="color:#ff79c6">(</span>构建FastAPI应用并注册路由<span style="color:#ff79c6">)</span> -&gt; 状态初始化<span style="color:#ff79c6">(</span>初始化各种服务组件<span style="color:#ff79c6">)</span> -&gt; 服务启动<span style="color:#ff79c6">(</span>启动HTTP服务器处理请求<span style="color:#ff79c6">)</span>
+</span></span></code></pre></div><h2 id="vllm整体结构">vLLM整体结构</h2>
+<p>以下展示了vLLM的类层次结构：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>                        +-------------------------+
+</span></span><span style="display:flex;"><span>                        |  LLM Engine<span style="color:#ff79c6">(</span>vllm_config<span style="color:#ff79c6">)</span>|
+</span></span><span style="display:flex;"><span>                        +-------------------------+
+</span></span><span style="display:flex;"><span>                                   |
+</span></span><span style="display:flex;"><span>                                   v
+</span></span><span style="display:flex;"><span>                        +-------------------------+
+</span></span><span style="display:flex;"><span>                        |  Executor<span style="color:#ff79c6">(</span>vllm_config<span style="color:#ff79c6">)</span>  |
+</span></span><span style="display:flex;"><span>                        +-------------------------+
+</span></span><span style="display:flex;"><span>                                   |
+</span></span><span style="display:flex;"><span>                    +-----------------------------+
+</span></span><span style="display:flex;"><span>                    |                             |
+</span></span><span style="display:flex;"><span>        Rank <span style="color:#bd93f9">0</span>      v             ...        Rank N-1 v
+</span></span><span style="display:flex;"><span>+-------------------------+            +-------------------------+
+</span></span><span style="display:flex;"><span>|   Worker<span style="color:#ff79c6">(</span>vllm_config<span style="color:#ff79c6">)</span>   |            |   Worker<span style="color:#ff79c6">(</span>vllm_config<span style="color:#ff79c6">)</span>   |
+</span></span><span style="display:flex;"><span>+-------------------------+            +-------------------------+
+</span></span><span style="display:flex;"><span>            |                                      |
+</span></span><span style="display:flex;"><span>            v                                      v
+</span></span><span style="display:flex;"><span>+-------------------------+            +-------------------------+
+</span></span><span style="display:flex;"><span>| Model Runner<span style="color:#ff79c6">(</span>vllm_config<span style="color:#ff79c6">)</span>|           | Model Runner<span style="color:#ff79c6">(</span>vllm_config<span style="color:#ff79c6">)</span>|
+</span></span><span style="display:flex;"><span>+-------------------------+            +-------------------------+
+</span></span><span style="display:flex;"><span>            |                                      |
+</span></span><span style="display:flex;"><span>            v                                      v
+</span></span><span style="display:flex;"><span>+-------------------------+            +-------------------------+
+</span></span><span style="display:flex;"><span>| Model<span style="color:#ff79c6">(</span>vllm_config,prefix<span style="color:#ff79c6">)</span>|           | Model<span style="color:#ff79c6">(</span>vllm_config,prefix<span style="color:#ff79c6">)</span>|
+</span></span><span style="display:flex;"><span>+-------------------------+            +-------------------------+
+</span></span></code></pre></div><p>这个展示了vLLM的主要组件架构：</p>
+<ul>
+<li>最顶层是LLM Engine</li>
+<li>然后是Executor</li>
+<li>接着分成多个Worker (从Rank 0到Rank N-1)</li>
+<li>每个Worker下面都有Model Runner</li>
+<li>最底层是Model实例</li>
+</ul>
+<h2 id="llm-engine">LLM Engine</h2>
+<p><code>LLMEngine</code>和<code>AsyncLLMEngine</code>类是vLLM系统运行的核心，负责处理模型推理和异步请求处理。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>                                LLM Engine
+</span></span><span style="display:flex;"><span>                                   
+</span></span><span style="display:flex;"><span>    +-------------+                                   +--------------------+
+</span></span><span style="display:flex;"><span>    |  LLM class  |                                   | OpenAI-compatible  |
+</span></span><span style="display:flex;"><span>    +-------------+                                   |    API Server      |
+</span></span><span style="display:flex;"><span>           |                                          +--------------------+
+</span></span><span style="display:flex;"><span>           v                                                   |
+</span></span><span style="display:flex;"><span>    +------------------+              ←               +------------------+
+</span></span><span style="display:flex;"><span>    |    LLMEngine     | &lt;--------------------------- | AsyncLLMEngine   |
+</span></span><span style="display:flex;"><span>    +------------------+                              +------------------+
+</span></span><span style="display:flex;"><span>           |
+</span></span><span style="display:flex;"><span>           |
+</span></span><span style="display:flex;"><span>    +------+------------+------------+------------+
+</span></span><span style="display:flex;"><span>    |                   |            |            |
+</span></span><span style="display:flex;"><span>    v                   v            v            v
+</span></span><span style="display:flex;"><span>+----------+    +-----------+  +-----------+ +-----------+
+</span></span><span style="display:flex;"><span>|  Input   |    |           |  |   Model   | |  Output   |
+</span></span><span style="display:flex;"><span>|Processing|    |Scheduling |  |Execution  | |Processing |
+</span></span><span style="display:flex;"><span>+----------+    +-----------+  +-----------+ +-----------+
+</span></span></code></pre></div><p><code>LLMEngine</code>包括Input Processing、Scheduling、Model Execution和Output Processing.</p>
+<ul>
+<li>Input Processing：使用指定的分词器处理输入文本的分词</li>
+<li>Scheduling：选择在每个步骤中处理哪些请求</li>
+<li>Model Execution：管理大语言模型的执行，包括在多个GPU上的分布式执行</li>
+<li>Output Processing：对模型生成的输出进行处理，将大语言模型中的令牌ID解码为人类可读的文本</li>
+</ul>
+<p>核心数据结构：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">LLMEngine</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;An LLM engine that receives requests and generates texts.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    This is the main class for the vLLM engine. It receives requests
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    from clients and generates texts from the LLM. It includes a tokenizer, a
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    language model (possibly distributed across multiple GPUs), and GPU memory
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    space allocated for intermediate states (aka KV cache). This class utilizes
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    iteration-level scheduling and efficient memory management to maximize the
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    serving throughput.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;&#34;&#34;</span>
+</span></span></code></pre></div><p>LLM Engine在初始化时创建多个关键组件：</p>
+<ol>
+<li>Model Executor：负责执行模型的前向传播</li>
+<li>Scheduler：负责调度序列组和管理资源</li>
+<li>Cache Engine：管理KV缓存的分配和释放</li>
+</ol>
+<h3 id="llm-engine关键方法分析">LLM Engine关键方法分析</h3>
+<h4 id="add_request方法">add_request方法</h4>
+<p>add_request方法是添加新推理请求的入口点：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">add_request</span>(
+</span></span><span style="display:flex;"><span>    self,
+</span></span><span style="display:flex;"><span>    request_id: <span style="color:#8be9fd;font-style:italic">str</span>,
+</span></span><span style="display:flex;"><span>    prompt: <span style="color:#8be9fd;font-style:italic">str</span>,
+</span></span><span style="display:flex;"><span>    sampling_params: SamplingParams,
+</span></span><span style="display:flex;"><span>    prompt_token_ids: Optional[List[<span style="color:#8be9fd;font-style:italic">int</span>]] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    arrival_time: Optional[<span style="color:#8be9fd;font-style:italic">float</span>] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    lora_request: Optional[LoRARequest] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    trace_headers: Optional[Mapping[<span style="color:#8be9fd;font-style:italic">str</span>, <span style="color:#8be9fd;font-style:italic">str</span>]] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    prompt_adapter_request: Optional[PromptAdapterRequest] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    pooling_params: Optional[PoolingParams] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    encoder_input: Optional[<span style="color:#8be9fd;font-style:italic">str</span>] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    encoder_input_token_ids: Optional[List[<span style="color:#8be9fd;font-style:italic">int</span>]] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    priority: <span style="color:#8be9fd;font-style:italic">int</span> <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>,
+</span></span><span style="display:flex;"><span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#ff79c6">None</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Add a request to the engine&#39;s request pool.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    Args:
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        request_id: The unique ID of the request.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        prompt: The prompt string.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        sampling_params: The sampling parameters for text generation.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        prompt_token_ids: The token IDs of the prompt. If None, we
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">            use the tokenizer to convert the prompt to token IDs.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        arrival_time: The arrival time of the request. If None, we use
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">            the current monotonic time.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        lora_request: The LoRA request. If None, we don&#39;t use LoRA.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        trace_headers: HTTP tracing headers. If None, we don&#39;t use tracing.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        prompt_adapter_request: The prompt adapter request. If None,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">            we don&#39;t use prompt adapter.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        pooling_params: The pooling parameters for the request. If
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">            provided with a valid pooling parameter, the request will
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">            not return text and will instead return pooled values.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        encoder_input: The encoder input. Only valid for encoder-decoder
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">            models.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        encoder_input_token_ids: The token IDs of the encoder input.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">            If None, we use the tokenizer to convert the encoder input 
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">            to token IDs. Only valid for encoder-decoder models.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        priority: The priority of the request. Lower number means
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">            higher priority.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;&#34;&#34;</span>
+</span></span></code></pre></div><p>该方法的主要步骤包括：</p>
+<ol>
+<li>检查请求参数的有效性</li>
+<li>构造Sequence对象</li>
+<li>创建SequenceGroup对象</li>
+<li>通过调度器将请求添加到等待队列中</li>
+</ol>
+<h4 id="step方法">step方法</h4>
+<p>step方法是推理循环的核心，负责执行一步推理：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">step</span>(self) <span style="color:#ff79c6">-&gt;</span> List[Union[RequestOutput, PoolingRequestOutput]]:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Performs one decoding iteration and returns newly generated results.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    .. figure:: https://i.imgur.com/sv2HssD.png
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        :alt: Overview of the step function
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        :align: center
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        Overview of the step function.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;&#34;&#34;</span>
+</span></span></code></pre></div><p>该方法的主要步骤包括：</p>
+<ol>
+<li>调用调度器的schedule方法，获取要执行的序列组和资源分配信息</li>
+<li>通过Model Executor执行模型推理</li>
+<li>处理模型输出并更新序列状态</li>
+<li>生成并返回结果</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 关键步骤1: 调度序列组</span>
+</span></span><span style="display:flex;"><span>(seq_group_metadata_list, scheduler_outputs, allow_async_output_proc) <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>scheduler[virtual_engine]<span style="color:#ff79c6">.</span>schedule()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 关键步骤2: 执行模型</span>
+</span></span><span style="display:flex;"><span>execute_model_req <span style="color:#ff79c6">=</span> ExecuteModelRequest(
+</span></span><span style="display:flex;"><span>    seq_group_metadata_list<span style="color:#ff79c6">=</span>seq_group_metadata_list,
+</span></span><span style="display:flex;"><span>    blocks_to_swap_in<span style="color:#ff79c6">=</span>scheduler_outputs<span style="color:#ff79c6">.</span>blocks_to_swap_in,
+</span></span><span style="display:flex;"><span>    blocks_to_swap_out<span style="color:#ff79c6">=</span>scheduler_outputs<span style="color:#ff79c6">.</span>blocks_to_swap_out,
+</span></span><span style="display:flex;"><span>    blocks_to_copy<span style="color:#ff79c6">=</span>scheduler_outputs<span style="color:#ff79c6">.</span>blocks_to_copy,
+</span></span><span style="display:flex;"><span>    num_lookahead_slots<span style="color:#ff79c6">=</span>scheduler_outputs<span style="color:#ff79c6">.</span>num_lookahead_slots,
+</span></span><span style="display:flex;"><span>    running_queue_size<span style="color:#ff79c6">=</span>scheduler_outputs<span style="color:#ff79c6">.</span>running_queue_size,
+</span></span><span style="display:flex;"><span>    finished_requests_ids<span style="color:#ff79c6">=</span>finished_requests_ids,
+</span></span><span style="display:flex;"><span>    last_sampled_token_ids<span style="color:#ff79c6">=</span>last_sampled_token_ids)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>outputs <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>model_executor<span style="color:#ff79c6">.</span>execute_model(execute_model_req<span style="color:#ff79c6">=</span>execute_model_req)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 关键步骤3: 处理输出</span>
+</span></span><span style="display:flex;"><span>self<span style="color:#ff79c6">.</span>_process_model_outputs(ctx<span style="color:#ff79c6">=</span>ctx)
+</span></span></code></pre></div><h2 id="scheduler">Scheduler</h2>
+<p>Scheduler是vLLM中负责调度序列组和管理资源的组件。它实现了迭代级调度，这是vLLM高性能的关键技术之一。调度器维护了三个主要队列：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 调度器初始化</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">def</span> __init__(self, <span style="color:#ff79c6">...</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 正在运行的序列组</span>
+</span></span><span style="display:flex;"><span>    self<span style="color:#ff79c6">.</span>running: Deque[SequenceGroup] <span style="color:#ff79c6">=</span> deque()
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 在CPU中交换的序列组</span>
+</span></span><span style="display:flex;"><span>    self<span style="color:#ff79c6">.</span>swapped: Deque[SequenceGroup] <span style="color:#ff79c6">=</span> deque()
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 等待执行的序列组</span>
+</span></span><span style="display:flex;"><span>    self<span style="color:#ff79c6">.</span>waiting: Deque[SequenceGroup] <span style="color:#ff79c6">=</span> deque()
+</span></span></code></pre></div><p>调度策略实现细节,调度器实现了多种调度策略，其中最核心的是schedule方法：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">schedule</span>(self) <span style="color:#ff79c6">-&gt;</span> Tuple[List[SequenceGroupMetadata], SchedulerOutputs, <span style="color:#8be9fd;font-style:italic">bool</span>]:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Schedule sequence groups for execution.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    Returns a list of sequence group metadata, scheduling decisions,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    and whether to allow async output processing.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 调用_schedule方法获取调度决策</span>
+</span></span><span style="display:flex;"><span>    scheduler_outputs <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_schedule()
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 构建元数据列表</span>
+</span></span><span style="display:flex;"><span>    seq_group_metadata_list <span style="color:#ff79c6">=</span> []
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> scheduled_seq_group <span style="color:#ff79c6">in</span> scheduler_outputs<span style="color:#ff79c6">.</span>scheduled_seq_groups:
+</span></span><span style="display:flex;"><span>        seq_group <span style="color:#ff79c6">=</span> scheduled_seq_group<span style="color:#ff79c6">.</span>seq_group
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># ...构建元数据...</span>
+</span></span><span style="display:flex;"><span>        seq_group_metadata_list<span style="color:#ff79c6">.</span>append(seq_group_metadata)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 决定是否允许异步输出处理</span>
+</span></span><span style="display:flex;"><span>    allow_async_output_proc <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_prepare_allow_async_output_proc(<span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> seq_group_metadata_list, scheduler_outputs, allow_async_output_proc
+</span></span></code></pre></div><p>调度器在每次迭代中使用以下策略决定要执行的序列：</p>
+<ol>
+<li>优先调度已在运行的序列（继续生成）</li>
+<li>其次调度被换出的序列（从CPU内存恢复）</li>
+<li>最后调度等待队列中的序列（开始新的推理）</li>
+</ol>
+<p>分块预填充实现，vLLM支持分块预填充（Chunked Prefill），允许长序列分多次完成预填充：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">_schedule_chunked_prefill</span>(self) <span style="color:#ff79c6">-&gt;</span> SchedulerOutputs:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Schedule with chunked prefill enabled.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 创建调度预算</span>
+</span></span><span style="display:flex;"><span>    budget <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_create_scheduling_budget(<span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 收集当前LoRA ID</span>
+</span></span><span style="display:flex;"><span>    curr_loras <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_collect_curr_loras()
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 计算部分预填充元数据</span>
+</span></span><span style="display:flex;"><span>    partial_prefill_metadata <span style="color:#ff79c6">=</span> PartialPrefillMetadata<span style="color:#ff79c6">.</span>from_queues(
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>running, self<span style="color:#ff79c6">.</span>waiting, self<span style="color:#ff79c6">.</span>scheduler_config)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 调度正在运行的序列</span>
+</span></span><span style="display:flex;"><span>    running_outputs <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_schedule_running(
+</span></span><span style="display:flex;"><span>        budget, curr_loras, enable_chunking<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>,
+</span></span><span style="display:flex;"><span>        partial_prefill_metadata<span style="color:#ff79c6">=</span>partial_prefill_metadata)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 调度已交换的序列</span>
+</span></span><span style="display:flex;"><span>    swapped_outputs <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_schedule_swapped(
+</span></span><span style="display:flex;"><span>        budget, curr_loras, enable_chunking<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 调度等待的序列</span>
+</span></span><span style="display:flex;"><span>    prefill_outputs <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_schedule_prefills(
+</span></span><span style="display:flex;"><span>        budget, curr_loras, enable_chunking<span style="color:#ff79c6">=</span><span style="color:#ff79c6">True</span>,
+</span></span><span style="display:flex;"><span>        partial_prefill_metadata<span style="color:#ff79c6">=</span>partial_prefill_metadata)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># ...合并调度结果...</span>
+</span></span></code></pre></div><h2 id="worker">Worker</h2>
+<p>Worker是实际执行模型计算的组件，通常与一个GPU关联，负责维护KV缓存和执行模型前向传播。</p>
+<p>Worker类继承结构</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">WorkerBase</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Base class for worker implementations.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">LocalOrDistributedWorkerBase</span>(WorkerBase):
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Base class for workers that can run locally or in distributed mode.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Worker</span>(LocalOrDistributedWorkerBase):
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;A worker class that executes (a partition of) the model on a GPU.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 其他特定平台的Worker实现</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">CPUWorker</span>(WorkerBase): <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">TPUWorker</span>(WorkerBase): <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">HPUWorker</span>(WorkerBase): <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">XPUWorker</span>(WorkerBase): <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">OpenVINOWorker</span>(WorkerBase): <span style="color:#ff79c6">...</span>
+</span></span></code></pre></div><p>Worker核心方法分析</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Worker</span>(LocalOrDistributedWorkerBase):
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;A worker class that executes (a partition of) the model on a GPU.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    Each worker is associated with a single GPU. The worker is responsible for
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    maintaining the KV cache and executing the model on the GPU. In case of
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    distributed inference, each worker is assigned a partition of the model.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> __init__(self, vllm_config: VllmConfig, local_rank: <span style="color:#8be9fd;font-style:italic">int</span>, rank: <span style="color:#8be9fd;font-style:italic">int</span>, <span style="color:#ff79c6">...</span>):
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 初始化Worker，设置设备、加载模型等</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">execute_model</span>(self, execute_model_req: ExecuteModelRequest) <span style="color:#ff79c6">-&gt;</span> List[SamplerOutput]:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;Execute the model with the given input sequences.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 1. 处理输入请求</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 2. 进行块交换（swap in/out）操作</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 3. 调用model_runner执行模型</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 4. 返回采样输出</span>
+</span></span></code></pre></div><p>execute_model方法的核心实现:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">execute_model</span>(self, execute_model_req: ExecuteModelRequest) <span style="color:#ff79c6">-&gt;</span> List[SamplerOutput]:
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 在执行模型前进行内存管理</span>
+</span></span><span style="display:flex;"><span>    self<span style="color:#ff79c6">.</span>_process_blocks_to_swap_in(execute_model_req<span style="color:#ff79c6">.</span>blocks_to_swap_in)
+</span></span><span style="display:flex;"><span>    self<span style="color:#ff79c6">.</span>_process_blocks_to_swap_out(execute_model_req<span style="color:#ff79c6">.</span>blocks_to_swap_out)
+</span></span><span style="display:flex;"><span>    self<span style="color:#ff79c6">.</span>_process_blocks_to_copy(execute_model_req<span style="color:#ff79c6">.</span>blocks_to_copy)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 准备执行请求</span>
+</span></span><span style="display:flex;"><span>    model_inputs <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_prepare_model_inputs(
+</span></span><span style="display:flex;"><span>        execute_model_req<span style="color:#ff79c6">.</span>seq_group_metadata_list)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 利用model_runner执行模型</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> execute_model_req<span style="color:#ff79c6">.</span>last_sampled_token_ids:
+</span></span><span style="display:flex;"><span>        sampled_token_ids <span style="color:#ff79c6">=</span> execute_model_req<span style="color:#ff79c6">.</span>last_sampled_token_ids
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">else</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 获取model_runner</span>
+</span></span><span style="display:flex;"><span>        model_runner <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_get_model_runner()
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 执行模型并获取输出</span>
+</span></span><span style="display:flex;"><span>        outputs <span style="color:#ff79c6">=</span> model_runner<span style="color:#ff79c6">.</span>execute(model_inputs)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> outputs
+</span></span></code></pre></div><h2 id="model-runner">Model Runner</h2>
+<p>Model Runner负责管理模型执行的具体细节，包括准备输入张量、执行模型前向传播，以及处理输出。</p>
+<p>Model Runner类继承结构</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">ModelRunnerBase</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Base class for model runner implementations.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">GPUModelRunnerBase</span>(ModelRunnerBase):
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Helper class for shared methods between GPU model runners.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">ModelRunner</span>(GPUModelRunnerBase):
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;GPU model runner with sampling step.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 其他特定类型的Model Runner</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">MultiStepModelRunner</span>(GPUModelRunnerBase): <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">EncoderDecoderModelRunner</span>(GPUModelRunnerBase): <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">PoolingModelRunner</span>(GPUModelRunnerBase): <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">CPUModelRunner</span>(ModelRunnerBase): <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">NeuronModelRunner</span>(ModelRunnerBase): <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">TPUModelRunner</span>(ModelRunnerBase): <span style="color:#ff79c6">...</span>
+</span></span></code></pre></div><p>Model Runner执行模型的核心实现</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">execute</span>(self, model_input: ModelInputForGPUWithSamplingMetadata) <span style="color:#ff79c6">-&gt;</span> List[SamplerOutput]:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Execute model on the given input.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    Args:
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        model_input: The input to the model, including tokens, positions,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">                     attention metadata, etc.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">                     
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    Returns:
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        The output from the model&#39;s sampling step.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 获取批次大小和虚拟引擎索引</span>
+</span></span><span style="display:flex;"><span>    batch_size <span style="color:#ff79c6">=</span> model_input<span style="color:#ff79c6">.</span>batch_size
+</span></span><span style="display:flex;"><span>    virtual_engine <span style="color:#ff79c6">=</span> model_input<span style="color:#ff79c6">.</span>virtual_engine
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 获取模型输入</span>
+</span></span><span style="display:flex;"><span>    input_tokens <span style="color:#ff79c6">=</span> model_input<span style="color:#ff79c6">.</span>input_tokens
+</span></span><span style="display:flex;"><span>    input_positions <span style="color:#ff79c6">=</span> model_input<span style="color:#ff79c6">.</span>input_positions
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 获取注意力元数据</span>
+</span></span><span style="display:flex;"><span>    attn_metadata <span style="color:#ff79c6">=</span> model_input<span style="color:#ff79c6">.</span>attn_metadata
+</span></span><span style="display:flex;"><span>    seq_lens <span style="color:#ff79c6">=</span> attn_metadata<span style="color:#ff79c6">.</span>seq_lens_tensor
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 使用CUDA图捕获执行</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> use_cuda_graph:
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 获取或创建CUDA图运行器</span>
+</span></span><span style="display:flex;"><span>        graph_runner <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_get_graph_runner(<span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 使用CUDA图执行模型</span>
+</span></span><span style="display:flex;"><span>        logits <span style="color:#ff79c6">=</span> graph_runner(
+</span></span><span style="display:flex;"><span>            input_tokens, input_positions, intermediate_inputs,
+</span></span><span style="display:flex;"><span>            self<span style="color:#ff79c6">.</span>kv_caches[virtual_engine], attn_metadata, self<span style="color:#ff79c6">.</span>graph_memory_pool)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">else</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 直接执行模型</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">with</span> set_forward_context(attn_metadata, self<span style="color:#ff79c6">.</span>vllm_config, virtual_engine):
+</span></span><span style="display:flex;"><span>            logits <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>model(<span style="color:#ff79c6">...</span>model_inputs<span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 执行采样</span>
+</span></span><span style="display:flex;"><span>    sampler_output <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>_run_sampling(
+</span></span><span style="display:flex;"><span>        logits, sampling_metadata, sampling_metadata_cache)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> sampler_output
+</span></span></code></pre></div><p>CUDA图优化,vLLM使用CUDA图来优化重复执行的操作，显著提高推理性能：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">CUDAGraphRunner</span>(nn<span style="color:#ff79c6">.</span>Module):
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;A model wrapper that uses CUDA graphs to accelerate inference.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> __init__(self, model, attn_backend_name, attn_state, is_enc_dec_model<span style="color:#ff79c6">=</span><span style="color:#ff79c6">False</span>):
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">super</span>()<span style="color:#ff79c6">.</span>__init__()
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>model <span style="color:#ff79c6">=</span> model
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>attn_backend_name <span style="color:#ff79c6">=</span> attn_backend_name
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>attn_state <span style="color:#ff79c6">=</span> attn_state
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>is_enc_dec_model <span style="color:#ff79c6">=</span> is_enc_dec_model
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>graph <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">capture</span>(self, input_ids, positions, intermediate_inputs, kv_caches, attn_metadata, memory_pool, stream):
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;Capture the model execution as a CUDA graph.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 创建CUDA图并记录模型执行</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>graph <span style="color:#ff79c6">=</span> torch<span style="color:#ff79c6">.</span>cuda<span style="color:#ff79c6">.</span>CUDAGraph()
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 保存静态输入</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>static_input_ids <span style="color:#ff79c6">=</span> input_ids
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>static_positions <span style="color:#ff79c6">=</span> positions
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>static_kv_caches <span style="color:#ff79c6">=</span> kv_caches
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>static_attn_metadata <span style="color:#ff79c6">=</span> attn_metadata
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 记录CUDA图</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">with</span> torch<span style="color:#ff79c6">.</span>cuda<span style="color:#ff79c6">.</span>graph(self<span style="color:#ff79c6">.</span>graph, pool<span style="color:#ff79c6">=</span>memory_pool, stream<span style="color:#ff79c6">=</span>stream):
+</span></span><span style="display:flex;"><span>            self<span style="color:#ff79c6">.</span>static_output <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>model(<span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">forward</span>(self, input_ids, positions, intermediate_inputs, kv_caches, attn_metadata, memory_pool):
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;Run the captured CUDA graph.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 更新静态输入</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>_update_static_inputs(input_ids, positions, kv_caches, attn_metadata)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 运行CUDA图</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>graph<span style="color:#ff79c6">.</span>replay()
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 返回输出</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> self<span style="color:#ff79c6">.</span>static_output
+</span></span></code></pre></div><h2 id="pagedattention">PagedAttention</h2>
+<p>PagedAttention是vLLM的核心创新，通过分页管理KV缓存，显著减少了内存碎片并提高了GPU内存利用率。vLLM的FlashAttention实现在vllm/attention/backends/flash_attn.py文件中</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">FlashAttentionBackend</span>(AttentionBackend):
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Flash Attention backend implementation.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    accept_output_buffer: <span style="color:#8be9fd;font-style:italic">bool</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">True</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    @staticmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">get_supported_head_sizes</span>() <span style="color:#ff79c6">-&gt;</span> List[<span style="color:#8be9fd;font-style:italic">int</span>]:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> [<span style="color:#bd93f9">32</span>, <span style="color:#bd93f9">64</span>, <span style="color:#bd93f9">96</span>, <span style="color:#bd93f9">128</span>, <span style="color:#bd93f9">160</span>, <span style="color:#bd93f9">192</span>, <span style="color:#bd93f9">224</span>, <span style="color:#bd93f9">256</span>]
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    @staticmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">get_name</span>() <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">str</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">&#34;FLASH_ATTN&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    @staticmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">get_kv_cache_shape</span>(
+</span></span><span style="display:flex;"><span>        num_blocks: <span style="color:#8be9fd;font-style:italic">int</span>,
+</span></span><span style="display:flex;"><span>        block_size: <span style="color:#8be9fd;font-style:italic">int</span>,
+</span></span><span style="display:flex;"><span>        num_kv_heads: <span style="color:#8be9fd;font-style:italic">int</span>,
+</span></span><span style="display:flex;"><span>        head_size: <span style="color:#8be9fd;font-style:italic">int</span>,
+</span></span><span style="display:flex;"><span>    ) <span style="color:#ff79c6">-&gt;</span> Tuple[<span style="color:#8be9fd;font-style:italic">int</span>, <span style="color:#ff79c6">...</span>]:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> block_size <span style="color:#ff79c6">%</span> <span style="color:#bd93f9">16</span> <span style="color:#ff79c6">!=</span> <span style="color:#bd93f9">0</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#f1fa8c">&#34;Block size must be a multiple of 16.&#34;</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> (<span style="color:#bd93f9">2</span>, num_blocks, block_size, num_kv_heads, head_size)
+</span></span></code></pre></div><p>PagedAttention关键算法实现，PagedAttention的核心是将大块连续的KV缓存分成更小的块（block），并使用块表（block_table）来进行管理：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">FlashAttentionImpl</span>(AttentionImpl):
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Flash attention implementation.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">forward</span>(
+</span></span><span style="display:flex;"><span>        self,
+</span></span><span style="display:flex;"><span>        layer: AttentionLayer,
+</span></span><span style="display:flex;"><span>        query: torch<span style="color:#ff79c6">.</span>Tensor,
+</span></span><span style="display:flex;"><span>        key: torch<span style="color:#ff79c6">.</span>Tensor,
+</span></span><span style="display:flex;"><span>        value: torch<span style="color:#ff79c6">.</span>Tensor,
+</span></span><span style="display:flex;"><span>        kv_cache: torch<span style="color:#ff79c6">.</span>Tensor,
+</span></span><span style="display:flex;"><span>        attn_metadata: FlashAttentionMetadata,
+</span></span><span style="display:flex;"><span>        output: Optional[torch<span style="color:#ff79c6">.</span>Tensor] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    ) <span style="color:#ff79c6">-&gt;</span> torch<span style="color:#ff79c6">.</span>Tensor:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;Compute attention with flash attention.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 获取注意力类型</span>
+</span></span><span style="display:flex;"><span>        attn_type <span style="color:#ff79c6">=</span> layer<span style="color:#ff79c6">.</span>attn_type
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 获取查询和键的序列元数据</span>
+</span></span><span style="display:flex;"><span>        (query_lens, key_lens, max_query_len, max_key_len,
+</span></span><span style="display:flex;"><span>         query_start_loc, key_start_loc, causal) <span style="color:#ff79c6">=</span> _get_query_key_seq_metadata(
+</span></span><span style="display:flex;"><span>            attn_metadata, query<span style="color:#ff79c6">.</span>shape[<span style="color:#bd93f9">0</span>] <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">1</span>, attn_type)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 获取头部维度</span>
+</span></span><span style="display:flex;"><span>        num_heads <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>num_heads
+</span></span><span style="display:flex;"><span>        head_size <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>head_size
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 获取slot映射</span>
+</span></span><span style="display:flex;"><span>        slot_mapping <span style="color:#ff79c6">=</span> attn_metadata<span style="color:#ff79c6">.</span>slot_mapping
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 执行PagedAttention操作</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> slot_mapping <span style="color:#ff79c6">is</span> <span style="color:#ff79c6">not</span> <span style="color:#ff79c6">None</span> <span style="color:#ff79c6">and</span> <span style="color:#ff79c6">not</span> is_block_tables_empty(attn_metadata<span style="color:#ff79c6">.</span>block_tables):
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4"># 使用Paged Attention</span>
+</span></span><span style="display:flex;"><span>            output <span style="color:#ff79c6">=</span> flash_attn_with_kvcache(
+</span></span><span style="display:flex;"><span>                query, key, value, kv_cache, attn_metadata<span style="color:#ff79c6">.</span>block_tables,
+</span></span><span style="display:flex;"><span>                slot_mapping, self<span style="color:#ff79c6">.</span>alibi_slopes, layer<span style="color:#ff79c6">.</span>scale, causal, max_query_len, 
+</span></span><span style="display:flex;"><span>                layer<span style="color:#ff79c6">.</span>rotary_emb_dim, layer<span style="color:#ff79c6">.</span>rotary_emb_scale_base, 
+</span></span><span style="display:flex;"><span>                layer<span style="color:#ff79c6">.</span>rope_theta, layer<span style="color:#ff79c6">.</span>level_param, <span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">else</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4"># 使用普通的Flash Attention</span>
+</span></span><span style="display:flex;"><span>            output <span style="color:#ff79c6">=</span> flash_attn_varlen_func(
+</span></span><span style="display:flex;"><span>                query, key, value, query_start_loc, key_start_loc, 
+</span></span><span style="display:flex;"><span>                max_query_len, max_key_len, causal, <span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>                
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> output
+</span></span></code></pre></div><h2 id="多gpu分布式推理">多GPU分布式推理</h2>
+<p>vLLM支持多种并行策略，包括张量并行和流水线并行，使其能够高效地利用多GPU资源。</p>
+<p>分布式环境初始化</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">init_distributed_environment</span>(
+</span></span><span style="display:flex;"><span>    vllm_config: VllmConfig,
+</span></span><span style="display:flex;"><span>    local_rank: Optional[<span style="color:#8be9fd;font-style:italic">int</span>] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    rank: Optional[<span style="color:#8be9fd;font-style:italic">int</span>] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    world_size: Optional[<span style="color:#8be9fd;font-style:italic">int</span>] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>) <span style="color:#ff79c6">-&gt;</span> Tuple[<span style="color:#8be9fd;font-style:italic">int</span>, <span style="color:#8be9fd;font-style:italic">int</span>, <span style="color:#8be9fd;font-style:italic">int</span>]:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Initialize the distributed environment.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 设置环境变量</span>
+</span></span><span style="display:flex;"><span>    parallel_config <span style="color:#ff79c6">=</span> vllm_config<span style="color:#ff79c6">.</span>parallel_config
+</span></span><span style="display:flex;"><span>    tensor_parallel_size <span style="color:#ff79c6">=</span> parallel_config<span style="color:#ff79c6">.</span>tensor_parallel_size
+</span></span><span style="display:flex;"><span>    pipeline_parallel_size <span style="color:#ff79c6">=</span> parallel_config<span style="color:#ff79c6">.</span>pipeline_parallel_size
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 初始化分布式环境</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> local_rank <span style="color:#ff79c6">is</span> <span style="color:#ff79c6">None</span>:
+</span></span><span style="display:flex;"><span>        local_rank <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">int</span>(os<span style="color:#ff79c6">.</span>getenv(<span style="color:#f1fa8c">&#34;LOCAL_RANK&#34;</span>, <span style="color:#f1fa8c">&#34;0&#34;</span>))
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> rank <span style="color:#ff79c6">is</span> <span style="color:#ff79c6">None</span>:
+</span></span><span style="display:flex;"><span>        rank <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">int</span>(os<span style="color:#ff79c6">.</span>getenv(<span style="color:#f1fa8c">&#34;RANK&#34;</span>, <span style="color:#f1fa8c">&#34;0&#34;</span>))
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> world_size <span style="color:#ff79c6">is</span> <span style="color:#ff79c6">None</span>:
+</span></span><span style="display:flex;"><span>        world_size <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">int</span>(os<span style="color:#ff79c6">.</span>getenv(<span style="color:#f1fa8c">&#34;WORLD_SIZE&#34;</span>, <span style="color:#f1fa8c">&#34;1&#34;</span>))
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 初始化进程组</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> world_size <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">1</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 初始化底层通信库</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> torch<span style="color:#ff79c6">.</span>distributed<span style="color:#ff79c6">.</span>is_initialized():
+</span></span><span style="display:flex;"><span>            torch<span style="color:#ff79c6">.</span>distributed<span style="color:#ff79c6">.</span>init_process_group(backend<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;nccl&#34;</span>)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 确保张量并行和流水线并行组被初始化</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> tensor_parallel_size <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">1</span> <span style="color:#ff79c6">or</span> pipeline_parallel_size <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">1</span>:
+</span></span><span style="display:flex;"><span>            ensure_model_parallel_initialized(
+</span></span><span style="display:flex;"><span>                tensor_parallel_size, pipeline_parallel_size)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> local_rank, rank, world_size
+</span></span></code></pre></div><p>张量并行实现，LLM使用PyTorch的分布式原语来实现张量并行</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">initialize_model_parallel</span>(
+</span></span><span style="display:flex;"><span>    tensor_parallel_size: <span style="color:#8be9fd;font-style:italic">int</span> <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>,
+</span></span><span style="display:flex;"><span>    pipeline_parallel_size: <span style="color:#8be9fd;font-style:italic">int</span> <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>,
+</span></span><span style="display:flex;"><span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#ff79c6">None</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Initialize model parallel groups.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 确保分布式环境已初始化</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">not</span> torch<span style="color:#ff79c6">.</span>distributed<span style="color:#ff79c6">.</span>is_initialized():
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 获取world size</span>
+</span></span><span style="display:flex;"><span>    world_size <span style="color:#ff79c6">=</span> torch<span style="color:#ff79c6">.</span>distributed<span style="color:#ff79c6">.</span>get_world_size()
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> world_size <span style="color:#ff79c6">==</span> <span style="color:#bd93f9">1</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 验证并行配置</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> tensor_parallel_size <span style="color:#ff79c6">*</span> pipeline_parallel_size <span style="color:#ff79c6">&gt;</span> world_size:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">raise</span> ValueError(<span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 初始化型号并行组</span>
+</span></span><span style="display:flex;"><span>    ranks <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">list</span>(<span style="color:#8be9fd;font-style:italic">range</span>(world_size))
+</span></span><span style="display:flex;"><span>    tp_groups <span style="color:#ff79c6">=</span> []
+</span></span><span style="display:flex;"><span>    pp_groups <span style="color:#ff79c6">=</span> []
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 创建张量并行和流水线并行组</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> i <span style="color:#ff79c6">in</span> <span style="color:#8be9fd;font-style:italic">range</span>(pipeline_parallel_size):
+</span></span><span style="display:flex;"><span>        start_rank <span style="color:#ff79c6">=</span> i <span style="color:#ff79c6">*</span> tensor_parallel_size
+</span></span><span style="display:flex;"><span>        end_rank <span style="color:#ff79c6">=</span> (i <span style="color:#ff79c6">+</span> <span style="color:#bd93f9">1</span>) <span style="color:#ff79c6">*</span> tensor_parallel_size
+</span></span><span style="display:flex;"><span>        tp_group <span style="color:#ff79c6">=</span> ranks[start_rank:end_rank]
+</span></span><span style="display:flex;"><span>        tp_groups<span style="color:#ff79c6">.</span>append(tp_group)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> i <span style="color:#ff79c6">in</span> <span style="color:#8be9fd;font-style:italic">range</span>(tensor_parallel_size):
+</span></span><span style="display:flex;"><span>        pp_group <span style="color:#ff79c6">=</span> ranks[i::tensor_parallel_size]
+</span></span><span style="display:flex;"><span>        pp_groups<span style="color:#ff79c6">.</span>append(pp_group)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 注册并行组</span>
+</span></span><span style="display:flex;"><span>    _set_tensor_parallel_group(tp_groups)
+</span></span><span style="display:flex;"><span>    _set_pipeline_parallel_group(pp_groups)
+</span></span></code></pre></div><h2 id="lora和prompt-adapter支持">LoRA和Prompt Adapter支持</h2>
+<p>vLLM支持多种高级功能，如LoRA（低秩适配）和Prompt Adapter，使其能够高效地应用参数高效微调（PEFT）技术。</p>
+<p>LoRA支持实现</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">LRUCacheWorkerLoRAManager</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;LRU cache for managing LoRA adapters in the worker.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> __init__(self, max_loras: <span style="color:#8be9fd;font-style:italic">int</span>):
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>max_loras <span style="color:#ff79c6">=</span> max_loras
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>lora_id_to_lora <span style="color:#ff79c6">=</span> {}  <span style="color:#6272a4"># 已加载的LoRA</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>lora_usage <span style="color:#ff79c6">=</span> deque()  <span style="color:#6272a4"># 使用顺序（LRU queue）</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">add_lora</span>(self, lora_request: LoRARequest, lora: Any) <span style="color:#ff79c6">-&gt;</span> <span style="color:#ff79c6">None</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;Add a LoRA to the cache.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 如果缓存已满，移除最少使用的LoRA</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">len</span>(self<span style="color:#ff79c6">.</span>lora_id_to_lora) <span style="color:#ff79c6">&gt;=</span> self<span style="color:#ff79c6">.</span>max_loras:
+</span></span><span style="display:flex;"><span>            self<span style="color:#ff79c6">.</span>_evict_lru_lora()
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 添加新LoRA</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>lora_id_to_lora[lora_request<span style="color:#ff79c6">.</span>lora_int_id] <span style="color:#ff79c6">=</span> lora
+</span></span><span style="display:flex;"><span>        self<span style="color:#ff79c6">.</span>lora_usage<span style="color:#ff79c6">.</span>append(lora_request<span style="color:#ff79c6">.</span>lora_int_id)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">_evict_lru_lora</span>(self) <span style="color:#ff79c6">-&gt;</span> <span style="color:#ff79c6">None</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;Evict the least recently used LoRA.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        lora_to_remove <span style="color:#ff79c6">=</span> self<span style="color:#ff79c6">.</span>lora_usage<span style="color:#ff79c6">.</span>popleft()
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">del</span> self<span style="color:#ff79c6">.</span>lora_id_to_lora[lora_to_remove]
+</span></span></code></pre></div><h2 id="vllm工作流程">vLLM工作流程</h2>
+<p>通过一个具体的例子来详细说明vLLM的工作流程</p>
+<ol>
+<li>添加请求：客户端通过add_request将请求添加到LLM Engine。</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>   engine<span style="color:#ff79c6">.</span>add_request(
+</span></span><span style="display:flex;"><span>       request_id<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;123&#34;</span>,
+</span></span><span style="display:flex;"><span>       prompt<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;Tell me a joke&#34;</span>,
+</span></span><span style="display:flex;"><span>       sampling_params<span style="color:#ff79c6">=</span>SamplingParams(temperature<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0.7</span>, max_tokens<span style="color:#ff79c6">=</span><span style="color:#bd93f9">100</span>)
+</span></span><span style="display:flex;"><span>   )
+</span></span></code></pre></div><ol start="2">
+<li>调度器处理：调度器将请求添加到等待队列</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>   <span style="color:#6272a4"># 在LLM Engine内部调用</span>
+</span></span><span style="display:flex;"><span>   scheduler<span style="color:#ff79c6">.</span>add_seq_group(seq_group)
+</span></span></code></pre></div><ol start="3">
+<li>
+<p>执行步骤：调用step方法执行一步推理</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>outputs <span style="color:#ff79c6">=</span> engine<span style="color:#ff79c6">.</span>step()
+</span></span></code></pre></div><p>a. 调度器选择要执行的序列组：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>seq_group_metadata_list, scheduler_outputs, allow_async_output_proc <span style="color:#ff79c6">=</span> scheduler<span style="color:#ff79c6">.</span>schedule()
+</span></span></code></pre></div><p>b. Model Executor准备模型请求：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>execute_model_req <span style="color:#ff79c6">=</span> ExecuteModelRequest(
+</span></span><span style="display:flex;"><span>      seq_group_metadata_list<span style="color:#ff79c6">=</span>seq_group_metadata_list,
+</span></span><span style="display:flex;"><span>      blocks_to_swap_in<span style="color:#ff79c6">=</span>scheduler_outputs<span style="color:#ff79c6">.</span>blocks_to_swap_in,
+</span></span><span style="display:flex;"><span>      blocks_to_swap_out<span style="color:#ff79c6">=</span>scheduler_outputs<span style="color:#ff79c6">.</span>blocks_to_swap_out,
+</span></span><span style="display:flex;"><span>      blocks_to_copy<span style="color:#ff79c6">=</span>scheduler_outputs<span style="color:#ff79c6">.</span>blocks_to_copy,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span>  )
+</span></span></code></pre></div><p>c. Worker执行模型：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 在Model Executor内部调用</span>
+</span></span><span style="display:flex;"><span>worker<span style="color:#ff79c6">.</span>execute_model(execute_model_req)
+</span></span></code></pre></div><p>d. Model Runner准备输入并执行模型：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 在Worker内部调用</span>
+</span></span><span style="display:flex;"><span>model_runner<span style="color:#ff79c6">.</span>execute(model_inputs)
+</span></span></code></pre></div><p>e. 使用PagedAttention计算注意力：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 在模型内部调用</span>
+</span></span><span style="display:flex;"><span>flash_attn_with_kvcache(q, k, v, kv_cache, block_tables, slot_mapping, <span style="color:#ff79c6">...</span>)
+</span></span></code></pre></div><p>f. 处理模型输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 在LLM Engine内部调用</span>
+</span></span><span style="display:flex;"><span>engine<span style="color:#ff79c6">.</span>_process_model_outputs(outputs, seq_group_metadata_list, scheduler_outputs)
+</span></span></code></pre></div></li>
+<li>
+<p>重复执行步骤：重复执行step方法直到所有请求完成。</p>
+</li>
+</ol>
+<h1 id="总结">总结</h1>
+<p>vLLM通过精心设计的架构和创新的优化技术，实现了高性能的LLM推理。从代码分析可以看出，其关键优势在于：</p>
+<ul>
+<li>PagedAttention：通过分页管理KV缓存，显著提高内存利用率</li>
+<li>迭代级调度：允许动态调度序列，提高GPU利用率</li>
+<li>CUDA图优化：减少CPU开销，提高推理速度</li>
+<li>连续批处理：支持请求动态加入和离开，提高吞吐量</li>
+<li>分布式推理：支持张量并行和流水线并行，扩展到多GPU</li>
+</ul>
+<h1 id="参考链接">参考链接</h1>
+<ul>
+<li><a href="https://docs.vllm.ai/en/v0.7.3/">https://docs.vllm.ai/en/v0.7.3/</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2024/12/11/hami-vgpu-readnotes/" data-toggle="tooltip" data-placement="top" title="HAMi vGPU学习笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2025/03/14/tencent-cloud-readnotes/" data-toggle="tooltip" data-placement="top" title="腾讯云产品学习笔记">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2025
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
