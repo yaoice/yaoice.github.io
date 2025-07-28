@@ -974,7 +974,7 @@ From 3.3.3.3 icmp_seq=2 Destination Host Unreachable
 --- 3.3.3.4 ping statistics ---
 2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 1000ms
 pipe 2
-</code></pre><p>node1上的3.3.3.3接口需要先发送arp广播查询3.3.3.4的mac地址。arp广播到达设备vxlan100后，根据FDB表没有找到VTEP地址</p>
+</code></pre><p>node1上的3.3.3.3接口需要先发送arp广播查询3.3.3.4的mac地址。arp广播到达设备vxlan100后，根据FDB表没有找到VTEP地址.</p>
 <p>分别查看node1、node2 test1命名空间里的接口mac地址</p>
 <pre tabindex="0"><code>#node1 test1命名空间里的接口mac地址
 # ip netns exec test1 ip a
@@ -1649,7 +1649,26 @@ func EnsureV4AddressOnLink(ipn IP4Net, link netlink.Link) error {
 
     return nil
 }
-</code></pre><h3 id="参考链接">参考链接</h3>
+</code></pre><h3 id="附录">附录</h3>
+<p>为什么VXLAN需要FDB？
+VXLAN 实现的是 L2 overlay 网络，比如你 ping 一个远端 Pod，它看起来在同一个二层网段内（例如 10.244.0.0/16）。VXLAN 的 vxlan 设备（比如 vxlan0）是桥接的，每当一个 L2 frame 要转发时，它必须知道：</p>
+<ul>
+<li>对方的 MAC 地址是谁？</li>
+<li>这个 MAC 对应的 VXLAN VTEP 是哪个 IP？</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># VXLAN 会用 FDB 中的 dst IP 作为 VXLAN 封装的目标 VTEP</span>
+</span></span><span style="display:flex;"><span>bridge fdb show dev vxlan0
+</span></span><span style="display:flex;"><span>00:00:00:00:00:00 dst 192.168.1.2 self permanent
+</span></span><span style="display:flex;"><span>aa:bb:cc:dd:ee:ff dev vxlan0 dst 192.168.1.2
+</span></span></code></pre></div><p>如果是IPIP，是不需要FDB，IPIP是纯L3的隧道。转发不依赖MAC，也不需要bridge，因此</p>
+<ul>
+<li>它不需要 bridge，也就没有 FDB。</li>
+<li>它靠的是标准的路由表（ip route）来查找哪个目标 Pod IP走IPIP 隧道（tunl0），然后发往哪个Node IP。</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>ip route
+</span></span><span style="display:flex;"><span>10.244.2.0/24 via 192.168.1.2 dev tunl0
+</span></span></code></pre></div><p>可以把IPIP理解为全靠L3路由、完全不依赖L2桥和FDB机制</p>
+<h3 id="参考链接">参考链接</h3>
 <ul>
 <li><a href="https://github.com/coreos/flannel">https://github.com/coreos/flannel</a></li>
 <li><a href="http://just4coding.com/2017/05/21/vxlan/">VXLAN原理介绍与实例分析</a></li>
