@@ -1,0 +1,1898 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="容器平台代码分析" />
+    <meta property="og:title" content="容器平台代码分析" />
+    <meta property="twitter:title" content="容器平台代码分析" />
+    
+
+    
+    <meta name="description" content="容器平台代码分析">
+    <meta property="og:description" content="容器平台代码分析" />
+    <meta property="twitter:description" content="容器平台代码分析" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>容器平台代码分析 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2023/05/29/yke-container-platform-code-analysis/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                    </div>
+                    <h1>容器平台代码分析</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Monday, May 29, 2023
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h1 id="代码结构">代码结构</h1>
+<pre tabindex="0"><code># bke-apiserver iceyao$ tree -d
+.
+├── api
+│   ├── beekube     ## YKE apiserver路由定义、controller层逻辑实现
+├── build
+│   └── bke-apiserver ## YKE apiserver Dockerfile
+├── cmd
+│   └── bke-apiserver    ## YKE apiserver启动程序目录
+│       └── app          ## YKE apiserver启动程序的APIServer初始化、启动函数定义、通用配置参数定义
+│           └── options
+├── conf                 ## 配置文件目录
+├── deploy                
+│   └── bke-apiserver    ## YKE apiserver服务helm chart清单文件
+│       ├── data
+│       └── templates
+│           └── tests
+├── docs                 
+│   ├── beekube          ## YKE apiserver swagger接口配置文件目录
+│   └── interfaces       ## 过时，接口文档存放目录markdown格式
+├── hack                 ## 过时，通用脚本存放目录               
+├── pkg                  
+│   ├── alert            ## 告警相关的函数定义，如更新告警接收组函数
+│   ├── auth             ## u5、kubersphere admin token处理定义的相关函数
+│   ├── backoff          ## 超时等待的退避算法实现，可直接使用client-go wait工具包
+│   ├── beeone           ## 和IaaS模块交互的函数定义，用于计费相关查询，查询虚拟机的个体资源计费，然后聚合成集群计费信息
+│   ├── cipher           ## 基于ciphere的加密/解密函数定义，采用cipher块密码按固定大小的块对数据进行加密和解密，配合GCM操作模式一起使用
+│   ├── client           ## 基于resty库封装的client库，用于调用kubesphere api和k8s集群内部的资源
+│   ├── clusterapi       ## 定义clusterapi结构体、创建集群、添加节点、删除节点函数
+│   ├── config           ## 定义配置文件结构体、配置初始化、配置解析函数
+│   ├── db               ## 数据库连接初始化、操作数据库资源的函数定义
+│   ├── domain           ## service层逻辑，比如cluster service层逻辑
+│   ├── harbor           ## 定义harbor API交互的逻辑
+│   │   └── database
+│   ├── k8s              ## k8s原生资源的封装（rbac、endpoint、networkpolicy、clusterrole之类）
+│   │   └── drain
+│   ├── kubekey          ## 与kubekey-controller交互，初始化kubekey controller实例，创建/更新kubekey cluster cr(废弃方式)
+│   ├── kubesphere       ## 与kubesphere交互，抽象资源的post、get、patch、put等基本调用
+│   ├── logs             ## 初始化全局的logger实例(基于zap)
+│   ├── middleware       ## Authorization获取、校验命名空间的middleware
+│   ├── types            ## 各模块结构体定义
+│   │   ├── beeone       ## 跟IaaS成本交互的结构体定义
+│   │   ├── errno        ## 错误码定义
+│   │   ├── harbor       ## harbor结构体定义
+│   │   │   └── v2
+│   │   ├── kstypes      ## 与kubesphere交互的结构体定义
+│   │   │   ├── alerting
+│   │   │   ├── api
+│   │   │   ├── monitoring
+│   │   │   ├── tenantv1alpha1
+│   │   │   ├── tenantv1alpha2
+│   │   │   ├── v1alpha1
+│   │   │   ├── v1alpha2
+│   │   │   └── v1beta1
+│   │   ├── kubefedtypes   ## 与kubefed交互的结构体定义
+│   │   └── tkestack       ## 与tkestack notify交互的结构体定义，废弃
+│   │       └── notify
+│   │           └── v1
+│   ├── utils              ## 通用工具函数定义
+│   └── version            ## 版本信息打印函数定义
+├── test
+│   └── e2e                        ## e2e测试用例定义目录
+└── tools                       
+    └── delete_appstore_apps       ## 删除应用商店的应用脚本工具函数
+
+65 directories
+</code></pre><h1 id="启动入口">启动入口</h1>
+<pre tabindex="0"><code>func main() {
+    // 初始化Option实例，启动命令带的参数
+	opts := options.NewOption()
+	// 支持命令行方式传入
+	opts.AddFlags(flag.CommandLine)
+    // 解析命令行参数
+	flag.Parse()
+    // 是否打印版本信息
+	if opts.PrintVersion {
+		ver.PrintVersionAndExit()
+	}
+    // 加载配置文件
+	err := config.NewConfig(opts.ConfigFile, &#34;BKE_APISERVER&#34;)
+	if err != nil {
+		fmt.Printf(&#34;generate config failed&#34;)
+	}
+    // 初始化一个全局的zap logger实例，是否开启debug模式，指定日志文件路径
+	logs.InitGlobalLogger(opts.Debug, opts.LogFile)
+	// harbor postgre数据库初始化
+	// 1.初始化postgre连接
+	// 2.同步创建两张表User、OIDCUser，看似这部分逻辑跟harbor oidc认证有关
+	database.Init()
+    
+    // 支持加载外部dashboard配置文件，用于定义监控类指标的面板，实际上代码中并没有引用到这部分逻辑
+	err = config.ReadDashboardConfigFromFile(config.GetServerConfig().Kubesphere.DashboardConfigFile)
+	if err != nil {
+		zap.S().
+			Errorf(&#34;read dashboard config failed: %v, will return empty response for dashboards and components&#34;, err)
+	}
+    // 初始化全局的数据连接对象
+    // 支持MySQL或PostgreSQL两种存储，本身YKE不依赖外部关系型数据库，用于持久化存储集群资源使用情况
+	db.InitDB()
+
+    // 初始化APIServer对象
+	server := app.New(opts)
+	// 启动Web API，实际上还有不少初始化逻辑，比如
+	// 1.初始化kubesphere全局认证token，用于后续调用kubesphere api
+	// 2.初始化host集群的clientSet，用于调用host集群k8s api；初始化host集群的kubekeyClientSet，用于管理集群相关的cr
+	// 3.加载bke-api路由
+	// 4.初始化一个map，存放gpu卡型号和gpu显存映射关系，用于计算节点上gpu资源
+	err = server.Start()
+	if err != nil {
+		zap.S().Fatalf(&#34;Failed to start bke-apiserver: %v&#34;, err)
+	}
+}
+</code></pre><h1 id="集群管理">集群管理</h1>
+<p>集群管理底层依赖kubesphere集群模块，kubesphere集群管理本身依赖两种crd实现：</p>
+<ul>
+<li>kubesphere cluster cr</li>
+<li>kubekey cluster cr(kubekey集群管理有两种实现：基于cluster-api、命令行工具)</li>
+</ul>
+<h2 id="kubekey-cluster-api实现">kubekey cluster-api实现</h2>
+<h2 id="kubekey命令行工具实现">kubekey命令行工具实现</h2>
+<h2 id="kubesphere集群管理">kubesphere集群管理</h2>
+<h1 id="应用中心">应用中心</h1>
+<h2 id="yke接口定义">YKE接口定义</h2>
+<p>应用中心相关的接口列表，底层依赖kubesphere application crd，接口实现逻辑都是转发给ks-apiserver，返回数据未做进一步加工处理</p>
+<pre tabindex="0"><code>{
+        clustersGroup := rootGroup.Group(&#34;/clusters&#34;)
+        // 获取特定集群下的所有应用列表
+        clustersGroup.GET(&#34;/:cluster/applications&#34;, s.GetClusterApplications)
+        
+		appsGroup := rootGroup.Group(&#34;apps&#34;)
+		// 请求url里带有namespace或project的话，对应的是k8s的namespace，会确保这个namespace一定存在
+		appsGroup.Use(middleware.WorkspaceMiddleware())
+		// 获取应用模版列表
+		appsGroup.GET(&#34;&#34;, s.GetApps)
+		// 获取应用模版详情
+		appsGroup.GET(&#34;/:app&#34;, s.GetApp)
+		// 更新应用模版
+		appsGroup.PATCH(&#34;/:app&#34;, s.UpdateApp)
+		// 删除应用模版
+		appsGroup.DELETE(&#34;/:app&#34;, s.DeleteApp)
+		// 对应用模版进行指定操作，比如提交审核、撤销审核
+		appsGroup.POST(&#34;/:app/action&#34;, s.AppAction)
+		// 获取应用模版的审核记录列表
+		appsGroup.GET(&#34;/:app/audits&#34;, s.GetAppAudits)
+		// 获取应用模版的所有应用列表
+		appsGroup.GET(&#34;/:app/versions&#34;, s.GetAppVersions)
+		// 上传应用模版版本
+		appsGroup.POST(&#34;/:app/versions&#34;, s.UploadAppVersion)
+		// 更新应用模版的版本
+		appsGroup.PATCH(&#34;/:app/versions/:version&#34;, s.PatchAppVersion)
+		// 删除应用模版的版本
+		appsGroup.DELETE(&#34;/:app/versions/:version&#34;, s.DeleteAppVersion)
+		// 获取应用模版版本的所有文件列表
+		appsGroup.GET(&#34;/:app/versions/:version/files&#34;, s.GetAppVersionFiles)
+		// 下载应用模版特定版本的chart包
+		appsGroup.GET(&#34;/:app/versions/:version/package&#34;, s.GetAppVersionPackage)
+		// 对应用模版的某个版本进行指定操作，比如提交审核、撤销审核
+		appsGroup.POST(&#34;/:app/versions/:version/action&#34;, s.AppVersionAction)
+		// 获取应用模版某个版本的审核记录列表
+		appsGroup.GET(&#34;/:app/versions/:version/audits&#34;, s.GetAppVersionAudits)
+        // 获取内置应用仓库的应用模版列表
+		rootGroup.GET(&#34;/workspaces/beecloud/apps&#34;, s.GetProjectApps)
+		// 上传应用模版到内置应用仓库
+		rootGroup.POST(&#34;/workspaces/beecloud/apps&#34;, s.UploadApp)
+		// 获取特定集群特定命名空间下的所有应用列表
+		rootGroup.GET(&#34;/clusters/:cluster/namespaces/:namespace/applications&#34;, s.GetApplicationsByClusterAndNamespace)
+		// 获取特定集群特定命名空间下的特定应用详情
+		rootGroup.GET(&#34;/clusters/:cluster/namespaces/:namespace/applications/:clusterid&#34;, s.GetApplicationByClusterID)
+		// 部署应用到特定集群特定命名空间下
+		rootGroup.POST(&#34;/clusters/:cluster/namespaces/:namespace/applications&#34;, s.DeployApplication)
+		// 删除特定集群特定命名空间下的特定应用
+		rootGroup.DELETE(&#34;/clusters/:cluster/namespaces/:namespace/applications/:clusterid&#34;, s.DeleteApplication)
+		// 更新特定集群特定命名空间下的特定应用
+		rootGroup.PATCH(&#34;/clusters/:cluster/namespaces/:namespace/applications/:clusterid&#34;, s.PatchApplication)
+		// 修改特定集群特定命名空间下的特定应用配置
+		rootGroup.POST(&#34;/clusters/:cluster/namespaces/:namespace/applications/:clusterid&#34;, s.ModifyApplication)
+        // 获取指定工作空间的所有应用仓库列表，这里的工作空间是kubesphere的概念
+		rootGroup.GET(&#34;/workspaces/:workspace/repos&#34;, s.ListWorkspacesRepos)
+		// 指定工作空间下创建应用仓库
+		rootGroup.POST(&#34;/workspaces/:workspace/repos&#34;, s.CreateWorkspacesRepo)
+        // 获取所有应用仓库列表
+		rootGroup.GET(&#34;/repos&#34;, s.ListRepos)
+		// 创建应用仓库
+		rootGroup.POST(&#34;/repos&#34;, s.CreateRepo)
+		// 删除应用仓库
+		rootGroup.DELETE(&#34;/repos/:repo&#34;, s.DeleteRepo)
+		// 更新应用仓库
+		rootGroup.PATCH(&#34;/repos/:repo&#34;, s.UpdateRepo)
+		// 同步应用仓库
+		rootGroup.POST(&#34;/repos/:repo/action&#34;, s.RepoAction)
+	}
+
+	{
+		categoriesGroup := rootGroup.Group(&#34;categories&#34;)
+		// 获取所有应用分类列表
+		categoriesGroup.GET(&#34;&#34;, s.GetCategories)
+		// 创建应用分类
+		categoriesGroup.POST(&#34;&#34;, s.CreateCategory)
+		// 更新应用分类
+		categoriesGroup.PATCH(&#34;/:category&#34;, s.UpdateCategory)
+		// 删除应用分类
+		categoriesGroup.DELETE(&#34;/:category&#34;, s.DeleteCategory)
+	}
+
+	{
+	    // 获取所有应用审核列表
+		rootGroup.GET(&#34;/reviews&#34;, s.GetReviews)
+	}
+</code></pre><h2 id="ks-controller-manager-crd实现">ks-controller-manager crd实现</h2>
+<p>应用中心相关的crd，定义在ks-controller-manager中</p>
+<pre tabindex="0"><code>	// &#34;helmrepo&#34; controller
+	if cmOptions.IsControllerEnabled(&#34;helmrepo&#34;) {
+		helmRepoReconciler := &amp;helmrepo.ReconcileHelmRepo{}
+		addControllerWithSetup(mgr, &#34;helmrepo&#34;, helmRepoReconciler)
+	}
+
+	// &#34;helmcategory&#34; controller
+	if cmOptions.IsControllerEnabled(&#34;helmcategory&#34;) {
+		helmCategoryReconciler := &amp;helmcategory.ReconcileHelmCategory{}
+		addControllerWithSetup(mgr, &#34;helmcategory&#34;, helmCategoryReconciler)
+	}
+
+	var opS3Client s3.Interface
+	if !cmOptions.OpenPitrixOptions.AppStoreConfIsEmpty() {
+		opS3Client, err = s3.NewS3Client(cmOptions.OpenPitrixOptions.S3Options)
+		if err != nil {
+			klog.Fatalf(&#34;failed to connect to s3, please check openpitrix s3 service status, error: %v&#34;, err)
+		}
+
+		// &#34;helmapplication&#34; controller
+		if cmOptions.IsControllerEnabled(&#34;helmapplication&#34;) {
+			reconcileHelmApp := &amp;helmapplication.ReconcileHelmApplication{}
+			addControllerWithSetup(mgr, &#34;helmapplication&#34;, reconcileHelmApp)
+		}
+
+		// &#34;helmapplicationversion&#34; controller
+		if cmOptions.IsControllerEnabled(&#34;helmapplicationversion&#34;) {
+			reconcileHelmAppVersion := &amp;helmapplication.ReconcileHelmApplicationVersion{}
+			addControllerWithSetup(mgr, &#34;helmapplicationversion&#34;, reconcileHelmAppVersion)
+		}
+	}
+
+	// &#34;helmrelease&#34; controller
+	if cmOptions.IsControllerEnabled(&#34;helmrelease&#34;) {
+		reconcileHelmRelease := &amp;helmrelease.ReconcileHelmRelease{
+			// nil interface is valid value.
+			StorageClient:      opS3Client,
+			KsFactory:          informerFactory.KubeSphereSharedInformerFactory(),
+			MultiClusterEnable: cmOptions.MultiClusterOptions.Enable,
+			WaitTime:           cmOptions.OpenPitrixOptions.ReleaseControllerOptions.WaitTime,
+			MaxConcurrent:      cmOptions.OpenPitrixOptions.ReleaseControllerOptions.MaxConcurrent,
+			StopChan:           stopCh,
+		}
+		addControllerWithSetup(mgr, &#34;helmrelease&#34;, reconcileHelmRelease)
+	}
+</code></pre><h3 id="helmrepo">HelmRepo</h3>
+<p>HelmRepo crd定义，应用仓库全生命周期管理</p>
+<pre tabindex="0"><code>type HelmRepoCredential struct {
+	// chart repository username
+	Username string `json:&#34;username,omitempty&#34;`
+	// chart repository password
+	Password string `json:&#34;password,omitempty&#34;`
+	// identify HTTPS client using this SSL certificate file
+	CertFile string `json:&#34;certFile,omitempty&#34;`
+	// identify HTTPS client using this SSL key file
+	KeyFile string `json:&#34;keyFile,omitempty&#34;`
+	// verify certificates of HTTPS-enabled servers using this CA bundle
+	CAFile string `json:&#34;caFile,omitempty&#34;`
+	// skip tls certificate checks for the repository, default is ture
+	InsecureSkipTLSVerify *bool `json:&#34;insecureSkipTLSVerify,omitempty&#34;`
+
+	S3Config `json:&#34;,inline&#34;`
+}
+
+type S3Config struct {
+	AccessKeyID     string `json:&#34;accessKeyID,omitempty&#34;`
+	SecretAccessKey string `json:&#34;secretAccessKey,omitempty&#34;`
+}
+
+// HelmRepoSpec defines the desired state of HelmRepo
+type HelmRepoSpec struct {
+	// name of the repo
+	Name string `json:&#34;name&#34;`
+	// helm repo url
+	Url string `json:&#34;url&#34;`
+	// helm repo credential
+	Credential HelmRepoCredential `json:&#34;credential,omitempty&#34;`
+	// chart repo description from frontend
+	Description string `json:&#34;description,omitempty&#34;`
+	// sync period in seconds, no sync when SyncPeriod=0, the minimum SyncPeriod is 180s
+	SyncPeriod int `json:&#34;syncPeriod,omitempty&#34;`
+	// expected repo version, when this version is not equal status.version, the repo need upgrade
+	// this filed should be modified when any filed of the spec modified.
+	Version int `json:&#34;version,omitempty&#34;`
+}
+
+type HelmRepoSyncState struct {
+	// last sync state, valid state are: &#34;failed&#34;, &#34;success&#34;, and &#34;&#34;
+	State string `json:&#34;state,omitempty&#34;`
+	// A human readable message indicating details about why the repo is in this state.
+	Message  string       `json:&#34;message,omitempty&#34;`
+	SyncTime *metav1.Time `json:&#34;syncTime&#34;`
+}
+
+// HelmRepoStatus defines the observed state of HelmRepo
+type HelmRepoStatus struct {
+	// repo index
+	Data string `json:&#34;data,omitempty&#34;`
+	// status last update time
+	LastUpdateTime *metav1.Time `json:&#34;lastUpdateTime,omitempty&#34;`
+	// current state of the repo, successful, failed or syncing
+	State string `json:&#34;state,omitempty&#34;`
+	// sync state list of history, which will store at most 10 state
+	SyncState []HelmRepoSyncState `json:&#34;syncState,omitempty&#34;`
+	// if status.version!=spec.Version, we need sync the repo now
+	Version int `json:&#34;version,omitempty&#34;`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:scope=Cluster,path=helmrepos,shortName=hrepo
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name=&#34;name&#34;,type=string,JSONPath=`.spec.name`
+// +kubebuilder:printcolumn:name=&#34;Workspace&#34;,type=&#34;string&#34;,JSONPath=&#34;.metadata.labels.kubesphere\\.io/workspace&#34;
+// +kubebuilder:printcolumn:name=&#34;url&#34;,type=string,JSONPath=`.spec.url`
+// +kubebuilder:printcolumn:name=&#34;State&#34;,type=&#34;string&#34;,JSONPath=&#34;.status.state&#34;
+// +kubebuilder:printcolumn:name=&#34;Age&#34;,type=&#34;date&#34;,JSONPath=&#34;.metadata.creationTimestamp&#34;
+// +genclient
+// +genclient:nonNamespaced
+// +kubebuilder:object:root=true
+
+// HelmRepo is the Schema for the helmrepoes API
+type HelmRepo struct {
+	metav1.TypeMeta   `json:&#34;,inline&#34;`
+	metav1.ObjectMeta `json:&#34;metadata,omitempty&#34;`
+
+	Spec   HelmRepoSpec   `json:&#34;spec,omitempty&#34;`
+	Status HelmRepoStatus `json:&#34;status,omitempty&#34;`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:object:root=true
+
+// HelmRepoList contains a list of HelmRepo
+type HelmRepoList struct {
+	metav1.TypeMeta `json:&#34;,inline&#34;`
+	metav1.ListMeta `json:&#34;metadata,omitempty&#34;`
+	Items           []HelmRepo `json:&#34;items&#34;`
+}
+</code></pre><p>Reconcile主逻辑</p>
+<pre tabindex="0"><code>// Reconcile reads that state of the cluster for a helmrepoes object and makes changes based on the state read
+// and what is in the helmreleases.Spec
+// +kubebuilder:rbac:groups=application.kubesphere.io,resources=helmrepos,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=application.kubesphere.io,resources=helmrepos/status,verbs=get;update;patch
+func (r *ReconcileHelmRepo) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	start := time.Now()
+	klog.Infof(&#34;sync repo: %s&#34;, request.Name)
+	defer func() {
+		klog.Infof(&#34;sync repo end: %s, elapsed: %v&#34;, request.Name, time.Since(start))
+	}()
+	// Fetch the helmrepoes instance
+	instance := &amp;v1alpha1.HelmRepo{}
+	// 根据资源名字获取HelmRepo对象实例，并对err进行进一步判断
+	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Object not found, return.  Created objects are automatically garbage collected.
+			// For additional cleanup logic use finalizers.
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+    // 对HelmRepo对象实例是否处于删除状态进行判断，根据DeletionTimestamp是否为空来判断
+	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		if instance.Status.State == &#34;&#34; {
+		    // Status.State默认给syncing的值
+			instance.Status.State = v1alpha1.RepoStateSyncing
+			return reconcile.Result{}, r.Status().Update(context.Background(), instance)
+		}
+
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object.
+		// 如果没有就加上HelmRepoFinalizer
+		if !sliceutil.HasString(instance.ObjectMeta.Finalizers, HelmRepoFinalizer) {
+			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, HelmRepoFinalizer)
+			if err := r.Update(context.Background(), instance); err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{}, nil
+		}
+	} else {
+		// The object is being deleted
+		if sliceutil.HasString(instance.ObjectMeta.Finalizers, HelmRepoFinalizer) {
+			// remove our finalizer from the list and update it.
+			// 移除HelmRepoFinalizer
+			instance.ObjectMeta.Finalizers = sliceutil.RemoveString(instance.ObjectMeta.Finalizers, func(item string) bool {
+				return item == HelmRepoFinalizer
+			})
+			if err := r.Update(context.Background(), instance); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+		return reconcile.Result{}, nil
+	}
+
+	copyInstance := instance.DeepCopy()
+
+    // chart仓库同步时长赋值
+	if copyInstance.Spec.SyncPeriod != 0 {
+		copyInstance.Spec.SyncPeriod = int(math.Max(float64(copyInstance.Spec.SyncPeriod), constants.HelmRepoMinSyncPeriod))
+	}
+
+	retryAfter := 0
+	// 判断是否需要同步，整个Reconcile主逻辑中最核心的一步
+	if syncNow, after := needReSyncNow(copyInstance); syncNow {
+		// sync repo
+		syncErr := r.syncRepo(copyInstance)
+		state := copyInstance.Status.SyncState
+		now := metav1.Now()
+		if syncErr != nil {
+			// failed
+			state = append([]v1alpha1.HelmRepoSyncState{{
+				State:    v1alpha1.RepoStateFailed,
+				Message:  strings.ShortenString(syncErr.Error(), MessageLen),
+				SyncTime: &amp;now,
+			}}, state...)
+			copyInstance.Status.State = v1alpha1.RepoStateFailed
+		} else {
+			state = append([]v1alpha1.HelmRepoSyncState{{
+				State:    v1alpha1.RepoStateSuccessful,
+				SyncTime: &amp;now,
+			}}, state...)
+
+			copyInstance.Status.Version = instance.Spec.Version
+			copyInstance.Status.State = v1alpha1.RepoStateSuccessful
+		}
+
+		copyInstance.Status.LastUpdateTime = &amp;now
+		if len(state) &gt; HelmRepoSyncStateLen {
+			state = state[0:HelmRepoSyncStateLen]
+		}
+		copyInstance.Status.SyncState = state
+
+		err = r.Client.Status().Update(context.TODO(), copyInstance)
+		if err != nil {
+			klog.Errorf(&#34;update status failed, error: %s&#34;, err)
+			return reconcile.Result{
+				RequeueAfter: MinRetryDuration * time.Second,
+			}, err
+		} else {
+			retryAfter = constants.HelmRepoMinSyncPeriod
+			if syncErr == nil {
+				retryAfter = copyInstance.Spec.SyncPeriod
+			}
+		}
+	} else {
+		retryAfter = after
+	}
+    // 又进入reconcile逻辑，并设置了重新入队列的时间
+	return reconcile.Result{
+		RequeueAfter: time.Duration(retryAfter) * time.Second,
+	}, nil
+}
+</code></pre><h3 id="helmcategory">HelmCategory</h3>
+<p>HelmCategory crd定义，应用目录全生命周期管理</p>
+<pre tabindex="0"><code>// HelmCategorySpec defines the desired state of HelmRepo
+type HelmCategorySpec struct {
+	// name of the category
+	Name string `json:&#34;name&#34;`
+	// info from frontend
+	Description string `json:&#34;description,omitempty&#34;`
+	Locale      string `json:&#34;locale,omitempty&#34;`
+}
+
+// +kubebuilder:resource:scope=Cluster,shortName=hctg
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name=&#34;name&#34;,type=string,JSONPath=`.spec.name`
+// +kubebuilder:printcolumn:name=&#34;total&#34;,type=string,JSONPath=`.status.total`
+// +kubebuilder:printcolumn:name=&#34;Age&#34;,type=&#34;date&#34;,JSONPath=&#34;.metadata.creationTimestamp&#34;
+// +genclient
+// +genclient:nonNamespaced
+// +kubebuilder:object:root=true
+
+// HelmCategory is the Schema for the helmcategories API
+type HelmCategory struct {
+	metav1.TypeMeta   `json:&#34;,inline&#34;`
+	metav1.ObjectMeta `json:&#34;metadata,omitempty&#34;`
+
+	Spec   HelmCategorySpec   `json:&#34;spec,omitempty&#34;`
+	Status HelmCategoryStatus `json:&#34;status,omitempty&#34;`
+}
+
+type HelmCategoryStatus struct {
+	// total helmapplications belong to this category
+	Total int `json:&#34;total&#34;`
+}
+
+// +kubebuilder:object:root=true
+
+// HelmCategoryList contains a list of HelmCategory
+type HelmCategoryList struct {
+	metav1.TypeMeta `json:&#34;,inline&#34;`
+	metav1.ListMeta `json:&#34;metadata,omitempty&#34;`
+	Items           []HelmCategory `json:&#34;items&#34;`
+}
+</code></pre><p>Reconcile主逻辑，整体逻辑比较简单</p>
+<pre tabindex="0"><code>// Reconcile reads that state of the cluster for a helmcategories object and makes changes based on the state read
+// and what is in the helmreleases.Spec
+// +kubebuilder:rbac:groups=application.kubesphere.io,resources=helmcategories,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=application.kubesphere.io,resources=helmcategories/status,verbs=get;update;patch
+func (r *ReconcileHelmCategory) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	start := time.Now()
+	klog.V(4).Infof(&#34;sync helm category: %s&#34;, request.String())
+	defer func() {
+		klog.V(4).Infof(&#34;sync helm category end: %s, elapsed: %v&#34;, request.String(), time.Since(start))
+	}()
+
+	instance := &amp;v1alpha1.HelmCategory{}
+	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			if request.Name == v1alpha1.UncategorizedId {
+			    // 确保名字为ctg-uncategorized的应用目录存在
+				err = r.ensureUncategorizedCategory()
+				// If create uncategorized category failed, we need create it again
+				return reconcile.Result{}, err
+			}
+			// Object not found, return.  Created objects are automatically garbage collected.
+			// For additional cleanup logic use finalizers.
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
+	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object.
+		if !sliceutil.HasString(instance.ObjectMeta.Finalizers, HelmCategoryFinalizer) {
+			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, HelmCategoryFinalizer)
+			if err := r.Update(context.Background(), instance); err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{}, nil
+		}
+	} else {
+		// The object is being deleted
+		if sliceutil.HasString(instance.ObjectMeta.Finalizers, HelmCategoryFinalizer) {
+			// our finalizer is present, so lets handle our external dependency
+			// remove our finalizer from the list and update it.
+
+            // 如果该应用目录下还有应用绑定，不允许删除
+			if instance.Status.Total &gt; 0 {
+				klog.Errorf(&#34;can not delete helm category: %s which owns applications&#34;, request.String())
+				return reconcile.Result{}, nil
+			}
+
+			instance.ObjectMeta.Finalizers = sliceutil.RemoveString(instance.ObjectMeta.Finalizers, func(item string) bool {
+				return item == HelmCategoryFinalizer
+			})
+			if err := r.Update(context.Background(), instance); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+		return reconcile.Result{}, nil
+	}
+    // 统计应用目录下的应用总数，并回写到Status
+	err = r.updateCategoryCount(instance.Name)
+	if err != nil {
+		klog.Errorf(&#34;update helm category: %s status failed, error: %s&#34;, instance.Name, err)
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}
+</code></pre><h3 id="helmapplication">HelmApplication</h3>
+<p>HelmApplication crd定义，应用模版的全生命周期管理</p>
+<pre tabindex="0"><code>// HelmApplicationSpec defines the desired state of HelmApplication
+type HelmApplicationSpec struct {
+	// the name of the helm application
+	Name string `json:&#34;name&#34;`
+	// description from chart&#39;s description or frontend
+	Description string `json:&#34;description,omitempty&#34;`
+	// attachments id
+	Attachments []string `json:&#34;attachments,omitempty&#34;`
+	// info from frontend
+	Abstraction string `json:&#34;abstraction,omitempty&#34;`
+	AppHome     string `json:&#34;appHome,omitempty&#34;`
+	// The attachment id of the icon
+	Icon string `json:&#34;icon,omitempty&#34;`
+}
+
+// HelmApplicationStatus defines the observed state of HelmApplication
+type HelmApplicationStatus struct {
+	// If this application belong to appStore, latestVersion is the the latest version of the active application version.
+	// otherwise latestVersion is the latest version of all application version
+	LatestVersion string `json:&#34;latestVersion,omitempty&#34;`
+	// the state of the helm application: draft, submitted, passed, rejected, suspended, active
+	State      string       `json:&#34;state,omitempty&#34;`
+	UpdateTime *metav1.Time `json:&#34;updateTime&#34;`
+	StatusTime *metav1.Time `json:&#34;statusTime&#34;`
+}
+
+// +kubebuilder:resource:scope=Cluster,shortName=happ
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name=&#34;application name&#34;,type=string,JSONPath=`.spec.name`
+// +kubebuilder:printcolumn:name=&#34;workspace&#34;,type=&#34;string&#34;,JSONPath=&#34;.metadata.labels.kubesphere\\.io/workspace&#34;
+// +kubebuilder:printcolumn:name=&#34;State&#34;,type=&#34;string&#34;,JSONPath=&#34;.status.state&#34;
+// +kubebuilder:printcolumn:name=&#34;Age&#34;,type=&#34;date&#34;,JSONPath=&#34;.metadata.creationTimestamp&#34;
+// +genclient
+// +genclient:nonNamespaced
+// +kubebuilder:object:root=true
+
+// HelmApplication is the Schema for the helmapplications API
+type HelmApplication struct {
+	metav1.TypeMeta   `json:&#34;,inline&#34;`
+	metav1.ObjectMeta `json:&#34;metadata,omitempty&#34;`
+
+	Spec   HelmApplicationSpec   `json:&#34;spec,omitempty&#34;`
+	Status HelmApplicationStatus `json:&#34;status,omitempty&#34;`
+}
+
+// +kubebuilder:object:root=true
+
+// HelmApplicationList contains a list of HelmApplication
+type HelmApplicationList struct {
+	metav1.TypeMeta `json:&#34;,inline&#34;`
+	metav1.ListMeta `json:&#34;metadata,omitempty&#34;`
+	Items           []HelmApplication `json:&#34;items&#34;`
+}
+</code></pre><p>Reconcile主逻辑</p>
+<pre tabindex="0"><code>func (r *ReconcileHelmApplication) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	klog.V(4).Infof(&#34;sync helm application: %s &#34;, request.String())
+
+	rootCtx := context.Background()
+	app := &amp;v1alpha1.HelmApplication{}
+	err := r.Client.Get(rootCtx, request.NamespacedName, app)
+	if err != nil {
+	    // 对错误进行分类处理
+		if apierrors.IsNotFound(err) {
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, err
+	}
+
+	if app.DeletionTimestamp == nil {
+		// new app, update finalizer
+		if !sliceutil.HasString(app.ObjectMeta.Finalizers, appFinalizer) {
+		    // 这是个新应用模版，自动追加Finalizers
+			app.ObjectMeta.Finalizers = append(app.ObjectMeta.Finalizers, appFinalizer)
+			if err := r.Update(rootCtx, app); err != nil {
+				return reconcile.Result{}, err
+			}
+			// k8s.io/component-base/metrics是一个用于定义和使用监控指标（metrics）的库，
+			// 其中 counter.go 文件定义了一个计数器类型的指标。WithLabelValues 是一个方法，它用于创建一个具有特定标签值组合的计数器实例。
+			// appOperationTotal这个计数器类型指标中定义了三个标签：&#34;verb&#34;, &#34;name&#34;, &#34;appstore&#34;
+			// 统计应用模版副本是否创建成功
+			appOperationTotal.WithLabelValues(&#34;creation&#34;, app.GetTrueName(), strconv.FormatBool(inAppStore(app))).Inc()
+		}
+		
+		// 如果应用模版不是应用模版副本，进入此条件
+		if !inAppStore(app) {
+			// The workspace of this app is being deleting, clean up this app
+			// 如果应用模版的annotation的application.kubesphere.io/app-cleanup=ongoing，开始执行清理逻辑
+			// 应用模版状态不等于active、suspend的删除
+			// 应用模版版本状态不等于active、suspend的删除
+			// 修改应用模版的annotation打上application.kubesphere.io/app-cleanup=done，如果应用模版已被删除，则跳过此步骤
+			if err := r.cleanupDanglingApp(context.TODO(), app); err != nil {
+				return reconcile.Result{}, err
+			}
+            // 如果应用模版的状态处于active或suspended
+			if app.Status.State == v1alpha1.StateActive ||
+				app.Status.State == v1alpha1.StateSuspended {
+				// 在同个kubesphere workspace下创建应用模版的副本，副本名格式：原有的应用模版名-store
+				if err := r.createAppCopyInAppStore(rootCtx, app); err != nil {
+					klog.Errorf(&#34;create app copy failed, error: %s&#34;, err)
+					return reconcile.Result{}, err
+				}
+				return reconcile.Result{}, nil
+			}
+		}
+
+		// app has changed, update app status
+		return reconcile.Result{}, updateHelmApplicationStatus(r.Client, strings.TrimSuffix(app.Name, v1alpha1.HelmApplicationAppStoreSuffix), inAppStore(app))
+	} else {
+	    // 如果应用模版的DeletionTimestamp不为空，正处于删除过程中，进入此条件
+		if !inAppStore(app) {
+		    // 如果应用模版不是应用模版副本，进入此条件
+		    // 删除应用模版
+			if err := r.deleteAppCopyInAppStore(rootCtx, app.Name); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+
+		app.ObjectMeta.Finalizers = sliceutil.RemoveString(app.ObjectMeta.Finalizers, func(item string) bool {
+			return item == appFinalizer
+		})
+		klog.V(4).Info(&#34;update app&#34;)
+		// 更新应用模版
+		if err := r.Update(rootCtx, app); err != nil {
+			klog.Errorf(&#34;update app failed, error: %s&#34;, err)
+			return ctrl.Result{}, err
+		} else {
+			// delete app success
+			// 统计应用模版副本是否删除成功
+			appOperationTotal.WithLabelValues(&#34;deletion&#34;, app.GetTrueName(), strconv.FormatBool(inAppStore(app))).Inc()
+		}
+	}
+
+	return reconcile.Result{}, nil
+}
+</code></pre><h3 id="helmapplicationversion">HelmApplicationVersion</h3>
+<p>HelmApplicationVersion crd定义，应用模版版本全生命周期管理</p>
+<pre tabindex="0"><code>// HelmApplicationVersionSpec defines the desired state of HelmApplicationVersion
+type HelmApplicationVersionSpec struct {
+	// metadata from chart
+	*Metadata `json:&#34;,inline&#34;`
+	// chart url
+	URLs []string `json:&#34;urls,omitempty&#34;`
+	// raw data of chart, it will !!!NOT!!! be save to etcd
+	Data []byte `json:&#34;data,omitempty&#34;`
+
+	// dataKey in the storage
+	DataKey string `json:&#34;dataKey,omitempty&#34;`
+
+	// chart create time
+	Created *metav1.Time `json:&#34;created,omitempty&#34;`
+
+	// chart digest
+	Digest string `json:&#34;digest,omitempty&#34;`
+}
+
+// HelmApplicationVersionStatus defines the observed state of HelmApplicationVersion
+type HelmApplicationVersionStatus struct {
+	State string  `json:&#34;state,omitempty&#34;`
+	Audit []Audit `json:&#34;audit,omitempty&#34;`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:scope=Cluster,shortName=happver
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name=&#34;application name&#34;,type=string,JSONPath=`.spec.name`
+// +kubebuilder:printcolumn:name=&#34;State&#34;,type=&#34;string&#34;,JSONPath=&#34;.status.state&#34;
+// +kubebuilder:printcolumn:name=&#34;Age&#34;,type=&#34;date&#34;,JSONPath=&#34;.metadata.creationTimestamp&#34;
+// +genclient
+// +genclient:nonNamespaced
+// +kubebuilder:object:root=true
+
+// HelmApplicationVersion is the Schema for the helmapplicationversions API
+type HelmApplicationVersion struct {
+	metav1.TypeMeta   `json:&#34;,inline&#34;`
+	metav1.ObjectMeta `json:&#34;metadata,omitempty&#34;`
+
+	Spec   HelmApplicationVersionSpec   `json:&#34;spec,omitempty&#34;`
+	Status HelmApplicationVersionStatus `json:&#34;status,omitempty&#34;`
+}
+
+// Maintainer describes a Chart maintainer.
+type Maintainer struct {
+	// Name is a user name or organization name
+	Name string `json:&#34;name,omitempty&#34;`
+	// Email is an optional email address to contact the named maintainer
+	Email string `json:&#34;email,omitempty&#34;`
+	// URL is an optional URL to an address for the named maintainer
+	URL string `json:&#34;url,omitempty&#34;`
+}
+
+// Metadata for a Chart file. This models the structure of a Chart.yaml file.
+type Metadata struct {
+	// The name of the chart
+	Name string `json:&#34;name,omitempty&#34;`
+	// The URL to a relevant project page, git repo, or contact person
+	Home string `json:&#34;home,omitempty&#34;`
+	// Source is the URL to the source code of this chart
+	Sources []string `json:&#34;sources,omitempty&#34;`
+	// A SemVer 2 conformant version string of the chart
+	Version string `json:&#34;version,omitempty&#34;`
+	// A one-sentence description of the chart
+	Description string `json:&#34;description,omitempty&#34;`
+	// A list of string keywords
+	Keywords []string `json:&#34;keywords,omitempty&#34;`
+	// A list of name and URL/email address combinations for the maintainer(s)
+	Maintainers []*Maintainer `json:&#34;maintainers,omitempty&#34;`
+	// The URL to an icon file.
+	Icon string `json:&#34;icon,omitempty&#34;`
+	// The API Version of this chart.
+	APIVersion string `json:&#34;apiVersion,omitempty&#34;`
+	// The condition to check to enable chart
+	Condition string `json:&#34;condition,omitempty&#34;`
+	// The tags to check to enable chart
+	Tags string `json:&#34;tags,omitempty&#34;`
+	// The version of the application enclosed inside of this chart.
+	AppVersion string `json:&#34;appVersion,omitempty&#34;`
+	// Whether or not this chart is deprecated
+	Deprecated bool `json:&#34;deprecated,omitempty&#34;`
+	// Annotations are additional mappings uninterpreted by Helm,
+	// made available for inspection by other applications.
+	Annotations map[string]string `json:&#34;annotations,omitempty&#34;`
+	// KubeVersion is a SemVer constraint specifying the version of Kubernetes required.
+	KubeVersion string `json:&#34;kubeVersion,omitempty&#34;`
+	// Dependencies are a list of dependencies for a chart.
+	Dependencies []*Dependency `json:&#34;dependencies,omitempty&#34;`
+	// Specifies the chart type: application or library
+	Type string `json:&#34;type,omitempty&#34;`
+}
+
+type Audit struct {
+	// audit message
+	Message string `json:&#34;message,omitempty&#34;`
+	// audit state: submitted, passed, draft, active, rejected, suspended
+	State string `json:&#34;state,omitempty&#34;`
+	// audit time
+	Time metav1.Time `json:&#34;time&#34;`
+	// audit operator
+	Operator     string `json:&#34;operator,omitempty&#34;`
+	OperatorType string `json:&#34;operatorType,omitempty&#34;`
+}
+
+// Dependency describes a chart upon which another chart depends.
+// Dependencies can be used to express developer intent, or to capture the state
+// of a chart.
+type Dependency struct {
+	// Name is the name of the dependency.
+	// This must mach the name in the dependency&#39;s Chart.yaml.
+	Name string `json:&#34;name&#34;`
+	// Version is the version (range) of this chart.
+	// A lock file will always produce a single version, while a dependency
+	// may contain a semantic version range.
+	Version string `json:&#34;version,omitempty&#34;`
+	// The URL to the repository.
+	// Appending `index.yaml` to this string should result in a URL that can be
+	// used to fetch the repository index.
+	Repository string `json:&#34;repository&#34;`
+	// A yaml path that resolves to a boolean, used for enabling/disabling charts (e.g. subchart1.enabled )
+	Condition string `json:&#34;condition,omitempty&#34;`
+	// Tags can be used to group charts for enabling/disabling together
+	Tags []string `json:&#34;tags,omitempty&#34;`
+	// Enabled bool determines if chart should be loaded
+	Enabled bool `json:&#34;enabled,omitempty&#34;`
+	// ImportValues holds the mapping of source values to parent key to be imported. Each item can be a
+	// string or pair of child/parent sublist items.
+	// ImportValues []interface{} `json:&#34;import_values,omitempty&#34;`
+
+	// Alias usable alias to be used for the chart
+	Alias string `json:&#34;alias,omitempty&#34;`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:object:root=true
+
+// HelmApplicationVersionList contains a list of HelmApplicationVersion
+type HelmApplicationVersionList struct {
+	metav1.TypeMeta `json:&#34;,inline&#34;`
+	metav1.ListMeta `json:&#34;metadata,omitempty&#34;`
+	Items           []HelmApplicationVersion `json:&#34;items&#34;`
+}
+</code></pre><p>Reconcile主逻辑实现</p>
+<pre tabindex="0"><code>// Reconcile reads that state of the cluster for a helmapplicationversions object and makes changes based on the state read
+// and what is in the helmapplicationversions.Spec
+func (r *ReconcileHelmApplicationVersion) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	start := time.Now()
+	klog.V(4).Infof(&#34;sync helm application version: %s&#34;, request.String())
+	defer func() {
+		klog.V(4).Infof(&#34;sync helm application version end: %s, elapsed: %v&#34;, request.String(), time.Since(start))
+	}()
+
+	appVersion := &amp;v1alpha1.HelmApplicationVersion{}
+	// 获取对应应用模版版本
+	err := r.Client.Get(context.TODO(), request.NamespacedName, appVersion)
+	if err != nil {
+	    // 多错误进行进一步判断，排除404
+		if apierrors.IsNotFound(err) {
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+    
+	if appVersion.ObjectMeta.DeletionTimestamp.IsZero() {
+	    // 如果应用模版版本的DeletionTimestamp为空的话，进入此条件
+		if appVersion.Status.State == &#34;&#34; {
+			// set status to draft
+			// updateStatus这个函数写死了，强行设置状态为draft
+			return reconcile.Result{}, r.updateStatus(appVersion)
+		}
+
+		if !sliceutil.HasString(appVersion.ObjectMeta.Finalizers, HelmAppVersionFinalizer) {
+			// 如果没加Finalizers，自动添加，并更新回写
+			appVersion.ObjectMeta.Finalizers = append(appVersion.ObjectMeta.Finalizers, HelmAppVersionFinalizer)
+			if err := r.Update(context.Background(), appVersion); err != nil {
+				return reconcile.Result{}, err
+			} else {
+				return reconcile.Result{}, nil
+			}
+		}
+	} else {
+	    // 如果应用模版版本的DeletionTimestamp不为空的话，处于删除状态，进入此条件
+		// The object is being deleted
+		if sliceutil.HasString(appVersion.ObjectMeta.Finalizers, HelmAppVersionFinalizer) {
+			// update related helm application
+			// 更新应用模版的状态信息，inAppStore为false说明针对的是应用模版
+			// 应用模版处于删除中的，则跳过
+			// 获取所有匹配这个应用模版id的版本，提取最新的版本号、合并版本状态作为应用模版状态，并回写回去
+			err = updateHelmApplicationStatus(r.Client, appVersion.GetHelmApplicationId(), false)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+            // 更新应用模版副本的状态信息，inAppStore为true说明针对的是应用模版副本，其它逻辑跟上面的一致
+			err = updateHelmApplicationStatus(r.Client, appVersion.GetHelmApplicationId(), true)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			// Delete HelmApplicationVersion
+			// 移除应用模版版本的Finalizers，并回写回去
+			appVersion.ObjectMeta.Finalizers = sliceutil.RemoveString(appVersion.ObjectMeta.Finalizers, func(item string) bool {
+				return item == HelmAppVersionFinalizer
+			})
+			if err := r.Update(context.Background(), appVersion); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+		return reconcile.Result{}, nil
+	}
+
+	// update related helm application
+	// 更新应用模版的状态信息
+	err = updateHelmApplicationStatus(r.Client, appVersion.GetHelmApplicationId(), false)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if appVersion.Status.State == v1alpha1.StateActive {
+	    // 如果应用模版的版本状态为active，进入此条件
+		// add labels to helm application version
+		// The label will exists forever, since this helmapplicationversion&#39;s state only can be active and suspend.
+		if appVersion.GetHelmRepoId() == &#34;&#34; {
+		    // 如果此应用模版版本的标签值application.kubesphere.io/repo-id为空，进入此条件
+			instanceCopy := appVersion.DeepCopy()
+			// 标签赋值application.kubesphere.io/repo-id=repo-helm
+			instanceCopy.Labels[constants.ChartRepoIdLabelKey] = v1alpha1.AppStoreRepoId
+			patch := client.MergeFrom(appVersion)
+			// patch方式更新
+			err = r.Client.Patch(context.TODO(), instanceCopy, patch)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+
+		app := v1alpha1.HelmApplication{}
+		err = r.Get(context.TODO(), types.NamespacedName{Name: appVersion.GetHelmApplicationId()}, &amp;app)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+        // 更新应用模版副本的状态信息
+		return reconcile.Result{}, updateHelmApplicationStatus(r.Client, appVersion.GetHelmApplicationId(), true)
+	} else if appVersion.Status.State == v1alpha1.StateSuspended {
+	    // 如果应用模版的版本状态为suspend，进入此条件，更新应用模版副本的状态信息
+		return reconcile.Result{}, updateHelmApplicationStatus(r.Client, appVersion.GetHelmApplicationId(), true)
+	}
+
+	return reconcile.Result{}, nil
+}
+</code></pre><h3 id="helmrelease">HelmRelease</h3>
+<p>HelmRelease crd定义，应用全生命周期管理</p>
+<pre tabindex="0"><code>// HelmReleaseSpec defines the desired state of HelmRelease
+type HelmReleaseSpec struct {
+	// Name of the release
+	Name string `json:&#34;name&#34;`
+	// Message got from frontend
+	Description string `json:&#34;description,omitempty&#34;`
+	// helm release values.yaml
+	Values []byte `json:&#34;values,omitempty&#34;`
+	// The name of the chart which will be installed.
+	ChartName string `json:&#34;chartName&#34;`
+	// Specify the exact chart version to install. If this is not specified, the latest version is installed
+	ChartVersion string `json:&#34;chartVersion&#34;`
+	// appVersion from Chart.yaml
+	ChartAppVersion string `json:&#34;chartAppVer,omitempty&#34;`
+	// id of  the repo
+	RepoId string `json:&#34;repoId,omitempty&#34;`
+	// id of the helmapplication
+	ApplicationId string `json:&#34;appId,omitempty&#34;`
+	// application version id
+	ApplicationVersionId string `json:&#34;appVerId,omitempty&#34;`
+	// expected release version, when this version is not equal status.version, the release need upgrade
+	// this filed should be modified when any filed of the spec modified.
+	Version int `json:&#34;version&#34;`
+}
+
+type HelmReleaseDeployStatus struct {
+	// A human readable message indicating details about why the release is in this state.
+	Message string `json:&#34;message,omitempty&#34;`
+	// current state of the release
+	State string `json:&#34;state&#34;`
+	// deploy time, upgrade time or check status time
+	Time metav1.Time `json:&#34;deployTime&#34;`
+}
+
+// HelmReleaseStatus defines the observed state of HelmRelease
+type HelmReleaseStatus struct {
+	// current state
+	State string `json:&#34;state&#34;`
+	// A human readable message indicating details about why the release is in this state.
+	Message string `json:&#34;message,omitempty&#34;`
+	// current release version
+	Version int `json:&#34;version,omitempty&#34;`
+	// deploy status list of history, which will store at most 10 state
+	DeployStatus []HelmReleaseDeployStatus `json:&#34;deployStatus,omitempty&#34;`
+	// last update time
+	LastUpdate metav1.Time `json:&#34;lastUpdate,omitempty&#34;`
+	// last deploy time or upgrade time
+	LastDeployed *metav1.Time `json:&#34;lastDeployed,omitempty&#34;`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:scope=Cluster,shortName=hrls
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name=&#34;Release Name&#34;,type=string,JSONPath=&#34;.spec.name&#34;
+// +kubebuilder:printcolumn:name=&#34;Workspace&#34;,type=&#34;string&#34;,JSONPath=&#34;.metadata.labels.kubesphere\\.io/workspace&#34;
+// +kubebuilder:printcolumn:name=&#34;Cluster&#34;,type=&#34;string&#34;,JSONPath=&#34;.metadata.labels.kubesphere\\.io/cluster&#34;
+// +kubebuilder:printcolumn:name=&#34;Namespace&#34;,type=&#34;string&#34;,JSONPath=&#34;.metadata.labels.kubesphere\\.io/namespace&#34;
+// +kubebuilder:printcolumn:name=&#34;State&#34;,type=&#34;string&#34;,JSONPath=&#34;.status.state&#34;
+// +kubebuilder:printcolumn:name=&#34;Age&#34;,type=&#34;date&#34;,JSONPath=&#34;.metadata.creationTimestamp&#34;
+// +genclient
+// +genclient:nonNamespaced
+// +kubebuilder:object:root=true
+
+// HelmRelease is the Schema for the helmreleases API
+type HelmRelease struct {
+	metav1.TypeMeta   `json:&#34;,inline&#34;`
+	metav1.ObjectMeta `json:&#34;metadata,omitempty&#34;`
+
+	Spec   HelmReleaseSpec   `json:&#34;spec,omitempty&#34;`
+	Status HelmReleaseStatus `json:&#34;status,omitempty&#34;`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:object:root=true
+
+// HelmReleaseList contains a list of HelmRelease
+type HelmReleaseList struct {
+	metav1.TypeMeta `json:&#34;,inline&#34;`
+	metav1.ListMeta `json:&#34;metadata,omitempty&#34;`
+	Items           []HelmRelease `json:&#34;items&#34;`
+}
+</code></pre><p>Reconcile主逻辑</p>
+<pre tabindex="0"><code>// Reconcile reads that state of the cluster for a helmreleases object and makes changes based on the state read
+// and what is in the helmreleases.Spec
+// +kubebuilder:rbac:groups=application.kubesphere.io,resources=helmreleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=application.kubesphere.io,resources=helmreleases/status,verbs=get;update;patch
+func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	// Fetch the helmReleases instance
+	instance := &amp;v1alpha1.HelmRelease{}
+	err := r.Get(context.TODO(), request.NamespacedName, instance)
+	// 判断是否存在
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// Object not found, return.  Created objects are automatically garbage collected.
+			// For additional cleanup logic use finalizers.
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
+	if instance.Status.State == &#34;&#34; {
+	    // 应用状态为空，默认置为creating，并回写
+		instance.Status.State = v1alpha1.HelmStatusCreating
+		instance.Status.LastUpdate = metav1.Now()
+		err = r.Status().Update(context.TODO(), instance)
+		return reconcile.Result{}, err
+	}
+
+	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
+	    // 通过DeletionTimestamp，判断应用是否处于删除过程中，为空进入此条件
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object.
+		if !sliceutil.HasString(instance.ObjectMeta.Finalizers, HelmReleaseFinalizer) {
+		    // 根据应用kubesphere.io/cluster的标签获取所部署的集群
+			clusterName := instance.GetRlsCluster()
+		    // 针对多集群应用的适配处理逻辑
+			if r.MultiClusterEnable &amp;&amp; clusterName != &#34;&#34; {
+			    // 获取对应的集群信息
+				clusterInfo, err := r.clusterClients.Get(clusterName)
+				if err != nil {
+					// cluster not exists, delete the crd
+					klog.Warningf(&#34;cluster %s not found, delete the helm release %s/%s&#34;,
+						clusterName, instance.GetRlsNamespace(), instance.GetTrueName())
+					// 如果该集群不存在，删除该应用
+					return reconcile.Result{}, r.Delete(context.TODO(), instance)
+				}
+
+				// Host cluster will self-healing, delete host cluster won&#39;t cause deletion of  helm release
+				// 判断集群是否为host集群
+				if !r.clusterClients.IsHostCluster(clusterInfo) {
+					// add owner References
+					// 设置应用的OwnerReferences指向所属的集群，集群删除，应用也跟着删除
+					instance.OwnerReferences = append(instance.OwnerReferences, metav1.OwnerReference{
+						APIVersion: clusterv1alpha1.SchemeGroupVersion.String(),
+						Kind:       clusterv1alpha1.ResourceKindCluster,
+						Name:       clusterInfo.Name,
+						UID:        clusterInfo.UID,
+					})
+				}
+			}
+            // 未添加HelmReleaseFinalizer的，自动添加HelmReleaseFinalizer，并回写
+			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, HelmReleaseFinalizer)
+			if err := r.Update(context.Background(), instance); err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{}, nil
+		}
+	} else {
+	    // DeletionTimestamp不为空，该应用处于删除过程中，进入此条件
+		// The object is being deleting
+		if sliceutil.HasString(instance.ObjectMeta.Finalizers, HelmReleaseFinalizer) {
+            // 判断是否还存在HelmReleaseFinalizer，不存在说明已经卸载过应用了
+			klog.V(3).Infof(&#34;helm uninstall %s/%s from host cluster&#34;, instance.GetRlsNamespace(), instance.Spec.Name)
+			// 调用helm uninstall应用
+			err := r.uninstallHelmRelease(instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			klog.V(3).Infof(&#34;remove helm release %s finalizer&#34;, instance.Name)
+			// remove finalizer
+			// 移除HelmReleaseFinalizer，并回写
+			instance.ObjectMeta.Finalizers = sliceutil.RemoveString(instance.ObjectMeta.Finalizers, func(item string) bool {
+				return item == HelmReleaseFinalizer
+			})
+			if err := r.Update(context.Background(), instance); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+		return reconcile.Result{}, nil
+	}
+    // 调用reconcile
+	return r.reconcile(instance)
+}
+
+// Check the state of the instance then decide what to do.
+func (r *ReconcileHelmRelease) reconcile(instance *v1alpha1.HelmRelease) (reconcile.Result, error) {
+
+	var err error
+	// 根据应用的状态，执行相应的动作
+	switch instance.Status.State {
+	case v1alpha1.HelmStatusDeleting:
+	    // 应用处于deleting状态，不做任何处理
+		// no operation
+		return reconcile.Result{}, nil
+	case v1alpha1.HelmStatusFailed:
+	    // 应用处于failed状态
+		// Release used to be failed, but instance.Status.Version not equal to instance.Spec.Version
+		if instance.Status.Version &gt; 0 &amp;&amp; instance.Status.Version != instance.Spec.Version {
+			// 校验instance.Status.Version和instance.Spec.Version，不匹配说明需要upgrade
+			return r.createOrUpgradeHelmRelease(instance, true)
+		} else {
+			return reconcile.Result{}, nil
+		}
+	case v1alpha1.HelmStatusActive:
+	    // 应用处于active状态
+		// Release used to be active, but instance.Status.Version not equal to instance.Spec.Version
+		if instance.Status.Version != instance.Spec.Version {
+		    // 更新应用的状态为upgrading，这样等下次reconcile的时候就进入到upgrading的处理逻辑
+			instance.Status.State = v1alpha1.HelmStatusUpgrading
+			// Update the state first.
+			err = r.Status().Update(context.TODO(), instance)
+			return reconcile.Result{}, err
+		} else {
+			return reconcile.Result{}, nil
+		}
+	case v1alpha1.HelmStatusCreating:
+	    // 应用处于creating状态
+		// create new release
+		// 创建helm release
+		return r.createOrUpgradeHelmRelease(instance, false)
+	case v1alpha1.HelmStatusUpgrading:
+	    // 应用处于upgrading状态
+		// We can update the release now.
+		// 升级helm release
+		return r.createOrUpgradeHelmRelease(instance, true)
+	case v1alpha1.HelmStatusCreated, v1alpha1.HelmStatusUpgraded:
+	    // 应用处于created、upgraded状态
+		if instance.Status.Version != instance.Spec.Version {
+			// Start a new backoff.
+			// 看着是每个release都会对应一个backOff，版本不一致的话就删除这个
+			r.checkReleaseStatusBackoff.DeleteEntry(rlsBackoffKey(instance))
+            // 应用状态置为upgrading
+			instance.Status.State = v1alpha1.HelmStatusUpgrading
+			err = r.Status().Update(context.TODO(), instance)
+			return reconcile.Result{}, err
+		} else {
+		    // 版本一致的话，检测release是否ready，如果是的话状态并更新为active
+			retry, err := r.checkReleaseIsReady(instance)
+			return reconcile.Result{RequeueAfter: retry}, err
+		}
+	case v1alpha1.HelmStatusRollbacking:
+	    // 应用处于rollbacking状态，不做任何处理
+		// TODO: rollback helm release
+		return reconcile.Result{}, nil
+	}
+
+	return reconcile.Result{}, nil
+}
+</code></pre><h1 id="镜像仓库">镜像仓库</h1>
+<h1 id="弹性伸缩">弹性伸缩</h1>
+<h1 id="云原生中间件">云原生中间件</h1>
+<h1 id="gpu共享">GPU共享</h1>
+<p>GPU共享方案基于第四范式开源的vgpu项目<a href="https://github.com/4paradigm/k8s-vgpu-scheduler">https://github.com/4paradigm/k8s-vgpu-scheduler</a>，资源隔离部分的代码没有开源，
+从对外资料来看，也是采用CUDA劫持方案（非nvidia官方技术人员采用较多的gpu共享技术）</p>
+<h2 id="节点gpu计算">节点GPU计算</h2>
+<p>每种GPU卡对应的显存总量是人工维护的，这里利用了一个gpu-mem-spec的configmap来统一维护，GPU卡型号和显存总量的映射关系</p>
+<pre tabindex="0"><code>kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: gpu-mem-spec
+  namespace: beekube-env-live
+data:
+  A100-SXM4-40GB: &#34;40536&#34;
+  RTX2080Ti: &#34;11019&#34;
+  RTX3090: &#34;24268&#34;
+  T4: &#34;15109&#34;
+  V100-SXM2-32GB: &#34;32510&#34;
+</code></pre><p>节点GPU资源情况有两个相关的接口：集群vgpu分配情况、节点vgpu分配情况</p>
+<pre tabindex="0"><code>clustersGroup.GET(&#34;/:cluster/vgpuallocinfo&#34;, s.GetClusterVgpuAllocInfo)
+clustersGroup.GET(&#34;/:cluster/nodes/:node/vgpuallocinfo&#34;, s.GetNodeVgpuAllocInfo)
+</code></pre><p>节点vgpu分配情况</p>
+<pre tabindex="0"><code>func (s *apiserver) GetNodeVgpuAllocInfo(c *gin.Context) {
+	clusterName := c.Param(&#34;cluster&#34;)
+	nodeName := c.Param(&#34;node&#34;)
+	if c.Request.URL.Query().Get(&#34;detail&#34;) == types.TRUE {
+	    // 
+		result, err := k8s.GetVgpuAllocDetail(clusterName, nodeName)
+		if err != nil {
+			response.InternalServerError(c, errno.ErrGetVgpuAllocFailed, err.Error())
+			return
+		}
+		c.JSON(http.StatusOK, result)
+		return
+	}
+	result, err := k8s.GetVgpuAllocInfo(clusterName, nodeName)
+	if err != nil {
+		response.InternalServerError(c, errno.ErrGetVgpuAllocFailed, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+</code></pre><p>计算节点GPU资源使用情况，适配了三种情况：</p>
+<ul>
+<li>第四范式</li>
+<li>阿里云</li>
+<li>Nvidia</li>
+</ul>
+<h1 id="一键部署yke">一键部署YKE</h1>
+<h2 id="生成部署配置">生成部署配置</h2>
+<pre tabindex="0"><code>./bm create config --with-domain ake.adsur.jp \
+--with-lite-beecloud v1.8.0 \
+--with-database root:jkxlabs@mysql:3306 \
+--with-log \
+--offline
+</code></pre><h2 id="安装集群">安装集群</h2>
+<pre tabindex="0"><code>./bm create cluster -f config-sample.yaml -y \
+--pkg bm-v1.13.0-k8s-v1.23.7-lite-beecloud.tar.gz
+</code></pre><h2 id="删除集群">删除集群</h2>
+<pre tabindex="0"><code>./bm delete cluster -f config-sample.yaml 
+</code></pre><h1 id="参考链接">参考链接</h1>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="http://localhost:1313/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2023/05/09/kubeadm-containerd-to-deploy-k8s/" data-toggle="tooltip" data-placement="top" title="kubeadm &#43; containerd部署k8s v1.27.1">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2023/06/19/container-platforms-usage-readnotes/" data-toggle="tooltip" data-placement="top" title="主流容器平台功能实现分析">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

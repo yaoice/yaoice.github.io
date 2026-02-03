@@ -308,6 +308,7 @@
 <p>还有一种Nginx Ingress Controller，目前是废弃状态</p>
 <h3 id="存储管理">存储管理</h3>
 <p>TKE支持多种类型的存储：腾讯云硬盘(CBS)、腾讯云文件存储(CFS)、腾讯云对象存储(COS)</p>
+<p>CSP：（Cloud Storage Provider）私有云存储是一种云存储解决方案，它允许企业在其自己的数据中心内部署和管理存储资源，而不是在公共云中。</p>
 <h4 id="cbs">CBS</h4>
 <p>CBS提供数据块级别的持久性存储，通常用作需要频繁更新、细粒度更新的数据（如文件系统、数据库等）的主存储设备，具有高可用、高可靠和高性能的特点。</p>
 <p>云硬盘仅支持单机读写</p>
@@ -332,14 +333,55 @@
 <li>优点：Pod 启动速度较快；对于IP分配和网络性能没有特殊需求的简单业务场景</li>
 <li>缺点：集群VPC CIDR和集群Pod CIDR网段不能重叠；同一VPC内，不同集群的Pod CIDR网段不能重叠；不支持固定IP；</li>
 </ul>
+<p>Global Router模式依赖底层VPC的全局路由能力，而腾讯云VPC本身采用GRE隧道技术构建Overlay网络，实现逻辑隔离的私有网络环境。为什么采用是GRE?</p>
+<ul>
+<li>GRE协议通过32位的vpcid字段(对应GRE Header Key字段)实现多租户网络隔离。相较于VXLAN的24位VNI（支持约1600万地址空间），GRE的32位地址空间可支持超过40亿的租户标识</li>
+<li>GRE报文头部更小，减少协议开销</li>
+</ul>
+<p>VPC使用GRE的不足：传输网络需要使用GRE头，GRE不能兼容传统负载均衡，建议GRE主机采用多个IP地址，这样就可以保证流量被负载均衡</p>
 <h4 id="cilium-overlay">Cilium-Overlay</h4>
 <p>Cilium-Overlay网络方案是容器服务TKE 基于Cilium VXLan实现的容器网络插件，实现分布式云场景中，用户云下节点添加到TKE集群时，云上云下Pod之间互通的需求。</p>
 <ul>
 <li>优点：云上节点和云下节点共用指定的容器网段</li>
 <li>缺点：Cilium VXLan 隧道封装协议，有10%以内的性能损耗；不支持固定Pod IP</li>
 </ul>
-<p>VXLAN：采用UDP协议封装原始数据包，头部长度为24字节;通过VNI实现强隔离性，不同虚拟网络的流量完全隔离。
-GRE：基于IP协议封装，头部固定为20字节，缺乏原生隔离机制。</p>
+<p>GRE和VXLAN的对比：</p>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>GRE</th>
+<th>VXLAN</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>额外开销</td>
+<td>28字节（IP+GRE头）</td>
+<td>50字节（MAC+IP+UDP+VXLAN头）</td>
+</tr>
+<tr>
+<td>扩展标识位</td>
+<td>32位Key字段（40亿+地址空间）</td>
+<td>24位VNI（1600万地址空间）</td>
+</tr>
+<tr>
+<td>协议依赖</td>
+<td>IP协议（三层）</td>
+<td>UDP协议（四层）</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>大规模VPC隔离、网关间通信</td>
+<td>数据中心内部虚拟化、BMS互通</td>
+</tr>
+<tr>
+<td>分片概率</td>
+<td>低（有效载荷大）</td>
+<td>高（需调整MTU）</td>
+</tr>
+</tbody>
+</table>
 <h4 id="dataplane-v2">Dataplane V2</h4>
 <p>TKE推出新一代Kubernetes网络数据平面——Dataplane V2(基于cilium)，TKE Dataplane V2基于eBPF实现了东西向的Service（包括ClusterIP和NodePort）和NetworkPolicy。当数据包从Pod网卡发出或到达TKE节点时，内核中的eBPF程序会决定如何路由和处理数据包。</p>
 <p>【部署方式】
@@ -433,6 +475,67 @@ Dataplane V2基于Cilium实现了ClusterIP和NodePort类型的Service，完全�
 <h2 id="专有云">专有云</h2>
 <p>为金融机构单客户提供专有云。专有物理隔离、独立网络核心的合规IDC，支持统一管控，共享腾讯网络基础设施及安全防护能力。适合的机构：银行，保险，证券，基金等大中型金融机构。</p>
 <p>腾讯专有云TCE是基于腾讯公有云成熟体系自研的私有化版本，帮助客户建设面向大模型时代的自主可控、弹性伸缩的全栈数字化底座，为企业数字化运营提供一站式解决方案</p>
+<h3 id="tce架构">TCE架构</h3>
+<p>TCE多Region多AZ部署，经典场景：</p>
+<ul>
+<li>单Region单AZ，对应用户单机房场景；
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>┌─────────────────┐                    
+</span></span><span style="display:flex;"><span>│     Region      │                    
+</span></span><span style="display:flex;"><span>│   ┌────────┐    │          ┌────────┐
+</span></span><span style="display:flex;"><span>│   │   MAZ  │    │────────▶ │  单机房 │
+</span></span><span style="display:flex;"><span>│   └────────┘    │          └────────┘
+</span></span><span style="display:flex;"><span>└─────────────────┘                                   
+</span></span></code></pre></div></li>
+<li>单Region双AZ，对应常见的同城双活场景；(延伸：单Region双AZ+仲裁)
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>┌────────────────────┐                   
+</span></span><span style="display:flex;"><span>│       Region       │        ┌─────────┐
+</span></span><span style="display:flex;"><span>│                    │        │ 同城双活 │
+</span></span><span style="display:flex;"><span>│  ┌──────┐ ┌──────┐ │───────▶│         │
+</span></span><span style="display:flex;"><span>│  │  MAZ │ │  SAZ │ │        └─────────┘
+</span></span><span style="display:flex;"><span>│  └──────┘ └──────┘ │                   
+</span></span><span style="display:flex;"><span>└────────────────────┘         
+</span></span></code></pre></div></li>
+<li>单Region+三AZ，对应金融级三中心场景；
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>┌────────────────────────────────┐
+</span></span><span style="display:flex;"><span>│       Region                   │        ┌─────────┐
+</span></span><span style="display:flex;"><span>│                                │        │  三中心  │
+</span></span><span style="display:flex;"><span>│  ┌──────┐ ┌──────┐ ┌──────┐    │───────▶│         │
+</span></span><span style="display:flex;"><span>│  │  MAZ │ │  SAZ │ │  0AZ │    │        └─────────┘
+</span></span><span style="display:flex;"><span>│  └──────┘ └──────┘ └──────┘    │
+</span></span><span style="display:flex;"><span>└────────────────────────────────┘
+</span></span></code></pre></div></li>
+<li>主Region双AZ+备Region单AZ，对应同城双活+异地灾备的金融级两地三中心场景；
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>┌────────────────────┐       ┌─────────────────┐
+</span></span><span style="display:flex;"><span>│      M-Region      │       │    S-Region     │
+</span></span><span style="display:flex;"><span>│                    │       │                 │
+</span></span><span style="display:flex;"><span>│  ┌──────┐ ┌──────┐ │──────▶│     ┌─────┐     │
+</span></span><span style="display:flex;"><span>│  │  MAZ │ │  SAZ │ │       │     │ MAZ │     │
+</span></span><span style="display:flex;"><span>│  └──────┘ └──────┘ │       │     └─────┘     │
+</span></span><span style="display:flex;"><span>└────────────────────┘       └─────────────────┘
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>                        ┃                       
+</span></span><span style="display:flex;"><span>                        ┃                       
+</span></span><span style="display:flex;"><span>                        ┃                       
+</span></span><span style="display:flex;"><span>                        ┃                       
+</span></span><span style="display:flex;"><span>                        ▼                       
+</span></span><span style="display:flex;"><span>              ┌──────────────────┐              
+</span></span><span style="display:flex;"><span>              │    两地三中心：    │              
+</span></span><span style="display:flex;"><span>              │   同城双活+异地灾备 │              
+</span></span><span style="display:flex;"><span>              └──────────────────┘                
+</span></span></code></pre></div></li>
+<li>多Region多AZ，大型分布式行业云场景；</li>
+</ul>
+<p>每个AZ都可以部署全套的IaaS+PaaS产品，并可根据实际业务需要进行服务的删减</p>
+<ul>
+<li>CDC，分布式云纳管；
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>┌─────────────────────┐                   
+</span></span><span style="display:flex;"><span>│    公有云中心Region   │                    
+</span></span><span style="display:flex;"><span>│   ┌────────┐        │  VPN/专线 ┌─────────────┐  VPN/专线  ┌────────────────┐
+</span></span><span style="display:flex;"><span>│   │   AZ   │        │ ────────▶│  CDC专用集群  │ ────────▶ │  专有云TCE/TCS  │
+</span></span><span style="display:flex;"><span>│   └────────┘        │          └─────────────┘            └────────────────┘
+</span></span><span style="display:flex;"><span>└─────────────────────┘                                  
+</span></span></code></pre></div></li>
+</ul>
 <h1 id="参考链接">参考链接</h1>
 <ul>
 <li><a href="https://cloud.tencent.com/document/product">https://cloud.tencent.com/document/product</a></li>
@@ -688,7 +791,7 @@ Dataplane V2基于Cilium实现了ClusterIP和NodePort类型的Service，完全�
             
              </ul>
 		<p class="copyright text-muted">
-                    Copyright &copy; 爱折腾的工程师 2025
+                    Copyright &copy; 爱折腾的工程师 2026
                 </p>
             </div>
         </div>
