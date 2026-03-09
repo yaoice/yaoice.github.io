@@ -18,15 +18,15 @@
     
 
     
-    <meta name="title" content="绑定namespace的kubeconfig" />
-    <meta property="og:title" content="绑定namespace的kubeconfig" />
-    <meta property="twitter:title" content="绑定namespace的kubeconfig" />
+    <meta name="title" content=" 智能体知识点大杂烩" />
+    <meta property="og:title" content=" 智能体知识点大杂烩" />
+    <meta property="twitter:title" content=" 智能体知识点大杂烩" />
     
 
     
-    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
-    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
-    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta name="description" content="智能体知识点大杂烩">
+    <meta property="og:description" content="智能体知识点大杂烩" />
+    <meta property="twitter:description" content="智能体知识点大杂烩" />
     
 
     
@@ -37,9 +37,9 @@
     <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
     <link rel="shortcut icon" href="/img/favicon.ico">
 
-    <title>绑定namespace的kubeconfig | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+    <title> 智能体知识点大杂烩 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
 
-    <link rel="canonical" href="/post/2019-11-16-%E7%BB%91%E5%AE%9Anamespace%E7%9A%84kubeconfig/">
+    <link rel="canonical" href="/2026/03/01/python-knowledge/">
 
     
 
@@ -191,21 +191,21 @@
                 <div class="post-heading">
                     <div class="tags">
                         
-                        <a class="tag" href="/tags/k8s" title="k8s">
-                            k8s
+                        <a class="tag" href="/tags/python" title="Python">
+                            Python
                         </a>
                         
                     </div>
-                    <h1>绑定namespace的kubeconfig</h1>
+                    <h1> 智能体知识点大杂烩</h1>
                     <h2 class="subheading"></h2>
                     <span class="meta">
                         
                             Posted by 
                             
-                                    爱折腾的工程师
+                                iceyao
                              
                             on 
-                            Saturday, November 16, 2019
+                            Sunday, March 1, 2026
                             
                             
                             
@@ -231,98 +231,120 @@
                 post-container">
 
                 
-                <h3 id="环境">环境</h3>
+                <h1 id="智能体知识点">智能体知识点</h1>
+<h2 id="tool-call原理">Tool Call原理</h2>
+<p>大模型返回建议用tool_call工具，为什么客户端就知道要去执行对应的代码呢？</p>
+<blockquote>
+<p>大模型的 tool_call 本质上只是返回一个结构化的“调用建议”，模型本身既不会执行代码，也没有任何系统权限；真正的执行发生在本地的 Agent Runtime 或客户端。因为在请求模型时，本地程序已经注册了可用工具并持续解析模型返回结果，一旦检测到符合约定协议（如 tool_calls 字段）的响应，就会根据工具注册表自动匹配对应函数或 API 并执行，然后再把执行结果回传给模型继续推理。因此，看起来像是“大模型调用了工具”，实际是 模型负责决策，本地运行时负责解析协议并完成执行。</p>
+</blockquote>
+<h2 id="skills原理">Skills原理</h2>
+<p>Skill = 带上下文能力的 Tool + Prompt + 执行流程，可以把 Skills看成是Tool Calling的工程化封装。</p>
+<p>Skill的原理就是：让大模型先选择“哪种能力模式”，再在该模式内部通过tool_call循环完成真实执行。</p>
+<h2 id="skill构建指南">Skill构建指南</h2>
+<p>来自Anthropic官方指南：<a href="https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf?hsLang=en">The Complete Guide to Building Skills for Claude</a></p>
+<h3 id="成功标准定义define-success-criteria">成功标准定义（Define Success Criteria）</h3>
+<p>指南指出这些是&quot;aspirational targets&quot;（理想目标），粗略基准而非精确阈值，接受一定程度的vibes-based评估。</p>
+<h4 id="定量指标">定量指标</h4>
 <ul>
-<li>Kubernetes v1.14.6</li>
-<li>Etcd 3.3.12</li>
-<li>Docker 18.09.9</li>
+<li><strong>触发准确率</strong>：Skill应在90%的相关查询上被触发。测量方式：运行10-20个应触发Skill的测试查询，跟踪自动加载 vs 需手动调用的比率</li>
+<li><strong>工作流效率</strong>：在X次工具调用内完成工作流。测量方式：对比启用/未启用Skill时完成相同任务的工具调用次数和总token消耗</li>
+<li><strong>API零失败</strong>：每个工作流中0次失败的API调用。测量方式：在测试运行期间监控MCP服务端日志，跟踪重试率和错误码</li>
 </ul>
-<h3 id="k8s中的用户">k8s中的用户</h3>
-<p>k8s中的用户有serviceaccount和user</p>
+<h4 id="定性指标">定性指标</h4>
 <ul>
-<li>serviceaccount是k8s管理</li>
-<li>user不受k8s管理，k8s可以控制该用户在集群内的权限</li>
+<li><strong>自主性</strong>：用户不需要提示Claude下一步操作。评估方式：测试过程中记录需要重新引导或澄清的频率，收集Beta用户反馈</li>
+<li><strong>免纠正</strong>：工作流无需用户手动纠正即可完成。评估方式：对同一请求运行3-5次，比较输出的结构一致性和质量</li>
+<li><strong>跨会话一致性</strong>：不同会话中结果保持一致。评估方式：新用户是否能首次尝试就完成任务，且只需最少指导？</li>
 </ul>
-<h3 id="创建ice用户">创建ice用户</h3>
-<p>用户名为ice</p>
-<ol>
-<li>
-<p>为ice用户创建私钥</p>
-<pre tabindex="0"><code>openssl genrsa -out ice.key 2048
-</code></pre></li>
-<li>
-<p>用此私钥创建证书签名请求文件(csr)</p>
-<pre tabindex="0"><code>openssl req -new -key ice.key -out ice.csr -subj &#34;/CN=ice/O=MGM&#34;
-</code></pre></li>
-<li>
-<p>利用集群的CA证书(/etc/kubernetes/pki/)和csr文件，为ice用户颁发证书</p>
-<pre tabindex="0"><code>openssl x509 -req -in ice.csr \
-     -CA /etc/kubernetes/pki/ca.crt \
-     -CAkey /etc/kubernetes/pki/ca.key \
-     -CAcreateserial \
-     -out ice.crt \
-     -days 3650
-</code></pre><pre tabindex="0"><code># 查看证书内容
-openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout
-</code></pre></li>
-<li>
-<p>为ice用户添加rbac</p>
-<p>创建ice命名空间</p>
-<pre tabindex="0"><code>kubectl create namespace ice
-</code></pre><p>创建roleBing</p>
-<pre tabindex="0"><code>root@10.10.10.12:~# vim ice-rolebind.yaml
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: admin-binding
-  namespace: ice
-subjects:
-- kind: User
-  name: ice
-  apiGroup: &#34;&#34;
-roleRef:
-  kind: ClusterRole
-  name: admin
-  apiGroup: &#34;&#34;
-</code></pre><p>k8s内置admin、cluster-admin的clusterRole; 所有命名空间的管理员用cluster-admin,
-某一命名空间的管理员用admin.</p>
-<p>应用rbac</p>
-<pre tabindex="0"><code>kubectl apply -f ice-rolebind.yaml
-</code></pre></li>
-</ol>
-<h3 id="创建kubeconfig">创建kubeconfig</h3>
-<p>设置集群参数</p>
-<pre tabindex="0"><code>export KUBE_APISERVER=&#34;https://127.0.0.1:6443&#34;
-kubectl config set-cluster kubernetes \
-     --certificate-authority=/etc/kubernetes/pki/ca.crt \
-     --embed-certs=true --server=${KUBE_APISERVER} \
-     --kubeconfig=ice.kubeconfig
-</code></pre><p>设置认证参数</p>
-<pre tabindex="0"><code>kubectl config set-credentials ice \
-     --client-certificate=ice.crt \
-     --client-key=ice.key \
-     --embed-certs=true \
-     --kubeconfig=ice.kubeconfig
-</code></pre><p>设置context参数</p>
-<pre tabindex="0"><code>kubectl config set-context kubernetes \
-     --cluster=kubernetes \
-     --user=ice \
-     --namespace=ice \
-     --kubeconfig=ice.kubeconfig
-</code></pre><p>设置默认context</p>
-<pre tabindex="0"><code>kubectl config use-context kubernetes --kubeconfig=ice.kubeconfig 
-</code></pre><h3 id="测试验证">测试验证</h3>
-<pre tabindex="0"><code>root@10.10.10.12:~# kubectl --kubeconfig=ice.kubeconfig get namespaces
-Error from server (Forbidden): namespaces is forbidden: User &#34;ice&#34; cannot list resource &#34;namespaces&#34; in API group &#34;&#34; at the cluster scope
+<h3 id="三类测试维度">三类测试维度</h3>
+<h4 id="1-触发测试triggering-tests">1. 触发测试（Triggering Tests）</h4>
+<p>目标：确保Skill在正确时机被加载</p>
+<ul>
+<li>✅ 在明确任务描述时触发</li>
+<li>✅ 在改述/换说法请求时触发</li>
+<li>❌ 在无关话题上不触发</li>
+</ul>
+<p>示例：</p>
+<pre tabindex="0"><code>应触发：
+- &#34;help me plan this sprint&#34;
+- &#34;I need to create a project in ProjectHub&#34;
+- &#34;Initialize a ProjectHub project for Q4 planning&#34;
 
-root@10.10.10.12:~# kubectl --kubeconfig=ice.kubeconfig get pod
-No resources found.
-</code></pre><p>只能在ice命名空间下操作</p>
-<h3 id="参考链接">参考链接</h3>
+不应触发：
+- &#34;What&#39;s the weather in San Francisco?&#34;
+- &#34;Help me write Python code&#34;
+- &#34;Create a spreadsheet&#34;（除非Skill处理表格）
+</code></pre><h4 id="2-功能测试functional-tests">2. 功能测试（Functional Tests）</h4>
+<p>目标：验证Skill产生正确输出</p>
 <ul>
-<li><a href="https://zhuanlan.zhihu.com/p/43237959">为Kubernetes集群添加用户</a></li>
-<li><a href="https://www.zrq.org.cn/post/%E5%88%9B%E5%BB%BA%E7%94%A8%E6%88%B7%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83%E7%9A%84kubeconfig%E6%96%87%E4%BB%B6/">创建用户认证授权的kubeconfig文件</a></li>
-<li><a href="https://ningyu1.github.io/site/post/51-ssl-cert/">Openssl生成自签名证书，简单步骤</a></li>
+<li>生成有效输出</li>
+<li>API调用成功</li>
+<li>错误处理正常工作</li>
+<li>覆盖边缘情况</li>
+</ul>
+<h4 id="3-性能对比performance-comparison">3. 性能对比（Performance Comparison）</h4>
+<p>目标：证明Skill相比基线有提升</p>
+<pre tabindex="0"><code>未启用Skill：
+- 用户每次都要提供指令
+- 15轮对话交互
+- 3次失败的API调用需要重试
+- 消耗12,000 tokens
+
+启用Skill后：
+- 自动执行工作流
+- 仅2次澄清提问
+- 0次失败的API调用
+- 消耗6,000 tokens
+</code></pre><h3 id="迭代改进信号">迭代改进信号</h3>
+<h4 id="触发不足undertriggering信号">触发不足（Undertriggering）信号</h4>
+<ul>
+<li>Skill在应该加载时没有加载</li>
+<li>用户需手动启用</li>
+<li>出现&quot;什么时候用这个Skill&quot;的支持问题</li>
+</ul>
+<p><strong>解决方案</strong>：在description中添加更多细节和关键词</p>
+<h4 id="过度触发overtriggering信号">过度触发（Overtriggering）信号</h4>
+<ul>
+<li>Skill在不相关查询时加载</li>
+<li>用户频繁禁用它</li>
+<li>用途混淆</li>
+</ul>
+<p><strong>解决方案</strong>：添加负面触发词，描述更具体化</p>
+<h3 id="skill质量检查清单">Skill质量检查清单</h3>
+<h4 id="开发前">开发前</h4>
+<ul>
+<li>确定2-3个具体用例</li>
+<li>识别所需工具（内置或MCP）</li>
+<li>规划文件夹结构</li>
+</ul>
+<h4 id="开发中">开发中</h4>
+<ul>
+<li>文件夹使用kebab-case命名</li>
+<li>SKILL.md文件存在（必须精确大写）</li>
+<li>YAML frontmatter有<code>---</code>分隔符</li>
+<li>name字段：kebab-case，无空格，无大写</li>
+<li>description同时包含<strong>做什么</strong>和<strong>何时使用</strong></li>
+<li>无XML标签（<code>&lt;</code> <code>&gt;</code>）</li>
+<li>指令清晰可执行</li>
+<li>包含错误处理</li>
+<li>提供示例</li>
+<li>引用资料清晰链接</li>
+</ul>
+<h4 id="上传前">上传前</h4>
+<ul>
+<li>测试明确任务是否触发</li>
+<li>测试改述请求是否触发</li>
+<li>验证无关话题不触发</li>
+<li>功能测试通过</li>
+<li>工具集成正常（如适用）</li>
+</ul>
+<h4 id="上传后">上传后</h4>
+<ul>
+<li>在真实对话中测试</li>
+<li>监控触发不足/过度触发</li>
+<li>收集用户反馈</li>
+<li>迭代优化description和指令</li>
+<li>更新metadata中的版本号</li>
 </ul>
 
 
@@ -373,13 +395,13 @@ No resources found.
                 <ul class="pager">
                     
                     <li class="previous">
-                        <a href="/post/2019-09-29-%E7%94%B3%E5%A8%81k8s%E4%B9%8B%E6%97%85/" data-toggle="tooltip" data-placement="top" title="容器国产化适配">&larr;
+                        <a href="/2026/01/20/agent-design-pattern/" data-toggle="tooltip" data-placement="top" title="智能体设计模式全面解析：从基础到高级">&larr;
                             Previous Post</a>
                     </li>
                     
                     
                     <li class="next">
-                        <a href="/post/2019-12-14-large_k8s_cluster_test/" data-toggle="tooltip" data-placement="top" title="k8s大规模测试">Next
+                        <a href="/2026/03/09/ai-coauthoring-workbench/" data-toggle="tooltip" data-placement="top" title="从零构建AI文档协作工作台：Skill Runtime驱动的智能引导系统实战">Next
                             Post &rarr;</a>
                     </li>
                     
