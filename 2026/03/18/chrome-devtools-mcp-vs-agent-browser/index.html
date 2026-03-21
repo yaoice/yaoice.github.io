@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Chrome DevTools MCP vs agent-browser：一文看懂两类 AI 浏览器工具的差异" />
+    <meta property="og:title" content="Chrome DevTools MCP vs agent-browser：一文看懂两类 AI 浏览器工具的差异" />
+    <meta property="twitter:title" content="Chrome DevTools MCP vs agent-browser：一文看懂两类 AI 浏览器工具的差异" />
+    
+
+    
+    <meta name="description" content="本文翻译整理自 Alexandru Bagu 的 Chrome DevTools MCP vs agent-browser 对比文章，涵盖功能差异、安装方法、典型用例、性能与安全考量，适合关注 AI 浏览器自动化、MCP、测试和调试工具链的开发者。">
+    <meta property="og:description" content="本文翻译整理自 Alexandru Bagu 的 Chrome DevTools MCP vs agent-browser 对比文章，涵盖功能差异、安装方法、典型用例、性能与安全考量，适合关注 AI 浏览器自动化、MCP、测试和调试工具链的开发者。" />
+    <meta property="twitter:description" content="本文翻译整理自 Alexandru Bagu 的 Chrome DevTools MCP vs agent-browser 对比文章，涵盖功能差异、安装方法、典型用例、性能与安全考量，适合关注 AI 浏览器自动化、MCP、测试和调试工具链的开发者。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Chrome DevTools MCP vs agent-browser：一文看懂两类 AI 浏览器工具的差异 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/03/18/chrome-devtools-mcp-vs-agent-browser/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                    </div>
+                    <h1>Chrome DevTools MCP vs agent-browser：一文看懂两类 AI 浏览器工具的差异</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Wednesday, March 18, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>译者注：本文译自 Alexandru Bagu 的《Chrome DevTools MCP vs agent-browser: Comprehensive Comparison Guide》。为了适配中文阅读，我对少量表述做了顺译和整理，但核心观点保持不变。原文链接：<code>https://alexandrubagu.github.io/blog/chrome-devtools-mcp-vs-agent-browser.html</code></p>
+</blockquote>
+<h2 id="一概览">一、概览</h2>
+<p>随着 AI 驱动的开发工具不断演进，浏览器自动化已经成了构建智能代理时绕不开的一环。现在有两类很有代表性的工具：<strong>Chrome DevTools MCP</strong> 和 <strong>agent-browser</strong>。</p>
+<p>它们都能让 AI 代理控制浏览器，但侧重点完全不同，擅长的场景也不一样。</p>
+<p>这篇文章会从架构、功能、使用场景和安装方式几个维度，把这两者放在一起讲清楚，帮助你判断自己到底该选哪一个。</p>
+<h2 id="二什么是-chrome-devtools-mcp">二、什么是 Chrome DevTools MCP</h2>
+<p><strong>Chrome DevTools MCP（Model Context Protocol）</strong> 本质上是一个 MCP Server，用来把 Chrome DevTools 的能力接到 Claude Code 这类 AI 助手里。</p>
+<p>它通过 MCP 协议把浏览器调试和性能分析能力暴露给 AI，因此代理可以直接：</p>
+<ul>
+<li>检查页面结构</li>
+<li>分析性能</li>
+<li>运行 Lighthouse 审计</li>
+<li>调试 Web 应用</li>
+</ul>
+<h3 id="21-主要特征">2.1 主要特征</h3>
+<ul>
+<li><strong>定位</strong>：开发、调试、性能分析</li>
+<li><strong>集成方式</strong>：面向 AI 编码助手，通过 MCP 协议接入</li>
+<li><strong>强项</strong>：深度性能剖析、Lighthouse 审计、内存调试、控制台监控</li>
+<li><strong>适用场景</strong>：开发流程中的调试、性能优化、问题排查</li>
+</ul>
+<h2 id="三什么是-agent-browser">三、什么是 agent-browser</h2>
+<p><strong>agent-browser</strong> 是一个专门为 AI 代理设计的浏览器自动化 CLI。它基于 Playwright 构建，提供了一组更偏高层的命令，专门针对 AI 交互做了优化。</p>
+<p>它支持的能力包括：</p>
+<ul>
+<li>快照对比</li>
+<li>网络请求 mock</li>
+<li>语义化定位器</li>
+<li>云浏览器集成</li>
+</ul>
+<h3 id="31-主要特征">3.1 主要特征</h3>
+<ul>
+<li><strong>定位</strong>：生产级自动化、测试，以及 AI 代理工作流</li>
+<li><strong>集成方式</strong>：既可以独立作为 CLI 使用，也可以作为 MCP Server 接入</li>
+<li><strong>强项</strong>：视觉回归测试、请求 mock、浏览器存储管理、认证状态持久化</li>
+<li><strong>适用场景</strong>：自动化测试、网页抓取、生产环境监控、端到端测试</li>
+</ul>
+<h2 id="四功能对比">四、功能对比</h2>
+<h3 id="41-chrome-devtools-mcp-缺少的能力">4.1 Chrome DevTools MCP 缺少的能力</h3>
+<p>根据原文的对比，Chrome DevTools MCP 缺少一些 agent-browser 已经提供的能力。</p>
+<h4 id="1快照比较与视觉-diff">1）快照比较与视觉 diff</h4>
+<ul>
+<li>❌ 没有基线快照比较</li>
+<li>❌ 没有可配置阈值的像素级视觉 diff</li>
+<li>❌ 没有跨 URL 的对比工具</li>
+<li>✅ <strong>agent-browser</strong>：内置 diff 命令，适合做回归测试</li>
+</ul>
+<h4 id="2网络请求拦截与-mock">2）网络请求拦截与 mock</h4>
+<ul>
+<li>❌ Chrome DevTools MCP 可以监控网络请求，但不能拦截请求或 mock 响应</li>
+<li>❌ 不支持请求阻断</li>
+<li>❌ 不能给请求注入自定义 HTTP Header</li>
+<li>✅ <strong>agent-browser</strong>：支持完整的请求/响应拦截与 mock</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># agent-browser 示例：Mock API 响应</span>
+</span></span><span style="display:flex;"><span>agent-browser mock-request <span style="color:#f1fa8c">&#34;https://api.example.com/users&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --response <span style="color:#f1fa8c">&#39;{&#34;users&#34;: [{&#34;id&#34;: 1, &#34;name&#34;: &#34;Test User&#34;}]}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --status <span style="color:#bd93f9">200</span>
+</span></span></code></pre></div><h4 id="3浏览器存储管理">3）浏览器存储管理</h4>
+<ul>
+<li>❌ 不能直接读写 <code>localStorage</code> 或 <code>sessionStorage</code></li>
+<li>❌ 没有 cookie 的获取、设置、删除命令</li>
+<li>✅ <strong>agent-browser</strong>：可以直接访问浏览器存储 API</li>
+</ul>
+<h4 id="4带标注的截图">4）带标注的截图</h4>
+<ul>
+<li>❌ Chrome DevTools MCP 可以截图，但不会在截图上叠加元素编号</li>
+<li>✅ <strong>agent-browser</strong>：支持在截图中加入 <code>@e1</code>、<code>@e2</code> 这类标签，方便 AI 识别元素</li>
+</ul>
+<h4 id="5语义化定位器">5）语义化定位器</h4>
+<ul>
+<li>⚠️ Chrome DevTools MCP 依赖 accessibility tree 的 UID，这一点本身并不差，但没有那么统一、灵活的语义定位语法</li>
+<li>✅ <strong>agent-browser</strong>：可以统一通过 ARIA role、文本、label、placeholder、alt text 来定位元素</li>
+</ul>
+<h4 id="6其他缺失能力">6）其他缺失能力</h4>
+<p>Chrome DevTools MCP 还缺少下面这些点：</p>
+<ul>
+<li><strong>剪贴板操作</strong>：agent-browser 支持读写剪贴板，Chrome DevTools MCP 不支持</li>
+<li><strong>鼠标滚轮滚动</strong>：agent-browser 支持直接控制滚轮</li>
+<li><strong>PDF 导出</strong>：agent-browser 可以导出 PDF，Chrome DevTools MCP 不能</li>
+<li><strong>云厂商集成</strong>：agent-browser 原生支持 Browserless、Browserbase</li>
+<li><strong>认证持久化</strong>：agent-browser 支持 profile、session state 和凭据管理</li>
+<li><strong>安全控制</strong>：agent-browser 支持域名 allowlist 和动作策略控制</li>
+</ul>
+<h3 id="42-chrome-devtools-mcp-更擅长什么">4.2 Chrome DevTools MCP 更擅长什么</h3>
+<p>Chrome DevTools MCP 在开发和调试场景里明显更强，尤其是这些能力：</p>
+<ul>
+<li>✅ <strong>性能剖析</strong>：可以拿到 agent-browser 做不到的深度性能 trace 和分析</li>
+<li>✅ <strong>Lighthouse 审计</strong>：可以直接看 SEO、可访问性和最佳实践评分</li>
+<li>✅ <strong>内存调试</strong>：支持 Heap Snapshot，方便排查内存泄漏</li>
+<li>✅ <strong>控制台监控</strong>：可以更完整地追踪 console 输出</li>
+<li>✅ <strong>CPU 限速</strong>：适合在受限资源条件下做性能测试</li>
+<li>✅ <strong>网络时序分析</strong>：支持更细的瀑布图和时延拆解</li>
+</ul>
+<h2 id="五安装指南">五、安装指南</h2>
+<h3 id="51-安装-chrome-devtools-mcp">5.1 安装 Chrome DevTools MCP</h3>
+<p>Chrome DevTools MCP 一般是以 MCP Server 的方式，配置在 AI 助手里，例如 Claude Code。</p>
+<h4 id="第一步安装前置条件">第一步：安装前置条件</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 确认本地 Node.js 已安装</span>
+</span></span><span style="display:flex;"><span>node --version  <span style="color:#6272a4"># 应为 v18 或更高</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 安装 Chrome DevTools MCP Server</span>
+</span></span><span style="display:flex;"><span>npm install -g @anthropic/chrome-devtools-mcp
+</span></span></code></pre></div><h4 id="第二步配置-mcp-server">第二步：配置 MCP Server</h4>
+<p>把下面的配置加到 Claude Code 的设置文件里，例如 <code>~/.claude/settings.json</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;mcpServers&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;chrome-devtools&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;command&#34;</span>: <span style="color:#f1fa8c">&#34;npx&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;args&#34;</span>: [<span style="color:#f1fa8c">&#34;-y&#34;</span>, <span style="color:#f1fa8c">&#34;@anthropic/chrome-devtools-mcp&#34;</span>],
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;env&#34;</span>: {}
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="第三步验证安装">第三步：验证安装</h4>
+<p>重启 AI 助手，确认 MCP Server 已经生效。如果配置成功，你应该能在 AI 助手中看到对应的 Chrome DevTools 相关命令。</p>
+<h3 id="52-安装-agent-browser">5.2 安装 agent-browser</h3>
+<p>agent-browser 既可以独立作为 CLI 使用，也可以配置为 MCP Server。</p>
+<h4 id="方式一独立-cli">方式一：独立 CLI</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 通过 npm 安装</span>
+</span></span><span style="display:flex;"><span>npm install -g @agentlabs/agent-browser
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 或通过 pip 安装（Python）</span>
+</span></span><span style="display:flex;"><span>pip install agent-browser
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 验证安装</span>
+</span></span><span style="display:flex;"><span>agent-browser --version
+</span></span></code></pre></div><h4 id="方式二作为-mcp-server-配置">方式二：作为 MCP Server 配置</h4>
+<p>把下面的配置加到你的 MCP Server 配置中：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;mcpServers&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;agent-browser&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;command&#34;</span>: <span style="color:#f1fa8c">&#34;npx&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;args&#34;</span>: [<span style="color:#f1fa8c">&#34;-y&#34;</span>, <span style="color:#f1fa8c">&#34;@agentlabs/agent-browser-mcp&#34;</span>],
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;env&#34;</span>: {}
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="第四步初始化浏览器">第四步：初始化浏览器</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 启动浏览器实例</span>
+</span></span><span style="display:flex;"><span>agent-browser launch
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 打开页面</span>
+</span></span><span style="display:flex;"><span>agent-browser navigate https://example.com
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 截取快照</span>
+</span></span><span style="display:flex;"><span>agent-browser snapshot
+</span></span></code></pre></div><h2 id="六适用场景对比">六、适用场景对比</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">场景</th>
+<th style="text-align:left">Chrome DevTools MCP</th>
+<th style="text-align:left">agent-browser</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">性能调试</td>
+<td style="text-align:left">✅ 很强</td>
+<td style="text-align:left">❌ 能力有限</td>
+</tr>
+<tr>
+<td style="text-align:left">Lighthouse 审计</td>
+<td style="text-align:left">✅ 内置支持</td>
+<td style="text-align:left">❌ 不支持</td>
+</tr>
+<tr>
+<td style="text-align:left">视觉回归测试</td>
+<td style="text-align:left">❌ 不支持</td>
+<td style="text-align:left">✅ 很强</td>
+</tr>
+<tr>
+<td style="text-align:left">网络 mock</td>
+<td style="text-align:left">❌ 只能监控</td>
+<td style="text-align:left">✅ 完整支持</td>
+</tr>
+<tr>
+<td style="text-align:left">内存泄漏排查</td>
+<td style="text-align:left">✅ 支持 Heap Snapshot</td>
+<td style="text-align:left">❌ 不支持</td>
+</tr>
+<tr>
+<td style="text-align:left">E2E 自动化</td>
+<td style="text-align:left">⚠️ 能做基础操作</td>
+<td style="text-align:left">✅ 很强</td>
+</tr>
+<tr>
+<td style="text-align:left">存储操作</td>
+<td style="text-align:left">❌ 不支持</td>
+<td style="text-align:left">✅ 完整支持</td>
+</tr>
+<tr>
+<td style="text-align:left">云浏览器集成</td>
+<td style="text-align:left">❌ 不支持</td>
+<td style="text-align:left">✅ 原生支持</td>
+</tr>
+</tbody>
+</table>
+<h2 id="七什么时候该用哪个">七、什么时候该用哪个</h2>
+<h3 id="71-更适合选-chrome-devtools-mcp-的情况">7.1 更适合选 Chrome DevTools MCP 的情况</h3>
+<p>如果你正在做下面这些事，Chrome DevTools MCP 会更合适：</p>
+<ul>
+<li>需要深入做性能剖析和性能优化</li>
+<li>想跑 Lighthouse 审计，检查 SEO、可访问性和最佳实践</li>
+<li>要用 Heap Snapshot 排查内存泄漏</li>
+<li>需要分析网络瀑布图和请求时序细节</li>
+<li>主要工作流就在 AI 编码助手里</li>
+<li>正在诊断渲染问题和布局问题</li>
+<li>需要实时观察 console error 和 warning</li>
+</ul>
+<h3 id="72-更适合选-agent-browser-的情况">7.2 更适合选 agent-browser 的情况</h3>
+<p>如果你的重点是下面这些，agent-browser 更对路：</p>
+<ul>
+<li>给生产应用搭建自动化测试套件</li>
+<li>做视觉回归测试</li>
+<li>为边界场景 mock API 响应</li>
+<li>程序化抓取网页数据</li>
+<li>在多次测试运行之间保留认证状态</li>
+<li>在 Browserless、Browserbase 这类云浏览器上执行任务</li>
+<li>构建要与 Web 应用持续交互的 AI 代理</li>
+<li>在测试中直接操作 cookie、<code>localStorage</code> 等浏览器存储</li>
+</ul>
+<h2 id="八一些实际例子">八、一些实际例子</h2>
+<h3 id="81-chrome-devtools-mcp性能分析">8.1 Chrome DevTools MCP：性能分析</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span># 与 AI 助手协作的示例流程
+</span></span><span style="display:flex;"><span>用户：“分析一下 https://example.com 的性能”
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span># AI 会借助 Chrome DevTools MCP：
+</span></span><span style="display:flex;"><span>1. 打开页面
+</span></span><span style="display:flex;"><span>2. 开始性能 trace
+</span></span><span style="display:flex;"><span>3. 等待页面加载完成
+</span></span><span style="display:flex;"><span>4. 停止 trace 并分析结果
+</span></span><span style="display:flex;"><span>5. 生成 Lighthouse 报告
+</span></span><span style="display:flex;"><span>6. 找出瓶颈（LCP、CLS、INP）
+</span></span><span style="display:flex;"><span>7. 给出优化建议
+</span></span></code></pre></div><h3 id="82-agent-browser视觉回归测试">8.2 agent-browser：视觉回归测试</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 创建基线快照</span>
+</span></span><span style="display:flex;"><span>agent-browser navigate https://example.com/dashboard
+</span></span><span style="display:flex;"><span>agent-browser snapshot --baseline dashboard.png
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 对应用做完改动之后...</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 与基线进行比较</span>
+</span></span><span style="display:flex;"><span>agent-browser navigate https://example.com/dashboard
+</span></span><span style="display:flex;"><span>agent-browser snapshot --compare dashboard.png --threshold 0.1
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 如果有像素差异，会输出对比结果</span>
+</span></span></code></pre></div><h3 id="83-agent-browser为测试-mock-api">8.3 agent-browser：为测试 mock API</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># Mock 一个失败响应</span>
+</span></span><span style="display:flex;"><span>agent-browser mock-request <span style="color:#f1fa8c">&#34;https://api.example.com/checkout&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --response <span style="color:#f1fa8c">&#39;{&#34;error&#34;: &#34;Payment failed&#34;}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --status <span style="color:#bd93f9">500</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 打开页面并验证错误处理逻辑</span>
+</span></span><span style="display:flex;"><span>agent-browser navigate https://example.com/checkout
+</span></span><span style="display:flex;"><span>agent-browser click <span style="color:#f1fa8c">&#34;@e12&#34;</span>  <span style="color:#6272a4"># 点击结算按钮</span>
+</span></span><span style="display:flex;"><span>agent-browser snapshot --verify-error-message
+</span></span></code></pre></div><h2 id="九组合使用的模式">九、组合使用的模式</h2>
+<p>对于一个完整的 Web 应用开发流程，很多时候不是二选一，而是两者一起用：</p>
+<ol>
+<li><strong>开发阶段</strong>：用 Chrome DevTools MCP 做调试和性能优化</li>
+<li><strong>测试阶段</strong>：用 agent-browser 做自动化 E2E 和视觉回归测试</li>
+<li><strong>CI/CD 阶段</strong>：把 agent-browser 接进持续测试流程</li>
+<li><strong>生产监控阶段</strong>：用 agent-browser 做合成监控</li>
+<li><strong>性能审计阶段</strong>：周期性用 Chrome DevTools MCP 跑 Lighthouse</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 一个结合两者的 CI/CD 示例</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 1. 运行 agent-browser 测试</span>
+</span></span><span style="display:flex;"><span>agent-browser test-suite ./tests/**/*.spec.js
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 2. 通过 Chrome DevTools MCP 跑 Lighthouse 审计</span>
+</span></span><span style="display:flex;"><span>claude-code run-lighthouse-audit https://staging.example.com
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 3. 比较视觉快照</span>
+</span></span><span style="display:flex;"><span>agent-browser compare-snapshots --baseline ./baselines
+</span></span></code></pre></div><h2 id="十性能方面的考虑">十、性能方面的考虑</h2>
+<h3 id="101-chrome-devtools-mcp">10.1 Chrome DevTools MCP</h3>
+<ul>
+<li><strong>额外开销</strong>：性能 trace 对页面加载会带来一定开销，但通常不算太大</li>
+<li><strong>内存占用</strong>：Heap Snapshot 可能会很大，复杂应用下超过 100MB 并不罕见</li>
+<li><strong>执行速度</strong>：一次 Lighthouse 审计通常需要 30 到 60 秒</li>
+</ul>
+<h3 id="102-agent-browser">10.2 agent-browser</h3>
+<ul>
+<li><strong>启动时间</strong>：启动浏览器通常需要 2 到 5 秒</li>
+<li><strong>快照存储</strong>：截图会消耗比较可观的磁盘空间</li>
+<li><strong>云浏览器延迟</strong>：远程浏览器会增加网络延迟，但也能换来更好的扩展性</li>
+</ul>
+<h2 id="十一安全与隐私">十一、安全与隐私</h2>
+<h3 id="111-chrome-devtools-mcp">11.1 Chrome DevTools MCP</h3>
+<ul>
+<li>运行在本地，直接连接你的 Chrome 实例</li>
+<li>对 DevTools 协议有完整访问能力，在不可信站点上使用时要格外小心</li>
+<li>数据不会发到外部服务</li>
+</ul>
+<h3 id="112-agent-browser">11.2 agent-browser</h3>
+<ul>
+<li>支持通过域名 allowlist 做安全限制</li>
+<li>支持凭据保险箱一类的认证保护机制</li>
+<li>浏览器上下文隔离，有助于避免数据泄漏</li>
+<li>如果用的是云浏览器，服务商可能会保存会话数据，使用前最好先确认对方条款</li>
+</ul>
+<h2 id="十二结论">十二、结论</h2>
+<p>Chrome DevTools MCP 和 agent-browser 都很强，但它们不是同一类工具。</p>
+<p><strong>Chrome DevTools MCP</strong> 更像是面向开发阶段的分析和调试工具。只要你的重点是 Lighthouse、性能 trace、内存分析、控制台和网络排障，它通常会更合适。</p>
+<p><strong>agent-browser</strong> 更像是面向生产自动化的执行工具。视觉回归、网络 mock、状态持久化、云浏览器集成，以及 AI 代理驱动的自动化流程，这些都是它的主场。</p>
+<p>对很多团队来说，最实用的选择不是只用一个，而是把两者放在不同环节里配合起来：</p>
+<ul>
+<li>开发时，用 Chrome DevTools MCP 定位问题、优化性能</li>
+<li>测试和监控时，用 agent-browser 跑自动化和回归验证</li>
+</ul>
+<p>关键不是争论谁更强，而是先弄清楚你当前要解决的问题是什么。</p>
+<h2 id="参考资料">参考资料</h2>
+<ul>
+<li>原文：<code>https://alexandrubagu.github.io/blog/chrome-devtools-mcp-vs-agent-browser.html</code></li>
+<li>Chrome DevTools MCP GitHub：<code>https://github.com/anthropics/chrome-devtools-mcp</code></li>
+<li>agent-browser GitHub：<code>https://github.com/agentlabs/agent-browser</code></li>
+<li>Model Context Protocol 文档：<code>https://modelcontextprotocol.io</code></li>
+<li>Playwright 文档：<code>https://playwright.dev</code></li>
+<li>Chrome DevTools 文档：<code>https://developer.chrome.com/docs/devtools</code></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/03/11/zvec-overview/" data-toggle="tooltip" data-placement="top" title="一文看懂Zvec：阿里开源进程内向量数据库深度解析">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
