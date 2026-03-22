@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="OpenClaw微信渠道插件 — 源码深度剖析" />
+    <meta property="og:title" content="OpenClaw微信渠道插件 — 源码深度剖析" />
+    <meta property="twitter:title" content="OpenClaw微信渠道插件 — 源码深度剖析" />
+    
+
+    
+    <meta name="description" content="深度剖析 OpenClaw 微信渠道插件的完整源码：涵盖插件注册与生命周期、扫码登录认证、长轮询消息监听、消息处理管线、CDN AES 加密传输、多账号管理与状态持久化、容错与可观测性设计等全链路技术细节，适合关注 AI Agent 渠道适配与即时通讯协议对接的技术读者。">
+    <meta property="og:description" content="深度剖析 OpenClaw 微信渠道插件的完整源码：涵盖插件注册与生命周期、扫码登录认证、长轮询消息监听、消息处理管线、CDN AES 加密传输、多账号管理与状态持久化、容错与可观测性设计等全链路技术细节，适合关注 AI Agent 渠道适配与即时通讯协议对接的技术读者。" />
+    <meta property="twitter:description" content="深度剖析 OpenClaw 微信渠道插件的完整源码：涵盖插件注册与生命周期、扫码登录认证、长轮询消息监听、消息处理管线、CDN AES 加密传输、多账号管理与状态持久化、容错与可观测性设计等全链路技术细节，适合关注 AI Agent 渠道适配与即时通讯协议对接的技术读者。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>OpenClaw微信渠道插件 — 源码深度剖析 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/03/23/openclaw-weixin-deep-dive/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                    </div>
+                    <h1>OpenClaw微信渠道插件 — 源码深度剖析</h1>
+                    <h2 class="subheading">从插件注册到消息收发全链路，深入解构核心架构与模块交互逻辑</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Monday, March 23, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h1 id="openclaw-微信渠道插件--源码深度剖析">OpenClaw 微信渠道插件 — 源码深度剖析</h1>
+<blockquote>
+<p>从插件注册到消息收发全链路，深入解构 <code>@tencent-weixin/openclaw-weixin</code> 的核心架构、关键算法与模块间交互逻辑</p>
+</blockquote>
+<p>📦 v1.0.2 · 📄 34 个 TypeScript 源文件 · 🔧 Node.js ≥ 22 · 📅 2026-03-22</p>
+<h2 id="-一项目概览与技术栈">🔭 一、项目概览与技术栈</h2>
+<p><code>@tencent-weixin/openclaw-weixin</code> 是 <strong>OpenClaw</strong> AI 对话平台的<strong>微信渠道插件</strong>。它的核心使命是：让 AI Agent 能够通过微信进行对话——接收微信用户的消息（文本、图片、语音、文件、视频），将其投递给 AI 引擎处理，再把 AI 的回复发送回微信用户。</p>
+<p>从技术视角看，这是一个典型的**&ldquo;协议适配层&rdquo;**——将微信私有的 iLink Bot 协议转换为 OpenClaw 框架统一的消息管线接口。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>技术选型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>语言</td>
+<td>TypeScript（ESM，strict mode）</td>
+</tr>
+<tr>
+<td>运行时</td>
+<td>Node.js ≥ 22（原生 fetch、ESM）</td>
+</tr>
+<tr>
+<td>依赖数量</td>
+<td>仅 2 个 runtime 依赖：<code>qrcode-terminal</code>（终端二维码）、<code>zod</code>（配置校验）</td>
+</tr>
+<tr>
+<td>通信协议</td>
+<td>HTTP JSON API（POST），长轮询（Long Polling）</td>
+</tr>
+<tr>
+<td>加密算法</td>
+<td>AES-128-ECB + PKCS7（CDN 媒体传输）</td>
+</tr>
+<tr>
+<td>音频编解码</td>
+<td>SILK → PCM → WAV（可选 silk-wasm）</td>
+</tr>
+<tr>
+<td>状态持久化</td>
+<td>本地 JSON 文件（~/.openclaw/）</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="-二整体架构设计">🏗️ 二、整体架构设计</h2>
+<p>插件的核心架构可以用一张图来全局概览：</p>
+<h3 id="-系统架构总览">▼ 系统架构总览</h3>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">graph TB
+    subgraph 微信侧
+        WX[微信用户]
+        ILINK[iLink Bot 网关&lt;br/&gt;ilinkai.weixin.qq.com]
+        CDN[微信 CDN&lt;br/&gt;novac2c.cdn.weixin.qq.com]
+    end
+
+    subgraph OpenClaw 插件[&#34;OpenClaw 微信渠道插件&#34;]
+        direction TB
+        REG[插件注册入口&lt;br/&gt;index.ts]
+        CH[Channel 适配器&lt;br/&gt;channel.ts]
+        MON[长轮询监听器&lt;br/&gt;monitor.ts]
+        PM[消息处理管线&lt;br/&gt;process-message.ts]
+        
+        subgraph 消息层
+            INB[入站标准化&lt;br/&gt;inbound.ts]
+            SEND[出站发送&lt;br/&gt;send.ts]
+            MEDIA[媒体发送&lt;br/&gt;send-media.ts]
+            SLASH[斜杠指令&lt;br/&gt;slash-commands.ts]
+        end
+        
+        subgraph API层
+            API[API 客户端&lt;br/&gt;api.ts]
+            CACHE[配置缓存&lt;br/&gt;config-cache.ts]
+            GUARD[会话守卫&lt;br/&gt;session-guard.ts]
+        end
+        
+        subgraph CDN加密层
+            AES[AES-ECB 加解密&lt;br/&gt;aes-ecb.ts]
+            UP[CDN 上传&lt;br/&gt;cdn-upload.ts + upload.ts]
+            DEC[CDN 下载解密&lt;br/&gt;pic-decrypt.ts]
+        end
+        
+        subgraph 认证层
+            AUTH[账号管理&lt;br/&gt;accounts.ts]
+            QR[扫码登录&lt;br/&gt;login-qr.ts]
+            PAIR[配对鉴权&lt;br/&gt;pairing.ts]
+        end
+        
+        subgraph 存储层
+            STATE[状态目录&lt;br/&gt;state-dir.ts]
+            SYNC[同步游标&lt;br/&gt;sync-buf.ts]
+            DBG[调试模式&lt;br/&gt;debug-mode.ts]
+        end
+    end
+
+    subgraph OpenClaw 框架
+        CORE[OpenClaw Core&lt;br/&gt;路由 · 会话 · AI Agent]
+    end
+
+    WX &lt;--&gt; ILINK
+    WX --&gt; CDN
+    CDN --&gt; WX
+    
+    ILINK &lt;--&gt; API
+    CDN &lt;--&gt; UP
+    CDN &lt;--&gt; DEC
+    
+    REG --&gt; CH
+    CH --&gt; MON
+    MON --&gt; PM
+    PM --&gt; INB
+    PM --&gt; SEND
+    PM --&gt; MEDIA
+    PM --&gt; SLASH
+    
+    INB --&gt; CORE
+    CORE --&gt; SEND
+    CORE --&gt; MEDIA
+    
+    API --&gt; GUARD
+    MON --&gt; CACHE
+    AUTH --&gt; STATE
+    SYNC --&gt; STATE
+</code></pre><blockquote>
+<p>💡 <strong>架构核心理念</strong></p>
+<p>整个插件采用**&ldquo;洋葱模型&rdquo;<strong>分层设计：最外层是</strong>协议适配**（API/CDN 加解密），中间层是<strong>消息管线</strong>（标准化、路由、分发），最内层对接 <strong>OpenClaw 框架核心</strong>。每一层都有明确的职责边界和接口契约。</p>
+</blockquote>
+<hr>
+<h2 id="-三源码目录结构解析">📁 三、源码目录结构解析</h2>
+<pre tabindex="0"><code>plugin/package/
+├── index.ts              ← 插件入口，注册 Channel + CLI
+├── package.json          ← 依赖 &amp; 元数据
+├── openclaw.plugin.json  ← 插件声明（ID、频道列表、配置 Schema）
+└── src/
+    ├── channel.ts        ← ChannelPlugin 主适配器（380 行核心）
+    ├── runtime.ts        ← 全局运行时管理（异步等待初始化）
+    ├── log-upload.ts     ← CLI 子命令：日志上传
+    ├── vendor.d.ts       ← 第三方类型声明
+    ├── api/              ← 微信 iLink API 通信层
+    │   ├── api.ts          HTTP 请求封装（5 个端点）
+    │   ├── types.ts        协议类型定义
+    │   ├── config-cache.ts 配置缓存（TTL + 指数退避）
+    │   └── session-guard.ts 会话过期保护
+    ├── auth/             ← 认证 &amp; 账号管理
+    │   ├── accounts.ts     多账号 CRUD
+    │   ├── login-qr.ts     扫码登录状态机
+    │   └── pairing.ts      配对鉴权（allowFrom 管理）
+    ├── cdn/              ← CDN 媒体加密传输
+    │   ├── aes-ecb.ts      AES-128-ECB 加解密原语
+    │   ├── cdn-upload.ts   CDN 上传（含重试）
+    │   ├── cdn-url.ts      CDN URL 构造器
+    │   ├── pic-decrypt.ts  CDN 下载 + 解密
+    │   └── upload.ts       统一上传管线（hash→encrypt→upload）
+    ├── media/            ← 媒体处理
+    │   ├── media-download.ts 多类型媒体下载分发
+    │   ├── mime.ts         MIME 类型 ↔ 扩展名映射
+    │   └── silk-transcode.ts SILK 语音转 WAV
+    ├── messaging/        ← 消息处理核心
+    │   ├── process-message.ts 单消息全链路处理（482 行）
+    │   ├── inbound.ts      入站消息标准化 &amp; contextToken 缓存
+    │   ├── send.ts         出站发送（文本/图片/视频/文件）
+    │   ├── send-media.ts   媒体发送路由（按 MIME 分发）
+    │   ├── slash-commands.ts 斜杠指令处理器
+    │   ├── debug-mode.ts   调试模式开关
+    │   └── error-notice.ts 错误通知（fire-and-forget）
+    ├── storage/          ← 本地持久化
+    │   ├── state-dir.ts    状态目录解析
+    │   └── sync-buf.ts     长轮询同步游标持久化
+    ├── util/             ← 通用工具
+    │   ├── logger.ts       结构化 JSON 日志
+    │   ├── random.ts       唯一 ID 生成
+    │   └── redact.ts       敏感信息脱敏
+    └── config/
+        └── config-schema.ts Zod 配置校验 Schema
+</code></pre><hr>
+<h2 id="-四插件注册与生命周期">🔌 四、插件注册与生命周期</h2>
+<p>插件的生命始于 <code>index.ts</code>，这是 OpenClaw 框架加载插件时的唯一入口点：</p>
+<h3 id="-插件注册时序图">▼ 插件注册时序图</h3>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">sequenceDiagram
+    participant F as OpenClaw Framework
+    participant P as Plugin (index.ts)
+    participant R as Runtime Manager
+    participant C as Channel Adapter
+    participant CLI as CLI Registry
+
+    F-&gt;&gt;P: import default plugin
+    F-&gt;&gt;P: plugin.register(api)
+    P-&gt;&gt;R: setWeixinRuntime(api.runtime)
+    R--&gt;&gt;R: 存储全局 pluginRuntime
+    P-&gt;&gt;C: api.registerChannel({ plugin: weixinPlugin })
+    Note over C: 注册消息出/入站适配器&lt;br/&gt;登录逻辑、网关启动函数
+    P-&gt;&gt;CLI: api.registerCli(registerWeixinCli)
+    Note over CLI: 注册 logs-upload 子命令
+    F--&gt;&gt;F: 插件就绪，开始启动账号
+</code></pre><p>注册过程体现了<strong>三个关键设计</strong>：</p>
+<h3 id="41-runtime-注入模式">4.1 Runtime 注入模式</h3>
+<p><code>setWeixinRuntime()</code> 将框架提供的 <code>PluginRuntime</code> 存入模块级全局变量。这使得后续所有模块都能通过 <code>getWeixinRuntime()</code> 访问框架能力（路由、会话、媒体存储等），而不需要在函数调用链中层层传递：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// runtime.ts — 异步等待模式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> waitForWeixinRuntime(timeoutMs <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">10</span>_000)<span style="color:#ff79c6">:</span> Promise&lt;<span style="color:#ff79c6">PluginRuntime</span>&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> start <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">Date</span>.now();
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">while</span> (<span style="color:#ff79c6">!</span>pluginRuntime) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (<span style="color:#8be9fd;font-style:italic">Date</span>.now() <span style="color:#ff79c6">-</span> start <span style="color:#ff79c6">&gt;</span> timeoutMs) <span style="color:#ff79c6">throw</span> <span style="color:#ff79c6">new</span> <span style="color:#8be9fd;font-style:italic">Error</span>(<span style="color:#f1fa8c">&#34;timeout&#34;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">await</span> <span style="color:#ff79c6">new</span> Promise(r <span style="color:#ff79c6">=&gt;</span> setTimeout(r, <span style="color:#bd93f9">100</span>));  <span style="color:#6272a4">// 100ms 轮询间隔
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> pluginRuntime;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><blockquote>
+<p>💡 <strong>设计考量</strong></p>
+<p>为什么不直接传参？因为 <code>monitorWeixinProvider</code> 在独立的异步循环中运行，可能在 <code>register()</code> 完成之前就被调用。<code>waitForWeixinRuntime()</code> 的轮询等待机制优雅地解决了这个竞态问题。</p>
+</blockquote>
+<h3 id="42-channelplugin-契约">4.2 ChannelPlugin 契约</h3>
+<p><code>weixinPlugin</code> 对象实现了 OpenClaw 的 <code>ChannelPlugin</code> 接口，这是一个<strong>全面的适配契约</strong>，包含 8 个主要模块：</p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>meta</strong></td>
+<td>渠道元信息（ID、标签、文档路径、排序权重）</td>
+</tr>
+<tr>
+<td><strong>capabilities</strong></td>
+<td>声明支持的能力：direct 聊天、媒体传输</td>
+</tr>
+<tr>
+<td><strong>config</strong></td>
+<td>账号列表、解析、状态描述</td>
+</tr>
+<tr>
+<td><strong>outbound</strong></td>
+<td>出站消息发送（文本 + 媒体）</td>
+</tr>
+<tr>
+<td><strong>auth</strong></td>
+<td>扫码登录流程编排</td>
+</tr>
+<tr>
+<td><strong>gateway</strong></td>
+<td>网关启动（启动长轮询）+ QR 登录</td>
+</tr>
+<tr>
+<td><strong>status</strong></td>
+<td>运行时状态快照 &amp; 健康检查</td>
+</tr>
+<tr>
+<td><strong>agentPrompt</strong></td>
+<td>给 AI Agent 的工具使用提示</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="-五扫码登录认证流程">📱 五、扫码登录认证流程</h2>
+<p>登录是用户使用插件的第一步，也是最复杂的交互流程之一。核心实现在 <code>login-qr.ts</code> 中，采用<strong>两阶段异步状态机</strong>设计：</p>
+<h3 id="-扫码登录全流程">▼ 扫码登录全流程</h3>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">sequenceDiagram
+    actor U as 用户
+    participant CLI as OpenClaw CLI
+    participant QR as login-qr.ts
+    participant ILINK as iLink 网关
+    participant ACC as accounts.ts
+
+    U-&gt;&gt;CLI: openclaw channels login
+    CLI-&gt;&gt;QR: startWeixinLoginWithQr()
+    QR-&gt;&gt;QR: purgeExpiredLogins()
+    QR-&gt;&gt;ILINK: GET /ilink/bot/get_bot_qrcode?bot_type=3
+    ILINK--&gt;&gt;QR: { qrcode, qrcode_img_content }
+    QR-&gt;&gt;QR: 存入 activeLogins Map
+    QR--&gt;&gt;CLI: { qrcodeUrl, sessionKey }
+    CLI-&gt;&gt;U: 终端显示二维码 📱
+
+    U-&gt;&gt;U: 手机扫码
+
+    CLI-&gt;&gt;QR: waitForWeixinLogin(sessionKey)
+
+    loop 轮询状态（最多 8 分钟）
+        QR-&gt;&gt;ILINK: GET /get_qrcode_status?qrcode=xxx
+        alt status = &#34;wait&#34;
+            ILINK--&gt;&gt;QR: { status: &#34;wait&#34; }
+            Note over QR: 继续轮询
+        else status = &#34;scaned&#34;
+            ILINK--&gt;&gt;QR: { status: &#34;scaned&#34; }
+            QR--&gt;&gt;U: 👀 已扫码，请在手机上确认...
+        else status = &#34;expired&#34;
+            ILINK--&gt;&gt;QR: { status: &#34;expired&#34; }
+            QR-&gt;&gt;ILINK: 重新获取二维码（最多3次）
+            QR--&gt;&gt;U: ⏳ 新二维码已生成
+        else status = &#34;confirmed&#34;
+            ILINK--&gt;&gt;QR: { status: &#34;confirmed&#34;, bot_token, ilink_bot_id, ilink_user_id }
+        end
+    end
+
+    QR-&gt;&gt;ACC: saveWeixinAccount(normalizedId, { token, baseUrl, userId })
+    QR-&gt;&gt;ACC: registerWeixinAccountId(normalizedId)
+    ACC-&gt;&gt;ACC: 写入 accounts.json 索引
+    ACC-&gt;&gt;ACC: 写入 {accountId}.json 凭证
+    QR--&gt;&gt;U: ✅ 与微信连接成功！
+</code></pre><h3 id="51-关键算法二维码自动刷新">5.1 关键算法：二维码自动刷新</h3>
+<p>二维码有有效期限制，插件实现了<strong>自动刷新机制</strong>：最多连续刷新 3 次，每次过期后自动向 iLink 网关重新申请二维码并在终端重新渲染。这避免了用户因超时而需要重新执行整个登录命令。</p>
+<h3 id="52-账号-id-规范化">5.2 账号 ID 规范化</h3>
+<p>微信返回的原始 bot ID 格式为 <code>hex@im.bot</code>，包含 <code>@</code> 和 <code>.</code> 等文件系统不安全字符。插件通过框架提供的 <code>normalizeAccountId()</code> 将其转换为安全格式（如 <code>hex-im-bot</code>），同时保留 <code>deriveRawAccountId()</code> 反向推导能力，确保旧版数据兼容。</p>
+<hr>
+<h2 id="-六长轮询消息监听机制">🔄 六、长轮询消息监听机制</h2>
+<p>插件的&quot;心脏&quot;是 <code>monitor.ts</code> 中的长轮询循环。它是连接微信消息流和 AI 管线的<strong>桥梁</strong>。</p>
+<h3 id="-长轮询监听主循环">▼ 长轮询监听主循环</h3>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart TD
+    START([gateway.startAccount]) --&gt; INIT[初始化]
+    INIT --&gt; |等待 runtime| RUNTIME{runtime 就绪?}
+    RUNTIME --&gt; |否| WAIT_RT[轮询等待 100ms]
+    WAIT_RT --&gt; RUNTIME
+    RUNTIME --&gt; |是| LOAD[加载同步游标&lt;br/&gt;syncBuf]
+    LOAD --&gt; POLL
+
+    POLL[getUpdates 长轮询&lt;br/&gt;timeout=35s] --&gt; RESP{响应结果?}
+
+    RESP --&gt; |超时/空| SAVE_BUF[保存同步游标]
+    SAVE_BUF --&gt; POLL
+
+    RESP --&gt; |API 错误| ERR_CHECK{errcode=-14?&lt;br/&gt;会话过期}
+    ERR_CHECK --&gt; |是| PAUSE[pauseSession&lt;br/&gt;暂停 1 小时]
+    PAUSE --&gt; SLEEP_PAUSE[sleep 1h]
+    SLEEP_PAUSE --&gt; POLL
+    ERR_CHECK --&gt; |否| FAIL_INC[consecutiveFailures++]
+    FAIL_INC --&gt; FAIL_CHECK{连续失败 ≥ 3?}
+    FAIL_CHECK --&gt; |是| BACKOFF[退避 30s]
+    BACKOFF --&gt; POLL
+    FAIL_CHECK --&gt; |否| RETRY[重试 2s]
+    RETRY --&gt; POLL
+
+    RESP --&gt; |成功+有消息| RESET[重置失败计数]
+    RESET --&gt; UPDATE_BUF[更新同步游标]
+    UPDATE_BUF --&gt; LOOP[遍历消息列表]
+    LOOP --&gt; EACH[对每条消息]
+    EACH --&gt; CONFIG[获取用户配置&lt;br/&gt;typingTicket]
+    CONFIG --&gt; PROCESS[processOneMessage]
+    PROCESS --&gt; NEXT{还有消息?}
+    NEXT --&gt; |是| EACH
+    NEXT --&gt; |否| POLL
+
+    RESP --&gt; |AbortSignal| STOP([监听结束])
+</code></pre><h3 id="61-同步游标sync-buffer机制">6.1 同步游标（Sync Buffer）机制</h3>
+<p>这是长轮询的核心状态管理，类似于消息队列中的 offset 概念：</p>
+<ol>
+<li><strong>首次请求</strong>：<code>get_updates_buf</code> 传空字符串，服务端返回当前时间点之后的新消息</li>
+<li><strong>后续请求</strong>：将上次响应的 <code>get_updates_buf</code> 回传，服务端据此判断客户端已消费到哪里</li>
+<li><strong>持久化</strong>：游标写入 <code>~/.openclaw/openclaw-weixin/accounts/{id}.sync.json</code>，重启后可断点续传</li>
+<li><strong>兼容性</strong>：依次尝试规范化 ID、原始 ID、单账号旧格式路径，覆盖三代存储方案</li>
+</ol>
+<h3 id="62-三级容错策略">6.2 三级容错策略</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>策略</th>
+<th>参数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>客户端超时（AbortError）</td>
+<td>视为正常，立即重试</td>
+<td>—</td>
+</tr>
+<tr>
+<td>API 错误（ret≠0）</td>
+<td>累计失败计数，2s 后重试</td>
+<td>MAX = 3 次</td>
+</tr>
+<tr>
+<td>连续 3 次失败</td>
+<td>指数退避</td>
+<td>30s 冷却</td>
+</tr>
+<tr>
+<td>会话过期（errcode=-14）</td>
+<td>全局暂停</td>
+<td>1 小时</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-服务端自适应超时">6.3 服务端自适应超时</h3>
+<p>服务端可以通过响应中的 <code>longpolling_timeout_ms</code> 字段<strong>动态调整</strong>客户端的下次轮询超时时间。这是一种服务端驱动的流量控制机制——当服务端负载高时可以增大超时值减少请求频率。</p>
+<hr>
+<h2 id="-七消息处理管线">⚡ 七、消息处理管线</h2>
+<p><code>process-message.ts</code> 是整个插件最复杂的模块（482 行），编排了从收到原始消息到 AI 回复送达的<strong>完整链路</strong>：</p>
+<h3 id="-单消息处理全流程">▼ 单消息处理全流程</h3>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart TD
+    MSG([收到 WeixinMessage]) --&gt; SLASH{以 / 开头?}
+    SLASH --&gt; |是| CMD[handleSlashCommand]
+    CMD --&gt; CMD_R{指令已处理?}
+    CMD_R --&gt; |是| END_CMD([结束，跳过 AI])
+    CMD_R --&gt; |否| MEDIA_FIND
+    SLASH --&gt; |否| MEDIA_FIND
+
+    MEDIA_FIND[查找媒体附件&lt;br/&gt;优先级: 图片 &gt; 视频 &gt; 文件 &gt; 语音]
+    MEDIA_FIND --&gt; HAS_MEDIA{有媒体?}
+    HAS_MEDIA --&gt; |是| DOWNLOAD[CDN 下载 + AES 解密]
+    DOWNLOAD --&gt; TRANSCODE{是语音?}
+    TRANSCODE --&gt; |是| SILK[SILK → WAV 转码]
+    SILK --&gt; NORMALIZE
+    TRANSCODE --&gt; |否| NORMALIZE
+    HAS_MEDIA --&gt; |否| NORMALIZE
+
+    NORMALIZE[weixinMessageToMsgContext&lt;br/&gt;标准化为 MsgContext]
+
+    NORMALIZE --&gt; AUTH[鉴权管线]
+    AUTH --&gt; AUTH_R{通过?}
+    AUTH_R --&gt; |disabled/unauthorized| DROP([丢弃消息])
+    AUTH_R --&gt; |通过| ROUTE
+
+    ROUTE[resolveAgentRoute&lt;br/&gt;确定 AI Agent 路由]
+    ROUTE --&gt; SESSION[recordInboundSession&lt;br/&gt;记录入站会话]
+    SESSION --&gt; TOKEN[缓存 contextToken]
+    TOKEN --&gt; TYPING[创建 Typing 回调&lt;br/&gt;5s keepalive]
+
+    TYPING --&gt; DISPATCH[dispatchReplyFromConfig&lt;br/&gt;调用 AI Agent 生成回复]
+
+    DISPATCH --&gt; DELIVER[deliver 回调]
+    DELIVER --&gt; MD2TXT[markdownToPlainText&lt;br/&gt;去除 Markdown 语法]
+    MD2TXT --&gt; HAS_MEDIA2{有媒体 URL?}
+    HAS_MEDIA2 --&gt; |是| RESOLVE_MEDIA{本地路径&lt;br/&gt;还是远程 URL?}
+    RESOLVE_MEDIA --&gt; |本地| UPLOAD_SEND[上传 CDN + 发送]
+    RESOLVE_MEDIA --&gt; |远程| DL_UPLOAD[下载 → 上传 CDN → 发送]
+    HAS_MEDIA2 --&gt; |否| SEND_TEXT[sendMessageWeixin 发送文本]
+    UPLOAD_SEND --&gt; DONE
+    DL_UPLOAD --&gt; DONE
+    SEND_TEXT --&gt; DONE
+
+    DONE([回复送达]) --&gt; DEBUG{debug 模式?}
+    DEBUG --&gt; |是| TIMING[追加全链路耗时报告]
+    DEBUG --&gt; |否| FINISH([处理完成])
+    TIMING --&gt; FINISH
+</code></pre><h3 id="71-入站消息标准化">7.1 入站消息标准化</h3>
+<p><code>weixinMessageToMsgContext()</code> 将微信私有格式转为框架统一的 <code>MsgContext</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 关键转换逻辑
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> ctx: <span style="color:#8be9fd">WeixinMsgContext</span> <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  Body: <span style="color:#8be9fd">bodyFromItemList</span>(msg.item_list),  <span style="color:#6272a4">// 提取文本 + 引用消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  From: <span style="color:#8be9fd">from_user_id</span>,                      <span style="color:#6272a4">// 发送者
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  To: <span style="color:#8be9fd">from_user_id</span>,                        <span style="color:#6272a4">// 回复目标（直聊=同一人）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  AccountId: <span style="color:#8be9fd">accountId</span>,                    <span style="color:#6272a4">// 当前 bot 账号
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  Provider<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;openclaw-weixin&#34;</span>,             <span style="color:#6272a4">// 渠道标识
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  ChatType<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;direct&#34;</span>,                      <span style="color:#6272a4">// 聊天类型
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  MediaPath: <span style="color:#8be9fd">opts?.decryptedPicPath</span>,       <span style="color:#6272a4">// 已解密的本地媒体路径
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>};
+</span></span></code></pre></div><blockquote>
+<p>✅ <strong>引用消息处理</strong></p>
+<p><code>bodyFromItemList()</code> 对引用消息有精巧处理：如果引用的是媒体（图片等），只传递当前文本作为 Body；如果引用的是文字，则将引用内容以 <code>[引用: xxx]</code> 格式拼接到正文前面，让 AI 获得完整的上下文。</p>
+</blockquote>
+<h3 id="72-context-token-缓存">7.2 Context Token 缓存</h3>
+<p>微信 API 要求每次发送回复都必须携带入站消息中的 <code>context_token</code>。插件使用一个进程内 Map 来缓存这个映射关系：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// key 格式: &#34;{accountId}:{userId}&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> contextTokenStore <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Map&lt;<span style="color:#ff79c6">string</span>, <span style="color:#50fa7b">string</span>&gt;();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 入站时写入
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>setContextToken(accountId, userId, token);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 出站时读取
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> token <span style="color:#ff79c6">=</span> getContextToken(accountId, userId);
+</span></span></code></pre></div><p>这是一个<strong>无 TTL 的简单缓存</strong>——token 在每次收到新消息时更新，确保始终使用最新值。</p>
+<h3 id="73-鉴权管线">7.3 鉴权管线</h3>
+<p>消息在进入 AI 管线前必须经过两道鉴权：</p>
+<ol>
+<li><strong>命令授权</strong>（<code>resolveSenderCommandAuthorizationWithRuntime</code>）：检查发送者是否在 allowFrom 列表中</li>
+<li><strong>DM 策略</strong>（<code>resolveDirectDmAuthorizationOutcome</code>）：根据 <code>pairing</code> 策略判断是 disabled / unauthorized / authorized</li>
+</ol>
+<p>allowFrom 列表的读取有两个来源（优先级递减）：</p>
+<ul>
+<li>框架级 <code>{accountId}-allowFrom.json</code> 文件（配对流程写入）</li>
+<li>账号数据中的 <code>userId</code>（QR 登录时保存，兼容旧安装）</li>
+</ul>
+<h3 id="74-typing-输入指示器">7.4 Typing 输入指示器</h3>
+<p>当 AI 在生成回复时，插件会向用户发送&quot;正在输入&quot;的状态指示。实现使用了 <strong>5 秒 keepalive</strong> 模式：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> typingCallbacks <span style="color:#ff79c6">=</span> createTypingCallbacks({
+</span></span><span style="display:flex;"><span>  start<span style="color:#ff79c6">:</span> () <span style="color:#ff79c6">=&gt;</span> sendTyping({ status: <span style="color:#8be9fd">TypingStatus.TYPING</span> }),
+</span></span><span style="display:flex;"><span>  stop<span style="color:#ff79c6">:</span>  () <span style="color:#ff79c6">=&gt;</span> sendTyping({ status: <span style="color:#8be9fd">TypingStatus.CANCEL</span> }),
+</span></span><span style="display:flex;"><span>  keepaliveIntervalMs: <span style="color:#8be9fd">5000</span>,  <span style="color:#6272a4">// 每 5 秒重发一次
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>});
+</span></span></code></pre></div><hr>
+<h2 id="-八消息发送与媒体上传">📤 八、消息发送与媒体上传</h2>
+<p>出站消息分为<strong>纯文本</strong>和<strong>媒体</strong>两条路径，由 <code>send-media.ts</code> 按 MIME 类型统一路由：</p>
+<h3 id="-媒体发送路由逻辑">▼ 媒体发送路由逻辑</h3>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart LR
+    INPUT[本地文件路径] --&gt; MIME[getMimeFromFilename&lt;br/&gt;检测 MIME]
+    MIME --&gt; R{MIME 类型}
+    R --&gt; |video/*| VUP[uploadVideoToWeixin]
+    R --&gt; |image/*| IUP[uploadFileToWeixin]
+    R --&gt; |其他| FUP[uploadFileAttachmentToWeixin]
+    VUP --&gt; VS[sendVideoMessageWeixin]
+    IUP --&gt; IS[sendImageMessageWeixin]
+    FUP --&gt; FS[sendFileMessageWeixin]
+</code></pre><h3 id="81-markdown--纯文本转换">8.1 Markdown → 纯文本转换</h3>
+<p>AI 模型的回复通常包含 Markdown 格式，但微信不支持 Markdown 渲染。<code>markdownToPlainText()</code> 实现了<strong>智能格式剥离</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 代码块：去除围栏，保留内容
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>result <span style="color:#ff79c6">=</span> result.replace(<span style="color:#f1fa8c">/```[^\n]*\n?([\s\S]*?)```/g</span>, (_, code) <span style="color:#ff79c6">=&gt;</span> code.trim());
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 图片：完全移除
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>result <span style="color:#ff79c6">=</span> result.replace(<span style="color:#f1fa8c">/!\[[^\]]*\]\([^)]*\)/g</span>, <span style="color:#f1fa8c">&#34;&#34;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 链接：只保留文字
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>result <span style="color:#ff79c6">=</span> result.replace(<span style="color:#f1fa8c">/\[([^\]]+)\]\([^)]*\)/g</span>, <span style="color:#f1fa8c">&#34;$1&#34;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 表格：去除分隔行，管道符转空格
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>result <span style="color:#ff79c6">=</span> result.replace(<span style="color:#f1fa8c">/^\|[\s:|-]+\|$/gm</span>, <span style="color:#f1fa8c">&#34;&#34;</span>);
+</span></span></code></pre></div><h3 id="82-消息拆分策略">8.2 消息拆分策略</h3>
+<p>插件配置了 <code>textChunkLimit: 4000</code>，框架会自动将超长回复拆分为多个 4000 字符的分段依次发送。同时，<strong>媒体和文本分开发送</strong>——每个 <code>item_list</code> 只包含一个条目，避免消息组合的兼容性问题。</p>
+<hr>
+<h2 id="-九cdn-加密传输体系">🔐 九、CDN 加密传输体系</h2>
+<p>这是插件技术含量最高的部分。微信的所有媒体文件都通过 CDN 传输，并使用 <strong>AES-128-ECB</strong> 对称加密。</p>
+<h3 id="-cdn-上传加密流程">▼ CDN 上传加密流程</h3>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart TD
+    FILE[本地文件] --&gt; READ[读取文件内容&lt;br/&gt;Buffer]
+    READ --&gt; HASH[计算 MD5 + 大小]
+    HASH --&gt; KEY[生成随机 AES-128 密钥&lt;br/&gt;crypto.randomBytes 16]
+    KEY --&gt; PADSIZE[计算密文大小&lt;br/&gt;ceil（plain+1 / 16）× 16]
+    PADSIZE --&gt; API_CALL[调用 getUploadUrl API]
+    API_CALL --&gt; |获取 upload_param| ENC[AES-128-ECB 加密&lt;br/&gt;PKCS7 填充]
+    ENC --&gt; URL[构造 CDN URL&lt;br/&gt;cdnBaseUrl/upload?encrypted_query_param=...&amp;filekey=...]
+    URL --&gt; POST[POST 密文到 CDN]
+    POST --&gt; |Header: x-encrypted-param| PARAM[获取 downloadEncryptedQueryParam]
+    PARAM --&gt; BUILD[构造 CDNMedia 引用]
+    BUILD --&gt; MSG[嵌入 MessageItem 发送]
+</code></pre><h3 id="91-aes-128-ecb-加解密">9.1 AES-128-ECB 加解密</h3>
+<p>加密原语极简但高效，仅 22 行代码覆盖三个核心功能：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 加密
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> encryptAesEcb(plaintext: <span style="color:#8be9fd">Buffer</span>, key: <span style="color:#8be9fd">Buffer</span>)<span style="color:#ff79c6">:</span> Buffer {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> cipher <span style="color:#ff79c6">=</span> createCipheriv(<span style="color:#f1fa8c">&#34;aes-128-ecb&#34;</span>, key, <span style="color:#ff79c6">null</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> Buffer.concat([cipher.update(plaintext), cipher.final()]);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 解密
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> decryptAesEcb(ciphertext: <span style="color:#8be9fd">Buffer</span>, key: <span style="color:#8be9fd">Buffer</span>)<span style="color:#ff79c6">:</span> Buffer {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> decipher <span style="color:#ff79c6">=</span> createDecipheriv(<span style="color:#f1fa8c">&#34;aes-128-ecb&#34;</span>, key, <span style="color:#ff79c6">null</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 预测密文大小（PKCS7 填充）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> aesEcbPaddedSize(plaintextSize: <span style="color:#8be9fd">number</span>)<span style="color:#ff79c6">:</span> <span style="color:#8be9fd">number</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">Math</span>.ceil((plaintextSize <span style="color:#ff79c6">+</span> <span style="color:#bd93f9">1</span>) <span style="color:#ff79c6">/</span> <span style="color:#bd93f9">16</span>) <span style="color:#ff79c6">*</span> <span style="color:#bd93f9">16</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><blockquote>
+<p>⚠️ <strong>为什么使用 ECB 模式？</strong></p>
+<p>ECB 模式在密码学上不推荐用于大数据加密（因为相同的明文块产生相同密文），但在微信 CDN 场景中，每个文件使用<strong>独立的随机密钥</strong>，且文件完整性由 CDN 层保证，因此 ECB 模式的简单性（无需 IV）是合理的工程权衡。</p>
+</blockquote>
+<h3 id="92-aes-密钥的双重编码问题">9.2 AES 密钥的双重编码问题</h3>
+<p><code>pic-decrypt.ts</code> 中的 <code>parseAesKey()</code> 是一个有趣的兼容性处理——微信不同消息类型中 AES 密钥的编码方式不一致：</p>
+<table>
+<thead>
+<tr>
+<th>消息类型</th>
+<th>编码格式</th>
+<th>解码路径</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图片</td>
+<td>base64(16 字节原始密钥)</td>
+<td>base64 → 直接使用</td>
+</tr>
+<tr>
+<td>文件/语音/视频</td>
+<td>base64(32 字符 hex 字符串)</td>
+<td>base64 → ASCII → hex decode</td>
+</tr>
+</tbody>
+</table>
+<p><code>parseAesKey()</code> 通过检查 base64 解码后的长度（16 vs 32）和内容模式（是否全为 hex 字符）来自动判断编码方式。</p>
+<h3 id="93-cdn-上传重试机制">9.3 CDN 上传重试机制</h3>
+<p><code>cdn-upload.ts</code> 实现了<strong>区分客户端/服务端错误</strong>的重试策略：</p>
+<ul>
+<li>🔵 <strong>4xx 客户端错误</strong> → 立即失败（请求本身有问题，重试无意义）</li>
+<li>🟠 <strong>5xx 服务端错误</strong> → 最多重试 3 次</li>
+<li>🟢 <strong>200 成功</strong> → 从响应头 <code>x-encrypted-param</code> 获取下载参数</li>
+</ul>
+<hr>
+<h2 id="-十多账号管理与状态持久化">👥 十、多账号管理与状态持久化</h2>
+<p>插件支持<strong>多个微信账号同时在线</strong>，账号数据分散在多个文件中，采用**&ldquo;索引 + 数据&quot;分离**的存储架构：</p>
+<h3 id="-多账号存储架构">▼ 多账号存储架构</h3>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">graph LR
+    subgraph 状态目录[&#34;~/.openclaw/openclaw-weixin/&#34;]
+        INDEX[accounts.json&lt;br/&gt;账号 ID 索引]
+        subgraph accounts[&#34;accounts/&#34;]
+            A1[&#34;{id-1}.json&lt;br/&gt;token + baseUrl + userId&#34;]
+            A2[&#34;{id-2}.json&lt;br/&gt;token + baseUrl + userId&#34;]
+            S1[&#34;{id-1}.sync.json&lt;br/&gt;同步游标&#34;]
+            S2[&#34;{id-2}.sync.json&lt;br/&gt;同步游标&#34;]
+        end
+        DBG_F[&#34;debug-mode.json&lt;br/&gt;调试状态&#34;]
+    end
+
+    subgraph credentials[&#34;~/.openclaw/credentials/&#34;]
+        AF1[&#34;openclaw-weixin-{id-1}-allowFrom.json&lt;br/&gt;配对授权列表&#34;]
+        AF2[&#34;openclaw-weixin-{id-2}-allowFrom.json&lt;br/&gt;配对授权列表&#34;]
+    end
+
+    INDEX --&gt; A1
+    INDEX --&gt; A2
+    A1 --- S1
+    A2 --- S2
+</code></pre><h3 id="101-三代兼容性适配">10.1 三代兼容性适配</h3>
+<p>由于产品迭代，存在三种不同的数据存储格式：</p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>凭证路径</th>
+<th>同步游标路径</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第一代（单账号）</td>
+<td><code>credentials/openclaw-weixin/credentials.json</code></td>
+<td><code>agents/default/sessions/.openclaw-weixin-sync/default.json</code></td>
+</tr>
+<tr>
+<td>第二代（原始 ID）</td>
+<td><code>accounts/{raw@id}.json</code></td>
+<td><code>accounts/{raw@id}.sync.json</code></td>
+</tr>
+<tr>
+<td>第三代（规范化 ID）</td>
+<td><code>accounts/{normalized-id}.json</code></td>
+<td><code>accounts/{normalized-id}.sync.json</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>loadWeixinAccount()</code> 和 <code>loadGetUpdatesBuf()</code> 按优先级依次尝试这三种路径，<strong>新数据始终写入第三代格式</strong>，实现了无缝的向后兼容迁移。</p>
+<h3 id="102-凭证安全">10.2 凭证安全</h3>
+<p>保存凭证时，插件尝试将文件权限设为 <code>0o600</code>（仅所有者可读写），防止其他用户读取 bot token：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span>fs.writeFileSync(filePath, JSON.stringify(data, <span style="color:#ff79c6">null</span>, <span style="color:#bd93f9">2</span>), <span style="color:#f1fa8c">&#34;utf-8&#34;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">try</span> {
+</span></span><span style="display:flex;"><span>  fs.chmodSync(filePath, <span style="color:#bd93f9">0</span>o600);  <span style="color:#6272a4">// 最佳努力
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>} <span style="color:#ff79c6">catch</span> { <span style="color:#6272a4">/* 某些文件系统可能不支持 */</span> }
+</span></span></code></pre></div><hr>
+<h2 id="-十一容错与可观测性设计">🛡️ 十一、容错与可观测性设计</h2>
+<h3 id="111-会话守卫session-guard">11.1 会话守卫（Session Guard）</h3>
+<p>当检测到 <code>errcode=-14</code>（会话过期）时，<code>session-guard.ts</code> 会将整个账号暂停 1 小时，<strong>阻止所有入站和出站 API 调用</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 每次 API 调用前必须检查
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> assertSessionActive(accountId: <span style="color:#8be9fd">string</span>)<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">void</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (isSessionPaused(accountId)) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> remainingMin <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">Math</span>.ceil(getRemainingPauseMs(accountId) <span style="color:#ff79c6">/</span> <span style="color:#bd93f9">60</span>_000);
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">throw</span> <span style="color:#ff79c6">new</span> <span style="color:#8be9fd;font-style:italic">Error</span>(
+</span></span><span style="display:flex;"><span>      <span style="color:#f1fa8c">`session paused, </span><span style="color:#f1fa8c">${</span>remainingMin<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c"> min remaining`</span>
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这防止了在会话失效后持续向微信服务器发送无效请求，避免被限流或封禁。</p>
+<h3 id="112-配置缓存config-cache">11.2 配置缓存（Config Cache）</h3>
+<p><code>WeixinConfigManager</code> 对 <code>getConfig</code> API 实现了<strong>随机化 TTL + 指数退避</strong>的缓存策略：</p>
+<h3 id="-配置缓存刷新策略">▼ 配置缓存刷新策略</h3>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">stateDiagram-v2
+    [*] --&gt; 无缓存
+    无缓存 --&gt; 获取中: 首次访问
+    获取中 --&gt; 已缓存: 成功（ret=0）
+    获取中 --&gt; 重试中: 失败
+    已缓存 --&gt; 获取中: 随机 TTL 到期（0~24h）
+    重试中 --&gt; 获取中: 退避后重试
+    重试中 --&gt; 重试中: 继续失败（延迟×2）
+
+    note right of 已缓存
+      nextFetchAt = now + random() × 24h
+      抖动避免雷群效应
+    end note
+
+    note right of 重试中
+      初始: 2s → 4s → 8s → ... → 最大 1h
+      指数退避 + 上界
+    end note
+</code></pre><h3 id="113-结构化日志">11.3 结构化日志</h3>
+<p>插件自实现了一个轻量但完备的 JSON Lines 日志系统：</p>
+<ul>
+<li><strong>输出位置</strong>：<code>/tmp/openclaw/openclaw-{YYYY-MM-DD}.log</code></li>
+<li><strong>格式</strong>：结构化 JSON，包含时间戳、日志级别、运行时信息、主机名</li>
+<li><strong>级别过滤</strong>：通过 <code>OPENCLAW_LOG_LEVEL</code> 环境变量控制</li>
+<li><strong>敏感信息脱敏</strong>：<code>redact.ts</code> 工具自动截断 token、URL 参数、请求体</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;0&#34;</span>: <span style="color:#f1fa8c">&#34;gateway/channels/openclaw-weixin/abc-im-bot&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;1&#34;</span>: <span style="color:#f1fa8c">&#34;[abc-im-bot] inbound message: from=user@im.wechat types=1&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;_meta&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;logLevelName&#34;</span>: <span style="color:#f1fa8c">&#34;INFO&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;date&#34;</span>: <span style="color:#f1fa8c">&#34;2026-03-22T10:30:00.000Z&#34;</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="114-debug-模式">11.4 Debug 模式</h3>
+<p>通过 <code>/toggle-debug</code> 斜杠指令可以为单个账号开启调试模式。开启后，每条消息处理完毕后会自动追加一条<strong>全链路耗时报告</strong>：</p>
+<pre tabindex="0"><code>⏱ Debug 全链路
+── 收消息 ──
+│ seq=1234 msgId=5678 from=user@im.wechat
+│ body=&#34;你好&#34; (len=2) itemTypes=[1]
+── 鉴权 &amp; 路由 ──
+│ auth: cmdAuthorized=true senderAllowed=true
+│ route: agent=default session=main
+── 回复 ──
+│ textLen=150 media=none
+│ text=&#34;你好！我是 AI 助手...&#34;
+── 耗时 ──
+├ 平台→插件: 120ms
+├ 入站处理(auth+route+media): 45ms (mediaDownload: 0ms)
+├ AI生成+回复: 2300ms
+├ 总耗时: 2465ms
+└ eventTime: 2026-03-22T10:30:00.000Z
+</code></pre><h3 id="115-错误通知">11.5 错误通知</h3>
+<p><code>error-notice.ts</code> 实现了 <strong>fire-and-forget</strong> 模式的用户侧错误通知——当发送失败时，尝试给用户发一条友好的错误提示。即使通知发送本身也失败了，也只记日志，绝不抛出异常影响主流程。</p>
+<hr>
+<h2 id="-十二总结与设计亮点">🎯 十二、总结与设计亮点</h2>
+<table>
+<thead>
+<tr>
+<th>亮点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🏛️ <strong>清晰的分层架构</strong></td>
+<td>API 层 → 消息层 → 框架适配层，每层职责单一、接口明确，模块间通过类型契约而非具体实现耦合</td>
+</tr>
+<tr>
+<td>🔄 <strong>优雅的容错设计</strong></td>
+<td>三级重试策略（即时重试→短间隔重试→长退避）覆盖不同级别的故障场景，会话守卫防止无效请求风暴</td>
+</tr>
+<tr>
+<td>📦 <strong>极简依赖</strong></td>
+<td>仅 2 个运行时依赖（qrcode-terminal + zod），充分利用 Node.js 22 原生能力（fetch、crypto、ESM），部署轻量</td>
+</tr>
+<tr>
+<td>🔐 <strong>端到端加密传输</strong></td>
+<td>所有媒体文件通过 AES-128-ECB 加密后上传/下载，密钥随机生成、按消息传递，确保传输安全</td>
+</tr>
+<tr>
+<td>🔧 <strong>三代兼容迁移</strong></td>
+<td>数据加载函数自动适配三种历史存储格式，用户升级无需手动迁移，体现了对向后兼容的工程承诺</td>
+</tr>
+<tr>
+<td>👁️ <strong>全链路可观测</strong></td>
+<td>结构化 JSON 日志 + 敏感信息自动脱敏 + debug 模式逐条耗时追踪 + 日志上传 CLI，覆盖开发到生产的全场景调试需求</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>🌟 <strong>最终总结</strong></p>
+<p><code>@tencent-weixin/openclaw-weixin</code> 插件展现了一个<strong>生产级渠道适配器</strong>的完整实现范式：用 ~2500 行 TypeScript 代码，完成了扫码登录、长轮询监听、消息标准化、鉴权路由、AI 调度、媒体加密传输、多账号管理、容错恢复、调试诊断等全套能力。其清晰的模块化设计、对边界情况的细致处理、以及对历史兼容性的尊重，使其成为一个值得深入学习的工程典范。</p>
+</blockquote>
+<hr>
+<p>📝 本文基于 <code>@tencent-weixin/openclaw-weixin@1.0.2</code> 源码分析 | 生成于 2026-03-22</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="http://localhost:1313/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/03/22/openviking-analysis/" data-toggle="tooltip" data-placement="top" title="从原理到落地：基于OpenViking构建多模态RAG方案">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+  
+<script type="module">  
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs'; 
+    mermaid.initialize({ startOnLoad: true });  
+</script>  
+<script>  
+    
+    Array.from(document.getElementsByClassName("language-mermaid")).forEach(  
+        (el) => {  
+            el.parentElement.outerHTML = `<div class="mermaid">${el.innerHTML}</div>`;  
+        }  
+    );  
+</script>  
+<style>  
+       
+    .mermaid svg {  
+        display: block;  
+        margin: auto;  
+    }  
+</style>  
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
