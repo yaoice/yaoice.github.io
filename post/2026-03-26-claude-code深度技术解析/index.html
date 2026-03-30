@@ -18,9 +18,9 @@
     
 
     
-    <meta name="title" content="Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理" />
-    <meta property="og:title" content="Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理" />
-    <meta property="twitter:title" content="Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理" />
+    <meta name="title" content="Claude Code 深度技术解析：Anthropic 开源 AI 编程代理的架构与实现原理" />
+    <meta property="og:title" content="Claude Code 深度技术解析：Anthropic 开源 AI 编程代理的架构与实现原理" />
+    <meta property="twitter:title" content="Claude Code 深度技术解析：Anthropic 开源 AI 编程代理的架构与实现原理" />
     
 
     
@@ -37,7 +37,7 @@
     <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
     <link rel="shortcut icon" href="/img/favicon.ico">
 
-    <title>Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+    <title>Claude Code 深度技术解析：Anthropic 开源 AI 编程代理的架构与实现原理 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
 
     <link rel="canonical" href="/post/2026-03-26-claude-code%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/">
 
@@ -204,8 +204,8 @@
                         </a>
                         
                     </div>
-                    <h1>Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理</h1>
-                    <h2 class="subheading">从Agentic Loop到多Agent协作：深入剖析Anthropic开源AI编程工具的架构与实现</h2>
+                    <h1>Claude Code 深度技术解析：Anthropic 开源 AI 编程代理的架构与实现原理</h1>
+                    <h2 class="subheading">从 Agentic Loop 到多 Agent 协作：深入剖析 Anthropic 开源 AI 编程工具的架构与实现</h2>
                     <span class="meta">
                         
                             Posted by 
@@ -240,41 +240,29 @@
 
                 
                 <h2 id="一引言">一、引言</h2>
-<p>在AI编程工具百花齐放的今天，Anthropic推出的<strong>Claude Code</strong>以其独特的「终端原生+代理式」架构，迅速成为开发者社区的焦点。截至2026年3月，其GitHub仓库已获得<strong>82.6k+ Stars</strong>，成为最受欢迎的AI编程工具之一。</p>
+<p>在 AI 编程工具百花齐放的今天，Anthropic 推出的 <strong>Claude Code</strong> 以其独特的「终端原生 + 代理式」架构，迅速成为开发者社区的焦点。截至 2026 年 3 月，其 GitHub 仓库已获得 <strong>82.6k+ Stars</strong>，成为最受欢迎的 AI 编程工具之一。</p>
 <p>与传统的代码补全工具（如GitHub Copilot）不同，Claude Code不是一个被动的「建议者」，而是一个主动的「执行者」——它能理解自然语言指令，自主规划任务步骤，直接在终端中读写文件、执行命令、运行测试，形成完整的「感知-决策-执行-验证」闭环。</p>
 <blockquote>
 <p>🔗 仓库地址：<a href="https://github.com/anthropics/claude-code">https://github.com/anthropics/claude-code</a></p>
 <p>📜 语言构成：Shell 47.0% | Python 29.3% | TypeScript 17.7%</p>
 </blockquote>
-<p>本文将从架构设计、核心机制、工具系统、多Agent协作等维度，对Claude Code进行全面的技术剖析。</p>
+<p>本文将从架构设计、核心机制、工具系统、多 Agent 协作等维度，对Claude Code进行全面的技术剖析。</p>
 <hr>
 <h2 id="二整体架构概览">二、整体架构概览</h2>
 <h3 id="21-架构分层">2.1 架构分层</h3>
-<p>Claude Code采用清晰的分层架构，自顶向下可分为四个层次：</p>
+<p>Claude Code 采用清晰的分层架构，自顶向下可分为四个层次：</p>
 <p>
-  <img src="/img/claude-code/architecture-overview.png" alt="Claude Code 整体架构图">
+  <img src="/img/claude-code/architecture-overview.svg" alt="Claude Code 整体架构图">
 
 </p>
-<pre tabindex="0"><code>┌─────────────────────────────────────────────────────┐
-│                   用户接口层 (Surfaces)               │
-│  Terminal CLI │ VS Code │ Desktop App │ JetBrains │ Web  │
-├─────────────────────────────────────────────────────┤
-│                   Agentic Loop 核心层                │
-│        Gather Context → Take Action → Verify Results │
-├─────────────────────────────────────────────────────┤
-│                     工具系统层                        │
-│  File Ops │ Search │ Execution │ Web │ Code Intelligence │
-├─────────────────────────────────────────────────────┤
-│                   上下文管理层                        │
-│  CLAUDE.md │ Auto Memory │ Context Compression │ Sub-agents │
-└─────────────────────────────────────────────────────┘
-</code></pre><p><strong>核心设计哲学</strong>可以概括为一句话：</p>
+<!-- raw HTML omitted -->
+<p>这张分层图的价值，不只是展示模块划分，更重要的是说明 Claude Code 如何把“模型决策”和“工程执行”拆开：上层负责接入用户与 IDE，下层负责为模型提供稳定、可治理的运行环境。也正因为这四层解耦，Claude Code 才能在不同 Surface 上复用同一套 Agent 内核。</p>
+<p><strong>核心设计哲学</strong>可以概括为一句话：</p>
 <blockquote>
 <p><strong>模型即Agent，工程即Harness。</strong></p>
 </blockquote>
-<p>Claude Code的核心智能来自Claude大模型本身（Agent），而工程团队构建的是一个<strong>Harness（套件）</strong>——为模型提供工具、知识、观察、动作接口和权限治理的运行环境。</p>
-<pre tabindex="0"><code>Harness = Tools + Knowledge + Observation + Action Interfaces + Permissions
-</code></pre><h3 id="22-仓库结构">2.2 仓库结构</h3>
+<p>Claude Code的核心智能来自Claude大模型本身（Agent），而工程团队构建的是一个<strong>Harness（套件）</strong>——为模型提供工具、知识、观察、动作接口和权限治理的运行环境：<code>Harness = Tools + Knowledge + Observation + Action Interfaces + Permissions</code>。</p>
+<h3 id="22-仓库结构">2.2 仓库结构</h3>
 <pre tabindex="0"><code>anthropics/claude-code/
 ├── .claude-plugin          # 插件配置
 ├── .claude/commands/       # 自定义命令目录
@@ -323,9 +311,11 @@
 <h3 id="31-循环原理">3.1 循环原理</h3>
 <p>Agentic Loop是Claude Code的心脏。与简单的「输入-输出」对话不同，它是一个<strong>持续自适应的循环</strong>，包含三个交织的阶段：</p>
 <p>
-  <img src="/img/claude-code/agentic-loop.png" alt="Claude Code Agentic Loop 流程图">
+  <img src="/img/claude-code/agentic-loop.svg" alt="Claude Code Agentic Loop 流程图">
 
 </p>
+<!-- raw HTML omitted -->
+<p>这张流程图真正揭示的是 Claude Code 的控制边界：模型负责决定“下一步做什么”，Harness 负责把工具执行结果可靠地送回上下文，二者共同组成闭环。落实到执行层面，循环里的核心动作仍可归纳为三个交织阶段：</p>
 <ol>
 <li><strong>Gather Context（收集上下文）</strong>：搜索文件、读取代码、探索项目结构</li>
 <li><strong>Take Action（采取行动）</strong>：编辑文件、执行Shell命令、运行代码</li>
@@ -398,9 +388,11 @@
 <h3 id="41-工具设计原则">4.1 工具设计原则</h3>
 <p>工具是将Claude从「文本生成器」转变为「代理系统」的关键。Claude Code的工具设计遵循三大原则：</p>
 <p>
-  <img src="/img/claude-code/tool-system.png" alt="Claude Code 工具系统">
+  <img src="/img/claude-code/tool-system.svg" alt="Claude Code 工具系统架构">
 
 </p>
+<!-- raw HTML omitted -->
+<p>这张图强调的不是工具数量本身，而是它们的组织方式：所有能力都被抽象成可描述、可调用、可回传结果的标准接口，因此 Claude Code 才能把搜索、执行、Web 和协作能力统一纳入同一条 Agentic Loop。工具设计遵循三大原则：</p>
 <table>
 <thead>
 <tr>
@@ -424,7 +416,7 @@
 </tbody>
 </table>
 <h3 id="42-内置工具清单">4.2 内置工具清单</h3>
-<p>Claude Code包含<strong>18个内置工具</strong>，覆盖开发全流程：</p>
+<p>Claude Code 提供了一组覆盖开发全流程的核心内置工具：</p>
 <h4 id="文件操作类">文件操作类</h4>
 <table>
 <thead>
@@ -543,7 +535,7 @@
 </tr>
 <tr>
 <td><code>TeammateTool</code></td>
-<td>管理团队和子Agent</td>
+<td>管理团队和子 Agent</td>
 </tr>
 </tbody>
 </table>
@@ -636,23 +628,25 @@
 <li><strong>持久化关键信息</strong>：将重要规则和模式写入<code>CLAUDE.md</code>，而非依赖对话记忆</li>
 </ol>
 <p>用户也可以通过<code>/compact</code>命令手动触发压缩。</p>
-<h3 id="54-子agent隔离">5.4 子Agent隔离</h3>
-<p>为了避免复杂任务污染主对话上下文，Claude Code可以<strong>生成子Agent</strong>：</p>
+<h3 id="54-子-agent-隔离">5.4 子 Agent 隔离</h3>
+<p>为了避免复杂任务污染主对话上下文，Claude Code 可以<strong>生成子 Agent</strong>：</p>
 <pre tabindex="0"><code>主 Agent（协调者）
 ├── 子 Agent A（独立上下文）→ 返回摘要
 ├── 子 Agent B（独立上下文）→ 返回摘要  
 └── 子 Agent C（独立上下文）→ 返回摘要
-</code></pre><p>每个子Agent拥有<strong>独立的消息列表</strong>，完成任务后仅向主Agent返回结果摘要。这一机制有效控制了上下文膨胀。</p>
+</code></pre><p>每个子 Agent 拥有<strong>独立的消息列表</strong>，完成任务后仅向主 Agent 返回结果摘要。这一机制有效控制了上下文膨胀。</p>
 <hr>
-<h2 id="六多agent协作架构">六、多Agent协作架构</h2>
+<h2 id="六多-agent-协作架构">六、多 Agent 协作架构</h2>
 <h3 id="61-协作模式">6.1 协作模式</h3>
-<p>Claude Code支持高级的多Agent协作模式，这是其区别于大多数AI编程工具的重要特性：</p>
+<p>Claude Code 支持高级的多 Agent 协作模式，这是其区别于大多数 AI 编程工具的重要特性：</p>
 <p>
-  <img src="/img/claude-code/multi-agent.png" alt="Claude Code 多Agent协作架构">
+  <img src="/img/claude-code/multi-agent.svg" alt="Claude Code 多 Agent 协作架构">
 
 </p>
-<h3 id="62-task系统">6.2 Task系统</h3>
-<p>Task系统是多Agent协作的基础，提供基于文件系统的任务CRUD和依赖图管理：</p>
+<!-- raw HTML omitted -->
+<p>这张图把多 Agent 协作拆成了三个关键约束：上下文隔离、文件隔离和通信协调。也就是说，Claude Code 不是简单地“多开几个 Agent”，而是通过任务看板、异步邮箱和 Git Worktree 让并行执行可控且可回收。</p>
+<h3 id="62-task-系统">6.2 Task 系统</h3>
+<p>Task 系统是多 Agent 协作的基础，提供基于文件系统的任务 CRUD 和依赖图管理：</p>
 <pre tabindex="0"><code>任务看板
 ├── task-001: 实现用户认证模块     [completed]
 ├── task-002: 编写认证API测试      [in_progress] → 依赖 task-001
@@ -698,7 +692,8 @@
 └── worktree-agent-C/    # Agent C 的独立工作目录
 </code></pre><p>任务ID与Worktree绑定，确保每个Agent的文件操作互不干扰。</p>
 <h3 id="65-自主认领机制">6.5 自主认领机制</h3>
-<p>在高级模式下，Agent无需中央调度，可自主扫描任务看板并认领未分配的任务。这大幅提升了并行效率，减少了协调开销。</p>
+<p>在高级模式下，Agent 无需中央调度，可自主扫描任务看板并认领未分配的任务。这大幅提升了并行效率，减少了协调开销。</p>
+<p>不过，多 Agent 协作、权限治理与工具调用之所以能稳定运行，背后依赖的正是系统提示词的模块化装配。下面把视角从协作层继续下探到提示词层。</p>
 <hr>
 <h2 id="七系统提示词架构">七、系统提示词架构</h2>
 <h3 id="71-模块化提示词">7.1 模块化提示词</h3>
@@ -713,7 +708,7 @@
 </thead>
 <tbody>
 <tr>
-<td>Agent提示词（子Agent、工具类）</td>
+<td>Agent 提示词（子 Agent、工具类）</td>
 <td>~15</td>
 <td>384 - 5,667 tks</td>
 </tr>
@@ -881,7 +876,7 @@
 <td>基础支持</td>
 </tr>
 <tr>
-<td><strong>多Agent协作</strong></td>
+<td><strong>多 Agent 协作</strong></td>
 <td>✅</td>
 <td>❌</td>
 <td>❌</td>
@@ -894,7 +889,7 @@
 </tr>
 <tr>
 <td><strong>上下文管理</strong></td>
-<td>自动压缩+子Agent</td>
+<td>自动压缩 + 子 Agent</td>
 <td>编辑器上下文</td>
 <td>文件级上下文</td>
 </tr>
@@ -902,15 +897,15 @@
 </table>
 <hr>
 <h2 id="十一总结">十一、总结</h2>
-<p>Claude Code的技术架构体现了一个深刻的设计哲学：<strong>让模型做决策，让工程做执行</strong>。其核心创新可以概括为：</p>
+<p>Claude Code 的技术架构体现了一个深刻的设计哲学：<strong>让模型做决策，让工程做执行</strong>。其核心创新可以概括为：</p>
 <ol>
-<li><strong>极简的Agentic Loop</strong>：一个循环+工具分发，就是整个Agent系统的骨架</li>
-<li><strong>丰富的工具生态</strong>：18个内置工具 + MCP无限扩展，覆盖开发全链路</li>
-<li><strong>精巧的上下文管理</strong>：CLAUDE.md持久化 + 自动压缩 + 子Agent隔离</li>
-<li><strong>完整的多Agent协作</strong>：任务图 + 异步邮箱 + Worktree隔离 + 自主认领</li>
+<li><strong>极简的 Agentic Loop</strong>：一个循环 + 工具分发，就是整个 Agent 系统的骨架</li>
+<li><strong>统一的工具接口</strong>：核心内置工具与 MCP 扩展共同覆盖开发全链路</li>
+<li><strong>精巧的上下文管理</strong>：<code>CLAUDE.md</code> 持久化 + 自动压缩 + 子 Agent 隔离</li>
+<li><strong>完整的多 Agent 协作</strong>：任务图 + 异步邮箱 + Worktree 隔离 + 自主认领</li>
 <li><strong>分层的安全治理</strong>：四种权限模式 + 检查点 + 沙箱 + 审批工作流</li>
 </ol>
-<p>Claude Code证明了一个重要观点：构建一个强大的AI编程Agent，关键不在于复杂的框架或提示词链，而在于为一个已经足够聪明的模型提供合适的<strong>工具和环境</strong>。正如learn-claude-code项目所总结的：</p>
+<p>Claude Code 证明了一个重要观点：构建一个强大的 AI 编程 Agent，关键不在于复杂的框架或提示词链，而在于为一个已经足够聪明的模型提供合适的<strong>工具和环境</strong>。正如 <code>learn-claude-code</code> 项目所总结的：</p>
 <blockquote>
 <p><strong>&ldquo;Bash is all you need&rdquo;</strong> —— 一个循环和Bash，就足以构建令人惊叹的Agent系统。</p>
 </blockquote>
