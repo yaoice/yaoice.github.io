@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="wecom-cli深度技术解析：企业微信开放平台命令行工具的架构与实现原理" />
+    <meta property="og:title" content="wecom-cli深度技术解析：企业微信开放平台命令行工具的架构与实现原理" />
+    <meta property="twitter:title" content="wecom-cli深度技术解析：企业微信开放平台命令行工具的架构与实现原理" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>wecom-cli深度技术解析：企业微信开放平台命令行工具的架构与实现原理 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-03-30-wecomcli%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/cli" title="CLI">
+                            CLI
+                        </a>
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E4%BC%81%E4%B8%9A%E5%BE%AE%E4%BF%A1" title="企业微信">
+                            企业微信
+                        </a>
+                        
+                    </div>
+                    <h1>wecom-cli深度技术解析：企业微信开放平台命令行工具的架构与实现原理</h1>
+                    <h2 class="subheading">从Rust CLI到AI Agent Skills：深入剖析企业微信开放平台命令行工具的架构与实现</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Monday, March 30, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言">一、引言</h2>
+<p>在企业协作工具向AI Agent化演进的大背景下，企业微信团队开源了<strong>wecom-cli</strong>——一个同时为人类用户和AI Agent设计的命令行工具。它以Rust为核心语言构建，通过MCP（Model Context Protocol）与企业微信云端服务通信；在命令结构上提供 <strong>6 个一级 CLI 品类</strong>，覆盖通讯录、待办、会议、消息、日程、文档/智能表格等核心业务能力，并内置 <strong>12 个 AI Agent Skills</strong>。</p>
+<blockquote>
+<p>🔗 仓库地址：<a href="https://github.com/WecomTeam/wecom-cli">https://github.com/WecomTeam/wecom-cli</a></p>
+<p>📜 语言构成：Rust 96.6% | JavaScript 3.4%</p>
+<p>📦 开源协议：MIT License</p>
+</blockquote>
+<p>本文将从整体架构、核心模块源码、安全机制、AI Agent Skills等维度，对wecom-cli进行全面的技术剖析。</p>
+<hr>
+<h2 id="二整体架构概览">二、整体架构概览</h2>
+<h3 id="21-四层架构设计">2.1 四层架构设计</h3>
+<p>wecom-cli采用了清晰的分层架构设计，自顶向下可分为四个层次：</p>
+<p>
+  <img src="/img/wecom-cli/architecture-overview.svg" alt="wecom-cli 整体架构图">
+
+</p>
+<pre tabindex="0"><code>┌──────────────────────────────────────────────────────────────┐
+│  npm 分发层   @wecom/cli (Node.js Wrapper)                    │
+│  bin/wecom.js → 平台检测 → 调用对应平台的 Rust 二进制         │
+├──────────────────────────────────────────────────────────────┤
+│  Rust CLI 核心层   (Tokio + Clap)                             │
+│  main.rs → cmd/init | cmd/call → json_rpc → help/logging     │
+├──────────────────────────────────────────────────────────────┤
+│  安全与存储层                                                  │
+│  auth (凭证管理) | crypto (AES-256-GCM) | mcp/config (缓存)  │
+├──────────────────────────────────────────────────────────────┤
+│  外部服务层   企业微信 MCP 云端服务                             │
+│  qyapi.weixin.qq.com → tools/list | tools/call               │
+└──────────────────────────────────────────────────────────────┘
+</code></pre><p><strong>设计亮点：</strong></p>
+<ul>
+<li><strong>双语言协作</strong>：Node.js 作为分发层处理跨平台路由，Rust 作为核心层保证性能与安全</li>
+<li><strong>配置驱动的命令体系</strong>：子命令不是硬编码的，而是通过<code>config.rs</code>动态注册，方便扩展新的业务品类</li>
+<li><strong>本地加密缓存</strong>：MCP配置和Bot凭证均通过AES-256-GCM加密存储，减少网络请求的同时保证安全</li>
+</ul>
+<h3 id="22-项目目录结构">2.2 项目目录结构</h3>
+<pre tabindex="0"><code>wecom-cli/
+├── bin/wecom.js              # Node.js 入口，平台检测与二进制路由
+├── packages/                 # 跨平台预编译二进制
+│   ├── darwin-arm64/         # macOS Apple Silicon
+│   ├── darwin-x64/           # macOS Intel
+│   ├── linux-x64/            # Linux 64位
+│   └── win32-x64/            # Windows 64位
+├── src/                      # Rust 核心源码
+│   ├── main.rs               # 程序入口
+│   ├── config.rs             # 业务品类定义
+│   ├── constants.rs          # 常量与路径
+│   ├── json_rpc.rs           # JSON-RPC 2.0 客户端
+│   ├── help.rs               # 动态帮助系统
+│   ├── logging.rs            # 日志系统
+│   ├── fs_util.rs            # 原子文件写入
+│   ├── cmd/                  # 命令处理
+│   │   ├── init.rs           # 初始化凭证
+│   │   └── call.rs           # 工具调用分发
+│   ├── auth/                 # 认证模块
+│   │   ├── mod.rs            # 凭证加密存储
+│   │   └── protocol.rs       # Bot 数据结构
+│   ├── crypto/               # 加密模块
+│   │   ├── cipher.rs         # AES-256-GCM 加解密
+│   │   └── keystore.rs       # 密钥管理 (Keyring/文件)
+│   ├── mcp/                  # MCP 协议模块
+│   │   ├── mod.rs            # URL 路由与请求ID生成
+│   │   └── config.rs         # MCP 配置获取与缓存
+│   └── media/                # 媒体处理
+│       ├── mod.rs            # 媒体响应拦截
+│       └── utils.rs          # MIME 检测与文件保存
+├── skills/                   # AI Agent 技能定义
+│   ├── wecomcli-lookup-contact/
+│   ├── wecomcli-create-meeting/
+│   ├── wecomcli-manage-doc/
+│   └── ... (共12个)
+├── Cargo.toml                # Rust 依赖配置
+└── package.json              # npm 包配置
+</code></pre><h3 id="23-核心技术栈">2.3 核心技术栈</h3>
+<table>
+<thead>
+<tr>
+<th>技术</th>
+<th>用途</th>
+<th>版本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Rust (Edition 2024)</strong></td>
+<td>核心语言</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Tokio</strong></td>
+<td>异步运行时</td>
+<td>1.50.0</td>
+</tr>
+<tr>
+<td><strong>Clap</strong></td>
+<td>命令行解析</td>
+<td>4.x</td>
+</tr>
+<tr>
+<td><strong>reqwest</strong></td>
+<td>HTTP 客户端 (rustls)</td>
+<td>0.13.2</td>
+</tr>
+<tr>
+<td><strong>aes-gcm</strong></td>
+<td>AES-256-GCM 加密</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td><strong>keyring</strong></td>
+<td>操作系统密钥环</td>
+<td>3.x</td>
+</tr>
+<tr>
+<td><strong>serde / serde_json</strong></td>
+<td>JSON 序列化</td>
+<td>1.x</td>
+</tr>
+<tr>
+<td><strong>cliclack</strong></td>
+<td>交互式终端 UI</td>
+<td>0.5</td>
+</tr>
+<tr>
+<td><strong>tracing</strong></td>
+<td>结构化日志</td>
+<td>0.1</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="三npm-分发层nodejs-跨平台引导">三、npm 分发层：Node.js 跨平台引导</h2>
+<h3 id="31-设计策略">3.1 设计策略</h3>
+<p>
+  <img src="/img/wecom-cli/npm-distribution-flow.svg" alt="npm 跨平台分发与引导流程">
+
+</p>
+<p>wecom-cli的分发采用了一种巧妙的<strong>npm + Rust二进制</strong>的混合策略：</p>
+<ul>
+<li>主包<code>@wecom/cli</code>是一个轻量的 Node.js 包，仅包含<code>bin/wecom.js</code>引导脚本</li>
+<li>真正的 Rust 二进制以<code>optionalDependencies</code>的形式按平台分包发布</li>
+<li>安装时npm会根据当前平台自动下载对应的二进制包</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;name&#34;</span>: <span style="color:#f1fa8c">&#34;@wecom/cli&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;bin&#34;</span>: { <span style="color:#ff79c6">&#34;wecom-cli&#34;</span>: <span style="color:#f1fa8c">&#34;./bin/wecom.js&#34;</span> },
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;optionalDependencies&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;@wecom/cli-darwin-arm64&#34;</span>: <span style="color:#f1fa8c">&#34;0.1.1&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;@wecom/cli-darwin-x64&#34;</span>: <span style="color:#f1fa8c">&#34;0.1.1&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;@wecom/cli-linux-x64&#34;</span>: <span style="color:#f1fa8c">&#34;0.1.1&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;@wecom/cli-win32-x64&#34;</span>: <span style="color:#f1fa8c">&#34;0.1.1&#34;</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="32-binwecomjs-引导逻辑">3.2 bin/wecom.js 引导逻辑</h3>
+<p><code>bin/wecom.js</code>是整个CLI的入口，其职责非常明确——<strong>检测平台、定位二进制、透传执行</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#6272a4">// 1. 平台检测：os.platform() + os.arch() → 包名映射
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">function</span> getPlatformPackage() {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> platform <span style="color:#ff79c6">=</span> os.platform();  <span style="color:#6272a4">// darwin | linux | win32
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> arch <span style="color:#ff79c6">=</span> os.arch();          <span style="color:#6272a4">// arm64 | x64
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 映射到 @wecom/cli-{platform}-{arch}
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 2. 二进制路径解析：require.resolve 查找预编译包
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">function</span> getBinaryPath() {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> pkgPath <span style="color:#ff79c6">=</span> require.resolve(<span style="color:#f1fa8c">`</span><span style="color:#f1fa8c">${</span>pkg<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">/package.json`</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> binName <span style="color:#ff79c6">=</span> process.platform <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;win32&#39;</span> <span style="color:#ff79c6">?</span> <span style="color:#f1fa8c">&#39;wecom-cli.exe&#39;</span> <span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;wecom-cli&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> path.join(path.dirname(pkgPath), binName);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 3. 透传执行：execFileSync 调用 Rust 二进制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>execFileSync(binaryPath, process.argv.slice(<span style="color:#bd93f9">2</span>), { stdio<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;inherit&#39;</span> });
+</span></span></code></pre></div><p>这种设计的优势在于：</p>
+<ul>
+<li>用户无需安装 Rust 工具链</li>
+<li>npm的<code>optionalDependencies</code>机制自动处理跨平台分发</li>
+<li>Node.js 层极轻量，仅做桥接</li>
+</ul>
+<hr>
+<h2 id="四rust-cli-核心层">四、Rust CLI 核心层</h2>
+<h3 id="41-程序入口-mainrs">4.1 程序入口 (main.rs)</h3>
+<p><code>main.rs</code>是整个Rust应用的入口点，基于<code>tokio</code>异步运行时，核心流程为：<strong>环境加载 → 动态生成子命令 → 路由分发</strong>。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#ff79c6">#[tokio::main]</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">async</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">main</span>() -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span>()<span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 1. 加载 .env 环境变量
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    dotenvy::dotenv().ok();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 2. 初始化日志
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    logging::init_logging();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 3. 从 config.rs 获取业务品类，动态生成子命令
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> categories <span style="color:#ff79c6">=</span> config::get_categories();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 4. 构建 CLI 应用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> app <span style="color:#ff79c6">=</span> Command::new(<span style="color:#f1fa8c">&#34;wecom-cli&#34;</span>)
+</span></span><span style="display:flex;"><span>        .subcommand(Command::new(<span style="color:#f1fa8c">&#34;init&#34;</span>)<span style="color:#ff79c6">..</span>.);  <span style="color:#6272a4">// 内置 init 命令
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 动态添加品类命令
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">for</span> cat <span style="color:#ff79c6">in</span> <span style="color:#ff79c6">&amp;</span>categories {
+</span></span><span style="display:flex;"><span>        app <span style="color:#ff79c6">=</span> app.subcommand(Command::new(cat.name).about(cat.description)<span style="color:#ff79c6">..</span>.);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 5. 命令分发
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">match</span> matches.subcommand() {
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">Some</span>((<span style="color:#f1fa8c">&#34;init&#34;</span>, m))      <span style="color:#ff79c6">=&gt;</span> cmd::init::handle_init_cmd(m).<span style="color:#ff79c6">await</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">Some</span>((category, m))    <span style="color:#ff79c6">=&gt;</span> cmd::call::handle_call_cmd(category, m).<span style="color:#ff79c6">await</span>,
+</span></span><span style="display:flex;"><span>        _ <span style="color:#ff79c6">=&gt;</span> anyhow::bail!(<span style="color:#f1fa8c">&#34;未知命令&#34;</span>),
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>关键设计点：</strong></p>
+<ul>
+<li><strong>动态命令生成</strong>：子命令并非硬编码，而是从<code>config::get_categories()</code>动态获取。这意味着在 CLI 路由层扩展一级品类时，改动主要集中在品类配置与后端能力接入，而不必重写整套分发逻辑</li>
+<li><strong>异步优先</strong>：使用<code>#[tokio::main]</code>宏，所有I/O操作均为异步执行</li>
+</ul>
+<h3 id="42-配置驱动的品类系统-configrs">4.2 配置驱动的品类系统 (config.rs)</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#ff79c6">#[derive(Debug, Clone)]</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">struct</span> <span style="color:#50fa7b">CategoryInfo</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">pub</span> name: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd;font-style:italic">&#39;static</span> <span style="color:#8be9fd">str</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">pub</span> description: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd;font-style:italic">&#39;static</span> <span style="color:#8be9fd">str</span>,
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">get_categories</span>() -&gt; <span style="color:#8be9fd;font-style:italic">Vec</span><span style="color:#ff79c6">&lt;</span>CategoryInfo<span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    vec![
+</span></span><span style="display:flex;"><span>        CategoryInfo { name: <span style="color:#f1fa8c">&#34;contact&#34;</span>,  description: <span style="color:#f1fa8c">&#34;通讯录 — 成员查询和搜索&#34;</span> },
+</span></span><span style="display:flex;"><span>        CategoryInfo { name: <span style="color:#f1fa8c">&#34;doc&#34;</span>,      description: <span style="color:#f1fa8c">&#34;文档 — 文档/智能表格创建和管理&#34;</span> },
+</span></span><span style="display:flex;"><span>        CategoryInfo { name: <span style="color:#f1fa8c">&#34;meeting&#34;</span>,  description: <span style="color:#f1fa8c">&#34;会议 — 创建/管理/查询视频会议&#34;</span> },
+</span></span><span style="display:flex;"><span>        CategoryInfo { name: <span style="color:#f1fa8c">&#34;msg&#34;</span>,      description: <span style="color:#f1fa8c">&#34;消息 — 聊天列表、发送/接收消息&#34;</span> },
+</span></span><span style="display:flex;"><span>        CategoryInfo { name: <span style="color:#f1fa8c">&#34;schedule&#34;</span>, description: <span style="color:#f1fa8c">&#34;日程 — 日程增删改查和可用性查询&#34;</span> },
+</span></span><span style="display:flex;"><span>        CategoryInfo { name: <span style="color:#f1fa8c">&#34;todo&#34;</span>,     description: <span style="color:#f1fa8c">&#34;待办事项 — 创建/查询/编辑待办项&#34;</span> },
+</span></span><span style="display:flex;"><span>    ]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>每个品类（category）在MCP后端对应一个独立的服务URL，实现了<strong>业务域隔离</strong>。</p>
+<h3 id="43-命令调用核心-cmdcallrs">4.3 命令调用核心 (cmd/call.rs)</h3>
+<p>这是整个CLI最核心的文件，负责将用户的命令行输入转换为JSON-RPC请求发送到MCP后端：</p>
+<p>
+  <img src="/img/wecom-cli/call-flow.svg" alt="wecom-cli 命令调用流程">
+
+</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">handle_call_cmd</span>(category_name: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>, matches: <span style="color:#ff79c6">&amp;</span><span style="color:#50fa7b">ArgMatches</span>) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span>()<span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 1. 参数解析：method + args + help
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> args <span style="color:#ff79c6">=</span> CallArgs::from_arg_matches(matches)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 2. 校验品类有效性
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> <span style="color:#ff79c6">!</span>config::get_categories().iter().any(<span style="color:#ff79c6">|</span>c<span style="color:#ff79c6">|</span> c.name <span style="color:#ff79c6">==</span> category_name) {
+</span></span><span style="display:flex;"><span>        anyhow::bail!(<span style="color:#f1fa8c">&#34;未知的命令品类: {}&#34;</span>, category_name);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 3. 交互式引导：缺少参数时自动显示帮助
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> args.help <span style="color:#ff79c6">||</span> args.method.is_none() {
+</span></span><span style="display:flex;"><span>        help::show_category_tools(category_name).<span style="color:#ff79c6">await</span><span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">Ok</span>(());
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 4. 构建 JSON-RPC 请求
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> method <span style="color:#ff79c6">=</span> args.method.unwrap();
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> params <span style="color:#ff79c6">=</span> serde_json::from_str(<span style="color:#ff79c6">&amp;</span>args.args.unwrap_or(<span style="color:#f1fa8c">&#34;{}&#34;</span>.into()))<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 5. 特殊超时处理：媒体下载设置 120s
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> timeout <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">if</span> method <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;get_msg_media&#34;</span> { <span style="color:#8be9fd;font-style:italic">Some</span>(<span style="color:#bd93f9">120_000</span>) } <span style="color:#ff79c6">else</span> { <span style="color:#8be9fd;font-style:italic">None</span> };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 6. 发送 JSON-RPC 请求
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> response <span style="color:#ff79c6">=</span> json_rpc::send(category_name, <span style="color:#f1fa8c">&#34;tools/call&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">Some</span>(json!({ <span style="color:#f1fa8c">&#34;name&#34;</span>: <span style="color:#50fa7b">method</span>, <span style="color:#f1fa8c">&#34;arguments&#34;</span>: <span style="color:#50fa7b">params</span> })),
+</span></span><span style="display:flex;"><span>        timeout
+</span></span><span style="display:flex;"><span>    ).<span style="color:#ff79c6">await</span><span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 7. 媒体拦截：对 get_msg_media 进行特殊处理
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> response <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">if</span> method <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;get_msg_media&#34;</span> {
+</span></span><span style="display:flex;"><span>        media::intercept_media_response(response).<span style="color:#ff79c6">await</span><span style="color:#ff79c6">?</span>
+</span></span><span style="display:flex;"><span>    } <span style="color:#ff79c6">else</span> {
+</span></span><span style="display:flex;"><span>        response
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 8. 输出结果
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    println!(<span style="color:#f1fa8c">&#34;</span><span style="color:#f1fa8c">{}</span><span style="color:#f1fa8c">&#34;</span>, response[<span style="color:#f1fa8c">&#34;result&#34;</span>]);
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">Ok</span>(())
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>亮点分析：</strong></p>
+<ul>
+<li><strong>渐进式交互</strong>：缺少method时显示品类工具列表，缺少args时显示工具帮助——对人类用户非常友好</li>
+<li><strong>媒体拦截机制</strong>：<code>get_msg_media</code>返回的base64媒体数据会被自动解码并保存到本地，响应中替换为本地文件路径</li>
+<li><strong>差异化超时</strong>：普通请求30s超时，媒体下载120s超时</li>
+</ul>
+<hr>
+<h2 id="五json-rpc-20-通信层">五、JSON-RPC 2.0 通信层</h2>
+<h3 id="51-请求协议-json_rpcrs">5.1 请求协议 (json_rpc.rs)</h3>
+<p>
+  <img src="/img/wecom-cli/jsonrpc-mcp-flow.svg" alt="JSON-RPC 2.0 通信与 MCP 路由流程">
+
+</p>
+<p>wecom-cli通过标准的<strong>JSON-RPC 2.0</strong>协议与企业微信MCP后端通信：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#ff79c6">#[derive(Debug, Clone, Serialize)]</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">struct</span> <span style="color:#50fa7b">JsonRpcRequest</span> {
+</span></span><span style="display:flex;"><span>    jsonrpc: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd;font-style:italic">&#39;static</span> <span style="color:#8be9fd">str</span>,  <span style="color:#6272a4">// 固定 &#34;2.0&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    id: <span style="color:#8be9fd;font-style:italic">String</span>,              <span style="color:#6272a4">// 唯一请求标识
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    method: <span style="color:#8be9fd;font-style:italic">String</span>,          <span style="color:#6272a4">// RPC 方法名 (tools/list | tools/call)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    params: <span style="color:#8be9fd;font-style:italic">Option</span><span style="color:#ff79c6">&lt;</span>Value<span style="color:#ff79c6">&gt;</span>,   <span style="color:#6272a4">// 可选参数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">send</span>(
+</span></span><span style="display:flex;"><span>    category: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>,
+</span></span><span style="display:flex;"><span>    method: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>,
+</span></span><span style="display:flex;"><span>    params: <span style="color:#8be9fd;font-style:italic">Option</span><span style="color:#ff79c6">&lt;</span>Value<span style="color:#ff79c6">&gt;</span>,
+</span></span><span style="display:flex;"><span>    timeout_ms: <span style="color:#8be9fd;font-style:italic">Option</span><span style="color:#ff79c6">&lt;</span><span style="color:#8be9fd">i32</span><span style="color:#ff79c6">&gt;</span>,
+</span></span><span style="display:flex;"><span>) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span>Value<span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 1. 获取该品类对应的 MCP URL
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> url <span style="color:#ff79c6">=</span> mcp::get_mcp_url(category).<span style="color:#ff79c6">await</span><span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 2. 构建请求
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> req <span style="color:#ff79c6">=</span> JsonRpcRequest {
+</span></span><span style="display:flex;"><span>        jsonrpc: <span style="color:#f1fa8c">&#34;2.0&#34;</span>,
+</span></span><span style="display:flex;"><span>        id: <span style="color:#50fa7b">mcp</span>::gen_req_id(<span style="color:#f1fa8c">&#34;mcp_rpc&#34;</span>),  <span style="color:#6272a4">// 格式: mcp_rpc_{timestamp}_{hex}
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        method: <span style="color:#50fa7b">method</span>.to_string(),
+</span></span><span style="display:flex;"><span>        params,
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 3. 发送 HTTP POST (默认30s超时)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> timeout <span style="color:#ff79c6">=</span> Duration::from_millis(timeout_ms.unwrap_or(<span style="color:#bd93f9">30_000</span>) <span style="color:#ff79c6">as</span> <span style="color:#8be9fd">u64</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> resp <span style="color:#ff79c6">=</span> reqwest::Client::new()
+</span></span><span style="display:flex;"><span>        .post(<span style="color:#ff79c6">&amp;</span>url)
+</span></span><span style="display:flex;"><span>        .json(<span style="color:#ff79c6">&amp;</span>req)
+</span></span><span style="display:flex;"><span>        .timeout(timeout)
+</span></span><span style="display:flex;"><span>        .send()
+</span></span><span style="display:flex;"><span>        .<span style="color:#ff79c6">await</span><span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 4. 解析响应
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> text <span style="color:#ff79c6">=</span> resp.text().<span style="color:#ff79c6">await</span><span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">Ok</span>(serde_json::from_str(<span style="color:#ff79c6">&amp;</span>text)<span style="color:#ff79c6">?</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="52-请求id生成策略">5.2 请求ID生成策略</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">gen_req_id</span>(prefix: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>) -&gt; <span style="color:#8be9fd;font-style:italic">String</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> timestamp <span style="color:#ff79c6">=</span> SystemTime::now()
+</span></span><span style="display:flex;"><span>        .duration_since(UNIX_EPOCH)
+</span></span><span style="display:flex;"><span>        .unwrap()
+</span></span><span style="display:flex;"><span>        .as_millis();
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> random_hex <span style="color:#ff79c6">=</span> generate_random_hex(<span style="color:#bd93f9">4</span>);  <span style="color:#6272a4">// 8位十六进制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    format!(<span style="color:#f1fa8c">&#34;</span><span style="color:#f1fa8c">{prefix}</span><span style="color:#f1fa8c">_</span><span style="color:#f1fa8c">{timestamp}</span><span style="color:#f1fa8c">_</span><span style="color:#f1fa8c">{random_hex}</span><span style="color:#f1fa8c">&#34;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 示例: mcp_rpc_1711814400000_a3f2b1c9
+</span></span></span></code></pre></div><p>使用<strong>前缀 + 毫秒时间戳 + 随机hex</strong>的组合，确保分布式环境下的请求唯一性。</p>
+<h3 id="53-mcp-url-动态路由-mcpmodrs">5.3 MCP URL 动态路由 (mcp/mod.rs)</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">get_mcp_url</span>(category: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span><span style="color:#8be9fd;font-style:italic">String</span><span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> configs <span style="color:#ff79c6">=</span> config::get_mcp_config().<span style="color:#ff79c6">await</span><span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> item <span style="color:#ff79c6">in</span> <span style="color:#ff79c6">&amp;</span>configs {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> item.biz_type <span style="color:#ff79c6">==</span> category {
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">Ok</span>(item.url.clone());
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    anyhow::bail!(<span style="color:#f1fa8c">&#34;当前企业暂不支持 {} 命令&#34;</span>, category);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>每个业务品类通过独立的 MCP 服务 URL 完成路由，体现出按业务域拆分的后端接入方式。</p>
+<hr>
+<h2 id="六安全机制深度剖析">六、安全机制深度剖析</h2>
+<p>wecom-cli在安全方面的设计非常严谨，体现了工业级CLI工具的安全意识。</p>
+<p>
+  <img src="/img/wecom-cli/security-model.svg" alt="wecom-cli 安全模型">
+
+</p>
+<h3 id="61-凭证加密存储-auth--crypto">6.1 凭证加密存储 (auth + crypto)</h3>
+<p>
+  <img src="/img/wecom-cli/credential-encrypt-flow.svg" alt="凭证加密存储与读取流程">
+
+</p>
+<p>用户的Bot ID和Secret是敏感信息，wecom-cli采用了<strong>三层安全保护</strong>：</p>
+<p><strong>第一层：AES-256-GCM 对称加密</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#6272a4">// cipher.rs - 加密
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">encrypt</span>(key: <span style="color:#ff79c6">&amp;</span>[<span style="color:#8be9fd">u8</span>; <span style="color:#bd93f9">32</span>], plaintext: <span style="color:#ff79c6">&amp;</span>[<span style="color:#8be9fd">u8</span>]) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span><span style="color:#8be9fd;font-style:italic">Vec</span><span style="color:#ff79c6">&lt;</span><span style="color:#8be9fd">u8</span><span style="color:#ff79c6">&gt;&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> cipher <span style="color:#ff79c6">=</span> Aes256Gcm::new(Key::<span style="color:#ff79c6">&lt;</span>Aes256Gcm<span style="color:#ff79c6">&gt;</span>::from_slice(key));
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> nonce <span style="color:#ff79c6">=</span> Aes256Gcm::generate_nonce(<span style="color:#ff79c6">&amp;</span><span style="color:#ff79c6">mut</span> OsRng);  <span style="color:#6272a4">// 随机96位nonce
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> ciphertext <span style="color:#ff79c6">=</span> cipher.encrypt(<span style="color:#ff79c6">&amp;</span>nonce, plaintext)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 输出格式: nonce(12B) || ciphertext || tag(16B)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#ff79c6">mut</span> out <span style="color:#ff79c6">=</span> nonce.to_vec();
+</span></span><span style="display:flex;"><span>    out.extend(ciphertext);
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">Ok</span>(out)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// cipher.rs - 解密
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">decrypt</span>(key: <span style="color:#ff79c6">&amp;</span>[<span style="color:#8be9fd">u8</span>; <span style="color:#bd93f9">32</span>], data: <span style="color:#ff79c6">&amp;</span>[<span style="color:#8be9fd">u8</span>]) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span><span style="color:#8be9fd;font-style:italic">Vec</span><span style="color:#ff79c6">&lt;</span><span style="color:#8be9fd">u8</span><span style="color:#ff79c6">&gt;&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 最小长度校验: nonce(12) + tag(16) = 28
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> data.len() <span style="color:#ff79c6">&lt;</span> NONCE_SIZE <span style="color:#ff79c6">+</span> TAG_SIZE { bail!(<span style="color:#f1fa8c">&#34;数据损坏&#34;</span>); }
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> (nonce_bytes, ciphertext) <span style="color:#ff79c6">=</span> data.split_at(NONCE_SIZE);
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> cipher <span style="color:#ff79c6">=</span> Aes256Gcm::new(Key::<span style="color:#ff79c6">&lt;</span>Aes256Gcm<span style="color:#ff79c6">&gt;</span>::from_slice(key));
+</span></span><span style="display:flex;"><span>    cipher.decrypt(nonce_bytes.into(), ciphertext)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>核心要点：</p>
+<ul>
+<li>每次加密使用<strong>随机Nonce</strong>，相同明文产生不同密文，防止频率分析</li>
+<li>AES-GCM自带<strong>认证标签(tag)</strong>，篡改检测内置</li>
+<li>密文格式<code>nonce || ciphertext || tag</code>紧凑高效</li>
+</ul>
+<p><strong>第二层：操作系统密钥环优先</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#6272a4">// keystore.rs
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">save_key</span>(key: <span style="color:#ff79c6">&amp;</span>[<span style="color:#8be9fd">u8</span>; <span style="color:#bd93f9">32</span>]) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span>()<span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 优先尝试 OS Keyring (macOS Keychain / Linux Secret Service)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> keyring::Entry::new(<span style="color:#f1fa8c">&#34;wecom-cli&#34;</span>, <span style="color:#f1fa8c">&#34;master-key&#34;</span>)<span style="color:#ff79c6">?</span>
+</span></span><span style="display:flex;"><span>        .set_secret(key).is_ok() {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">Ok</span>(());
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 回退：写入文件 ~/.config/wecom/key (权限 0o600)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    fs_util::atomic_write(<span style="color:#ff79c6">&amp;</span>key_path, key, <span style="color:#8be9fd;font-style:italic">Some</span>(<span style="color:#bd93f9">0o600</span>))
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>第三层：原子写入 + 严格权限</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#6272a4">// fs_util.rs
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">atomic_write</span>(path: <span style="color:#ff79c6">&amp;</span><span style="color:#50fa7b">Path</span>, data: <span style="color:#ff79c6">&amp;</span>[<span style="color:#8be9fd">u8</span>], mode: <span style="color:#8be9fd;font-style:italic">Option</span><span style="color:#ff79c6">&lt;</span><span style="color:#8be9fd">u32</span><span style="color:#ff79c6">&gt;</span>) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span>()<span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 1. 在同目录创建临时文件（确保同一文件系统）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#ff79c6">mut</span> tmp <span style="color:#ff79c6">=</span> NamedTempFile::new_in(parent)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 2. 先设置权限（避免权限窗口期）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">#[cfg(unix)]</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">Some</span>(m) <span style="color:#ff79c6">=</span> mode {
+</span></span><span style="display:flex;"><span>        tmp.as_file().set_permissions(Permissions::from_mode(m))<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 3. 写入 + flush + sync
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    tmp.write_all(data)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>    tmp.as_file().flush()<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>    tmp.as_file().sync_all()<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 4. 原子重命名到目标路径
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    tmp.persist(path)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">Ok</span>(())
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>关键安全策略：</strong></p>
+<ul>
+<li>先设权限后写内容，避免&quot;权限窗口期&quot;——即内容已写入但权限尚未设置的瞬间</li>
+<li>使用<code>tempfile + rename</code>保证<strong>原子性</strong>，断电或崩溃不会产生半写文件</li>
+<li>所有敏感文件统一<code>0o600</code>权限（仅所有者可读写）</li>
+</ul>
+<h3 id="62-mcp-请求签名验证">6.2 MCP 请求签名验证</h3>
+<p>与MCP后端的通信采用SHA-256签名认证：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#6272a4">// mcp/config.rs
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">sign</span>(secret: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>, bot_id: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>, time: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>, nonce: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>) -&gt; <span style="color:#8be9fd;font-style:italic">String</span> {
+</span></span><span style="display:flex;"><span>    sha256_hex(<span style="color:#ff79c6">&amp;</span>format!(<span style="color:#f1fa8c">&#34;</span><span style="color:#f1fa8c">{secret}{bot_id}{time}{nonce}</span><span style="color:#f1fa8c">&#34;</span>))
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 请求结构
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">struct</span> <span style="color:#50fa7b">GetMcpConfigRequest</span> {
+</span></span><span style="display:flex;"><span>    bot_id: <span style="color:#8be9fd;font-style:italic">String</span>,
+</span></span><span style="display:flex;"><span>    time: <span style="color:#8be9fd;font-style:italic">String</span>,      <span style="color:#6272a4">// Unix 时间戳
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    nonce: <span style="color:#8be9fd;font-style:italic">String</span>,      <span style="color:#6272a4">// 随机数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    signature: <span style="color:#8be9fd;font-style:italic">String</span>,  <span style="color:#6272a4">// sha256(secret + bot_id + time + nonce)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p>签名公式：<code>signature = SHA256(secret + bot_id + timestamp + nonce)</code>，通过时间戳和随机数防止重放攻击。</p>
+<h3 id="63-本地存储布局">6.3 本地存储布局</h3>
+<pre tabindex="0"><code>~/.config/wecom/
+├── bot.enc           # Bot 凭证 (AES-256-GCM 加密, 0o600)
+├── mcp_config.enc    # MCP 配置缓存 (AES-256-GCM 加密, 0o600)
+└── key               # AES 密钥文件 (回退方案, 0o600)
+
+/tmp/wecom/media/     # 媒体文件临时存储
+└── *.png/*.jpg/...   # 去重 + 原子写入
+</code></pre><hr>
+<h2 id="七初始化流程详解">七、初始化流程详解</h2>
+<h3 id="71-wecom-cli-init-全流程">7.1 wecom-cli init 全流程</h3>
+<p>
+  <img src="/img/wecom-cli/init-flow.svg" alt="wecom-cli 初始化流程">
+
+</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#6272a4">// cmd/init.rs
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">handle_init_cmd</span>(matches: <span style="color:#ff79c6">&amp;</span><span style="color:#50fa7b">ArgMatches</span>) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span>()<span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> args <span style="color:#ff79c6">=</span> InitArgs::from_arg_matches(matches)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 快速刷新模式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> args.refresh {
+</span></span><span style="display:flex;"><span>        mcp::config::fetch_mcp_config().<span style="color:#ff79c6">await</span><span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>        println!(<span style="color:#f1fa8c">&#34;MCP 配置已刷新&#34;</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">Ok</span>(());
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 交互式输入（使用 cliclack 库）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> bot_id <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">Some</span>(id) <span style="color:#ff79c6">=</span> args.bot_id {
+</span></span><span style="display:flex;"><span>        id
+</span></span><span style="display:flex;"><span>    } <span style="color:#ff79c6">else</span> {
+</span></span><span style="display:flex;"><span>        cliclack::input(<span style="color:#f1fa8c">&#34;请输入 Bot ID&#34;</span>).interact()<span style="color:#ff79c6">?</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> secret <span style="color:#ff79c6">=</span> cliclack::password(<span style="color:#f1fa8c">&#34;请输入 Bot Secret&#34;</span>).interact()<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 创建 Bot 对象并持久化
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> bot <span style="color:#ff79c6">=</span> auth::Bot::new(bot_id, secret);
+</span></span><span style="display:flex;"><span>    auth::set_bot_info(<span style="color:#ff79c6">&amp;</span>bot)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 验证凭证有效性
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> spinner <span style="color:#ff79c6">=</span> cliclack::spinner();
+</span></span><span style="display:flex;"><span>    spinner.start(<span style="color:#f1fa8c">&#34;正在验证凭证...&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">match</span> mcp::config::fetch_mcp_config().<span style="color:#ff79c6">await</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">Ok</span>(_) <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>            spinner.stop(<span style="color:#f1fa8c">&#34;凭证验证成功&#34;</span>);
+</span></span><span style="display:flex;"><span>            cliclack::outro(<span style="color:#f1fa8c">&#34;初始化完成 ✅&#34;</span>)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">Err</span>(e) <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>            spinner.stop(<span style="color:#f1fa8c">&#34;凭证验证失败&#34;</span>);
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4">// 回滚：清除已存储的凭证和配置
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            auth::clear_bot_info();
+</span></span><span style="display:flex;"><span>            mcp::config::clear_mcp_config();
+</span></span><span style="display:flex;"><span>            cliclack::outro(<span style="color:#f1fa8c">&#34;初始化失败 ❌&#34;</span>)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">Err</span>(e);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">Ok</span>(())
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>设计亮点：</strong></p>
+<ol>
+<li><strong>交互式 UI</strong>：使用<code>cliclack</code>提供美观的终端交互（输入框、密码隐藏、加载动画），用户体验优秀</li>
+<li><strong>验证后存储</strong>：先存储再验证，验证失败则<strong>回滚清除</strong>，保证凭证状态一致性</li>
+<li><strong>快速刷新</strong>：<code>--refresh</code>参数支持仅刷新MCP配置，无需重新输入凭证</li>
+</ol>
+<h3 id="72-mcp-配置获取与缓存">7.2 MCP 配置获取与缓存</h3>
+<p>
+  <img src="/img/wecom-cli/mcp-config-cache-flow.svg" alt="MCP 配置获取与缓存策略">
+
+</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#6272a4">// mcp/config.rs
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">get_mcp_config</span>() -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span><span style="color:#8be9fd;font-style:italic">Vec</span><span style="color:#ff79c6">&lt;</span>McpConfigItem<span style="color:#ff79c6">&gt;&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 优先从本地加密缓存加载
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">Ok</span>(cached) <span style="color:#ff79c6">=</span> load_mcp_config() {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">Ok</span>(cached);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 缓存未命中，从服务器拉取
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    fetch_mcp_config().<span style="color:#ff79c6">await</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">fetch_mcp_config</span>() -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span><span style="color:#8be9fd;font-style:italic">Vec</span><span style="color:#ff79c6">&lt;</span>McpConfigItem<span style="color:#ff79c6">&gt;&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> resp <span style="color:#ff79c6">=</span> fetch_mcp_config_from_server().<span style="color:#ff79c6">await</span><span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 加密并缓存到本地
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    save_mcp_config(<span style="color:#ff79c6">&amp;</span>resp)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">Ok</span>(resp)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>配置缓存策略：<strong>本地优先 → 远程兜底</strong>，减少网络请求，提升命令执行速度。</p>
+<hr>
+<h2 id="八媒体处理模块">八、媒体处理模块</h2>
+<h3 id="81-媒体响应拦截-mediamodrs">8.1 媒体响应拦截 (media/mod.rs)</h3>
+<p>
+  <img src="/img/wecom-cli/media-intercept-flow.svg" alt="媒体处理拦截流程">
+
+</p>
+<p>当调用<code>get_msg_media</code>获取聊天媒体时，响应中包含base64编码的媒体数据。wecom-cli会自动拦截并处理：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">intercept_media_response</span>(res: <span style="color:#50fa7b">Value</span>) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span>Value<span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 1. 提取 MCP 响应中的 content[].text 字段
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> biz_data: <span style="color:#50fa7b">Value</span> <span style="color:#ff79c6">=</span> serde_json::from_str(text)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 2. 校验业务响应 (errcode == 0)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> biz_data[<span style="color:#f1fa8c">&#34;errcode&#34;</span>].as_i64() <span style="color:#ff79c6">!=</span> <span style="color:#8be9fd;font-style:italic">Some</span>(<span style="color:#bd93f9">0</span>) { <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">Ok</span>(res); }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 3. 解码 base64 数据
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> buffer <span style="color:#ff79c6">=</span> base64::STANDARD.decode(base64_data)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 4. 大小校验 (最大 20MB)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> buffer.len() <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">20</span> <span style="color:#ff79c6">*</span> <span style="color:#bd93f9">1024</span> <span style="color:#ff79c6">*</span> <span style="color:#bd93f9">1024</span> { bail!(<span style="color:#f1fa8c">&#34;媒体文件过大&#34;</span>); }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 5. 检测 MIME 类型
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> content_type <span style="color:#ff79c6">=</span> utils::detect_mime(media_name, <span style="color:#ff79c6">&amp;</span>buffer);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 6. 原子保存到本地 (带去重)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> file_path <span style="color:#ff79c6">=</span> utils::save_media(media_name, media_id, <span style="color:#ff79c6">&amp;</span>content_type, <span style="color:#ff79c6">&amp;</span>buffer).<span style="color:#ff79c6">await</span><span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 7. 构建精简响应：移除 base64_data，添加 local_path
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">Ok</span>(json!({
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;result&#34;</span>: { <span style="color:#f1fa8c">&#34;content&#34;</span>: [{ <span style="color:#f1fa8c">&#34;type&#34;</span>: <span style="color:#f1fa8c">&#34;text&#34;</span>, <span style="color:#f1fa8c">&#34;text&#34;</span>: <span style="color:#50fa7b">json</span><span style="color:#ff79c6">!</span>({
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;errcode&#34;</span>: <span style="color:#bd93f9">0</span>, <span style="color:#f1fa8c">&#34;errmsg&#34;</span>: <span style="color:#f1fa8c">&#34;ok&#34;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;media_item&#34;</span>: {
+</span></span><span style="display:flex;"><span>                <span style="color:#f1fa8c">&#34;local_path&#34;</span>: <span style="color:#50fa7b">file_path</span>,
+</span></span><span style="display:flex;"><span>                <span style="color:#f1fa8c">&#34;size&#34;</span>: <span style="color:#50fa7b">buffer</span>.len(),
+</span></span><span style="display:flex;"><span>                <span style="color:#f1fa8c">&#34;content_type&#34;</span>: <span style="color:#50fa7b">content_type</span>
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        })}]}
+</span></span><span style="display:flex;"><span>    }))
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="82-智能文件保存-mediautilsrs">8.2 智能文件保存 (media/utils.rs)</h3>
+<p>媒体文件保存包含三个关键能力：</p>
+<p><strong>MIME 类型检测（双重策略）：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">detect_mime</span>(file_name: <span style="color:#8be9fd;font-style:italic">Option</span><span style="color:#ff79c6">&lt;&amp;</span><span style="color:#8be9fd">str</span><span style="color:#ff79c6">&gt;</span>, buffer: <span style="color:#ff79c6">&amp;</span>[<span style="color:#8be9fd">u8</span>]) -&gt; <span style="color:#8be9fd;font-style:italic">String</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 策略1：文件扩展名推断
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">Some</span>(name) <span style="color:#ff79c6">=</span> file_name {
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">let</span> mime <span style="color:#ff79c6">=</span> mime_guess::from_ext(ext).first_or_octet_stream();
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> mime <span style="color:#ff79c6">!=</span> APPLICATION_OCTET_STREAM { <span style="color:#ff79c6">return</span> mime.to_string(); }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 策略2：魔术字节检测
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">Some</span>(kind) <span style="color:#ff79c6">=</span> infer::get(buffer) {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> kind.mime_type().to_string();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;application/octet-stream&#34;</span>.to_string()
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>文件名去重机制：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">save_media</span>(<span style="color:#ff79c6">..</span>.) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span>PathBuf<span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 原子写入临时文件
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#ff79c6">mut</span> tmp <span style="color:#ff79c6">=</span> NamedTempFile::new_in(<span style="color:#ff79c6">&amp;</span>dir)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>    tmp.write_all(data)<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>    tmp.as_file().sync_all()<span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 首先尝试原始文件名
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> target <span style="color:#ff79c6">=</span> dir.join(make_file_name(<span style="color:#ff79c6">&amp;</span>stem, <span style="color:#8be9fd;font-style:italic">None</span>, <span style="color:#ff79c6">&amp;</span>ext));
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">match</span> tmp.persist_noclobber(<span style="color:#ff79c6">&amp;</span>target) {
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">Ok</span>(_) <span style="color:#ff79c6">=&gt;</span> <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">Ok</span>(target),
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">Err</span>(e) <span style="color:#ff79c6">if</span> e.error.kind() <span style="color:#ff79c6">==</span> AlreadyExists <span style="color:#ff79c6">=&gt;</span> { <span style="color:#6272a4">/* 继续去重 */</span> }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 文件已存在：尝试 stem.0.ext, stem.1.ext, ..., stem.100.ext
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">for</span> idx <span style="color:#ff79c6">in</span> <span style="color:#bd93f9">0</span><span style="color:#ff79c6">..</span><span style="color:#bd93f9">100</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">let</span> target <span style="color:#ff79c6">=</span> dir.join(make_file_name(<span style="color:#ff79c6">&amp;</span>stem, <span style="color:#8be9fd;font-style:italic">Some</span>(idx), <span style="color:#ff79c6">&amp;</span>ext));
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// persist_noclobber 保证无覆盖的原子操作
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="九日志系统">九、日志系统</h2>
+<h3 id="91-双输出日志架构-loggingrs">9.1 双输出日志架构 (logging.rs)</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">init_logging</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> stderr_filter <span style="color:#ff79c6">=</span> env::var(<span style="color:#f1fa8c">&#34;WECOM_CLI_LOG_LEVEL&#34;</span>).ok();
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> log_file_dir <span style="color:#ff79c6">=</span> env::var(<span style="color:#f1fa8c">&#34;WECOM_CLI_LOG_FILE&#34;</span>).ok();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// Stderr 层：人类可读格式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> stderr_layer <span style="color:#ff79c6">=</span> stderr_filter.map(<span style="color:#ff79c6">|</span>filter<span style="color:#ff79c6">|</span> {
+</span></span><span style="display:flex;"><span>        tracing_subscriber::fmt::layer()
+</span></span><span style="display:flex;"><span>            .with_writer(std::io::stderr)
+</span></span><span style="display:flex;"><span>            .compact()                        <span style="color:#6272a4">// 紧凑格式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            .with_filter(EnvFilter::new(filter))
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 文件层：JSON 行格式 + 按日轮转
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> file_layer <span style="color:#ff79c6">=</span> log_file_dir.map(<span style="color:#ff79c6">|</span>dir<span style="color:#ff79c6">|</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">let</span> file_appender <span style="color:#ff79c6">=</span> tracing_appender::rolling::daily(dir, <span style="color:#f1fa8c">&#34;ww.log&#34;</span>);
+</span></span><span style="display:flex;"><span>        tracing_subscriber::fmt::layer()
+</span></span><span style="display:flex;"><span>            .json()                           <span style="color:#6272a4">// JSON 结构化
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>            .with_writer(non_blocking)        <span style="color:#6272a4">// 非阻塞写入
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 组合层级
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> subscriber <span style="color:#ff79c6">=</span> registry.with(stderr_layer).with(file_layer);
+</span></span><span style="display:flex;"><span>    tracing::subscriber::set_global_default(subscriber).ok();
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>设计特点：</strong></p>
+<ul>
+<li><strong>按需启用</strong>：只有设置了环境变量才激活日志，默认静默运行</li>
+<li><strong>双通道输出</strong>：stderr 输出人类可读格式，文件输出 JSON 结构化格式</li>
+<li><strong>非阻塞写入</strong>：文件日志使用<code>non_blocking</code>，不影响主业务性能</li>
+<li><strong>按日轮转</strong>：通过<code>tracing_appender::rolling::daily</code>实现日志文件自动轮转</li>
+</ul>
+<hr>
+<h2 id="十动态帮助系统">十、动态帮助系统</h2>
+<h3 id="101-远程工具发现-helprs">10.1 远程工具发现 (help.rs)</h3>
+<p>wecom-cli的帮助系统并不是静态文本，而是通过JSON-RPC动态从MCP后端获取工具列表：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">show_category_tools</span>(category: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span>()<span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 通过 tools/list 接口获取该品类的工具列表
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> response <span style="color:#ff79c6">=</span> json_rpc::send(category, <span style="color:#f1fa8c">&#34;tools/list&#34;</span>, <span style="color:#8be9fd;font-style:italic">None</span>, <span style="color:#8be9fd;font-style:italic">None</span>).<span style="color:#ff79c6">await</span><span style="color:#ff79c6">?</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 缓存到 thread_local 避免重复请求
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    TOOLS_CACHE.with(<span style="color:#ff79c6">|</span>cache<span style="color:#ff79c6">|</span> {
+</span></span><span style="display:flex;"><span>        cache.borrow_mut().insert(category.to_string(), tools.clone());
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 打印品类信息和工具列表
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    println!(<span style="color:#f1fa8c">&#34;品类: </span><span style="color:#f1fa8c">{}</span><span style="color:#f1fa8c"> - </span><span style="color:#f1fa8c">{}</span><span style="color:#f1fa8c">&#34;</span>, cat.name, cat.description);
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> tool <span style="color:#ff79c6">in</span> <span style="color:#ff79c6">&amp;</span>tools {
+</span></span><span style="display:flex;"><span>        println!(<span style="color:#f1fa8c">&#34;  </span><span style="color:#f1fa8c">{}</span><span style="color:#f1fa8c"> - </span><span style="color:#f1fa8c">{}</span><span style="color:#f1fa8c">&#34;</span>, tool[<span style="color:#f1fa8c">&#34;name&#34;</span>], tool[<span style="color:#f1fa8c">&#34;description&#34;</span>]);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">fn</span> <span style="color:#50fa7b">show_tool_help</span>(category: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>, tool_name: <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd">str</span>) -&gt; <span style="color:#8be9fd;font-style:italic">Result</span><span style="color:#ff79c6">&lt;</span>()<span style="color:#ff79c6">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 优先从缓存读取，未命中则远程拉取
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 打印工具名称、描述、输入参数 Schema
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p><strong>亮点：</strong></p>
+<ul>
+<li>在既有品类范围内，工具列表和帮助信息可随服务端能力动态刷新，减少仅为帮助信息发布新 CLI 版本的需要</li>
+<li><code>thread_local!</code>缓存避免同一会话内重复网络请求</li>
+</ul>
+<hr>
+<h2 id="十一ai-agent-skills-系统">十一、AI Agent Skills 系统</h2>
+<h3 id="111-skills-设计理念">11.1 Skills 设计理念</h3>
+<p>
+  <img src="/img/wecom-cli/agent-skill-flow.svg" alt="AI Agent 通过 Skill 调用 wecom-cli 流程">
+
+</p>
+<p>wecom-cli内置了12个<strong>SKILL.md</strong>技能定义文件，这些文件不是代码，而是<strong>结构化的自然语言指令</strong>，供AI Agent理解如何调用CLI命令：</p>
+<pre tabindex="0"><code>skills/
+├── wecomcli-lookup-contact/SKILL.md      # 通讯录查询
+├── wecomcli-create-meeting/SKILL.md      # 创建会议
+├── wecomcli-edit-meeting/SKILL.md        # 编辑会议
+├── wecomcli-get-meeting/SKILL.md         # 获取会议
+├── wecomcli-edit-todo/SKILL.md           # 编辑待办
+├── wecomcli-get-todo-detail/SKILL.md     # 待办详情
+├── wecomcli-get-todo-list/SKILL.md       # 待办列表
+├── wecomcli-get-msg/SKILL.md             # 获取消息
+├── wecomcli-manage-doc/SKILL.md          # 管理文档
+├── wecomcli-manage-schedule/SKILL.md     # 管理日程
+├── wecomcli-manage-smartsheet-data/SKILL.md   # 智能表格数据
+└── wecomcli-manage-smartsheet-schema/SKILL.md # 智能表格结构
+</code></pre><h3 id="112-skillmd-文件结构">11.2 SKILL.md 文件结构</h3>
+<p>以<code>wecomcli-lookup-contact</code>为例，每个Skill文件包含以下关键部分：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>name: wecomcli-lookup-contact
+</span></span><span style="display:flex;"><span>description: 通讯录成员查询技能，获取当前用户可见范围内的通讯录成员
+</span></span><span style="display:flex;"><span>metadata:
+</span></span><span style="display:flex;"><span>  requires:
+</span></span><span style="display:flex;"><span>    bins: [&#34;wecom-cli&#34;]      # 依赖的二进制
+</span></span><span style="display:flex;"><span>  cliHelp: &#34;wecom-cli contact --help&#34;  # CLI帮助入口
+</span></span><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold"># 通讯录成员查询技能
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 操作
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold">### 1. 获取全量通讯录成员
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>**调用示例：**
+</span></span><span style="display:flex;"><span>wecom-cli contact get_userlist &#39;{}&#39;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>**返回格式：**
+</span></span><span style="display:flex;"><span>{ &#34;errcode&#34;: 0, &#34;userlist&#34;: [{ &#34;userid&#34;: &#34;zhangsan&#34;, &#34;name&#34;: &#34;张三&#34; }] }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">### 2. 按姓名/别名搜索人员
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span><span style="color:#ff79c6">-</span> 精确匹配 → 直接使用
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 模糊匹配 → 返回候选列表
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 无结果 → 告知用户
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 注意事项
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span><span style="color:#ff79c6">-</span> ⚠️ 超过10人时接口报错
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> userid 是唯一标识
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 典型工作流
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold">### 工作流1：查询人员信息
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>用户问：&#34;帮我查一下 Sam 是谁？&#34;
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> 调用 get_userlist 获取全量成员
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> 本地筛选匹配
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> 展示结果
+</span></span></code></pre></div><p><strong>设计精妙之处：</strong></p>
+<ol>
+<li><strong>YAML Front Matter</strong>：包含元数据（依赖、帮助入口），便于AI Agent解析</li>
+<li><strong>操作指令</strong>：提供精确的命令行示例和参数格式</li>
+<li><strong>返回格式说明</strong>：帮助Agent理解和解析API响应</li>
+<li><strong>典型工作流</strong>：提供端到端的使用场景，减少Agent的&quot;思考&quot;成本</li>
+<li><strong>注意事项</strong>：明确边界条件和异常处理策略</li>
+</ol>
+<p>这种设计让AI Agent无需理解底层API文档，仅通过阅读SKILL.md就能正确操作企业微信。</p>
+<hr>
+<h2 id="十二关键设计模式总结">十二、关键设计模式总结</h2>
+<h3 id="121-设计模式概览">12.1 设计模式概览</h3>
+<table>
+<thead>
+<tr>
+<th>设计模式</th>
+<th>应用位置</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>配置驱动</strong></td>
+<td>config.rs → main.rs</td>
+<td>新增品类无需改动路由代码</td>
+</tr>
+<tr>
+<td><strong>策略模式</strong></td>
+<td>media/utils.rs</td>
+<td>MIME 检测：扩展名 → 魔术字节 → 默认值</td>
+</tr>
+<tr>
+<td><strong>拦截器模式</strong></td>
+<td>media/mod.rs</td>
+<td>透明处理媒体响应，调用者无感</td>
+</tr>
+<tr>
+<td><strong>缓存优先</strong></td>
+<td>mcp/config.rs</td>
+<td>本地加密缓存 → 远程兜底</td>
+</tr>
+<tr>
+<td><strong>分层安全</strong></td>
+<td>auth + crypto</td>
+<td>Keyring → 文件 → AES-256-GCM</td>
+</tr>
+<tr>
+<td><strong>原子操作</strong></td>
+<td>fs_util.rs</td>
+<td>tempfile + rename 防数据损坏</td>
+</tr>
+<tr>
+<td><strong>渐进式交互</strong></td>
+<td>cmd/call.rs</td>
+<td>缺参自动展示帮助，而非报错</td>
+</tr>
+</tbody>
+</table>
+<h3 id="122-工程实践亮点">12.2 工程实践亮点</h3>
+<ol>
+<li><strong>Rust Edition 2024</strong>：采用最新Rust版本，享受语言层面的安全保证</li>
+<li><strong>全异步架构</strong>：Tokio驱动的异步I/O，适合网络密集型场景</li>
+<li><strong>零拷贝分发</strong>：npm的optionalDependencies机制，用户只下载对应平台的二进制</li>
+<li><strong>防御式编程</strong>：随处可见的长度校验、空值处理、回滚机制</li>
+<li><strong>完善的测试</strong>：cipher.rs、fs_util.rs等核心模块均有覆盖率良好的单元测试</li>
+</ol>
+<hr>
+<h2 id="十三总结">十三、总结</h2>
+<p>wecom-cli是一个设计精良的企业级CLI工具，它展示了如何用Rust构建安全、高性能的命令行应用，同时通过AI Agent Skills桥接了人类用户和AI Agent的使用场景。</p>
+<p><strong>核心技术亮点回顾：</strong></p>
+<ul>
+<li><strong>Rust + Node.js 混合分发</strong>：性能与分发便利性的最佳平衡</li>
+<li><strong>JSON-RPC 2.0 + MCP</strong>：标准化的远程调用协议，品类独立路由</li>
+<li><strong>三层安全保护</strong>：OS Keyring + AES-256-GCM + 原子写入 + 0o600权限</li>
+<li><strong>SKILL.md 技能系统</strong>：结构化自然语言显著降低了 AI Agent 接入企业微信的提示工程成本</li>
+<li><strong>配置驱动的可扩展架构</strong>：在既有路由框架下扩展品类时，主要改动集中在配置与能力接入层</li>
+</ul>
+<p>对于企业级CLI工具的开发者而言，wecom-cli在安全存储、跨平台分发、AI Agent适配等方面的实践，都值得深入学习和借鉴。</p>
+<hr>
+<blockquote>
+<p><strong>参考链接：</strong></p>
+<ul>
+<li>GitHub 仓库：<a href="https://github.com/WecomTeam/wecom-cli">https://github.com/WecomTeam/wecom-cli</a></li>
+<li>MCP (Model Context Protocol)：<a href="https://spec.modelcontextprotocol.io">https://spec.modelcontextprotocol.io</a></li>
+<li>JSON-RPC 2.0 规范：<a href="https://www.jsonrpc.org/specification">https://www.jsonrpc.org/specification</a></li>
+</ul>
+</blockquote>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-03-26-claude-code%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理" />
+    <meta property="og:title" content="Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理" />
+    <meta property="twitter:title" content="Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-03-26-claude-code%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                    </div>
+                    <h1>Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理</h1>
+                    <h2 class="subheading">从Agentic Loop到多Agent协作：深入剖析Anthropic开源AI编程工具的架构与实现</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Thursday, March 26, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言">一、引言</h2>
+<p>在AI编程工具百花齐放的今天，Anthropic推出的<strong>Claude Code</strong>以其独特的「终端原生+代理式」架构，迅速成为开发者社区的焦点。截至2026年3月，其GitHub仓库已获得<strong>82.6k+ Stars</strong>，成为最受欢迎的AI编程工具之一。</p>
+<p>与传统的代码补全工具（如GitHub Copilot）不同，Claude Code不是一个被动的「建议者」，而是一个主动的「执行者」——它能理解自然语言指令，自主规划任务步骤，直接在终端中读写文件、执行命令、运行测试，形成完整的「感知-决策-执行-验证」闭环。</p>
+<blockquote>
+<p>🔗 仓库地址：<a href="https://github.com/anthropics/claude-code">https://github.com/anthropics/claude-code</a></p>
+<p>📜 语言构成：Shell 47.0% | Python 29.3% | TypeScript 17.7%</p>
+</blockquote>
+<p>本文将从架构设计、核心机制、工具系统、多Agent协作等维度，对Claude Code进行全面的技术剖析。</p>
+<hr>
+<h2 id="二整体架构概览">二、整体架构概览</h2>
+<h3 id="21-架构分层">2.1 架构分层</h3>
+<p>Claude Code采用清晰的分层架构，自顶向下可分为四个层次：</p>
+<p>
+  <img src="/img/claude-code/architecture-overview.png" alt="Claude Code 整体架构图">
+
+</p>
+<pre tabindex="0"><code>┌─────────────────────────────────────────────────────┐
+│                   用户接口层 (Surfaces)               │
+│  Terminal CLI │ VS Code │ Desktop App │ JetBrains │ Web  │
+├─────────────────────────────────────────────────────┤
+│                   Agentic Loop 核心层                │
+│        Gather Context → Take Action → Verify Results │
+├─────────────────────────────────────────────────────┤
+│                     工具系统层                        │
+│  File Ops │ Search │ Execution │ Web │ Code Intelligence │
+├─────────────────────────────────────────────────────┤
+│                   上下文管理层                        │
+│  CLAUDE.md │ Auto Memory │ Context Compression │ Sub-agents │
+└─────────────────────────────────────────────────────┘
+</code></pre><p><strong>核心设计哲学</strong>可以概括为一句话：</p>
+<blockquote>
+<p><strong>模型即Agent，工程即Harness。</strong></p>
+</blockquote>
+<p>Claude Code的核心智能来自Claude大模型本身（Agent），而工程团队构建的是一个<strong>Harness（套件）</strong>——为模型提供工具、知识、观察、动作接口和权限治理的运行环境。</p>
+<pre tabindex="0"><code>Harness = Tools + Knowledge + Observation + Action Interfaces + Permissions
+</code></pre><h3 id="22-仓库结构">2.2 仓库结构</h3>
+<pre tabindex="0"><code>anthropics/claude-code/
+├── .claude-plugin          # 插件配置
+├── .claude/commands/       # 自定义命令目录
+├── .devcontainer/          # 开发容器配置
+├── Script/                 # 脚本目录
+├── examples/               # 使用示例
+├── plugins/                # 插件扩展
+├── scripts/                # 工具脚本
+├── README.md               # 主文档
+├── CHANGELOG.md            # 版本变更
+└── SECURITY.md             # 安全策略
+</code></pre><h3 id="23-多surface统一体验">2.3 多Surface统一体验</h3>
+<p>Claude Code的一大亮点是<strong>跨Surface一致性</strong>：无论用户通过终端CLI、VS Code扩展、桌面应用还是Web界面使用，底层引擎、指令配置、MCP服务器设置均保持共享和同步。</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Terminal CLI</strong></td>
+<td>终端原生，直接访问完整开发工具链</td>
+</tr>
+<tr>
+<td><strong>VS Code Extension</strong></td>
+<td>内联diff、计划审查、历史记录</td>
+</tr>
+<tr>
+<td><strong>Desktop App</strong></td>
+<td>可视化diff审查、会话管理</td>
+</tr>
+<tr>
+<td><strong>Web</strong></td>
+<td>无需本地环境，浏览器即可使用</td>
+</tr>
+<tr>
+<td><strong>JetBrains IDE</strong></td>
+<td>完整的JetBrains套件集成</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="三核心机制agentic-loop">三、核心机制：Agentic Loop</h2>
+<h3 id="31-循环原理">3.1 循环原理</h3>
+<p>Agentic Loop是Claude Code的心脏。与简单的「输入-输出」对话不同，它是一个<strong>持续自适应的循环</strong>，包含三个交织的阶段：</p>
+<p>
+  <img src="/img/claude-code/agentic-loop.png" alt="Claude Code Agentic Loop 流程图">
+
+</p>
+<ol>
+<li><strong>Gather Context（收集上下文）</strong>：搜索文件、读取代码、探索项目结构</li>
+<li><strong>Take Action（采取行动）</strong>：编辑文件、执行Shell命令、运行代码</li>
+<li><strong>Verify Results（验证结果）</strong>：运行测试、检查输出、审查变更</li>
+</ol>
+<h3 id="32-循环的核心代码模式">3.2 循环的核心代码模式</h3>
+<p>用伪代码表示，整个Agentic Loop的骨架极其精简：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">agent_loop</span>(messages):
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">while</span> <span style="color:#ff79c6">True</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 1. 调用 LLM 获取下一步决策</span>
+</span></span><span style="display:flex;"><span>        response <span style="color:#ff79c6">=</span> client<span style="color:#ff79c6">.</span>messages<span style="color:#ff79c6">.</span>create(
+</span></span><span style="display:flex;"><span>            model<span style="color:#ff79c6">=</span>MODEL,
+</span></span><span style="display:flex;"><span>            system<span style="color:#ff79c6">=</span>SYSTEM_PROMPT,
+</span></span><span style="display:flex;"><span>            messages<span style="color:#ff79c6">=</span>messages,
+</span></span><span style="display:flex;"><span>            tools<span style="color:#ff79c6">=</span>TOOLS,
+</span></span><span style="display:flex;"><span>        )
+</span></span><span style="display:flex;"><span>        messages<span style="color:#ff79c6">.</span>append({<span style="color:#f1fa8c">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;assistant&#34;</span>, <span style="color:#f1fa8c">&#34;content&#34;</span>: response<span style="color:#ff79c6">.</span>content})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 2. 检查是否需要使用工具</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> response<span style="color:#ff79c6">.</span>stop_reason <span style="color:#ff79c6">!=</span> <span style="color:#f1fa8c">&#34;tool_use&#34;</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span>  <span style="color:#6272a4"># 无需工具调用，返回文本结果</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 3. 执行工具并收集结果</span>
+</span></span><span style="display:flex;"><span>        results <span style="color:#ff79c6">=</span> []
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">for</span> block <span style="color:#ff79c6">in</span> response<span style="color:#ff79c6">.</span>content:
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> block<span style="color:#ff79c6">.</span>type <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;tool_use&#34;</span>:
+</span></span><span style="display:flex;"><span>                output <span style="color:#ff79c6">=</span> TOOL_HANDLERS[block<span style="color:#ff79c6">.</span>name](<span style="color:#ff79c6">**</span>block<span style="color:#ff79c6">.</span>input)
+</span></span><span style="display:flex;"><span>                results<span style="color:#ff79c6">.</span>append({
+</span></span><span style="display:flex;"><span>                    <span style="color:#f1fa8c">&#34;type&#34;</span>: <span style="color:#f1fa8c">&#34;tool_result&#34;</span>,
+</span></span><span style="display:flex;"><span>                    <span style="color:#f1fa8c">&#34;tool_use_id&#34;</span>: block<span style="color:#ff79c6">.</span>id,
+</span></span><span style="display:flex;"><span>                    <span style="color:#f1fa8c">&#34;content&#34;</span>: output,
+</span></span><span style="display:flex;"><span>                })
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4"># 4. 将工具结果作为新消息追加，继续循环</span>
+</span></span><span style="display:flex;"><span>        messages<span style="color:#ff79c6">.</span>append({<span style="color:#f1fa8c">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;user&#34;</span>, <span style="color:#f1fa8c">&#34;content&#34;</span>: results})
+</span></span></code></pre></div><p><strong>关键洞察</strong>：</p>
+<ul>
+<li>整个循环的控制权在<strong>模型</strong>手中——模型决定是否使用工具、使用哪个工具、以什么参数调用</li>
+<li>Harness代码只负责<strong>执行</strong>模型的决策，然后将结果反馈回去</li>
+<li>循环会一直持续，直到模型认为任务完成（<code>stop_reason != &quot;tool_use&quot;</code>）</li>
+</ul>
+<h3 id="33-实际执行示例">3.3 实际执行示例</h3>
+<p>当用户输入「修复失败的测试」时，Claude Code的典型执行路径：</p>
+<pre tabindex="0"><code>用户: &#34;修复失败的测试&#34;
+  │
+  ▼
+[Gather] 运行测试套件，识别失败用例
+  │
+  ▼
+[Gather] 读取错误输出，分析失败原因
+  │
+  ▼
+[Gather] 搜索相关源文件
+  │
+  ▼
+[Gather] 读取这些文件内容
+  │
+  ▼
+[Action] 编辑文件修复问题
+  │
+  ▼
+[Verify] 重新运行测试验证修复
+  │
+  ├─ 通过 → 输出结果给用户
+  │
+  └─ 失败 → 回到 [Gather] 继续分析
+</code></pre><p>每一步的工具调用结果都会反馈回模型，模型根据最新信息动态调整下一步策略。这种<strong>自适应</strong>能力是Claude Code与传统脚本化工具的根本区别。</p>
+<hr>
+<h2 id="四工具系统">四、工具系统</h2>
+<h3 id="41-工具设计原则">4.1 工具设计原则</h3>
+<p>工具是将Claude从「文本生成器」转变为「代理系统」的关键。Claude Code的工具设计遵循三大原则：</p>
+<p>
+  <img src="/img/claude-code/tool-system.png" alt="Claude Code 工具系统">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>原则</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>原子性</strong></td>
+<td>每个工具只做一件事，职责单一</td>
+</tr>
+<tr>
+<td><strong>可组合性</strong></td>
+<td>工具可以自由组合，形成复杂工作流</td>
+</tr>
+<tr>
+<td><strong>描述清晰</strong></td>
+<td>每个工具有详尽的文档，模型能准确理解其能力边界</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-内置工具清单">4.2 内置工具清单</h3>
+<p>Claude Code包含<strong>18个内置工具</strong>，覆盖开发全流程：</p>
+<h4 id="文件操作类">文件操作类</h4>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>功能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Read</code> / <code>ReadFile</code></td>
+<td>读取文件内容</td>
+</tr>
+<tr>
+<td><code>Write</code></td>
+<td>创建或覆盖文件</td>
+</tr>
+<tr>
+<td><code>Edit</code></td>
+<td>精确的字符串替换编辑</td>
+</tr>
+<tr>
+<td><code>MultiEdit</code></td>
+<td>批量编辑多个文件</td>
+</tr>
+</tbody>
+</table>
+<h4 id="搜索类">搜索类</h4>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>功能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Glob</code></td>
+<td>按模式搜索文件路径</td>
+</tr>
+<tr>
+<td><code>Grep</code></td>
+<td>基于正则表达式搜索文件内容</td>
+</tr>
+<tr>
+<td><code>CodebaseSearch</code></td>
+<td>语义化代码搜索</td>
+</tr>
+</tbody>
+</table>
+<h4 id="执行类">执行类</h4>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>功能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Bash</code></td>
+<td>执行Shell命令（构建、测试、Git等）</td>
+</tr>
+</tbody>
+</table>
+<h4 id="web类">Web类</h4>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>功能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WebSearch</code></td>
+<td>互联网搜索</td>
+</tr>
+<tr>
+<td><code>WebFetch</code></td>
+<td>获取网页内容</td>
+</tr>
+</tbody>
+</table>
+<h4 id="任务管理类">任务管理类</h4>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>功能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TodoWrite</code></td>
+<td>创建和管理任务列表（2,161 tokens描述）</td>
+</tr>
+<tr>
+<td><code>EnterPlanMode</code></td>
+<td>进入计划模式</td>
+</tr>
+</tbody>
+</table>
+<h4 id="agent协作类">Agent协作类</h4>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>功能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SendMessageTool</code></td>
+<td>Agent间消息传递</td>
+</tr>
+<tr>
+<td><code>TeammateTool</code></td>
+<td>管理团队和子Agent</td>
+</tr>
+</tbody>
+</table>
+<h3 id="43-工具注册与分发机制">4.3 工具注册与分发机制</h3>
+<p>工具通过一个<strong>注册表</strong>（Registry）进行管理，循环中通过名称分发到具体的处理函数：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>TOOL_HANDLERS <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;bash&#34;</span>:           execute_bash,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;read_file&#34;</span>:      read_file,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;write_file&#34;</span>:     write_file,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;edit&#34;</span>:           edit_file,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;glob&#34;</span>:           glob_search,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;grep&#34;</span>:           grep_search,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;codebase_search&#34;</span>: semantic_search,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;web_search&#34;</span>:     web_search,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;web_fetch&#34;</span>:      web_fetch,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;todo_write&#34;</span>:     todo_write,
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># ...</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>模型在每次API响应中返回工具调用请求（<code>tool_use</code> block），Harness提取工具名称和参数，从注册表中查找对应处理函数并执行，最后将结果以<code>tool_result</code>格式追加到消息历史中。</p>
+<h3 id="44-mcp扩展工具">4.4 MCP扩展工具</h3>
+<p>除了内置工具，Claude Code还支持通过<strong>Model Context Protocol (MCP)</strong> 接入外部工具和数据源。MCP是Anthropic提出的一个开放标准，允许连接：</p>
+<ul>
+<li>数据库（PostgreSQL、MySQL等）</li>
+<li>项目管理工具（Jira、Linear）</li>
+<li>通信平台（Slack、Discord）</li>
+<li>文档系统（Google Drive、Notion）</li>
+</ul>
+<p>这使得Claude Code的工具能力具备了<strong>无限扩展性</strong>。</p>
+<hr>
+<h2 id="五上下文管理">五、上下文管理</h2>
+<h3 id="51-上下文窗口">5.1 上下文窗口</h3>
+<p>Claude Code的上下文窗口承载了所有必要的信息：</p>
+<table>
+<thead>
+<tr>
+<th>内容类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>对话历史</strong></td>
+<td>用户与Agent的完整交互记录</td>
+</tr>
+<tr>
+<td><strong>文件内容</strong></td>
+<td>读取的源代码、配置文件</td>
+</tr>
+<tr>
+<td><strong>命令输出</strong></td>
+<td>Shell命令执行结果</td>
+</tr>
+<tr>
+<td><strong>CLAUDE.md</strong></td>
+<td>项目级别的持久化指令</td>
+</tr>
+<tr>
+<td><strong>Auto Memory</strong></td>
+<td>自动学习的项目模式和偏好</td>
+</tr>
+<tr>
+<td><strong>系统指令</strong></td>
+<td>内置的系统提示词</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-claudemd项目记忆">5.2 CLAUDE.md：项目记忆</h3>
+<p><code>CLAUDE.md</code>是Claude Code的核心配置机制。它是一个放在项目根目录的Markdown文件，每次会话开始时自动加载，为模型提供项目特定的上下文：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="font-weight:bold"># CLAUDE.md
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 项目架构
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span><span style="color:#ff79c6">-</span> 前端：React + TypeScript
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 后端：Go + gRPC
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 数据库：PostgreSQL
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 编码规范
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span><span style="color:#ff79c6">-</span> 使用 ESLint + Prettier
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 提交信息遵循 Conventional Commits
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 测试覆盖率要求 &gt; 80%
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 常用命令
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span><span style="color:#ff79c6">-</span> <span style="color:#f1fa8c">`make build`</span> - 构建项目
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> <span style="color:#f1fa8c">`make test`</span> - 运行测试
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> <span style="color:#f1fa8c">`make lint`</span> - 代码检查
+</span></span></code></pre></div><h3 id="53-上下文压缩compaction">5.3 上下文压缩（Compaction）</h3>
+<p>长会话会导致上下文窗口逐渐填满。Claude Code采用<strong>三层压缩策略</strong>：</p>
+<ol>
+<li><strong>清理旧工具输出</strong>：移除早期的工具调用结果（通常是最占空间的内容）</li>
+<li><strong>对话摘要</strong>：将历史对话压缩为核心要点的摘要</li>
+<li><strong>持久化关键信息</strong>：将重要规则和模式写入<code>CLAUDE.md</code>，而非依赖对话记忆</li>
+</ol>
+<p>用户也可以通过<code>/compact</code>命令手动触发压缩。</p>
+<h3 id="54-子agent隔离">5.4 子Agent隔离</h3>
+<p>为了避免复杂任务污染主对话上下文，Claude Code可以<strong>生成子Agent</strong>：</p>
+<pre tabindex="0"><code>主 Agent（协调者）
+├── 子 Agent A（独立上下文）→ 返回摘要
+├── 子 Agent B（独立上下文）→ 返回摘要  
+└── 子 Agent C（独立上下文）→ 返回摘要
+</code></pre><p>每个子Agent拥有<strong>独立的消息列表</strong>，完成任务后仅向主Agent返回结果摘要。这一机制有效控制了上下文膨胀。</p>
+<hr>
+<h2 id="六多agent协作架构">六、多Agent协作架构</h2>
+<h3 id="61-协作模式">6.1 协作模式</h3>
+<p>Claude Code支持高级的多Agent协作模式，这是其区别于大多数AI编程工具的重要特性：</p>
+<p>
+  <img src="/img/claude-code/multi-agent.png" alt="Claude Code 多Agent协作架构">
+
+</p>
+<h3 id="62-task系统">6.2 Task系统</h3>
+<p>Task系统是多Agent协作的基础，提供基于文件系统的任务CRUD和依赖图管理：</p>
+<pre tabindex="0"><code>任务看板
+├── task-001: 实现用户认证模块     [completed]
+├── task-002: 编写认证API测试      [in_progress] → 依赖 task-001
+├── task-003: 集成前端登录页面      [pending]     → 依赖 task-001
+└── task-004: 部署到测试环境       [pending]     → 依赖 task-002, task-003
+</code></pre><h3 id="63-异步邮箱通信">6.3 异步邮箱通信</h3>
+<p>Agent之间通过<strong>JSONL格式的异步邮箱</strong>进行通信，支持以下消息类型：</p>
+<table>
+<thead>
+<tr>
+<th>消息类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>message</code></td>
+<td>发送给特定队友的直接消息</td>
+</tr>
+<tr>
+<td><code>broadcast</code></td>
+<td>广播给所有队友</td>
+</tr>
+<tr>
+<td><code>shutdown_request</code></td>
+<td>请求队友关闭</td>
+</tr>
+<tr>
+<td><code>shutdown_response</code></td>
+<td>响应关闭请求</td>
+</tr>
+<tr>
+<td><code>plan_approval_response</code></td>
+<td>审批计划</td>
+</tr>
+</tbody>
+</table>
+<h3 id="64-worktree隔离">6.4 Worktree隔离</h3>
+<p>为避免多个Agent在同一目录下产生文件冲突，每个Agent可在独立的<strong>Git Worktree</strong>中工作：</p>
+<pre tabindex="0"><code>项目仓库
+├── worktree-agent-A/    # Agent A 的独立工作目录
+├── worktree-agent-B/    # Agent B 的独立工作目录
+└── worktree-agent-C/    # Agent C 的独立工作目录
+</code></pre><p>任务ID与Worktree绑定，确保每个Agent的文件操作互不干扰。</p>
+<h3 id="65-自主认领机制">6.5 自主认领机制</h3>
+<p>在高级模式下，Agent无需中央调度，可自主扫描任务看板并认领未分配的任务。这大幅提升了并行效率，减少了协调开销。</p>
+<hr>
+<h2 id="七系统提示词架构">七、系统提示词架构</h2>
+<h3 id="71-模块化提示词">7.1 模块化提示词</h3>
+<p>Claude Code并不使用单一的系统提示词，而是采用<strong>模块化、条件组装</strong>的策略。根据对v2.1.81版本的分析，其系统提示词由<strong>110+个字符串</strong>组成，包括：</p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>数量</th>
+<th>典型Token数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Agent提示词（子Agent、工具类）</td>
+<td>~15</td>
+<td>384 - 5,667 tks</td>
+</tr>
+<tr>
+<td>内置工具描述</td>
+<td>18</td>
+<td>129 - 2,161 tks</td>
+</tr>
+<tr>
+<td>数据引用（SDK/API文档）</td>
+<td>~12</td>
+<td>2,837 - 5,106 tks</td>
+</tr>
+<tr>
+<td>系统提醒</td>
+<td>40+</td>
+<td>30 - 1,297 tks</td>
+</tr>
+<tr>
+<td>Skills</td>
+<td>~5</td>
+<td>2,625 - 5,379 tks</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72-条件注入">7.2 条件注入</h3>
+<p>不同的提示词片段根据以下条件动态注入：</p>
+<ul>
+<li><strong>运行环境</strong>：Terminal / VS Code / Desktop等</li>
+<li><strong>当前模式</strong>：Normal / Plan / Auto</li>
+<li><strong>功能状态</strong>：是否启用了团队协作、学习模式等</li>
+<li><strong>用户配置</strong>：Hooks、MCP服务器、自定义命令等</li>
+</ul>
+<p>这种设计在控制Token消耗的同时，确保了模型获得最相关的指令上下文。</p>
+<hr>
+<h2 id="八安全与权限治理">八、安全与权限治理</h2>
+<h3 id="81-权限模式">8.1 权限模式</h3>
+<p>Claude Code提供四种权限模式，平衡自主性与安全性：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>文件编辑</th>
+<th>Shell命令</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Default</strong></td>
+<td>需确认</td>
+<td>需确认</td>
+<td>日常开发</td>
+</tr>
+<tr>
+<td><strong>Auto-accept edits</strong></td>
+<td>自动</td>
+<td>需确认</td>
+<td>信任编辑操作</td>
+</tr>
+<tr>
+<td><strong>Plan mode</strong></td>
+<td>只读</td>
+<td>只读</td>
+<td>仅生成计划</td>
+</tr>
+<tr>
+<td><strong>Auto mode</strong></td>
+<td>自动</td>
+<td>自动+后台安全检查</td>
+<td>高度自动化</td>
+</tr>
+</tbody>
+</table>
+<h3 id="82-检查点机制">8.2 检查点机制</h3>
+<p>在编辑文件之前，Claude Code会自动创建<strong>快照（Checkpoint）</strong>。用户可随时通过按两次<code>Esc</code>键<strong>回退</strong>到修改前的状态。</p>
+<blockquote>
+<p>⚠️ 注意：检查点机制仅覆盖文件变更，不涵盖外部副作用（如数据库写入）。</p>
+</blockquote>
+<h3 id="83-安全边界">8.3 安全边界</h3>
+<ul>
+<li><strong>沙箱</strong>：限制文件访问范围，默认只能访问当前项目目录</li>
+<li><strong>审批工作流</strong>：破坏性操作（删除文件、Git force push等）需人工批准</li>
+<li><strong>信任边界</strong>：在Agent和外部系统之间执行严格的边界控制</li>
+<li><strong>安全审查</strong>：内置<code>/security-review</code>命令（2,607 tokens的专用提示词），可对代码进行安全审计</li>
+</ul>
+<hr>
+<h2 id="九扩展机制">九、扩展机制</h2>
+<h3 id="91-自定义命令">9.1 自定义命令</h3>
+<p>用户可在<code>.claude/commands/</code>目录下创建自定义斜杠命令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="color:#6272a4">&lt;!-- .claude/commands/review-pr.md --&gt;</span>
+</span></span><span style="display:flex;"><span>请审查当前PR的所有变更：
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> 检查代码风格
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> 识别潜在bug
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> 评估测试覆盖率
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> 生成审查报告
+</span></span></code></pre></div><p>使用时直接输入<code>/review-pr</code>即可调用。</p>
+<h3 id="92-hooks">9.2 Hooks</h3>
+<p>Hooks允许在特定事件前后触发Shell命令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;hooks&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;before_commit&#34;</span>: <span style="color:#f1fa8c">&#34;npm run lint &amp;&amp; npm test&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;after_edit&#34;</span>: <span style="color:#f1fa8c">&#34;prettier --write ${file}&#34;</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="93-skills">9.3 Skills</h3>
+<p>Skills是更高级的扩展机制——包含指令、脚本和资源的文件夹，Claude根据需要动态加载：</p>
+<pre tabindex="0"><code>skills/
+├── frontend-dev/
+│   ├── SKILL.md          # 技能描述和指令
+│   ├── templates/        # 模板文件
+│   └── scripts/          # 辅助脚本
+└── api-design/
+    ├── SKILL.md
+    └── examples/
+</code></pre><p>Skill不通过系统提示词预加载，而是在工具执行结果中按需注入，有效节省Token。</p>
+<h3 id="94-agent-sdk">9.4 Agent SDK</h3>
+<p>对于需要深度定制的场景，Claude Code提供<strong>Agent SDK</strong>，允许开发者构建完全自定义的Agent，精细控制：</p>
+<ul>
+<li>编排逻辑（Orchestration）</li>
+<li>工具访问权限</li>
+<li>权限边界</li>
+<li>上下文管理策略</li>
+</ul>
+<hr>
+<h2 id="十与其他ai编程工具对比">十、与其他AI编程工具对比</h2>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>Claude Code</th>
+<th>Cursor</th>
+<th>GitHub Copilot</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>运行环境</strong></td>
+<td>终端原生</td>
+<td>编辑器内</td>
+<td>编辑器插件</td>
+</tr>
+<tr>
+<td><strong>工作模式</strong></td>
+<td>代理式（Agentic）</td>
+<td>半代理式</td>
+<td>补全式</td>
+</tr>
+<tr>
+<td><strong>文件操作</strong></td>
+<td>直接读写</td>
+<td>编辑器内</td>
+<td>编辑器内</td>
+</tr>
+<tr>
+<td><strong>Shell执行</strong></td>
+<td>✅ 原生支持</td>
+<td>部分支持</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Git集成</strong></td>
+<td>✅ 深度集成</td>
+<td>部分支持</td>
+<td>基础支持</td>
+</tr>
+<tr>
+<td><strong>多Agent协作</strong></td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>自定义工具</strong></td>
+<td>MCP + Hooks + Skills</td>
+<td>有限</td>
+<td>有限</td>
+</tr>
+<tr>
+<td><strong>上下文管理</strong></td>
+<td>自动压缩+子Agent</td>
+<td>编辑器上下文</td>
+<td>文件级上下文</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="十一总结">十一、总结</h2>
+<p>Claude Code的技术架构体现了一个深刻的设计哲学：<strong>让模型做决策，让工程做执行</strong>。其核心创新可以概括为：</p>
+<ol>
+<li><strong>极简的Agentic Loop</strong>：一个循环+工具分发，就是整个Agent系统的骨架</li>
+<li><strong>丰富的工具生态</strong>：18个内置工具 + MCP无限扩展，覆盖开发全链路</li>
+<li><strong>精巧的上下文管理</strong>：CLAUDE.md持久化 + 自动压缩 + 子Agent隔离</li>
+<li><strong>完整的多Agent协作</strong>：任务图 + 异步邮箱 + Worktree隔离 + 自主认领</li>
+<li><strong>分层的安全治理</strong>：四种权限模式 + 检查点 + 沙箱 + 审批工作流</li>
+</ol>
+<p>Claude Code证明了一个重要观点：构建一个强大的AI编程Agent，关键不在于复杂的框架或提示词链，而在于为一个已经足够聪明的模型提供合适的<strong>工具和环境</strong>。正如learn-claude-code项目所总结的：</p>
+<blockquote>
+<p><strong>&ldquo;Bash is all you need&rdquo;</strong> —— 一个循环和Bash，就足以构建令人惊叹的Agent系统。</p>
+</blockquote>
+<hr>
+<h2 id="参考资料">参考资料</h2>
+<ol>
+<li><a href="https://github.com/anthropics/claude-code">Claude Code GitHub仓库</a></li>
+<li><a href="https://code.claude.com/docs/en/how-claude-code-works">Claude Code官方文档 - How Claude Code Works</a></li>
+<li><a href="https://code.claude.com/docs/en/overview">Claude Code官方文档 - Overview</a></li>
+<li><a href="https://github.com/shareAI-lab/learn-claude-code">learn-claude-code: Bash is all you need</a></li>
+<li><a href="https://github.com/Piebald-AI/claude-code-system-prompts">Claude Code System Prompts</a></li>
+<li><a href="https://www.sitepoint.com/claude-code-deep-dive-into-the-agentic-cli-workflow/">Claude Code: Deep Dive into the Agentic CLI Workflow - SitePoint</a></li>
+</ol>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-03-26-codebuddy-agent-teams%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="CodeBuddy Agent Teams 深度解析：多智能体协作的最佳实践与实现原理">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2026-03-30-wecomcli%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="wecom-cli深度技术解析：企业微信开放平台命令行工具的架构与实现原理">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

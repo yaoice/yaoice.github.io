@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="CodeBuddy Agent Teams 深度解析：多智能体协作的最佳实践与实现原理" />
+    <meta property="og:title" content="CodeBuddy Agent Teams 深度解析：多智能体协作的最佳实践与实现原理" />
+    <meta property="twitter:title" content="CodeBuddy Agent Teams 深度解析：多智能体协作的最佳实践与实现原理" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>CodeBuddy Agent Teams 深度解析：多智能体协作的最佳实践与实现原理 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-03-26-codebuddy-agent-teams%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/codebuddy" title="CodeBuddy">
+                            CodeBuddy
+                        </a>
+                        
+                    </div>
+                    <h1>CodeBuddy Agent Teams 深度解析：多智能体协作的最佳实践与实现原理</h1>
+                    <h2 class="subheading">多智能体协作编程新范式：从架构原理到实战落地的全面技术剖析</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Thursday, March 26, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言">一、引言</h2>
+<p>在 AI 编程助手领域，单个智能体（Agent）处理复杂工程任务时面临着上下文窗口有限、思维角度单一、串行执行效率低等瓶颈。为了突破这些限制，<strong>CodeBuddy</strong>（腾讯云代码助手）引入了 <strong>Agent Teams</strong>——一套基于&quot;群体智能&quot;的多智能体协作系统。</p>
+<blockquote>
+<p>🔗 官方文档：<a href="https://www.codebuddy.cn/docs/cli/agent-teams">https://www.codebuddy.cn/docs/cli/agent-teams</a></p>
+</blockquote>
+<p>Agent Teams 并非简单的多智能体叠加，而是模拟真实敏捷开发团队的工作模式，通过<strong>平级协作、自主通信和共享任务管理</strong>来解决复杂工程问题。据实际测试，在合适的场景下，Agent Teams 可将原本小时级的串行工作压缩到分钟级完成，效率提升 3-5 倍。</p>
+<p>本文将从架构原理、核心机制、最佳实践到实战案例四个维度，对 Agent Teams 进行全面深度剖析。</p>
+<hr>
+<h2 id="二核心架构解析">二、核心架构解析</h2>
+<h3 id="21-四大核心组件">2.1 四大核心组件</h3>
+<p>Agent Teams 的架构由四大核心组件构成，形成一个完整的协作闭环：</p>
+<p>
+  <img src="/img/agent-teams/architecture.png" alt="Agent Teams 核心架构示意图：Team Lead 协调多个专业化 Teammates，通过共享任务列表和邮箱通信系统实现高效协作">
+
+</p>
+<!-- raw HTML omitted -->
+<pre tabindex="0"><code>┌─────────────────────────────────────────────────────┐
+│                   Agent Teams 架构                    │
+│                                                       │
+│  ┌─────────────┐     ┌──────────────────────────┐    │
+│  │  Team Lead   │────▶│   Shared Task List       │    │
+│  │  (团队领导)   │     │   (共享任务列表)           │    │
+│  └──────┬──────┘     │  ┌────┐┌────┐┌────┐      │    │
+│         │            │  │待处理││进行中││已完成│      │    │
+│    创建/协调          │  └────┘└────┘└────┘      │    │
+│         │            └──────────────────────────┘    │
+│  ┌──────▼──────────────────────────────────────┐     │
+│  │            Teammates (团队成员)                │     │
+│  │  ┌────────┐  ┌────────┐  ┌────────┐         │     │
+│  │  │成员 A   │  │成员 B   │  │成员 C   │         │     │
+│  │  │前端开发  │  │后端开发  │  │测试工程师│         │     │
+│  │  └───┬────┘  └───┬────┘  └───┬────┘         │     │
+│  │      │           │           │               │     │
+│  │      └─────┬─────┘───────────┘               │     │
+│  └────────────┼─────────────────────────────────┘     │
+│          ┌────▼─────────────────┐                     │
+│          │   Mailbox System     │                     │
+│          │   (邮箱通信系统)       │                     │
+│          │  点对点消息 / 全员广播  │                     │
+│          └──────────────────────┘                     │
+└─────────────────────────────────────────────────────┘
+</code></pre><p><strong>① Team Lead（团队领导）</strong></p>
+<ul>
+<li>用户的主会话，充当团队的统筹协调者</li>
+<li>负责创建团队、生成成员、分配初始任务、设置依赖关系</li>
+<li>汇总各成员的工作成果，合成最终结果</li>
+<li>一个 Lead 同时只能管理一个 Team</li>
+</ul>
+<p><strong>② Teammates（团队成员）</strong></p>
+<ul>
+<li>完全独立的 CodeBuddy 实例，拥有独立上下文窗口</li>
+<li>承担特定角色（如前端开发、安全审查、性能测试等）</li>
+<li>不继承 Lead 的对话历史，只接收初始 Prompt</li>
+<li>可直接与其他成员通信，无需经过 Lead 中转</li>
+</ul>
+<p><strong>③ Shared Task List（共享任务列表）</strong></p>
+<ul>
+<li>统一管理所有任务，对全体成员可见</li>
+<li>任务状态流转：<code>pending</code> → <code>in_progress</code> → <code>completed</code></li>
+<li>支持任务依赖关系设置，通过文件锁防止冲突</li>
+<li>成员可自主认领待处理任务</li>
+</ul>
+<p><strong>④ Mailbox System（邮箱通信系统）</strong></p>
+<ul>
+<li>成员间直接通信的桥梁，支持以下消息类型：
+<ul>
+<li><code>message</code>：点对点消息，发送给特定成员</li>
+<li><code>broadcast</code>：全员广播消息</li>
+<li><code>shutdown_request</code>：请求关闭成员</li>
+<li><code>plan_approval_response</code>：计划审批响应</li>
+</ul>
+</li>
+</ul>
+<h3 id="22-本地存储结构">2.2 本地存储结构</h3>
+<p>Agent Teams 的所有数据均存储在本地：</p>
+<pre tabindex="0"><code>~/.codebuddy/
+├── teams/
+│   └── {team-name}/
+│       ├── config.json          # 团队配置
+│       └── inboxes/
+│           └── {member}.json    # 各成员消息信箱
+└── tasks/
+    └── {team-name}/             # 团队任务数据
+</code></pre><h3 id="23-agent-teams-vs-sub-agents关键区别">2.3 Agent Teams vs Sub-agents：关键区别</h3>
+<p>理解何时使用 Agent Teams 而非 Sub-agents 至关重要：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Sub-agents（子代理）</th>
+<th>Agent Teams（团队协作）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>上下文</strong></td>
+<td>结果返回给调用者</td>
+<td>每个成员完全独立</td>
+</tr>
+<tr>
+<td><strong>通信</strong></td>
+<td>只能向主代理单向报告</td>
+<td>成员之间可直接互相通信</td>
+</tr>
+<tr>
+<td><strong>协调</strong></td>
+<td>主代理全权管理所有工作</td>
+<td>共享任务列表，成员自主认领</td>
+</tr>
+<tr>
+<td><strong>角色</strong></td>
+<td>&ldquo;派任务的下属&rdquo;</td>
+<td>&ldquo;能互相讨论的团队&rdquo;</td>
+</tr>
+<tr>
+<td><strong>适用场景</strong></td>
+<td>聚焦型任务，只关心结果</td>
+<td>需要讨论和协作的复杂工作</td>
+</tr>
+<tr>
+<td><strong>Token 消耗</strong></td>
+<td>较低</td>
+<td>较高（每个成员是独立实例）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>选择决策树</strong>：</p>
+<pre tabindex="0"><code>任务能否拆分为独立子任务？
+├─ 否 → 用单会话
+└─ 是 → 成员之间是否需要讨论/协作？
+       ├─ 否 → 用 Sub-agents（省 Token）
+       └─ 是 → 用 Agent Teams
+</code></pre><hr>
+<h2 id="三实现原理深度分析">三、实现原理深度分析</h2>
+<h3 id="31-协作模式平级协作-vs-层级控制">3.1 协作模式：平级协作 vs 层级控制</h3>
+<p>传统的多智能体系统多采用&quot;主-从&quot;（Master-Slave）层级模式，所有通信都必须经过主节点。这导致主节点容易成为通信瓶颈，同时信息传递存在延迟和失真。</p>
+<p>Agent Teams 采用<strong>平级协作</strong>（Peer-to-Peer）模式：</p>
+<p>
+  <img src="/img/agent-teams/peer-vs-hierarchy.png" alt="传统层级模式 vs Agent Teams 平级协作模式对比">
+
+</p>
+<!-- raw HTML omitted -->
+<pre tabindex="0"><code>传统层级模式：                    Agent Teams 平级模式：
+                                  
+    ┌─────┐                       ┌───┐ ←──→ ┌───┐
+    │ Main │                       │ A │       │ B │
+    └──┬──┘                       └─┬─┘       └─┬─┘
+   ┌───┼───┐                        │    ┌───┐  │
+   ▼   ▼   ▼                        └──→ │ C │←─┘
+  [A] [B] [C]                            └───┘
+  (所有通信经主节点)               (成员间直接通信)
+</code></pre><p>这种模式的核心优势：</p>
+<ul>
+<li><strong>消除瓶颈</strong>：成员间直接交换信息，不依赖单点</li>
+<li><strong>信息保真</strong>：避免了中间节点转述造成的信息失真</li>
+<li><strong>自主协调</strong>：成员可基于共享任务列表自主认领工作</li>
+</ul>
+<h3 id="32-消息传递机制">3.2 消息传递机制</h3>
+<p>Agent Teams 的消息系统基于本地文件系统实现，每个成员拥有独立的 inbox 文件：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span><span style="color:#6272a4">// ~/.codebuddy/teams/my-team/inboxes/frontend-dev.json
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;messages&#34;</span>: [
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;type&#34;</span>: <span style="color:#f1fa8c">&#34;message&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;from&#34;</span>: <span style="color:#f1fa8c">&#34;backend-dev&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;API 接口已就绪，认证使用 JWT，token 过期时间 24h，文档在 docs/api.md&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;timestamp&#34;</span>: <span style="color:#f1fa8c">&#34;2026-03-26T10:30:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;type&#34;</span>: <span style="color:#f1fa8c">&#34;broadcast&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;from&#34;</span>: <span style="color:#f1fa8c">&#34;team-lead&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;请各成员在 30 分钟内提交当前进度报告&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;timestamp&#34;</span>: <span style="color:#f1fa8c">&#34;2026-03-26T11:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  ]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>消息轮询机制：</p>
+<ol>
+<li>成员定期检查自己的 inbox 文件</li>
+<li>读取新消息后进行处理</li>
+<li>根据消息内容调整当前工作或发送回复</li>
+<li>通过写入目标成员的 inbox 文件发送消息</li>
+</ol>
+<h3 id="33-任务调度与依赖管理">3.3 任务调度与依赖管理</h3>
+<p>共享任务列表是协调的核心，支持任务依赖和并行执行：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;tasks&#34;</span>: [
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;id&#34;</span>: <span style="color:#f1fa8c">&#34;task-1&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;title&#34;</span>: <span style="color:#f1fa8c">&#34;设计数据库 Schema&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;status&#34;</span>: <span style="color:#f1fa8c">&#34;completed&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;assignee&#34;</span>: <span style="color:#f1fa8c">&#34;backend-dev&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;dependencies&#34;</span>: []
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;id&#34;</span>: <span style="color:#f1fa8c">&#34;task-2&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;title&#34;</span>: <span style="color:#f1fa8c">&#34;实现 REST API&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;status&#34;</span>: <span style="color:#f1fa8c">&#34;in_progress&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;assignee&#34;</span>: <span style="color:#f1fa8c">&#34;backend-dev&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;dependencies&#34;</span>: [<span style="color:#f1fa8c">&#34;task-1&#34;</span>]
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;id&#34;</span>: <span style="color:#f1fa8c">&#34;task-3&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;title&#34;</span>: <span style="color:#f1fa8c">&#34;构建前端页面&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;status&#34;</span>: <span style="color:#f1fa8c">&#34;in_progress&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;assignee&#34;</span>: <span style="color:#f1fa8c">&#34;frontend-dev&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;dependencies&#34;</span>: []
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;id&#34;</span>: <span style="color:#f1fa8c">&#34;task-4&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;title&#34;</span>: <span style="color:#f1fa8c">&#34;编写集成测试&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;status&#34;</span>: <span style="color:#f1fa8c">&#34;pending&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;assignee&#34;</span>: <span style="color:#f1fa8c">&#34;test-engineer&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">&#34;dependencies&#34;</span>: [<span style="color:#f1fa8c">&#34;task-2&#34;</span>, <span style="color:#f1fa8c">&#34;task-3&#34;</span>]
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  ]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>依赖管理逻辑：</p>
+<ul>
+<li>无依赖的任务可立即并行执行（task-1 和 task-3）</li>
+<li>有依赖的任务需等待前置任务完成后自动解锁（task-2 等 task-1，task-4 等 task-2 和 task-3）</li>
+<li>通过文件锁避免多个成员同时认领同一任务</li>
+</ul>
+<h3 id="34-权限继承与上下文隔离">3.4 权限继承与上下文隔离</h3>
+<p><strong>权限继承</strong>：团队成员继承 Team Lead 的权限设置，确保所有成员拥有一致的操作能力。</p>
+<p><strong>上下文隔离</strong>：每个成员拥有独立的上下文窗口，启动时加载项目级上下文（如 <code>CLAUDE.md</code>），但不继承 Lead 的对话历史。这种设计的意义在于：</p>
+<ul>
+<li><strong>避免上下文污染</strong>：每个成员聚焦于自己的任务领域</li>
+<li><strong>最大化上下文窗口</strong>：不被无关的历史对话占用</li>
+<li><strong>独立推理</strong>：避免&quot;群体思维&quot;，每个成员独立分析问题</li>
+</ul>
+<hr>
+<h2 id="四最佳实践">四、最佳实践</h2>
+<h3 id="41-团队组建原则">4.1 团队组建原则</h3>
+<p><strong>① 提供充分上下文</strong></p>
+<p>由于成员不继承 Lead 的对话历史，创建成员时必须给予具体、完整的 Prompt：</p>
+<pre tabindex="0"><code># ❌ 过于模糊
+&#34;帮我处理前端部分&#34;
+
+# ✅ 充分具体
+&#34;你是前端开发工程师，负责使用 React 18 + TypeScript 构建用户管理模块。
+要求：
+1. 使用 Ant Design 组件库
+2. 状态管理使用 Zustand
+3. API 基地址为 /api/v1
+4. 实现用户列表、新增、编辑、删除四个页面
+5. 样式参考 src/styles/theme.ts 中的设计规范&#34;
+</code></pre><p><strong>② 合理控制团队规模</strong></p>
+<p>建议从 3-5 个成员开始。成员过多会导致：</p>
+<ul>
+<li>协调开销增大，通信复杂度呈 O(n²) 增长</li>
+<li>Token 成本线性增长</li>
+<li>文件冲突概率上升</li>
+</ul>
+<p><strong>③ 确保任务自包含</strong></p>
+<p>每个任务应该是一个独立的、可验证的工作单元：</p>
+<pre tabindex="0"><code># ✅ 好的任务拆分（自包含，产出明确）
+- 成员A：实现 src/services/auth.ts 认证服务模块
+- 成员B：实现 src/pages/Dashboard/ 下所有组件
+- 成员C：编写 tests/integration/ 下的集成测试
+
+# ❌ 不好的任务拆分（耦合度高，边界模糊）
+- 成员A：写一半的登录逻辑
+- 成员B：写另一半的登录逻辑
+</code></pre><h3 id="42-避免文件冲突">4.2 避免文件冲突</h3>
+<p><strong>这是使用 Agent Teams 最容易踩的坑。</strong> 多个成员同时编辑同一文件会导致覆盖和冲突。</p>
+<p><strong>策略</strong>：</p>
+<ul>
+<li>按文件/目录维度分配任务，确保不同成员负责不同文件</li>
+<li>如果有共享的配置文件，指定唯一的成员负责修改</li>
+<li>利用 Mailbox 通知其他成员接口变更</li>
+</ul>
+<h3 id="43-善用委派模式">4.3 善用委派模式</h3>
+<p>按 <code>Shift+Tab</code> 切换到委派模式（Delegation Mode），限制 Lead 只做协调和审批，不直接写代码。这可以：</p>
+<ul>
+<li>让 Lead 专注于全局把控</li>
+<li>避免 Lead 的修改与成员冲突</li>
+<li>培养成员自主解决问题的能力</li>
+</ul>
+<h3 id="44-实施质量门禁">4.4 实施质量门禁</h3>
+<p>利用 Hooks 机制自动执行质量检查：</p>
+<ul>
+<li><code>TeammateIdle</code>：成员空闲时自动运行 lint 检查</li>
+<li><code>TaskCompleted</code>：任务完成时自动执行单元测试</li>
+</ul>
+<pre tabindex="0"><code>// 伪代码示例：配置 Hook
+Hook: TaskCompleted
+  → 自动运行 npm test --coverage
+  → 如果测试不通过，阻止任务标记为 completed
+  → 将错误信息发送给对应成员
+</code></pre><h3 id="45-定期检查进度">4.5 定期检查进度</h3>
+<p>不要&quot;放飞&quot;团队成员。建议：</p>
+<ul>
+<li>定期查看各成员状态（状态栏：● 工作中、✓ 完成、✗ 失败）</li>
+<li>使用 <code>Ctrl+T</code> 切换任务列表视图，监控整体进度</li>
+<li>发现偏差及时通过 <code>@成员名</code> 发送纠正指令</li>
+<li>对高风险任务启用 Plan Mode，要求成员先提交方案审批后再执行</li>
+</ul>
+<hr>
+<h2 id="五适用场景分析">五、适用场景分析</h2>
+<h3 id="51-强适用场景">5.1 强适用场景</h3>
+<p><strong>① 并行代码审查</strong></p>
+<p>多成员从不同维度同时审查同一份代码：</p>
+<pre tabindex="0"><code>Team: code-review-team
+├── security-reviewer   → 关注安全漏洞（SQL注入、XSS、CSRF等）
+├── performance-reviewer → 关注性能问题（N+1查询、内存泄漏等）
+└── test-reviewer       → 关注测试覆盖率和边界用例
+</code></pre><p>每个审查者独立输出报告，再由 Lead 综合汇总，避免单一审查者的&quot;隧道视野&quot;。</p>
+<p><strong>② 竞争性假设调试</strong></p>
+<p>面对疑难 Bug，多个成员并行验证不同假设：</p>
+<pre tabindex="0"><code>Team: debug-team
+├── agent-hypothesis-A  → 假设：连接池耗尽导致超时
+├── agent-hypothesis-B  → 假设：内存泄漏引发 GC 暂停
+└── agent-hypothesis-C  → 假设：第三方依赖版本兼容问题
+</code></pre><p>成员间可通过 Mailbox 互相反驳对方的假设，通过&quot;辩论式调试&quot;快速收敛到真正的根因。</p>
+<p><strong>③ 跨层功能开发</strong></p>
+<p>前端、后端、测试分别由不同成员负责，同步推进：</p>
+<pre tabindex="0"><code>Team: feature-team
+├── frontend-dev   → React 页面和组件
+├── backend-dev    → Go API 服务
+├── db-engineer    → PostgreSQL Schema 和迁移
+└── test-engineer  → E2E 测试用例
+</code></pre><p><strong>④ 新模块并行开发</strong></p>
+<p>多个独立模块可并行开发，显著缩短交付时间。</p>
+<h3 id="52-不适用场景">5.2 不适用场景</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>原因</th>
+<th>替代方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>严格顺序任务</td>
+<td>无法并行，协调开销白费</td>
+<td>单会话</td>
+</tr>
+<tr>
+<td>同文件编辑</td>
+<td>文件冲突风险极高</td>
+<td>单会话或 Sub-agent</td>
+</tr>
+<tr>
+<td>简单快速任务</td>
+<td>协调开销大于收益</td>
+<td>单会话</td>
+</tr>
+<tr>
+<td>预算受限</td>
+<td>Token 成本随成员数线性增长</td>
+<td>Sub-agent</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="六实战案例电商用户管理系统全栈开发">六、实战案例：电商用户管理系统全栈开发</h2>
+<p>下面通过一个具体案例，演示如何使用 Agent Teams 进行全栈开发。</p>
+<h3 id="61-项目背景">6.1 项目背景</h3>
+<p>构建一个电商平台的用户管理模块，包含：</p>
+<ul>
+<li>后端 REST API（Go + Gin）</li>
+<li>前端管理页面（React + TypeScript）</li>
+<li>数据库设计（PostgreSQL）</li>
+<li>集成测试</li>
+</ul>
+<h3 id="62-团队组建">6.2 团队组建</h3>
+<p>通过自然语言向 CodeBuddy 描述需求：</p>
+<pre tabindex="0"><code>创建一个开发团队来构建用户管理模块：
+1. 一个后端工程师，负责用 Go + Gin 实现 REST API
+2. 一个前端工程师，负责用 React + TypeScript 构建管理界面
+3. 一个数据库工程师，负责 PostgreSQL Schema 设计和数据迁移
+4. 一个测试工程师，负责编写 E2E 和集成测试
+</code></pre><p>CodeBuddy 将自动创建团队并生成四个专业化成员。</p>
+<h3 id="63-任务分解与依赖关系">6.3 任务分解与依赖关系</h3>
+<pre tabindex="0"><code>Task Graph:
+
+[T1] 数据库 Schema 设计          ──────────┐
+     (db-engineer)                         │
+                                           ▼
+[T2] REST API 实现                [T5] 编写集成测试
+     (backend-dev)                     (test-engineer)
+     依赖: T1                          依赖: T2, T3
+                                           ▲
+[T3] 前端页面开发                ──────────┘
+     (frontend-dev)
+     
+[T4] API 文档编写
+     (backend-dev)
+     依赖: T2
+</code></pre><h3 id="64-协作执行过程">6.4 协作执行过程</h3>
+<p><strong>第一阶段：并行启动（T1 + T3）</strong></p>
+<p><code>db-engineer</code> 和 <code>frontend-dev</code> 无依赖，立即开始工作：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#6272a4">-- db-engineer 输出：用户表 Schema
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">CREATE</span> <span style="color:#ff79c6">TABLE</span> users (
+</span></span><span style="display:flex;"><span>    id          UUID <span style="color:#ff79c6">PRIMARY</span> <span style="color:#ff79c6">KEY</span> <span style="color:#ff79c6">DEFAULT</span> gen_random_uuid(),
+</span></span><span style="display:flex;"><span>    username    <span style="color:#8be9fd;font-style:italic">VARCHAR</span>(<span style="color:#bd93f9">50</span>)  <span style="color:#ff79c6">UNIQUE</span> <span style="color:#ff79c6">NOT</span> <span style="color:#ff79c6">NULL</span>,
+</span></span><span style="display:flex;"><span>    email       <span style="color:#8be9fd;font-style:italic">VARCHAR</span>(<span style="color:#bd93f9">255</span>) <span style="color:#ff79c6">UNIQUE</span> <span style="color:#ff79c6">NOT</span> <span style="color:#ff79c6">NULL</span>,
+</span></span><span style="display:flex;"><span>    password    <span style="color:#8be9fd;font-style:italic">VARCHAR</span>(<span style="color:#bd93f9">255</span>) <span style="color:#ff79c6">NOT</span> <span style="color:#ff79c6">NULL</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">role</span>        <span style="color:#8be9fd;font-style:italic">VARCHAR</span>(<span style="color:#bd93f9">20</span>)  <span style="color:#ff79c6">DEFAULT</span> <span style="color:#f1fa8c">&#39;user&#39;</span>,
+</span></span><span style="display:flex;"><span>    status      <span style="color:#8be9fd;font-style:italic">VARCHAR</span>(<span style="color:#bd93f9">20</span>)  <span style="color:#ff79c6">DEFAULT</span> <span style="color:#f1fa8c">&#39;active&#39;</span>,
+</span></span><span style="display:flex;"><span>    created_at  TIMESTAMPTZ  <span style="color:#ff79c6">DEFAULT</span> NOW(),
+</span></span><span style="display:flex;"><span>    updated_at  TIMESTAMPTZ  <span style="color:#ff79c6">DEFAULT</span> NOW()
+</span></span><span style="display:flex;"><span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">CREATE</span> <span style="color:#ff79c6">INDEX</span> idx_users_email <span style="color:#ff79c6">ON</span> users(email);
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">CREATE</span> <span style="color:#ff79c6">INDEX</span> idx_users_status <span style="color:#ff79c6">ON</span> users(status);
+</span></span></code></pre></div><p>同时 <code>frontend-dev</code> 基于 Mock 数据搭建页面骨架：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-tsx" data-lang="tsx"><span style="display:flex;"><span><span style="color:#6272a4">// frontend-dev 输出：用户列表组件
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">interface</span> User {
+</span></span><span style="display:flex;"><span>  id: <span style="color:#8be9fd">string</span>;
+</span></span><span style="display:flex;"><span>  username: <span style="color:#8be9fd">string</span>;
+</span></span><span style="display:flex;"><span>  email: <span style="color:#8be9fd">string</span>;
+</span></span><span style="display:flex;"><span>  role<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;admin&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;user&#39;</span>;
+</span></span><span style="display:flex;"><span>  status<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;active&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;inactive&#39;</span>;
+</span></span><span style="display:flex;"><span>  createdAt: <span style="color:#8be9fd">string</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> UserList: <span style="color:#8be9fd">React.FC</span> <span style="color:#ff79c6">=</span> () <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> [users, setUsers] <span style="color:#ff79c6">=</span> useState&lt;<span style="color:#ff79c6">User</span>[]&gt;([]);
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> [loading, setLoading] <span style="color:#ff79c6">=</span> useState(<span style="color:#ff79c6">false</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  useEffect(() <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    fetchUsers();
+</span></span><span style="display:flex;"><span>  }, []);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> fetchUsers <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">async</span> () <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    setLoading(<span style="color:#ff79c6">true</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> res <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> fetch(<span style="color:#f1fa8c">&#39;/api/v1/users&#39;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> data <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> res.json();
+</span></span><span style="display:flex;"><span>    setUsers(data.users);
+</span></span><span style="display:flex;"><span>    setLoading(<span style="color:#ff79c6">false</span>);
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> (
+</span></span><span style="display:flex;"><span>    &lt;<span style="color:#ff79c6">Table</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#50fa7b">columns</span><span style="color:#ff79c6">=</span>{columns}
+</span></span><span style="display:flex;"><span>      <span style="color:#50fa7b">dataSource</span><span style="color:#ff79c6">=</span>{users}
+</span></span><span style="display:flex;"><span>      <span style="color:#50fa7b">loading</span><span style="color:#ff79c6">=</span>{loading}
+</span></span><span style="display:flex;"><span>      <span style="color:#50fa7b">rowKey</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;id&#34;</span>
+</span></span><span style="display:flex;"><span>    /&gt;
+</span></span><span style="display:flex;"><span>  );
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p><strong>第二阶段：依赖解锁（T2）</strong></p>
+<p><code>db-engineer</code> 完成 Schema 后，通过 Mailbox 通知 <code>backend-dev</code>：</p>
+<pre tabindex="0"><code>[消息] db-engineer → backend-dev:
+&#34;Schema 已完成。用户表字段：id(UUID), username, email, password, 
+role, status, created_at, updated_at。已创建 email 和 status 索引。
+迁移文件在 migrations/001_create_users.sql&#34;
+</code></pre><p><code>backend-dev</code> 收到消息后开始实现 API：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#6272a4">// backend-dev 输出：用户 CRUD API
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">func</span> (h <span style="color:#ff79c6">*</span>UserHandler) <span style="color:#50fa7b">ListUsers</span>(c <span style="color:#ff79c6">*</span>gin.Context) {
+</span></span><span style="display:flex;"><span>    page, _ <span style="color:#ff79c6">:=</span> strconv.<span style="color:#50fa7b">Atoi</span>(c.<span style="color:#50fa7b">DefaultQuery</span>(<span style="color:#f1fa8c">&#34;page&#34;</span>, <span style="color:#f1fa8c">&#34;1&#34;</span>))
+</span></span><span style="display:flex;"><span>    size, _ <span style="color:#ff79c6">:=</span> strconv.<span style="color:#50fa7b">Atoi</span>(c.<span style="color:#50fa7b">DefaultQuery</span>(<span style="color:#f1fa8c">&#34;size&#34;</span>, <span style="color:#f1fa8c">&#34;20&#34;</span>))
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    users, total, err <span style="color:#ff79c6">:=</span> h.userService.<span style="color:#50fa7b">List</span>(c, page, size)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>        c.<span style="color:#50fa7b">JSON</span>(http.StatusInternalServerError, gin.H{<span style="color:#f1fa8c">&#34;error&#34;</span>: err.<span style="color:#50fa7b">Error</span>()})
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    c.<span style="color:#50fa7b">JSON</span>(http.StatusOK, gin.H{
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;users&#34;</span>: users,
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;total&#34;</span>: total,
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;page&#34;</span>:  page,
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;size&#34;</span>:  size,
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> (h <span style="color:#ff79c6">*</span>UserHandler) <span style="color:#50fa7b">CreateUser</span>(c <span style="color:#ff79c6">*</span>gin.Context) {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">var</span> req CreateUserRequest
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">:=</span> c.<span style="color:#50fa7b">ShouldBindJSON</span>(<span style="color:#ff79c6">&amp;</span>req); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>        c.<span style="color:#50fa7b">JSON</span>(http.StatusBadRequest, gin.H{<span style="color:#f1fa8c">&#34;error&#34;</span>: err.<span style="color:#50fa7b">Error</span>()})
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 密码哈希 - 使用参数化处理，防止注入
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    hashedPassword, err <span style="color:#ff79c6">:=</span> bcrypt.<span style="color:#50fa7b">GenerateFromPassword</span>(
+</span></span><span style="display:flex;"><span>        []<span style="color:#8be9fd;font-style:italic">byte</span>(req.Password), bcrypt.DefaultCost,
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>        c.<span style="color:#50fa7b">JSON</span>(http.StatusInternalServerError, gin.H{<span style="color:#f1fa8c">&#34;error&#34;</span>: <span style="color:#f1fa8c">&#34;password hash failed&#34;</span>})
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    user, err <span style="color:#ff79c6">:=</span> h.userService.<span style="color:#50fa7b">Create</span>(c, req.Username, req.Email, <span style="color:#8be9fd;font-style:italic">string</span>(hashedPassword))
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>        c.<span style="color:#50fa7b">JSON</span>(http.StatusConflict, gin.H{<span style="color:#f1fa8c">&#34;error&#34;</span>: err.<span style="color:#50fa7b">Error</span>()})
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    c.<span style="color:#50fa7b">JSON</span>(http.StatusCreated, gin.H{<span style="color:#f1fa8c">&#34;user&#34;</span>: user})
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>第三阶段：接口对接</strong></p>
+<p><code>backend-dev</code> API 就绪后，广播通知：</p>
+<pre tabindex="0"><code>[广播] backend-dev → @all:
+&#34;REST API 已就绪。端点：
+  GET    /api/v1/users          - 分页查询
+  POST   /api/v1/users          - 创建用户
+  PUT    /api/v1/users/:id      - 更新用户
+  DELETE /api/v1/users/:id      - 删除用户
+认证使用 JWT Bearer Token。完整文档见 docs/api.md&#34;
+</code></pre><p><code>frontend-dev</code> 收到后将 Mock 替换为真实 API 调用，<code>test-engineer</code> 的依赖全部解锁，开始编写测试。</p>
+<p><strong>第四阶段：测试验证（T5）</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#6272a4">// test-engineer 输出：集成测试
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">TestUserCRUD</span>(t <span style="color:#ff79c6">*</span>testing.T) {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 创建用户
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    createResp <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">POST</span>(<span style="color:#f1fa8c">&#34;/api/v1/users&#34;</span>, <span style="color:#8be9fd;font-style:italic">map</span>[<span style="color:#8be9fd">string</span>]<span style="color:#8be9fd">string</span>{
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;username&#34;</span>: <span style="color:#f1fa8c">&#34;testuser&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;email&#34;</span>:    <span style="color:#f1fa8c">&#34;test@example.com&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;password&#34;</span>: <span style="color:#f1fa8c">&#34;SecurePass123!&#34;</span>,
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>    assert.<span style="color:#50fa7b">Equal</span>(t, <span style="color:#bd93f9">201</span>, createResp.StatusCode)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">var</span> created <span style="color:#8be9fd;font-style:italic">struct</span>{ User User <span style="color:#f1fa8c">`json:&#34;user&#34;`</span> }
+</span></span><span style="display:flex;"><span>    json.<span style="color:#50fa7b">NewDecoder</span>(createResp.Body).<span style="color:#50fa7b">Decode</span>(<span style="color:#ff79c6">&amp;</span>created)
+</span></span><span style="display:flex;"><span>    userID <span style="color:#ff79c6">:=</span> created.User.ID
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 查询用户列表
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    listResp <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">GET</span>(<span style="color:#f1fa8c">&#34;/api/v1/users?page=1&amp;size=10&#34;</span>)
+</span></span><span style="display:flex;"><span>    assert.<span style="color:#50fa7b">Equal</span>(t, <span style="color:#bd93f9">200</span>, listResp.StatusCode)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 更新用户
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    updateResp <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">PUT</span>(<span style="color:#f1fa8c">&#34;/api/v1/users/&#34;</span><span style="color:#ff79c6">+</span>userID, <span style="color:#8be9fd;font-style:italic">map</span>[<span style="color:#8be9fd">string</span>]<span style="color:#8be9fd">string</span>{
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;admin&#34;</span>,
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>    assert.<span style="color:#50fa7b">Equal</span>(t, <span style="color:#bd93f9">200</span>, updateResp.StatusCode)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 删除用户
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    deleteResp <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">DELETE</span>(<span style="color:#f1fa8c">&#34;/api/v1/users/&#34;</span> <span style="color:#ff79c6">+</span> userID)
+</span></span><span style="display:flex;"><span>    assert.<span style="color:#50fa7b">Equal</span>(t, <span style="color:#bd93f9">204</span>, deleteResp.StatusCode)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="65-协作时序图">6.5 协作时序图</h3>
+<p>
+  <img src="/img/agent-teams/parallel-timeline.svg" alt="Agent Teams 并行开发甘特图：四个成员在时间线上的任务并行与依赖关系">
+
+</p>
+<!-- raw HTML omitted -->
+<pre tabindex="0"><code>时间线 ─────────────────────────────────────────────────────────────────▶
+
+db-engineer:    ████ Schema 设计 ████
+                                    │(通知 backend-dev)
+                                    ▼
+backend-dev:                        ██████ API 实现 ██████
+                                                        │(广播 @all)
+                                                        ▼
+frontend-dev:   ████ 页面骨架(Mock) ████────────────────████ 对接真实API ████
+                                                                          │
+test-engineer:                                                            ████ 集成测试 ████
+                                                                          ▲
+                                                        (依赖: API + 前端就绪)
+
+                ├──── 阶段1:并行 ────┤├── 阶段2:依赖解锁 ──┤├─ 阶段3:对接 ─┤├─ 阶段4:测试 ─┤
+</code></pre><p>传统串行方式可能需要 4 小时完成的工作，Agent Teams 通过并行执行和自动协调，可压缩至约 1-1.5 小时。</p>
+<hr>
+<h2 id="七经典案例16-个-agent-协作编写-c-编译器">七、经典案例：16 个 Agent 协作编写 C 编译器</h2>
+<p>这是目前 Agent Teams 最具代表性的实战案例，由 Anthropic 安全研究员 <strong>Nicholas Carlini</strong> 主导。</p>
+<p>
+  <img src="/img/agent-teams/16-agents-compiler.png" alt="16 个 AI 智能体在未来感指挥中心协作编写 C 编译器的概念图">
+
+</p>
+<!-- raw HTML omitted -->
+<h3 id="71-项目成果">7.1 项目成果</h3>
+<ul>
+<li><strong>产出</strong>：10 万行 Rust 代码，实现了一个能编译 Linux 6.9 内核（x86/ARM/RISC-V）的 C 编译器</li>
+<li><strong>配置</strong>：16 个并行 Agent，历时约两周</li>
+<li><strong>成本</strong>：API 费用不到 2 万美元</li>
+</ul>
+<h3 id="72-核心协作机制">7.2 核心协作机制</h3>
+<table>
+<thead>
+<tr>
+<th>机制</th>
+<th>实现方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>环境</td>
+<td>Docker 容器隔离</td>
+</tr>
+<tr>
+<td>通信</td>
+<td>共享 Git 仓库（通过 commit 传递信息）</td>
+</tr>
+<tr>
+<td>协调</td>
+<td>基于文件锁的任务自组织</td>
+</tr>
+<tr>
+<td>角色分化</td>
+<td>Agent 自发分化为六种角色</td>
+</tr>
+</tbody>
+</table>
+<p>Agent 在无人工干预下自发分化出六种角色：</p>
+<ol>
+<li><strong>主力开发</strong>：实现核心编译器功能</li>
+<li><strong>去重工程师</strong>：消除重复代码</li>
+<li><strong>性能优化师</strong>：优化编译速度</li>
+<li><strong>代码审查员</strong>：检查代码质量</li>
+<li><strong>文档维护者</strong>：编写和更新文档</li>
+<li><strong>回归测试员</strong>：确保新改动不破坏已有功能</li>
+</ol>
+<h3 id="73-关键经验">7.3 关键经验</h3>
+<p><strong>① 环境设计重于指令</strong></p>
+<blockquote>
+<p>&ldquo;Most of my effort went into designing the environment around Claude — tests, environment, and feedback systems.&rdquo; —— Nicholas Carlini</p>
+</blockquote>
+<p>Carlini 80% 的精力花在设计测试框架、环境配置和反馈系统，而非指导 Agent 怎么写代码。这揭示了一个重要原则：<strong>在 Agent Teams 中，人类的核心价值是&quot;环境设计者&quot;而非&quot;代码指导者&quot;。</strong></p>
+<p><strong>② 严格 CI 流水线防止回归</strong></p>
+<p>每次 commit 都触发全量回归测试，避免&quot;修一个 Bug 引入三个新 Bug&quot;的回归地狱。</p>
+<p><strong>③ AI 友好的测试输出</strong></p>
+<p>传统的测试输出（海量日志堆栈）对 Agent 并不友好，容易占满上下文窗口。团队设计了高密度摘要格式的测试输出，帮助 Agent 快速定位问题。</p>
+<hr>
+<h2 id="八交互与控制指南">八、交互与控制指南</h2>
+<h3 id="81-日常交互">8.1 日常交互</h3>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>向特定成员发消息</td>
+<td><code>@成员名</code> + 消息内容</td>
+</tr>
+<tr>
+<td>全员广播</td>
+<td><code>@all</code> + 消息内容</td>
+</tr>
+<tr>
+<td>查看成员状态</td>
+<td>状态栏实时显示</td>
+</tr>
+<tr>
+<td>切换成员视图</td>
+<td><code>↓</code> 键导航</td>
+</tr>
+<tr>
+<td>切换任务列表</td>
+<td><code>Ctrl+T</code></td>
+</tr>
+<tr>
+<td>切换委派模式</td>
+<td><code>Shift+Tab</code></td>
+</tr>
+<tr>
+<td>清理团队</td>
+<td>&ldquo;清理团队&quot;命令</td>
+</tr>
+</tbody>
+</table>
+<h3 id="82-常见问题排查">8.2 常见问题排查</h3>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>成员未出现</td>
+<td>检查状态栏，确认任务复杂度足够触发成员生成</td>
+</tr>
+<tr>
+<td>权限请求过多</td>
+<td>预先在权限设置中批准常见操作</td>
+</tr>
+<tr>
+<td>成员卡住</td>
+<td>直接 <code>@成员名</code> 发送指令，或生成替代成员</td>
+</tr>
+<tr>
+<td>Lead 过早结束</td>
+<td>明确指示&quot;等待所有成员完成&rdquo;，或启用委派模式</td>
+</tr>
+<tr>
+<td>任务状态滞后</td>
+<td>手动更新任务状态</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="九成本优化策略">九、成本优化策略</h2>
+<p>Agent Teams 的 Token 成本随成员数量线性增长（3 个成员 ≈ 3 倍成本），因此合理的成本控制至关重要：</p>
+<h3 id="91-差异化模型配置">9.1 差异化模型配置</h3>
+<p>为不同角色的成员分配不同能力等级的模型：</p>
+<pre tabindex="0"><code>Team Lead（架构决策） → 使用最强模型（如 Opus）
+代码开发成员         → 使用平衡模型（如 Sonnet）
+信息查询/文档成员     → 使用轻量模型（如 Haiku）
+</code></pre><h3 id="92-成本效益评估">9.2 成本效益评估</h3>
+<p>使用 Agent Teams 前，进行快速评估：</p>
+<pre tabindex="0"><code>任务价值 &gt; 预估 Token 成本 × 3 → 放心使用
+任务价值 ≈ 预估 Token 成本     → 考虑 Sub-agent
+任务价值 &lt; 预估 Token 成本     → 单会话处理
+</code></pre><hr>
+<h2 id="十已知限制">十、已知限制</h2>
+<p>在当前版本中，Agent Teams 存在以下限制需要注意：</p>
+<ol>
+<li><strong>无会话恢复</strong>：<code>/resume</code> 不会恢复团队成员，需重新创建</li>
+<li><strong>任务状态可能滞后</strong>：有时需手动更新任务状态</li>
+<li><strong>单团队限制</strong>：一个会话同时只能管理一个团队</li>
+<li><strong>不支持嵌套团队</strong>：成员无法创建子团队</li>
+<li><strong>分屏模式依赖</strong>：需要 tmux 或 iTerm2 支持</li>
+</ol>
+<hr>
+<h2 id="十一总结与展望">十一、总结与展望</h2>
+<p>CodeBuddy Agent Teams 代表了 AI 编程助手从&quot;单兵作战&quot;到&quot;团队协作&quot;的范式跃迁。其核心价值在于：</p>
+<ol>
+<li><strong>群体智能</strong>：多视角并行分析，打破单一思维定式</li>
+<li><strong>效率飞跃</strong>：将串行任务并行化，3-5 倍效率提升</li>
+<li><strong>自主协调</strong>：邮箱通信 + 共享任务列表，减少人工干预</li>
+<li><strong>质量保障</strong>：辩论式代码审查和竞争性假设调试</li>
+</ol>
+<p><strong>范式演进路径</strong>：</p>
+<p>
+  <img src="/img/agent-teams/paradigm-evolution.svg" alt="AI 编程范式演进：从提示词工程到 Skills 技能库，再到 Sub-agents 和 Agent Teams">
+
+</p>
+<!-- raw HTML omitted -->
+<pre tabindex="0"><code>提示词工程 → Skills 技能库 → Sub-agents 子代理 → Agent Teams 团队协作
+（单点）      （结构化）       （委派执行）        （群体智能）
+</code></pre><p>随着大语言模型上下文窗口的持续扩展和多智能体通信协议的标准化，Agent Teams 将在以下方向持续进化：</p>
+<ul>
+<li><strong>跨项目协作</strong>：不同仓库的 Agent 团队之间协作</li>
+<li><strong>持久化团队</strong>：团队状态可保存和恢复</li>
+<li><strong>自适应角色分配</strong>：根据任务特征自动优化角色配置</li>
+<li><strong>嵌套团队</strong>：支持子团队以处理更大规模的工程项目</li>
+</ul>
+<p>对于开发者而言，掌握 Agent Teams 的核心在于<strong>从&quot;写代码的人&quot;转变为&quot;环境设计者&quot;</strong>——设计好测试、反馈系统和质量门禁，让 AI 团队在正确的约束下自主高效地完成工作。</p>
+<hr>
+<h2 id="参考资料">参考资料</h2>
+<ol>
+<li><a href="https://www.codebuddy.cn/docs/cli/agent-teams">CodeBuddy Agent Teams 官方文档</a></li>
+<li><a href="https://cloud.tencent.cn/developer/article/2638621">Claude Code Agent Team 全解析 - 腾讯云开发者社区</a></li>
+<li><a href="https://blog.ccino.org/p/claude-opus-4-6-agent-teams-practice/">16 个 AI 智能体写出 10 万行编译器</a></li>
+<li><a href="https://www.tinyash.com/blog/claude-code-agent-teams/">Claude Code Agent Teams 完全指南 - tinyash</a></li>
+</ol>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-03-25-minimax-skills%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="MiniMax Skills深度技术解析：AI编程代理的11大开发技能全面剖析">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2026-03-26-claude-code%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Claude Code深度技术解析：Anthropic开源AI编程代理的架构与实现原理">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

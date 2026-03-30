@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 620" font-family="'Segoe UI',Arial,sans-serif">
+  <defs>
+    <linearGradient id="mbg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d1117;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#161b22;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="620" fill="url(#mbg)" rx="12"/>
+  <text x="400" y="32" text-anchor="middle" fill="#e6edf3" font-size="18" font-weight="bold">媒体处理拦截流程 (get_msg_media)</text>
+
+  <!-- Step 1 -->
+  <rect x="240" y="50" width="320" height="40" rx="20" fill="#1f6feb"/>
+  <text x="400" y="75" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">MCP Server 返回 JSON-RPC 响应</text>
+
+  <line x1="400" y1="90" x2="400" y2="115" stroke="#484f58" stroke-width="2"/>
+  <polygon points="395,112 400,122 405,112" fill="#484f58"/>
+
+  <!-- Step 2: Extract content -->
+  <rect x="220" y="120" width="360" height="48" rx="8" fill="#1a1e24" stroke="#30363d" stroke-width="1.5"/>
+  <text x="400" y="141" text-anchor="middle" fill="#e6edf3" font-size="12" font-weight="bold">① 提取 result.content[].text</text>
+  <text x="400" y="159" text-anchor="middle" fill="#8b949e" font-size="10">解析嵌套的业务 JSON (media_item)</text>
+
+  <line x1="400" y1="168" x2="400" y2="195" stroke="#484f58" stroke-width="2"/>
+
+  <!-- Decision: errcode == 0? -->
+  <polygon points="400,195 490,225 400,255 310,225" fill="#1f6feb" stroke="#58a6ff" stroke-width="1"/>
+  <text x="400" y="229" text-anchor="middle" fill="#fff" font-size="11">errcode == 0?</text>
+
+  <!-- No branch -->
+  <line x1="490" y1="225" x2="590" y2="225" stroke="#484f58" stroke-width="1.5"/>
+  <text x="530" y="218" fill="#f85149" font-size="10">否</text>
+  <rect x="590" y="208" width="160" height="34" rx="17" fill="rgba(248,81,73,0.15)" stroke="#f85149" stroke-width="1"/>
+  <text x="670" y="230" text-anchor="middle" fill="#f85149" font-size="11">原样返回响应</text>
+
+  <!-- Yes branch -->
+  <line x1="400" y1="255" x2="400" y2="280" stroke="#484f58" stroke-width="2"/>
+  <text x="412" y="270" fill="#7ee787" font-size="10">是</text>
+  <polygon points="395,277 400,287 405,277" fill="#484f58"/>
+
+  <!-- Step 3: Base64 decode -->
+  <rect x="220" y="285" width="360" height="48" rx="8" fill="#1a1e24" stroke="#a371f7" stroke-width="1.5"/>
+  <text x="400" y="306" text-anchor="middle" fill="#a371f7" font-size="12" font-weight="bold">② Base64 解码 → 二进制 buffer</text>
+  <text x="400" y="324" text-anchor="middle" fill="#8b949e" font-size="10">base64::STANDARD.decode(media_item.base64_data)</text>
+
+  <line x1="400" y1="333" x2="400" y2="358" stroke="#484f58" stroke-width="2"/>
+
+  <!-- Decision: size check -->
+  <polygon points="400,358 480,383 400,408 320,383" fill="#1f6feb" stroke="#58a6ff" stroke-width="1"/>
+  <text x="400" y="387" text-anchor="middle" fill="#fff" font-size="10">size &lt;= 20MB?</text>
+
+  <!-- No -->
+  <line x1="480" y1="383" x2="590" y2="383" stroke="#484f58" stroke-width="1.5"/>
+  <text x="530" y="376" fill="#f85149" font-size="10">否</text>
+  <rect x="590" y="366" width="160" height="34" rx="17" fill="rgba(248,81,73,0.15)" stroke="#f85149" stroke-width="1"/>
+  <text x="670" y="388" text-anchor="middle" fill="#f85149" font-size="11">报错: 文件过大</text>
+
+  <!-- Yes -->
+  <line x1="400" y1="408" x2="400" y2="435" stroke="#484f58" stroke-width="2"/>
+  <text x="412" y="425" fill="#7ee787" font-size="10">是</text>
+  <polygon points="395,432 400,442 405,432" fill="#484f58"/>
+
+  <!-- Step 4: Detect MIME -->
+  <rect x="220" y="440" width="360" height="48" rx="8" fill="#1a1e24" stroke="#30363d" stroke-width="1.5"/>
+  <text x="400" y="461" text-anchor="middle" fill="#e6edf3" font-size="12" font-weight="bold">③ MIME 类型检测</text>
+  <text x="400" y="479" text-anchor="middle" fill="#8b949e" font-size="10">扩展名推断 → 魔术字节检测 → 默认 octet-stream</text>
+
+  <line x1="400" y1="488" x2="400" y2="510" stroke="#484f58" stroke-width="2"/>
+  <polygon points="395,507 400,517 405,507" fill="#484f58"/>
+
+  <!-- Step 5: Save -->
+  <rect x="220" y="515" width="360" height="48" rx="8" fill="#1a1e24" stroke="#3fb950" stroke-width="1.5"/>
+  <text x="400" y="536" text-anchor="middle" fill="#3fb950" font-size="12" font-weight="bold">④ 原子保存到本地 (带去重)</text>
+  <text x="400" y="554" text-anchor="middle" fill="#8b949e" font-size="10">tempfile → persist_noclobber → stem.{idx}.ext</text>
+
+  <line x1="400" y1="563" x2="400" y2="582" stroke="#484f58" stroke-width="2"/>
+  <polygon points="395,579 400,589 405,579" fill="#484f58"/>
+
+  <!-- Step 6: Replace response -->
+  <rect x="220" y="588" width="360" height="28" rx="14" fill="#238636"/>
+  <text x="400" y="607" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">⑤ 替换响应: base64_data → local_path + size + mime</text>
+
+  <!-- Side: file save detail -->
+  <rect x="30" y="440" width="170" height="125" rx="8" fill="#1a1e24" stroke="#f0883e" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="115" y="460" text-anchor="middle" fill="#f0883e" font-size="11" font-weight="bold">文件名策略</text>
+  <text x="42" y="480" fill="#8b949e" font-size="9">1. media_name (清洗)</text>
+  <text x="42" y="496" fill="#8b949e" font-size="9">2. media_id (回退)</text>
+  <text x="42" y="512" fill="#8b949e" font-size="9">3. "media" (默认)</text>
+  <text x="42" y="532" fill="#8b949e" font-size="9">去重: photo.png →</text>
+  <text x="42" y="548" fill="#8b949e" font-size="9">photo.0.png → photo.1.png</text>
+
+  <line x1="200" y1="502" x2="220" y2="540" stroke="#f0883e" stroke-width="1" stroke-dasharray="4,2"/>
+</svg>
