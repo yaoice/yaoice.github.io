@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Claude Code上下文管理深度解析：200K→1M窗口下的无限对话引擎" />
+    <meta property="og:title" content="Claude Code上下文管理深度解析：200K→1M窗口下的无限对话引擎" />
+    <meta property="twitter:title" content="Claude Code上下文管理深度解析：200K→1M窗口下的无限对话引擎" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Claude Code上下文管理深度解析：200K→1M窗口下的无限对话引擎 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-04-07-claude-code%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AE%A1%E7%90%86%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                    </div>
+                    <h1>Claude Code上下文管理深度解析：200K→1M窗口下的无限对话引擎</h1>
+                    <h2 class="subheading">从Token计数、多层压缩到提示缓存的上下文全生命周期管理</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Tuesday, April 7, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言上下文是-agentic-ai-的生命线">一、引言：上下文是 Agentic AI 的生命线</h2>
+<p>在 <a href="/post/2026-04-01-claude-code%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/">前文</a> 中，我们拆解了 Claude Code 的 Agentic Loop 和工具系统。但有一个核心问题始终悬而未决——<strong>当对话越来越长，上下文窗口逐渐耗尽时，Claude Code 如何做到&quot;无限对话&quot;？</strong></p>
+<p>答案藏在一个精密的上下文管理系统中。这个系统涉及 <strong>Token 计数</strong>、<strong>五层递进压缩</strong>、<strong>提示缓存优化</strong>、<strong>Session Memory 持久化</strong> 等多个子系统的协同工作。Claude Code 的 system prompt 中有这样一句看似轻描淡写的话：</p>
+<blockquote>
+<p><em>&ldquo;The system will automatically compress prior messages in your conversation as it approaches context limits. This means your conversation with the user is not limited by the context window.&rdquo;</em></p>
+</blockquote>
+<p>这句话背后，是数千行精心设计的代码。本文基于 2026 年 3 月 31 日泄露的源码快照，从源码层面深入分析上下文管理的完整实现。</p>
+<h3 id="全文架构">全文架构</h3>
+<p>
+  <img src="/img/claude-code/context-management-arch.svg" alt="上下文管理架构总览">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>章节</th>
+<th>主题</th>
+<th>核心文件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>二</td>
+<td>消息结构与类型系统</td>
+<td><code>types/message.js</code>, <code>utils/messages.ts</code></td>
+</tr>
+<tr>
+<td>三</td>
+<td>Token 计数与上下文窗口</td>
+<td><code>utils/tokens.ts</code>, <code>utils/context.ts</code>, <code>services/tokenEstimation.ts</code></td>
+</tr>
+<tr>
+<td>四</td>
+<td>系统提示词组装</td>
+<td><code>constants/prompts.ts</code>, <code>utils/systemPrompt.ts</code>, <code>context.ts</code></td>
+</tr>
+<tr>
+<td>五</td>
+<td>五层递进压缩策略</td>
+<td><code>services/compact/*.ts</code></td>
+</tr>
+<tr>
+<td>六</td>
+<td>提示缓存 (Prompt Cache)</td>
+<td><code>utils/api.ts</code>, <code>services/api/promptCacheBreakDetection.ts</code></td>
+</tr>
+<tr>
+<td>七</td>
+<td>Session Memory 持久化</td>
+<td><code>services/SessionMemory/sessionMemory.ts</code></td>
+</tr>
+<tr>
+<td>八</td>
+<td>主查询循环的上下文编排</td>
+<td><code>query.ts</code></td>
+</tr>
+<tr>
+<td>九</td>
+<td><strong>实现原理深度剖析</strong></td>
+<td><code>utils/messages.ts</code>, <code>utils/toolResultStorage.ts</code>, <code>services/compact/compact.ts</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="二消息结构与类型系统">二、消息结构与类型系统</h2>
+<h3 id="21-核心消息类型">2.1 核心消息类型</h3>
+<p>Claude Code 的消息系统远比简单的 <code>user/assistant</code> 交替复杂。源码中定义了丰富的消息类型层次：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// types/message.js 中定义的消息类型（从 utils/messages.ts 的 import 推断）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">type</span> UserMessage <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;user&#39;</span>
+</span></span><span style="display:flex;"><span>  message<span style="color:#ff79c6">:</span> { role<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;user&#39;</span>; content: <span style="color:#8be9fd">string</span> <span style="color:#ff79c6">|</span> ContentBlockParam[] }
+</span></span><span style="display:flex;"><span>  isMeta?: <span style="color:#8be9fd">true</span>           <span style="color:#6272a4">// 系统元消息，不显示给用户
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  isCompactSummary?: <span style="color:#8be9fd">true</span> <span style="color:#6272a4">// 压缩摘要消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  isVirtual?: <span style="color:#8be9fd">true</span>        <span style="color:#6272a4">// 虚拟消息，不发送到 API
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  toolUseResult?: <span style="color:#8be9fd">unknown</span>  <span style="color:#6272a4">// 工具结果数据
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  uuid: <span style="color:#8be9fd">UUID</span>
+</span></span><span style="display:flex;"><span>  timestamp: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">type</span> AssistantMessage <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;assistant&#39;</span>
+</span></span><span style="display:flex;"><span>  message<span style="color:#ff79c6">:</span> { role<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;assistant&#39;</span>; content: <span style="color:#8be9fd">ContentBlock</span>[]; usage: <span style="color:#8be9fd">Usage</span> }
+</span></span><span style="display:flex;"><span>  isApiErrorMessage?: <span style="color:#8be9fd">boolean</span>
+</span></span><span style="display:flex;"><span>  apiError?: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  uuid: <span style="color:#8be9fd">UUID</span>
+</span></span><span style="display:flex;"><span>  timestamp: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">type</span> SystemMessage <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;system&#39;</span>
+</span></span><span style="display:flex;"><span>  subtype<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;compact_boundary&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;microcompact_boundary&#39;</span> <span style="color:#ff79c6">|</span> ...
+</span></span><span style="display:flex;"><span>  content: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">type</span> AttachmentMessage <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;attachment&#39;</span>
+</span></span><span style="display:flex;"><span>  attachment: <span style="color:#8be9fd">Attachment</span> <span style="color:#6272a4">// 文件变更、计划、技能等
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p>几个关键设计点：</p>
+<ul>
+<li><strong><code>isMeta</code></strong>: 系统内部注入的消息（如用户上下文、恢复提示），参与 API 调用但不在 UI 显示</li>
+<li><strong><code>isCompactSummary</code></strong>: 标记压缩后的摘要消息，用于 UI 特殊渲染</li>
+<li><strong><code>isVirtual</code></strong>: 仅用于显示（如 REPL 内部工具调用），<code>normalizeMessagesForAPI</code> 时被过滤</li>
+<li><strong><code>compact_boundary</code></strong>: 压缩边界标记，<code>getMessagesAfterCompactBoundary</code> 只发送边界之后的消息</li>
+</ul>
+<h3 id="22-消息规范化发送到-api-前">2.2 消息规范化（发送到 API 前）</h3>
+<p><code>normalizeMessagesForAPI</code> 是消息发送前的最后一道关卡：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/messages.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> normalizeMessagesForAPI(
+</span></span><span style="display:flex;"><span>  messages: <span style="color:#8be9fd">Message</span>[], tools: <span style="color:#8be9fd">Tools</span> <span style="color:#ff79c6">=</span> [],
+</span></span><span style="display:flex;"><span>)<span style="color:#ff79c6">:</span> (UserMessage <span style="color:#ff79c6">|</span> AssistantMessage)[] {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> availableToolNames <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Set(tools.map(t <span style="color:#ff79c6">=&gt;</span> t.name))
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. 重排附件消息（向上冒泡直到遇到 tool_result 或 assistant 消息）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 2. 过滤虚拟消息（isVirtual = true）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 3. 处理 tool_use/tool_result 配对完整性
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 4. 合并相同 message.id 的消息（并行工具调用的拆分记录）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 5. 过滤 system / progress 类型消息（API 不接受）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><h3 id="23-压缩边界消息">2.3 压缩边界消息</h3>
+<p>压缩后，所有旧消息被一个边界标记替代：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> createCompactBoundaryMessage(
+</span></span><span style="display:flex;"><span>  trigger<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;manual&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;auto&#39;</span>,
+</span></span><span style="display:flex;"><span>  preTokens: <span style="color:#8be9fd">number</span>,
+</span></span><span style="display:flex;"><span>  lastPreCompactMessageUuid?: <span style="color:#8be9fd">UUID</span>,
+</span></span><span style="display:flex;"><span>)<span style="color:#ff79c6">:</span> SystemCompactBoundaryMessage {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;system&#39;</span>,
+</span></span><span style="display:flex;"><span>    subtype<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;compact_boundary&#39;</span>,
+</span></span><span style="display:flex;"><span>    content<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;Conversation compacted&#39;</span>,
+</span></span><span style="display:flex;"><span>    compactMetadata<span style="color:#ff79c6">:</span> { trigger, preTokens, userContext, messagesSummarized },
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> getMessagesAfterCompactBoundary(messages) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> boundaryIndex <span style="color:#ff79c6">=</span> findLastCompactBoundaryIndex(messages)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> boundaryIndex <span style="color:#ff79c6">===</span> <span style="color:#ff79c6">-</span><span style="color:#bd93f9">1</span> <span style="color:#ff79c6">?</span> messages : <span style="color:#8be9fd">messages.slice</span>(boundaryIndex)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这意味着每次 API 调用，只发送<strong>最后一次压缩之后</strong>的消息，加上压缩摘要。</p>
+<hr>
+<h2 id="三token-计数与上下文窗口">三、Token 计数与上下文窗口</h2>
+<h3 id="31-上下文窗口大小">3.1 上下文窗口大小</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/context.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">const</span> MODEL_CONTEXT_WINDOW_DEFAULT <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">200</span>_000
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> getContextWindowForModel(model: <span style="color:#8be9fd">string</span>, betas?: <span style="color:#8be9fd">string</span>[])<span style="color:#ff79c6">:</span> <span style="color:#8be9fd">number</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 优先级：
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 1. 环境变量覆盖 (CLAUDE_CODE_MAX_CONTEXT_TOKENS, ant-only)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 2. [1m] 后缀 → 1,000,000
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 3. 模型能力查询 (max_input_tokens)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 4. beta 头检查 (CONTEXT_1M_BETA_HEADER)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 5. 默认 200,000
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p>模型最大输出 token 配置：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>默认输出</th>
+<th>上限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Opus 4.6</td>
+<td>64K</td>
+<td>128K</td>
+</tr>
+<tr>
+<td>Sonnet 4.6</td>
+<td>32K</td>
+<td>128K</td>
+</tr>
+<tr>
+<td>Sonnet 4 / Haiku 4</td>
+<td>32K</td>
+<td>64K</td>
+</tr>
+</tbody>
+</table>
+<h3 id="32-token-计数核心函数">3.2 Token 计数核心函数</h3>
+<p><code>tokenCountWithEstimation</code> 是<strong>所有阈值检查</strong>（autocompact、session memory、blocking limit）的统一度量：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/tokens.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> tokenCountWithEstimation(messages: <span style="color:#8be9fd">readonly</span> Message[])<span style="color:#ff79c6">:</span> <span style="color:#8be9fd">number</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 从后往前找到最后一个有 API usage 数据的助手消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#8be9fd;font-style:italic">let</span> i <span style="color:#ff79c6">=</span> messages.length <span style="color:#ff79c6">-</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">while</span> (i <span style="color:#ff79c6">&gt;=</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> usage <span style="color:#ff79c6">=</span> getTokenUsage(messages[i])
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (usage) {
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 关键：处理并行工具调用的拆分消息（相同 message.id）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#6272a4">// 向前找到第一个相同 id 的消息，确保所有交错的 tool_result 都被估算
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">const</span> responseId <span style="color:#ff79c6">=</span> getAssistantMessageId(messages[i])
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">if</span> (responseId) {
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">let</span> j <span style="color:#ff79c6">=</span> i <span style="color:#ff79c6">-</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">while</span> (j <span style="color:#ff79c6">&gt;=</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">if</span> (getAssistantMessageId(messages[j]) <span style="color:#ff79c6">===</span> responseId) i <span style="color:#ff79c6">=</span> j
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span> (getAssistantMessageId(messages[j]) <span style="color:#ff79c6">!==</span> <span style="color:#ff79c6">undefined</span>) <span style="color:#ff79c6">break</span>
+</span></span><span style="display:flex;"><span>          j<span style="color:#ff79c6">--</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">return</span> getTokenCountFromUsage(usage) <span style="color:#ff79c6">+</span>
+</span></span><span style="display:flex;"><span>        roughTokenCountEstimationForMessages(messages.slice(i <span style="color:#ff79c6">+</span> <span style="color:#bd93f9">1</span>))
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    i<span style="color:#ff79c6">--</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> roughTokenCountEstimationForMessages(messages)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>核心思路：<strong>最后一次 API 返回的 usage（精确值）+ 之后新增消息的粗略估算</strong>。</p>
+<h3 id="33-粗略-token-估算">3.3 粗略 Token 估算</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// services/tokenEstimation.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> roughTokenCountEstimation(content: <span style="color:#8be9fd">string</span>, bytesPerToken <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">4</span>)<span style="color:#ff79c6">:</span> <span style="color:#8be9fd">number</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">Math</span>.round(content.length <span style="color:#ff79c6">/</span> bytesPerToken)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// JSON 更密集，每 2 个字符约 1 个 token
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> bytesPerTokenForFileType(fileExtension: <span style="color:#8be9fd">string</span>)<span style="color:#ff79c6">:</span> <span style="color:#8be9fd">number</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">switch</span> (fileExtension) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;json&#39;</span><span style="color:#ff79c6">:</span> <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;jsonl&#39;</span><span style="color:#ff79c6">:</span> <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;jsonc&#39;</span><span style="color:#ff79c6">:</span> <span style="color:#ff79c6">return</span> <span style="color:#bd93f9">2</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">default</span><span style="color:#ff79c6">:</span> <span style="color:#ff79c6">return</span> <span style="color:#bd93f9">4</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这个 <code>4 chars/token</code> 的经验值贯穿了整个系统。Claude Code 还支持通过 API 进行精确计数：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> countMessagesTokensWithAPI(messages, tools)<span style="color:#ff79c6">:</span> Promise&lt;<span style="color:#ff79c6">number</span> | <span style="color:#50fa7b">null</span>&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 使用 anthropic.beta.messages.countTokens API
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 支持 Bedrock 和 Vertex 后端
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><h3 id="34-上下文使用百分比">3.4 上下文使用百分比</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> calculateContextPercentages(currentUsage, contextWindowSize) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> totalInputTokens <span style="color:#ff79c6">=</span>
+</span></span><span style="display:flex;"><span>    currentUsage.input_tokens <span style="color:#ff79c6">+</span>
+</span></span><span style="display:flex;"><span>    currentUsage.cache_creation_input_tokens <span style="color:#ff79c6">+</span>
+</span></span><span style="display:flex;"><span>    currentUsage.cache_read_input_tokens
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> usedPercentage <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">Math</span>.round((totalInputTokens <span style="color:#ff79c6">/</span> contextWindowSize) <span style="color:#ff79c6">*</span> <span style="color:#bd93f9">100</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> { used: <span style="color:#8be9fd">clampedUsed</span>, remaining: <span style="color:#8be9fd">100</span> <span style="color:#ff79c6">-</span> clampedUsed }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="四系统提示词组装">四、系统提示词组装</h2>
+<h3 id="41-双层上下文注入">4.1 双层上下文注入</h3>
+<p>Claude Code 的上下文注入分为两层：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// context.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">const</span> getSystemContext <span style="color:#ff79c6">=</span> memoize(<span style="color:#ff79c6">async</span> () <span style="color:#ff79c6">=&gt;</span> ({
+</span></span><span style="display:flex;"><span>  gitStatus,      <span style="color:#6272a4">// git 状态快照（会话级别缓存）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  cacheBreaker,   <span style="color:#6272a4">// 缓存破坏注入（调试用）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">const</span> getUserContext <span style="color:#ff79c6">=</span> memoize(<span style="color:#ff79c6">async</span> () <span style="color:#ff79c6">=&gt;</span> ({
+</span></span><span style="display:flex;"><span>  claudeMd,       <span style="color:#6272a4">// CLAUDE.md 记忆文件内容
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  currentDate,    <span style="color:#6272a4">// 当前日期
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}))
+</span></span></code></pre></div><p>注入方式不同：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/api.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// 系统上下文 → 追加到系统提示词末尾
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> appendSystemContext(systemPrompt, context) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> [...systemPrompt, <span style="color:#8be9fd;font-style:italic">Object</span>.entries(context).map(...)].filter(<span style="color:#8be9fd;font-style:italic">Boolean</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 用户上下文 → 作为首条用户消息注入
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> prependUserContext(messages, context) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> [
+</span></span><span style="display:flex;"><span>    createUserMessage({
+</span></span><span style="display:flex;"><span>      content<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">`&lt;system-reminder&gt;..</span><span style="color:#f1fa8c">${</span>context<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">..&lt;/system-reminder&gt;`</span>,
+</span></span><span style="display:flex;"><span>      isMeta: <span style="color:#8be9fd">true</span>,  <span style="color:#6272a4">// 不显示给用户
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    }),
+</span></span><span style="display:flex;"><span>    ...messages,
+</span></span><span style="display:flex;"><span>  ]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="42-系统提示词分区缓存">4.2 系统提示词分区缓存</h3>
+<p>系统提示词被精心分为<strong>可缓存</strong>和<strong>不可缓存</strong>两类：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// constants/systemPromptSections.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// 缓存型：计算一次，整个会话不变
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> systemPromptSection(name: <span style="color:#8be9fd">string</span>, compute: <span style="color:#8be9fd">ComputeFn</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 危险型：每轮重新计算，会破坏提示缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> DANGEROUS_uncachedSystemPromptSection(name, compute, reason)
+</span></span></code></pre></div><p>在 <code>getSystemPrompt</code> 中的组装顺序：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// constants/prompts.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> getSystemPrompt(tools, model, ...)<span style="color:#ff79c6">:</span> Promise&lt;<span style="color:#ff79c6">string</span>[]&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> [
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// --- 静态内容（可跨 org 全局缓存）---
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    getSimpleIntroSection(outputStyleConfig),     <span style="color:#6272a4">// 身份定义
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    getSimpleSystemSection(),                     <span style="color:#6272a4">// 系统规则
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    getSimpleDoingTasksSection(),                 <span style="color:#6272a4">// 任务指令
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    getActionsSection(),                          <span style="color:#6272a4">// 操作规范
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    getUsingYourToolsSection(enabledTools),        <span style="color:#6272a4">// 工具使用指南
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    getSimpleToneAndStyleSection(),               <span style="color:#6272a4">// 语调风格
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    getOutputEfficiencySection(),                  <span style="color:#6272a4">// 输出效率
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// === 边界标记 ===
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    ...(shouldUseGlobalCacheScope() <span style="color:#ff79c6">?</span> [SYSTEM_PROMPT_DYNAMIC_BOUNDARY] <span style="color:#ff79c6">:</span> []),
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// --- 动态内容（每会话变化）---
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    ...resolvedDynamicSections,  <span style="color:#6272a4">// memory, env_info, language, MCP 等
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  ].filter(s <span style="color:#ff79c6">=&gt;</span> s <span style="color:#ff79c6">!==</span> <span style="color:#ff79c6">null</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>SYSTEM_PROMPT_DYNAMIC_BOUNDARY</code> 是全局缓存的关键——边界之前的内容可以在所有用户之间共享缓存。</p>
+<h3 id="43-有效系统提示词构建优先级">4.3 有效系统提示词构建优先级</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/systemPrompt.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> buildEffectiveSystemPrompt({...}) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 优先级: override &gt; coordinator &gt; agent &gt; custom &gt; default
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// appendSystemPrompt 总是追加在最后
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (overrideSystemPrompt) <span style="color:#ff79c6">return</span> asSystemPrompt([overrideSystemPrompt])
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (coordinatorMode) <span style="color:#ff79c6">return</span> getCoordinatorSystemPrompt()
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (agentSystemPrompt) <span style="color:#ff79c6">return</span> [agentSystemPrompt]
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (customSystemPrompt) <span style="color:#ff79c6">return</span> [customSystemPrompt]
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> defaultSystemPrompt
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="五五层递进压缩策略">五、五层递进压缩策略</h2>
+<p>这是 Claude Code 上下文管理最精妙的部分。当上下文逐渐膨胀，系统会按照<strong>从轻到重</strong>的顺序逐层尝试压缩。</p>
+<p>
+  <img src="/img/claude-code/compaction-strategies.svg" alt="多层压缩策略">
+
+</p>
+<h3 id="51-layer-1-history-snip历史裁剪">5.1 Layer 1: History Snip（历史裁剪）</h3>
+<p>最轻量的策略，在每次 query 循环入口执行：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// query.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">if</span> (feature(<span style="color:#f1fa8c">&#39;HISTORY_SNIP&#39;</span>)) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> snipResult <span style="color:#ff79c6">=</span> snipModule.snipCompactIfNeeded(messagesForQuery)
+</span></span><span style="display:flex;"><span>  messagesForQuery <span style="color:#ff79c6">=</span> snipResult.messages
+</span></span><span style="display:flex;"><span>  snipTokensFreed <span style="color:#ff79c6">=</span> snipResult.tokensFreed
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>直接裁剪最老的 API 轮次组，<strong>零 token 成本</strong>，不调用 LLM。</p>
+<h3 id="52-layer-2-microcompact微压缩">5.2 Layer 2: MicroCompact（微压缩）</h3>
+<p>清理旧的工具结果内容，有两种路径：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// services/compact/microCompact.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> COMPACTABLE_TOOLS <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Set([
+</span></span><span style="display:flex;"><span>  <span style="color:#f1fa8c">&#39;Read&#39;</span>, <span style="color:#f1fa8c">&#39;Bash&#39;</span>, <span style="color:#f1fa8c">&#39;Grep&#39;</span>, <span style="color:#f1fa8c">&#39;Glob&#39;</span>, <span style="color:#f1fa8c">&#39;WebSearch&#39;</span>, <span style="color:#f1fa8c">&#39;WebFetch&#39;</span>, <span style="color:#f1fa8c">&#39;Edit&#39;</span>, <span style="color:#f1fa8c">&#39;Write&#39;</span>
+</span></span><span style="display:flex;"><span>])
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 路径 1: 缓存微压缩（cache_edits API）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// 不修改本地消息内容，通过 API 的 cache_edits 删除旧工具结果
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// 关键优势：不破坏缓存前缀
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> cachedMicrocompactPath(messages, querySource) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> toolsToDelete <span style="color:#ff79c6">=</span> mod.getToolResultsToDelete(state)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (toolsToDelete.length <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>    pendingCacheEdits <span style="color:#ff79c6">=</span> mod.createCacheEditsBlock(state, toolsToDelete)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> { messages, compactionInfo<span style="color:#ff79c6">:</span> { pendingCacheEdits<span style="color:#ff79c6">:</span> {...} } }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 路径 2: 基于时间的微压缩
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// 当空闲超过阈值时，缓存已冷，直接清空旧工具结果
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">function</span> maybeTimeBasedMicrocompact(messages, querySource) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> gapMinutes <span style="color:#ff79c6">=</span> (<span style="color:#8be9fd;font-style:italic">Date</span>.now() <span style="color:#ff79c6">-</span> lastAssistant.timestamp) <span style="color:#ff79c6">/</span> <span style="color:#bd93f9">60</span>_000
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (gapMinutes <span style="color:#ff79c6">&gt;=</span> config.gapThresholdMinutes) {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 保留最近 N 个，清空其余
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 替换为 &#39;[Old tool result content cleared]&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="53-layer-3-context-collapse上下文折叠">5.3 Layer 3: Context Collapse（上下文折叠）</h3>
+<p>上下文折叠是一种<strong>读时投影</strong>策略——不修改原始消息，而是在读取时将旧的对话片段折叠为摘要视图：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// query.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">if</span> (feature(<span style="color:#f1fa8c">&#39;CONTEXT_COLLAPSE&#39;</span>) <span style="color:#ff79c6">&amp;&amp;</span> contextCollapse) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> collapseResult <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> contextCollapse.applyCollapsesIfNeeded(
+</span></span><span style="display:flex;"><span>    messagesForQuery, toolUseContext, querySource,
+</span></span><span style="display:flex;"><span>  )
+</span></span><span style="display:flex;"><span>  messagesForQuery <span style="color:#ff79c6">=</span> collapseResult.messages
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>运行在 autocompact <strong>之前</strong>——如果折叠就足以将 token 降到阈值以下，则避免全量摘要压缩，保持更细粒度的上下文。</p>
+<p>触发阈值：90% 上下文使用率开始折叠，95% 阻止新的 spawn。当 API 返回 413 时可以 drain 已暂存的折叠。</p>
+<h3 id="54-layer-4-session-memory-compactsm-压缩">5.4 Layer 4: Session Memory Compact（SM 压缩）</h3>
+<p>这是传统压缩的替代方案，使用预先提取的 Session Memory 文件：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// services/compact/sessionMemoryCompact.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">const</span> DEFAULT_SM_COMPACT_CONFIG <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  minTokens: <span style="color:#8be9fd">10_000</span>,          <span style="color:#6272a4">// 最少保留 10K token 的原始消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  minTextBlockMessages: <span style="color:#8be9fd">5</span>,     <span style="color:#6272a4">// 最少保留 5 条文本消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  maxTokens: <span style="color:#8be9fd">40_000</span>,          <span style="color:#6272a4">// 最多保留 40K token
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> trySessionMemoryCompaction(messages, agentId<span style="color:#ff79c6">?</span>, autoCompactThreshold<span style="color:#ff79c6">?</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. 检查 session memory 文件是否存在且非空
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> sessionMemory <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> getSessionMemoryContent()
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>sessionMemory <span style="color:#ff79c6">||</span> <span style="color:#ff79c6">await</span> isSessionMemoryEmpty(sessionMemory)) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">null</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. 计算保留消息的起始索引
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> startIndex <span style="color:#ff79c6">=</span> calculateMessagesToKeepIndex(messages, lastSummarizedIndex)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 3. 确保不拆分 tool_use/tool_result 对
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  adjustIndexToPreserveAPIInvariants(messages, startIndex)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 4. 用 session memory 内容替代传统 LLM 摘要
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">return</span> createCompactionResultFromSessionMemory(
+</span></span><span style="display:flex;"><span>    messages, sessionMemory, messagesToKeep, hookResults, ...
+</span></span><span style="display:flex;"><span>  )
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>优势</strong>：零 LLM 调用成本（摘要已在后台提前准备好），且保留了最近的原始消息。</p>
+<h3 id="55-layer-5-full-compact传统-llm-摘要压缩">5.5 Layer 5: Full Compact（传统 LLM 摘要压缩）</h3>
+<p>最重量级的策略，使用 Forked Agent 生成结构化摘要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// services/compact/compact.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> compactConversation(messages, context, ...)<span style="color:#ff79c6">:</span> Promise&lt;<span style="color:#ff79c6">CompactionResult</span>&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. 执行 PreCompact hooks
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> hookResult <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> executePreCompactHooks(...)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. 构建压缩提示词（9 个结构化部分）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> compactPrompt <span style="color:#ff79c6">=</span> getCompactPrompt(customInstructions)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 3. 使用 forked agent 生成摘要（共享主线程的 prompt cache）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  summaryResponse <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> streamCompactSummary({...})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 4. 处理 prompt-too-long 重试（截断最旧消息，最多 3 次）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (summary<span style="color:#ff79c6">?</span>.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE)) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> truncated <span style="color:#ff79c6">=</span> truncateHeadForPTLRetry(messagesToSummarize, summaryResponse)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 5. 清除文件状态缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  context.readFileState.clear()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 6. 恢复最近读取的文件（最多 5 个，50K token 预算）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> fileAttachments <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> createPostCompactFileAttachments(
+</span></span><span style="display:flex;"><span>    preCompactReadFileState, context, POST_COMPACT_MAX_FILES_TO_RESTORE
+</span></span><span style="display:flex;"><span>  )
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 7. 重新注入计划、技能、工具信息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 8. 执行 SessionStart hooks 和 PostCompact hooks
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 9. 返回 CompactionResult
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p>压缩提示词要求生成包含 9 个部分的结构化摘要：</p>
+<pre tabindex="0"><code>1. Primary Request and Intent    // 用户的请求和意图
+2. Key Technical Concepts        // 关键技术概念
+3. Files and Code Sections       // 文件和代码段
+4. Errors and Fixes              // 错误和修复
+5. Problem Solving               // 问题解决过程
+6. All User Messages             // 所有用户消息
+7. Pending Tasks                 // 待完成任务
+8. Current Work                  // 当前正在进行的工作
+9. Optional Next Step            // 可选的下一步
+</code></pre><p>此外还有一个 <code>&lt;analysis&gt;</code> 思考区域，在最终摘要中会被剥离——这是一种&quot;先深度思考再精简输出&quot;的技巧。</p>
+<h3 id="56-reactive-compact反应式压缩">5.6 Reactive Compact（反应式压缩）</h3>
+<p>当 API 返回 <code>prompt-too-long</code> (413) 错误时的最后兜底：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// query.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">if</span> ((isWithheld413 <span style="color:#ff79c6">||</span> isWithheldMedia) <span style="color:#ff79c6">&amp;&amp;</span> reactiveCompact) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> compacted <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> reactiveCompact.tryReactiveCompact({
+</span></span><span style="display:flex;"><span>    hasAttempted: <span style="color:#8be9fd">hasAttemptedReactiveCompact</span>,
+</span></span><span style="display:flex;"><span>    messages: <span style="color:#8be9fd">messagesForQuery</span>,
+</span></span><span style="display:flex;"><span>    cacheSafeParams<span style="color:#ff79c6">:</span> {...},
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (compacted) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> postCompactMessages <span style="color:#ff79c6">=</span> buildPostCompactMessages(compacted)
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 用压缩后的消息替换并重试
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    state <span style="color:#ff79c6">=</span> { messages: <span style="color:#8be9fd">postCompactMessages</span>, ... }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">continue</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="57-压缩后的状态清理">5.7 压缩后的状态清理</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// services/compact/postCompactCleanup.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> runPostCompactCleanup(querySource?: <span style="color:#8be9fd">QuerySource</span>)<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">void</span> {
+</span></span><span style="display:flex;"><span>  resetMicrocompactState()        <span style="color:#6272a4">// 重置微压缩状态
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  resetContextCollapse()          <span style="color:#6272a4">// 重置上下文折叠（仅主线程）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  getUserContext.cache.clear()    <span style="color:#6272a4">// 清除用户上下文缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  resetGetMemoryFilesCache()      <span style="color:#6272a4">// 重置记忆文件缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  clearSystemPromptSections()     <span style="color:#6272a4">// 清除系统提示词分区缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  clearClassifierApprovals()      <span style="color:#6272a4">// 清除分类器审批
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  clearSessionMessagesCache()     <span style="color:#6272a4">// 清除会话消息缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><hr>
+<h2 id="六提示缓存-prompt-cache-策略">六、提示缓存 (Prompt Cache) 策略</h2>
+<p>Prompt Cache 对 Claude Code 的成本和延迟至关重要。系统设计了精细的缓存分区和破坏检测机制。</p>
+<p>
+  <img src="/img/claude-code/prompt-cache-strategy.svg" alt="提示缓存策略">
+
+</p>
+<h3 id="61-系统提示词缓存分区">6.1 系统提示词缓存分区</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/api.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> splitSysPromptPrefix(systemPrompt, options<span style="color:#ff79c6">?</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 三种模式：
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 1. MCP 工具存在 → org 级缓存（避免 MCP 指令变化破坏全局缓存）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 2. 全局缓存 + 边界标记 → 静态=global, 动态=无缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 3. 默认 → org 级缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">//
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 返回 SystemPromptBlock[] 带有 cacheScope: &#39;global&#39; | &#39;org&#39; | null
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p><code>cache_control</code> 支持的配置：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span>cache_control<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;ephemeral&#39;</span>,
+</span></span><span style="display:flex;"><span>  scope<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;global&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;org&#39;</span>,   <span style="color:#6272a4">// global 跨组织共享，org 组织内共享
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  ttl<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;5m&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;1h&#39;</span>           <span style="color:#6272a4">// 缓存生存时间
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><h3 id="62-forked-agent-的缓存共享">6.2 Forked Agent 的缓存共享</h3>
+<p>压缩和 Session Memory 提取使用 <code>runForkedAgent</code>，<strong>关键设计是共享主线程的缓存前缀</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// compact.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> result <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> runForkedAgent({
+</span></span><span style="display:flex;"><span>  promptMessages<span style="color:#ff79c6">:</span> [summaryRequest],
+</span></span><span style="display:flex;"><span>  cacheSafeParams,          <span style="color:#6272a4">// 传入主线程的 system/tools/context
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  canUseTool: <span style="color:#8be9fd">createCompactCanUseTool</span>(),
+</span></span><span style="display:flex;"><span>  querySource<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;compact&#39;</span>,
+</span></span><span style="display:flex;"><span>  forkLabel<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;compact&#39;</span>,
+</span></span><span style="display:flex;"><span>  maxTurns: <span style="color:#8be9fd">1</span>,
+</span></span><span style="display:flex;"><span>  skipCacheWrite: <span style="color:#8be9fd">true</span>,
+</span></span><span style="display:flex;"><span>})
+</span></span></code></pre></div><p><code>cacheSafeParams</code> 包含 <code>systemPrompt</code>、<code>userContext</code>、<code>systemContext</code>、<code>toolUseContext</code>、<code>forkContextMessages</code>，这些与主线程完全相同，确保缓存命中。</p>
+<h3 id="63-缓存破坏检测">6.3 缓存破坏检测</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// services/api/promptCacheBreakDetection.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// Phase 1: 记录提示状态（pre-call）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> recordPromptState(snapshot: <span style="color:#8be9fd">PromptStateSnapshot</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 追踪: systemHash, toolsHash, cacheControlHash,
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">//       model, fastMode, betas, effortValue, extraBodyHash
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">//       perToolHashes (精确到每个工具的 schema)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// Phase 2: 检查响应中的缓存破坏（post-call）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> checkResponseForCacheBreak(
+</span></span><span style="display:flex;"><span>  querySource, cacheReadTokens, cacheCreationTokens, messages, ...
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 检测条件: cache_read_tokens 下降 &gt; 5% 且绝对值 &gt; 2K
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 排除: TTL 过期 / cacheDeletion / compaction
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 输出: 详细的变化分析 + diff 文件
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p>防误报措施：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 压缩后重置基线
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> notifyCompaction(querySource, agentId<span style="color:#ff79c6">?</span>) {
+</span></span><span style="display:flex;"><span>  state.prevCacheReadTokens <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">null</span>  <span style="color:#6272a4">// 下次不比较
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 微压缩后标记
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> notifyCacheDeletion(querySource, agentId<span style="color:#ff79c6">?</span>) {
+</span></span><span style="display:flex;"><span>  state.cacheDeletionsPending <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">true</span>  <span style="color:#6272a4">// 下次跳过检查
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><hr>
+<h2 id="七session-memory-持久化">七、Session Memory 持久化</h2>
+<p>Session Memory 是 Claude Code 的&quot;工作笔记本&quot;——自动维护一个 markdown 文件，记录当前对话的关键信息。</p>
+<h3 id="71-提取时机">7.1 提取时机</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// services/SessionMemory/sessionMemory.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> shouldExtractMemory(messages: <span style="color:#8be9fd">Message</span>[])<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">boolean</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 初始化阈值：达到一定 token 数后开始
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>hasMetInitializationThreshold(currentTokenCount)) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 更新阈值：token 增长 + 工具调用次数双重门控
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> hasMetTokenThreshold <span style="color:#ff79c6">=</span> hasMetUpdateThreshold(currentTokenCount)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> hasMetToolCallThreshold <span style="color:#ff79c6">=</span>
+</span></span><span style="display:flex;"><span>    toolCallsSinceLastUpdate <span style="color:#ff79c6">&gt;=</span> getToolCallsBetweenUpdates()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 在自然对话间歇时触发（最后一轮没有工具调用）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">return</span> (hasMetTokenThreshold <span style="color:#ff79c6">&amp;&amp;</span> hasMetToolCallThreshold) <span style="color:#ff79c6">||</span>
+</span></span><span style="display:flex;"><span>         (hasMetTokenThreshold <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#ff79c6">!</span>hasToolCallsInLastTurn)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="72-提取过程">7.2 提取过程</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> initSessionMemory()<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">void</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>isAutoCompactEnabled()) <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 注册为 post-sampling hook
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  registerPostSamplingHook(extractSessionMemory)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> extractSessionMemory <span style="color:#ff79c6">=</span> sequential(<span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span>(context) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. 只在主 REPL 线程运行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (querySource <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;repl_main_thread&#39;</span>) <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. 创建/读取 session memory 文件
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> { memoryPath, currentMemory } <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> setupSessionMemoryFile(setupContext)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 3. 使用 forked agent 运行提取（共享主线程的 prompt cache）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">await</span> runForkedAgent({
+</span></span><span style="display:flex;"><span>    promptMessages<span style="color:#ff79c6">:</span> [createUserMessage({ content: <span style="color:#8be9fd">userPrompt</span> })],
+</span></span><span style="display:flex;"><span>    cacheSafeParams: <span style="color:#8be9fd">createCacheSafeParams</span>(context),
+</span></span><span style="display:flex;"><span>    canUseTool: <span style="color:#8be9fd">createMemoryFileCanUseTool</span>(memoryPath),
+</span></span><span style="display:flex;"><span>    querySource<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;session_memory&#39;</span>,
+</span></span><span style="display:flex;"><span>    forkLabel<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;session_memory&#39;</span>,
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 4. 记录 lastSummarizedMessageId（用于 SM-compact 确定边界）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  updateLastSummarizedMessageIdIfSafe(messages)
+</span></span><span style="display:flex;"><span>})
+</span></span></code></pre></div><h3 id="73-与压缩的协同">7.3 与压缩的协同</h3>
+<p>Session Memory 与压缩系统紧密耦合：</p>
+<ol>
+<li><strong>SM-Compact 优先</strong>: <code>autoCompactIfNeeded</code> 先尝试 <code>trySessionMemoryCompaction</code>，成功则跳过传统压缩</li>
+<li><strong>边界追踪</strong>: <code>lastSummarizedMessageId</code> 标记 SM 已覆盖到哪条消息，压缩时只需保留之后的原始消息</li>
+<li><strong>成本优势</strong>: SM-Compact 不调用 LLM 生成摘要（摘要已在后台准备好），传统压缩需要 ~20K output tokens</li>
+</ol>
+<hr>
+<h2 id="八主查询循环的上下文编排">八、主查询循环的上下文编排</h2>
+<p>所有上述子系统在 <code>query.ts</code> 的主循环中协同工作：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// query.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span><span style="color:#ff79c6">*</span> queryLoop(params) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">while</span> (<span style="color:#ff79c6">true</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> messagesForQuery <span style="color:#ff79c6">=</span> [...getMessagesAfterCompactBoundary(messages)]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ① 工具结果预算控制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    messagesForQuery <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> applyToolResultBudget(messagesForQuery, ...)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ② Snip Compact（裁剪最老历史）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> snipResult <span style="color:#ff79c6">=</span> snipModule.snipCompactIfNeeded(messagesForQuery)
+</span></span><span style="display:flex;"><span>    snipTokensFreed <span style="color:#ff79c6">=</span> snipResult.tokensFreed
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ③ MicroCompact（清理旧工具结果）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> microcompactResult <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> deps.microcompact(messagesForQuery, ...)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ④ Context Collapse（折叠上下文视图）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> collapseResult <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> contextCollapse.applyCollapsesIfNeeded(...)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ⑤ 系统提示词组装
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> fullSystemPrompt <span style="color:#ff79c6">=</span> appendSystemContext(systemPrompt, systemContext)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ⑥ Auto Compact（SM 压缩 → 传统压缩回退）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> { compactionResult } <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> deps.autocompact(messagesForQuery, ...)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ⑦ Blocking Limit 检查
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> { isAtBlockingLimit } <span style="color:#ff79c6">=</span> calculateTokenWarningState(
+</span></span><span style="display:flex;"><span>      tokenCountWithEstimation(messagesForQuery) <span style="color:#ff79c6">-</span> snipTokensFreed, model
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ⑧ API 调用（带 prompt cache）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">for</span> <span style="color:#ff79c6">await</span> (<span style="color:#ff79c6">const</span> message <span style="color:#ff79c6">of</span> deps.callModel({
+</span></span><span style="display:flex;"><span>      messages: <span style="color:#8be9fd">prependUserContext</span>(messagesForQuery, userContext),
+</span></span><span style="display:flex;"><span>      systemPrompt: <span style="color:#8be9fd">fullSystemPrompt</span>,
+</span></span><span style="display:flex;"><span>      ...
+</span></span><span style="display:flex;"><span>    })) {
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 处理流式响应、tool_use 块、错误恢复...
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ⑨ 工具执行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">for</span> <span style="color:#ff79c6">await</span> (<span style="color:#ff79c6">const</span> update <span style="color:#ff79c6">of</span> toolUpdates) { ... }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ⑩ 附件注入（文件变更、技能发现、记忆预取）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">for</span> <span style="color:#ff79c6">await</span> (<span style="color:#ff79c6">const</span> attachment <span style="color:#ff79c6">of</span> getAttachmentMessages(...)) { ... }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ⑪ 循环继续
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    state <span style="color:#ff79c6">=</span> { messages<span style="color:#ff79c6">:</span> [...messagesForQuery, ...assistantMessages, ...toolResults], ... }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="81-token-阈值体系">8.1 Token 阈值体系</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// services/compact/autoCompact.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> calculateTokenWarningState(tokenUsage, model) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> effectiveWindow <span style="color:#ff79c6">=</span> getEffectiveContextWindowSize(model)
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// = contextWindow - min(maxOutputTokens, 20K)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> autoCompactThreshold <span style="color:#ff79c6">=</span> effectiveWindow <span style="color:#ff79c6">-</span> <span style="color:#bd93f9">13</span>_000   <span style="color:#6272a4">// ~93%
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> warningThreshold <span style="color:#ff79c6">=</span> autoCompactThreshold <span style="color:#ff79c6">-</span> <span style="color:#bd93f9">20</span>_000
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> errorThreshold <span style="color:#ff79c6">=</span> autoCompactThreshold <span style="color:#ff79c6">-</span> <span style="color:#bd93f9">20</span>_000
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> blockingLimit <span style="color:#ff79c6">=</span> effectiveWindow <span style="color:#ff79c6">-</span> <span style="color:#bd93f9">3</span>_000           <span style="color:#6272a4">// ~98%
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> {
+</span></span><span style="display:flex;"><span>    isAboveWarningThreshold,       <span style="color:#6272a4">// UI 显示黄色警告
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    isAboveErrorThreshold,         <span style="color:#6272a4">// UI 显示红色警告
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    isAboveAutoCompactThreshold,   <span style="color:#6272a4">// 触发自动压缩
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    isAtBlockingLimit,             <span style="color:#6272a4">// 阻止 API 调用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="82-断路器机制">8.2 断路器机制</h3>
+<p>防止无限重试：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">3</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> (tracking<span style="color:#ff79c6">?</span>.consecutiveFailures <span style="color:#ff79c6">&gt;=</span> MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> { wasCompacted: <span style="color:#8be9fd">false</span> }  <span style="color:#6272a4">// 停止重试
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><h3 id="83-图片剥离">8.3 图片剥离</h3>
+<p>压缩前自动剥离图片以减少 token 消耗：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> stripImagesFromMessages(messages: <span style="color:#8be9fd">Message</span>[])<span style="color:#ff79c6">:</span> Message[] {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// image → [image]
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// document → [document]
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 包括嵌套在 tool_result 中的图片
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><hr>
+<h2 id="九实现原理深度剖析">九、实现原理深度剖析</h2>
+<p>前面几章介绍了各个子系统的功能和使用方式，本章深入到源码层面，剖析几个关键机制的内部实现原理。</p>
+<h3 id="91-消息规范化管线的-7-步处理流程">9.1 消息规范化管线的 7 步处理流程</h3>
+<p><code>normalizeMessagesForAPI</code> 是所有消息发送到 API 之前的最终规范化管线，实现了一个精密的 7 步处理流程：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/messages.ts 第 1989-2370 行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> normalizeMessagesForAPI(messages, tools) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// === 步骤 1: 附件重排序 + 虚拟消息过滤 ===
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> reorderedMessages <span style="color:#ff79c6">=</span> reorderAttachmentsForAPI(messages)
+</span></span><span style="display:flex;"><span>    .filter(m <span style="color:#ff79c6">=&gt;</span> <span style="color:#ff79c6">!</span>(m.isVirtual))  <span style="color:#6272a4">// 过滤 display-only 消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// === 步骤 2: 构建错误→剥离映射 ===
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// PDF/image 过大错误后，从前一个 isMeta 消息中清理对应的 document/image 块
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> stripTargets <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Map&lt;<span style="color:#ff79c6">string</span>, <span style="color:#50fa7b">Set</span>&lt;<span style="color:#50fa7b">string</span>&gt;<span style="color:#ff79c6">&gt;</span>()
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 向后扫描匹配 API 错误与其触发的用户消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// === 步骤 3: 类型过滤 ===
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 只保留: user / assistant / attachment / system(local_command)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 过滤: progress / system(非 local_command) / 合成 API 错误
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// === 步骤 4: 逐消息类型处理 ===
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  .forEach(message <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;user&#39;</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// - 剥离 tool_reference 块（tool search 未启用时）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#6272a4">// - 清理触发错误的 document/image 块
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#6272a4">// 关键: 连续 user 消息合并（Bedrock 兼容性要求）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">if</span> (lastMessage<span style="color:#ff79c6">?</span>.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;user&#39;</span>) {
+</span></span><span style="display:flex;"><span>        result[i] <span style="color:#ff79c6">=</span> mergeUserMessages(lastMessage, normalizedMessage)
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;assistant&#39;</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// - normalizeToolInputForAPI 标准化工具输入
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#6272a4">// - 规范化工具名（alias → canonical）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#6272a4">// 关键: 向后扫描合并同 message.id 的 assistant（并行工具调用拆分记录）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">for</span> (<span style="color:#8be9fd;font-style:italic">let</span> i <span style="color:#ff79c6">=</span> result.length <span style="color:#ff79c6">-</span> <span style="color:#bd93f9">1</span>; i <span style="color:#ff79c6">&gt;=</span> <span style="color:#bd93f9">0</span>; i<span style="color:#ff79c6">--</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> (msg.message.id <span style="color:#ff79c6">===</span> normalizedMessage.message.id) {
+</span></span><span style="display:flex;"><span>          result[i] <span style="color:#ff79c6">=</span> mergeAssistantMessages(msg, normalizedMessage)
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;attachment&#39;</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 转为 user 消息，合并到前一个 user
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  })
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// === 步骤 5-7: 后处理管道 ===
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> relocated <span style="color:#ff79c6">=</span> relocateToolReferenceSiblings(result)          <span style="color:#6272a4">// tool_reference 重定位
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> filtered <span style="color:#ff79c6">=</span> filterOrphanedThinkingOnlyMessages(relocated)   <span style="color:#6272a4">// 清理孤立 thinking
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> cleaned <span style="color:#ff79c6">=</span> filterTrailingThinkingFromLastAssistant(filtered) <span style="color:#6272a4">// 尾部 thinking
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> nonEmpty <span style="color:#ff79c6">=</span> ensureNonEmptyAssistantContent(cleaned)         <span style="color:#6272a4">// 确保非空
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> smooshed <span style="color:#ff79c6">=</span> smooshSystemReminderSiblings(nonEmpty)          <span style="color:#6272a4">// SR 合并
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> sanitized <span style="color:#ff79c6">=</span> sanitizeErrorToolResultContent(smooshed)       <span style="color:#6272a4">// 错误内容清理
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  validateImagesForAPI(sanitized)                                   <span style="color:#6272a4">// 验证图片大小
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">return</span> sanitized
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><blockquote>
+<p><strong>设计洞察</strong>：这个管线看似复杂，但每一步都解决了实际的兼容性问题。例如连续 user 消息合并是为了 Bedrock 兼容（Bedrock 不支持连续同 role 消息），同 <code>message.id</code> 的 assistant 合并是因为并行工具调用时流式响应会为每个 content block 生成独立的 <code>AssistantMessage</code> 记录。</p>
+</blockquote>
+<h3 id="92-tool-result-budget-的冻结语义">9.2 Tool Result Budget 的冻结语义</h3>
+<p><code>enforceToolResultBudget</code> 实现了一个核心不变量——<strong>一旦一个 tool_result 被&quot;看到&quot;，它的命运就被永远冻结</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/toolResultStorage.ts 第 769-909 行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> enforceToolResultBudget(messages, state, skipToolNames) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 按 API 级别用户消息分组（模拟 normalizeMessagesForAPI 的合并逻辑）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> candidatesByMessage <span style="color:#ff79c6">=</span> collectCandidatesByMessage(messages)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> limit <span style="color:#ff79c6">=</span> getPerMessageBudgetLimit()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> candidates <span style="color:#ff79c6">of</span> candidatesByMessage) {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 三路分区：
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// - mustReapply: 之前已替换 → 重新应用缓存的替换（零 I/O，字节相同）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// - frozen: 之前已看到但未替换 → 永远不替换（保护 prompt cache 前缀）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// - fresh: 新的 → 可能需要替换
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> { mustReapply, frozen, fresh } <span style="color:#ff79c6">=</span> partitionByPriorDecision(candidates, state)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    mustReapply.forEach(c <span style="color:#ff79c6">=&gt;</span> replacementMap.<span style="color:#ff79c6">set</span>(c.toolUseId, c.replacement))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (fresh.length <span style="color:#ff79c6">===</span> <span style="color:#bd93f9">0</span>) <span style="color:#ff79c6">continue</span>  <span style="color:#6272a4">// 之前处理过的消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 跳过 maxResultSizeChars=Infinity 的工具（如 Read）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> eligible <span style="color:#ff79c6">=</span> fresh.filter(c <span style="color:#ff79c6">=&gt;</span> <span style="color:#ff79c6">!</span>shouldSkip(c.toolUseId))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 如果 frozen + fresh 总大小超过预算，按大小降序选择最大的进行替换
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> selected <span style="color:#ff79c6">=</span> frozenSize <span style="color:#ff79c6">+</span> freshSize <span style="color:#ff79c6">&gt;</span> limit
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">?</span> selectFreshToReplace(eligible, frozenSize, limit)
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">:</span> []
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 非替换候选同步标记为已看到（保持缓存稳定）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 替换候选在 await 后原子化标记
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 并发持久化到磁盘
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> freshReplacements <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> Promise.all(
+</span></span><span style="display:flex;"><span>    toPersist.map(<span style="color:#ff79c6">async</span> c <span style="color:#ff79c6">=&gt;</span> [c, <span style="color:#ff79c6">await</span> buildReplacement(c)] <span style="color:#ff79c6">as</span> <span style="color:#ff79c6">const</span>)
+</span></span><span style="display:flex;"><span>  )
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这个&quot;冻结&quot;语义的核心意义在于：<strong>prompt cache 的前缀一旦被服务端缓存，任何对它的修改都会导致缓存失效</strong>。所以已经发送给模型的 tool_result 内容必须在后续轮次中保持完全一致。</p>
+<h3 id="93-压缩摘要的双路径执行">9.3 压缩摘要的双路径执行</h3>
+<p><code>streamCompactSummary</code> 实现了一个精妙的双路径策略来最大化缓存命中率：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// services/compact/compact.ts 第 1136-1396 行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> streamCompactSummary({messages, summaryRequest, cacheSafeParams, ...}) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// === 路径 1: Forked Agent（缓存共享）===
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 关键约束: 不设置 maxOutputTokens！
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 因为 fork 通过发送完全相同的 cache-key 参数复用主线程的缓存前缀。
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 设置 maxOutputTokens 会通过 Math.min(budget, maxOutputTokens-1)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 改变 thinking config → 缓存键不匹配 → 缓存失效。
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (promptCacheSharingEnabled) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">const</span> result <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> runForkedAgent({
+</span></span><span style="display:flex;"><span>        promptMessages<span style="color:#ff79c6">:</span> [summaryRequest],
+</span></span><span style="display:flex;"><span>        cacheSafeParams,       <span style="color:#6272a4">// 包含主线程的 system/tools/context
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        querySource<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;compact&#39;</span>,
+</span></span><span style="display:flex;"><span>        maxTurns: <span style="color:#8be9fd">1</span>,           <span style="color:#6272a4">// 只生成一轮
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        skipCacheWrite: <span style="color:#8be9fd">true</span>,  <span style="color:#6272a4">// 不写入缓存（会被压缩后的内容替代）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      })
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">if</span> (assistantMsg <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#ff79c6">!</span>assistantMsg.isApiErrorMessage) {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> assistantMsg  <span style="color:#6272a4">// 成功：缓存命中
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      }
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 失败：降级到流式路径
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    } <span style="color:#ff79c6">catch</span> (error) {
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 异常：降级到流式路径
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// === 路径 2: 独立流式 API 调用（回退）===
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 这里可以安全设置 maxOutputTokensOverride（不共享缓存）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">for</span> (<span style="color:#8be9fd;font-style:italic">let</span> attempt <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>; attempt <span style="color:#ff79c6">&lt;=</span> maxAttempts; attempt<span style="color:#ff79c6">++</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> streamingGen <span style="color:#ff79c6">=</span> queryModelWithStreaming({
+</span></span><span style="display:flex;"><span>      systemPrompt: <span style="color:#8be9fd">asSystemPrompt</span>([<span style="color:#f1fa8c">&#39;You are a helpful AI assistant...&#39;</span>]),
+</span></span><span style="display:flex;"><span>      thinkingConfig<span style="color:#ff79c6">:</span> { <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;disabled&#39;</span> },  <span style="color:#6272a4">// 压缩不需要 thinking
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      tools<span style="color:#ff79c6">:</span> [FileReadTool, ...optionalToolSearch],
+</span></span><span style="display:flex;"><span>      options<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>        maxOutputTokensOverride: <span style="color:#8be9fd">Math.min</span>(COMPACT_MAX_OUTPUT_TOKENS, ...),
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ... 消费流式响应 ...
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>response <span style="color:#ff79c6">&amp;&amp;</span> attempt <span style="color:#ff79c6">&lt;</span> maxAttempts) {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">await</span> sleep(getRetryDelay(attempt))  <span style="color:#6272a4">// 退避重试
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="94-session-memory-提取的时机控制">9.4 Session Memory 提取的时机控制</h3>
+<p>Session Memory 的提取使用<strong>双阈值门控 + 自然间歇检测</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// services/SessionMemory/sessionMemory.ts 第 134-181 行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> shouldExtractMemory(messages) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> currentTokenCount <span style="color:#ff79c6">=</span> tokenCountWithEstimation(messages)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 门控 1: 初始化阈值（只触发一次）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>isSessionMemoryInitialized()) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>hasMetInitializationThreshold(currentTokenCount)) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>    markSessionMemoryInitialized()
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 门控 2: 更新间隔阈值
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 两个条件必须同时满足：token 增长 AND 工具调用次数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> hasMetTokenThreshold <span style="color:#ff79c6">=</span> hasMetUpdateThreshold(currentTokenCount)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> hasMetToolCallThreshold <span style="color:#ff79c6">=</span>
+</span></span><span style="display:flex;"><span>    toolCallsSinceLastUpdate <span style="color:#ff79c6">&gt;=</span> getToolCallsBetweenUpdates()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 门控 3: 自然间歇检测
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 最后一轮没有工具调用 = 对话的自然暂停点
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> hasToolCallsInLastTurn <span style="color:#ff79c6">=</span> hasToolCallsInLastAssistantTurn(messages)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 组合逻辑:
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// A: token阈值 + 工具调用阈值 → 强制提取
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// B: token阈值 + 无工具调用 → 在自然间歇时提取
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 重要: token 阈值始终必须满足（防止过于频繁的提取）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">return</span> (hasMetTokenThreshold <span style="color:#ff79c6">&amp;&amp;</span> hasMetToolCallThreshold) <span style="color:#ff79c6">||</span>
+</span></span><span style="display:flex;"><span>         (hasMetTokenThreshold <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#ff79c6">!</span>hasToolCallsInLastTurn)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Session Memory 的模板定义了 9 个结构化部分：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="font-weight:bold"># Session Title          → 5-10 词的信息密集标题
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"># Current State          → 当前正在做什么、待完成任务、下一步
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"># Task specification     → 用户要求构建什么
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"># Files and Functions    → 重要文件及其内容
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"># Workflow               → 常用命令及其执行顺序
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"># Errors &amp; Corrections   → 错误和修复方法
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"># Codebase and System Documentation → 系统组件及其关系
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"># Learnings              → 有效/无效的方法
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"># Key results            → 用户要求的具体输出
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"># Worklog                → 逐步操作日志
+</span></span></span></code></pre></div><p>每个部分有 2K token 的限制，总量不超过 12K token。超限时会附加 <code>CRITICAL</code> 级别的凝缩提醒。</p>
+<h3 id="95-api-不变量保护tool_usetool_result-配对完整性">9.5 API 不变量保护：tool_use/tool_result 配对完整性</h3>
+<p><code>adjustIndexToPreserveAPIInvariants</code> 解决了一个微妙但致命的 bug——并行工具调用时，流式响应会为每个 content block 生成独立的 AssistantMessage 记录（共享 <code>message.id</code>），如果压缩切割点落在这些记录之间，<code>normalizeMessagesForAPI</code> 合并后会产生孤立的 <code>tool_result</code>，导致 API 400 错误：</p>
+<pre tabindex="0"><code>压缩切割前的消息序列:
+  Index N:   assistant, id=X, [thinking]
+  Index N+1: assistant, id=X, [tool_use: ORPHAN_ID]
+  Index N+2: assistant, id=X, [tool_use: VALID_ID]
+  Index N+3: user, [tool_result: ORPHAN_ID, tool_result: VALID_ID]
+
+如果 startIndex = N+2:
+  → normalizeMessagesForAPI 合并同 id 的 assistant
+  → 但 N+1 的 tool_use 被排除！
+  → 结果: assistant=[tool_use: VALID_ID], user=[tool_result: ORPHAN_ID, VALID_ID]
+  → API 400: orphan tool_result references non-existent tool_use
+</code></pre><p>修复方法：两步向前扫描——先找缺失的 <code>tool_use</code>，再找共享 <code>message.id</code> 的 thinking 块，扩展保留范围。</p>
+<h3 id="96-reactive-compact-的三级恢复瀑布">9.6 Reactive Compact 的三级恢复瀑布</h3>
+<p>当 API 返回 413 (prompt-too-long) 时，<code>query.ts</code> 实现了一个三级恢复瀑布，每级用完后才降级到下一级：</p>
+<pre tabindex="0"><code>Level 1: Context Collapse Drain
+  → 提交所有暂存的折叠（便宜，保留细粒度上下文）
+  → 条件: 之前的 transition 不是 collapse_drain_retry（防止循环）
+  → 成功 → continue 重试
+
+Level 2: Reactive Compact
+  → 触发完整的 compactConversation + buildPostCompactMessages
+  → 条件: hasAttemptedReactiveCompact === false（单次尝试）
+  → 成功 → 替换消息数组 → continue 重试
+
+Level 3: Surface Error
+  → 显示被扣留的错误消息
+  → 调用 executeStopFailureHooks（不调用正常 stop hooks——防止死循环）
+  → return { reason: &#39;prompt_too_long&#39; }
+</code></pre><p><code>max_output_tokens</code> 恢复同样是级联式的：</p>
+<pre tabindex="0"><code>Phase 1: Escalating Retry (8K → 64K)
+  → 同一请求以 64K 限制重试（无恢复消息、无多轮往返）
+  → 条件: maxOutputTokensOverride === undefined（只触发一次）
+
+Phase 2: Multi-Turn Recovery (最多 3 次)
+  → 注入恢复消息: &#34;Output token limit hit. Resume directly — no apology,
+    no recap. Pick up mid-thought. Break remaining work into smaller pieces.&#34;
+  → 标记为 isMeta（不显示给用户）
+  → 每次将 assistantMessages 追加到 messages 中，让模型继续
+
+Phase 3: Surface Error
+  → 恢复次数用尽 → yield 被扣留的错误消息
+</code></pre><hr>
+<h2 id="十总结与设计洞察">十、总结与设计洞察</h2>
+<h3 id="101-架构设计哲学">10.1 架构设计哲学</h3>
+<p>Claude Code 的上下文管理体现了几个核心设计原则：</p>
+<ol>
+<li><strong>渐进式降级</strong>: 从零成本的 Snip → 本地清理的 MicroCompact → 无 LLM 成本的 SM-Compact → 最终的 Full Compact</li>
+<li><strong>缓存第一</strong>: 每个子系统都考虑了对 prompt cache 的影响，<code>SYSTEM_PROMPT_DYNAMIC_BOUNDARY</code> 和 <code>cache_edits</code> API 都是为了最大化缓存命中率</li>
+<li><strong>冻结不变量</strong>: Tool Result Budget 的&quot;一旦看到就冻结&quot;确保了 prompt cache 前缀的字节级稳定性</li>
+<li><strong>异步后台</strong>: Session Memory 提取在后台异步进行，不阻塞主对话流</li>
+<li><strong>防御性设计</strong>: 断路器、PTL 重试、Reactive Compact 三级恢复瀑布构成多层兜底</li>
+<li><strong>API 不变量保护</strong>: <code>adjustIndexToPreserveAPIInvariants</code> 等机制确保了 tool_use/tool_result 配对和 thinking 块的完整性</li>
+</ol>
+<h3 id="102-关键数据指标">10.2 关键数据指标</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>默认上下文窗口</td>
+<td>200K tokens</td>
+</tr>
+<tr>
+<td>1M 上下文支持</td>
+<td>Opus 4.6, Sonnet 4.6</td>
+</tr>
+<tr>
+<td>AutoCompact 缓冲区</td>
+<td>13K tokens</td>
+</tr>
+<tr>
+<td>Blocking 保留区</td>
+<td>3K tokens</td>
+</tr>
+<tr>
+<td>压缩最大输出</td>
+<td>20K tokens</td>
+</tr>
+<tr>
+<td>Post-Compact 文件恢复</td>
+<td>最多 5 个，50K token 预算</td>
+</tr>
+<tr>
+<td>每个文件最大 token</td>
+<td>5K</td>
+</tr>
+<tr>
+<td>每个技能最大 token</td>
+<td>5K (25K 总预算)</td>
+</tr>
+<tr>
+<td>SM-Compact 保留范围</td>
+<td>10K-40K tokens</td>
+</tr>
+<tr>
+<td>SM 每部分最大 token</td>
+<td>2K (12K 总量)</td>
+</tr>
+<tr>
+<td>断路器阈值</td>
+<td>连续 3 次失败</td>
+</tr>
+<tr>
+<td>PTL 重试次数</td>
+<td>最多 3 次</td>
+</tr>
+<tr>
+<td>max_output_tokens 恢复</td>
+<td>最多 3 次</td>
+</tr>
+<tr>
+<td>Token 估算精度</td>
+<td>~4 chars/token (JSON ~2 chars/token)</td>
+</tr>
+<tr>
+<td>缓存破坏检测阈值</td>
+<td>cache_read 下降 &gt;5% 且 &gt;2K tokens</td>
+</tr>
+</tbody>
+</table>
+<h3 id="103-与其他-ai-编码工具的对比">10.3 与其他 AI 编码工具的对比</h3>
+<p>大多数 AI 编码工具在上下文耗尽时简单地截断历史或要求用户开启新会话。Claude Code 的多层压缩策略使其能够在<strong>数小时甚至数天</strong>的连续会话中保持上下文连贯性，这是其在复杂工程任务中表现突出的核心原因之一。</p>
+<p>特别值得注意的是 <strong>Session Memory + SM-Compact</strong> 的组合——它让压缩从&quot;事后补救&quot;变成了&quot;提前准备&quot;。后台持续提取会话笔记，在压缩触发时直接使用已有摘要，既节省了 token 成本，又保留了最近的原始对话上下文。</p>
+<p>另一个值得借鉴的设计是 <strong>Tool Result Budget 的冻结语义</strong>——它从根本上解决了&quot;修改历史消息导致缓存失效&quot;的矛盾：已发送的内容永远不变，新内容按需替换，两者互不干扰。这种&quot;只增不改&quot;的设计模式值得在其他需要缓存稳定性的系统中推广。</p>
+<hr>
+<p><em>本文基于 2026 年 3 月 31 日泄露的 Claude Code 源码快照分析。代码经过反编译和整理，可能与实际实现存在细微差异。</em></p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-04-06-claude-code%E5%86%85%E7%BD%AEsub-agent%E5%8E%9F%E7%90%86%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Claude Code内置Sub-Agent原理深度解析：多代理协作架构的工程实现">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2026-04-07-claude-code-skill-runtime%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Claude Code Skill Runtime 深度解析：可复用 AI 工作流引擎的架构与实现">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

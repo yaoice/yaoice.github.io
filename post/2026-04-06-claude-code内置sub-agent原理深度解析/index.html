@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Claude Code内置Sub-Agent原理深度解析：多代理协作架构的工程实现" />
+    <meta property="og:title" content="Claude Code内置Sub-Agent原理深度解析：多代理协作架构的工程实现" />
+    <meta property="twitter:title" content="Claude Code内置Sub-Agent原理深度解析：多代理协作架构的工程实现" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Claude Code内置Sub-Agent原理深度解析：多代理协作架构的工程实现 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-04-06-claude-code%E5%86%85%E7%BD%AEsub-agent%E5%8E%9F%E7%90%86%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                    </div>
+                    <h1>Claude Code内置Sub-Agent原理深度解析：多代理协作架构的工程实现</h1>
+                    <h2 class="subheading">从 AgentTool 调度、Fork 缓存共享到 Coordinator 编排的多代理架构解剖</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Monday, April 6, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言">一、引言</h2>
+<p>在之前的 <a href="/2026/04/01/claude-code%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/">Claude Code源码深度技术解析</a> 一文中，我们对 Claude Code 的整体架构进行了全局梳理。本文将聚焦其中最精巧的子系统之一——<strong>内置 Sub-Agent（子代理）系统</strong>，深入分析其类型体系、调度机制、上下文隔离、缓存优化和多模式协作的工程实现。</p>
+<p>Claude Code 的 Sub-Agent 系统并非简单的&quot;调用另一个 Agent&quot;，而是一套涵盖<strong>类型定义、工具过滤、权限冒泡、Prompt Cache 共享、异步生命周期管理</strong>的完整框架。理解这套系统，对于理解现代 AI Agent 的多代理编排有重要的参考价值。</p>
+<p>
+  <img src="/img/claude-code/subagent-overview.svg" alt="Sub-Agent 系统架构总览">
+
+</p>
+<h3 id="核心源码文件">核心源码文件</h3>
+<table>
+<thead>
+<tr>
+<th>文件路径</th>
+<th>行数</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tools/AgentTool/AgentTool.tsx</code></td>
+<td>1398</td>
+<td>Agent 工具注册、输入 Schema、主调用入口</td>
+</tr>
+<tr>
+<td><code>tools/AgentTool/runAgent.ts</code></td>
+<td>974</td>
+<td>Agent 实际执行的会话循环</td>
+</tr>
+<tr>
+<td><code>tools/AgentTool/forkSubagent.ts</code></td>
+<td>211</td>
+<td>Fork Sub-Agent 机制</td>
+</tr>
+<tr>
+<td><code>tools/AgentTool/builtInAgents.ts</code></td>
+<td>73</td>
+<td>内置 Agent 注册与 Feature Gate</td>
+</tr>
+<tr>
+<td><code>tools/AgentTool/loadAgentsDir.ts</code></td>
+<td>756</td>
+<td>Agent 加载、解析与合并逻辑</td>
+</tr>
+<tr>
+<td><code>tools/AgentTool/agentToolUtils.ts</code></td>
+<td>687</td>
+<td>工具过滤、结果最终化、异步生命周期</td>
+</tr>
+<tr>
+<td><code>tools/AgentTool/prompt.ts</code></td>
+<td>288</td>
+<td>Agent 工具的系统提示生成</td>
+</tr>
+<tr>
+<td><code>utils/forkedAgent.ts</code></td>
+<td>690</td>
+<td>创建子代理上下文、Forked Agent 查询循环</td>
+</tr>
+<tr>
+<td><code>utils/model/agent.ts</code></td>
+<td>158</td>
+<td>Agent 模型选择与继承机制</td>
+</tr>
+<tr>
+<td><code>coordinator/coordinatorMode.ts</code></td>
+<td>370</td>
+<td>Coordinator 模式架构</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="二agent-定义类型系统">二、Agent 定义类型系统</h2>
+<p>Sub-Agent 的第一层设计始于其类型体系。Claude Code 使用 TypeScript 的<strong>联合类型</strong>定义了三种 Agent 来源：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// loadAgentsDir.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">type</span> AgentDefinition <span style="color:#ff79c6">=</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">|</span> BuiltInAgentDefinition    <span style="color:#6272a4">// 内置 Agent
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">|</span> CustomAgentDefinition     <span style="color:#6272a4">// 自定义 Agent
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">|</span> PluginAgentDefinition     <span style="color:#6272a4">// 插件 Agent
+</span></span></span></code></pre></div><h3 id="21-三种-agent-来源">2.1 三种 Agent 来源</h3>
+<p><strong>内置 Agent（BuiltInAgentDefinition）</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">type</span> BuiltInAgentDefinition <span style="color:#ff79c6">=</span> BaseAgentDefinition <span style="color:#ff79c6">&amp;</span> {
+</span></span><span style="display:flex;"><span>  source<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;built-in&#39;</span>
+</span></span><span style="display:flex;"><span>  baseDir<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;built-in&#39;</span>
+</span></span><span style="display:flex;"><span>  callback<span style="color:#ff79c6">?:</span> () <span style="color:#ff79c6">=&gt;</span> <span style="color:#ff79c6">void</span>
+</span></span><span style="display:flex;"><span>  getSystemPrompt<span style="color:#ff79c6">:</span> (params<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>    toolUseContext: <span style="color:#8be9fd">Pick</span>&lt;<span style="color:#ff79c6">ToolUseContext</span>, &#39;<span style="color:#50fa7b">options</span>&#39;&gt;
+</span></span><span style="display:flex;"><span>  }) <span style="color:#ff79c6">=&gt;</span> <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>内置 Agent 的 <code>getSystemPrompt</code> 接收 <code>toolUseContext</code> 参数，可以根据当前会话的工具和配置<strong>动态生成系统提示</strong>。这使得像 <code>claude-code-guide</code> 这样的 Agent 能够注入用户当前配置的 skills、agents、MCP 服务器等上下文信息。</p>
+<p><strong>自定义 Agent（CustomAgentDefinition）</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">type</span> CustomAgentDefinition <span style="color:#ff79c6">=</span> BaseAgentDefinition <span style="color:#ff79c6">&amp;</span> {
+</span></span><span style="display:flex;"><span>  getSystemPrompt<span style="color:#ff79c6">:</span> () <span style="color:#ff79c6">=&gt;</span> <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  source: <span style="color:#8be9fd">SettingSource</span>  <span style="color:#6272a4">// userSettings / projectSettings / policySettings / flagSettings
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  filename?: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  baseDir?: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>自定义 Agent 通过 <code>.claude/agents/*.md</code> 目录下的 Markdown 文件定义，使用 YAML frontmatter 声明元数据，正文作为系统提示。</p>
+<p><strong>插件 Agent（PluginAgentDefinition）</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">type</span> PluginAgentDefinition <span style="color:#ff79c6">=</span> BaseAgentDefinition <span style="color:#ff79c6">&amp;</span> {
+</span></span><span style="display:flex;"><span>  getSystemPrompt<span style="color:#ff79c6">:</span> () <span style="color:#ff79c6">=&gt;</span> <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  source<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;plugin&#39;</span>
+</span></span><span style="display:flex;"><span>  filename?: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  plugin: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="22-基础定义字段">2.2 基础定义字段</h3>
+<p>所有 Agent 共享的 <code>BaseAgentDefinition</code> 包含丰富的配置项：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">type</span> BaseAgentDefinition <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  agentType: <span style="color:#8be9fd">string</span>              <span style="color:#6272a4">// Agent 类型标识
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  whenToUse: <span style="color:#8be9fd">string</span>              <span style="color:#6272a4">// 使用场景描述（展示给主 Agent）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  tools?: <span style="color:#8be9fd">string</span>[]               <span style="color:#6272a4">// 允许的工具列表（&#39;*&#39; 表示全部）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  disallowedTools?: <span style="color:#8be9fd">string</span>[]     <span style="color:#6272a4">// 禁止的工具列表
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  skills?: <span style="color:#8be9fd">string</span>[]              <span style="color:#6272a4">// 预加载的 Skill 名称
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  mcpServers?: <span style="color:#8be9fd">AgentMcpServerSpec</span>[]  <span style="color:#6272a4">// Agent 专属 MCP 服务器
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  hooks?: <span style="color:#8be9fd">HooksSettings</span>          <span style="color:#6272a4">// Session 级 Hooks
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  color?: <span style="color:#8be9fd">AgentColorName</span>         <span style="color:#6272a4">// UI 颜色标识
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  model?: <span style="color:#8be9fd">string</span>                 <span style="color:#6272a4">// 模型选择（支持 &#39;inherit&#39;）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  effort?: <span style="color:#8be9fd">EffortValue</span>           <span style="color:#6272a4">// 推理努力等级
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  permissionMode?: <span style="color:#8be9fd">PermissionMode</span> <span style="color:#6272a4">// 权限模式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  maxTurns?: <span style="color:#8be9fd">number</span>              <span style="color:#6272a4">// 最大对话轮数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  background?: <span style="color:#8be9fd">boolean</span>           <span style="color:#6272a4">// 是否强制后台运行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  memory?: <span style="color:#8be9fd">AgentMemoryScope</span>      <span style="color:#6272a4">// 持久内存作用域
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  isolation<span style="color:#ff79c6">?:</span> <span style="color:#f1fa8c">&#39;worktree&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;remote&#39;</span>  <span style="color:#6272a4">// 隔离模式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  omitClaudeMd?: <span style="color:#8be9fd">boolean</span>         <span style="color:#6272a4">// 是否省略 CLAUDE.md
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// ...
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><h3 id="23-agent-加载优先级">2.3 Agent 加载优先级</h3>
+<p>多来源 Agent 通过 <code>getActiveAgentsFromList()</code> 按优先级合并，后者覆盖前者的同名 Agent：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// loadAgentsDir.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> agentGroups <span style="color:#ff79c6">=</span> [
+</span></span><span style="display:flex;"><span>  builtInAgents,    <span style="color:#6272a4">// 最低优先级
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  pluginAgents,
+</span></span><span style="display:flex;"><span>  userAgents,       <span style="color:#6272a4">// ~/.claude/agents/*.md
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  projectAgents,    <span style="color:#6272a4">// .claude/agents/*.md
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  flagAgents,       <span style="color:#6272a4">// GrowthBook 远程配置
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  managedAgents,    <span style="color:#6272a4">// 最高优先级（policy settings）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> agentMap <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Map&lt;<span style="color:#ff79c6">string</span>, <span style="color:#50fa7b">AgentDefinition</span>&gt;()
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> agents <span style="color:#ff79c6">of</span> agentGroups) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> agent <span style="color:#ff79c6">of</span> agents) {
+</span></span><span style="display:flex;"><span>    agentMap.<span style="color:#ff79c6">set</span>(agent.agentType, agent)  <span style="color:#6272a4">// 后者覆盖前者
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这个设计允许企业级场景下的策略覆盖：管理员可以通过 <code>policySettings</code> 强制替换任何内置或用户定义的 Agent。</p>
+<hr>
+<h2 id="三6-个内置-agent-详解">三、6 个内置 Agent 详解</h2>
+<p><code>builtInAgents.ts</code> 中的 <code>getBuiltInAgents()</code> 函数根据 Feature Flag 动态注册内置 Agent：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> getBuiltInAgents()<span style="color:#ff79c6">:</span> AgentDefinition[] {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> agents: <span style="color:#8be9fd">AgentDefinition</span>[] <span style="color:#ff79c6">=</span> [
+</span></span><span style="display:flex;"><span>    GENERAL_PURPOSE_AGENT,      <span style="color:#6272a4">// 始终启用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    STATUSLINE_SETUP_AGENT,     <span style="color:#6272a4">// 始终启用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  ]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (areExplorePlanAgentsEnabled()) {
+</span></span><span style="display:flex;"><span>    agents.push(EXPLORE_AGENT, PLAN_AGENT)  <span style="color:#6272a4">// Feature flag 控制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (isNonSdkEntrypoint) {
+</span></span><span style="display:flex;"><span>    agents.push(CLAUDE_CODE_GUIDE_AGENT)     <span style="color:#6272a4">// 非 SDK 入口时启用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (feature(<span style="color:#f1fa8c">&#39;VERIFICATION_AGENT&#39;</span>) <span style="color:#ff79c6">&amp;&amp;</span> 
+</span></span><span style="display:flex;"><span>      getFeatureValue_CACHED_MAY_BE_STALE(<span style="color:#f1fa8c">&#39;tengu_hive_evidence&#39;</span>, <span style="color:#ff79c6">false</span>)) {
+</span></span><span style="display:flex;"><span>    agents.push(VERIFICATION_AGENT)           <span style="color:#6272a4">// Feature flag + GrowthBook 控制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> agents
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="31-general-purpose-agent--通用任务执行者">3.1 General Purpose Agent — 通用任务执行者</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>agentType</td>
+<td><code>general-purpose</code></td>
+</tr>
+<tr>
+<td>模型</td>
+<td><code>inherit</code>（继承父代模型）</td>
+</tr>
+<tr>
+<td>工具</td>
+<td><code>['*']</code>（全部工具）</td>
+</tr>
+<tr>
+<td>启用条件</td>
+<td>始终启用</td>
+</tr>
+</tbody>
+</table>
+<p>这是默认的 Sub-Agent 类型。当调用 <code>Agent</code> 工具时未指定 <code>subagent_type</code>（且 Fork 功能未开启时），自动使用此 Agent。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// generalPurposeAgent.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">const</span> GENERAL_PURPOSE_AGENT: <span style="color:#8be9fd">BuiltInAgentDefinition</span> <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  agentType<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;general-purpose&#39;</span>,
+</span></span><span style="display:flex;"><span>  whenToUse<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;General-purpose agent for researching complex questions, searching for code...&#39;</span>,
+</span></span><span style="display:flex;"><span>  tools<span style="color:#ff79c6">:</span> [<span style="color:#f1fa8c">&#39;*&#39;</span>],
+</span></span><span style="display:flex;"><span>  source<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;built-in&#39;</span>,
+</span></span><span style="display:flex;"><span>  baseDir<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;built-in&#39;</span>,
+</span></span><span style="display:flex;"><span>  getSystemPrompt: <span style="color:#8be9fd">getGeneralPurposeSystemPrompt</span>,
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="32-explore-agent--只读代码探索专家">3.2 Explore Agent — 只读代码探索专家</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>agentType</td>
+<td><code>Explore</code></td>
+</tr>
+<tr>
+<td>模型</td>
+<td>内部 <code>inherit</code> / 外部 <code>haiku</code></td>
+</tr>
+<tr>
+<td>权限</td>
+<td>只读</td>
+</tr>
+<tr>
+<td>禁止工具</td>
+<td>Agent、Edit、Write、NotebookEdit</td>
+</tr>
+<tr>
+<td>特殊优化</td>
+<td><code>omitClaudeMd: true</code>（省略 CLAUDE.md）</td>
+</tr>
+</tbody>
+</table>
+<p>Explore Agent 被设计为<strong>快速、轻量的搜索专家</strong>，强制只读模式。系统提示明确禁止任何文件修改操作：</p>
+<pre tabindex="0"><code>=== CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS ===
+This is a READ-ONLY exploration task. You are STRICTLY PROHIBITED from:
+- Creating new files (no Write, touch, or file creation of any kind)
+- Modifying existing files (no Edit operations)
+...
+</code></pre><p><strong>关键优化</strong>：设置 <code>omitClaudeMd: true</code>，省略 CLAUDE.md 层级文件。这个优化在 3400万+ 次 Explore 调用中节省了 <strong>5-15 Gtok/周</strong> 的 Token 消耗。</p>
+<h3 id="33-plan-agent--软件架构规划师">3.3 Plan Agent — 软件架构规划师</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>agentType</td>
+<td><code>Plan</code></td>
+</tr>
+<tr>
+<td>模型</td>
+<td><code>inherit</code></td>
+</tr>
+<tr>
+<td>权限</td>
+<td>只读</td>
+</tr>
+<tr>
+<td>特殊优化</td>
+<td><code>omitClaudeMd: true</code>，省略 gitStatus</td>
+</tr>
+</tbody>
+</table>
+<p>Plan Agent 与 Explore 共享同样的只读约束，但职责不同——它专注于<strong>软件架构设计和实施方案规划</strong>。输出格式要求包含步骤化实施策略和关键文件列表。</p>
+<h3 id="34-verification-agent--对抗性验证专家">3.4 Verification Agent — 对抗性验证专家</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>agentType</td>
+<td><code>verification</code></td>
+</tr>
+<tr>
+<td>模型</td>
+<td><code>inherit</code></td>
+</tr>
+<tr>
+<td>颜色</td>
+<td>red</td>
+</tr>
+<tr>
+<td>后台</td>
+<td><code>true</code>（始终后台运行）</td>
+</tr>
+<tr>
+<td>特殊</td>
+<td><code>criticalSystemReminder_EXPERIMENTAL</code></td>
+</tr>
+</tbody>
+</table>
+<p>这是最&quot;狠&quot;的内置 Agent。它的设计哲学是**&ldquo;不是确认实现正确，而是尝试打破它&rdquo;**。</p>
+<p>系统提示中有一段极具洞见的&quot;自我认知&quot;指导：</p>
+<pre tabindex="0"><code>You have two documented failure patterns. First, verification avoidance: 
+when faced with a check, you find reasons not to run it — you read code, 
+narrate what you would test, write &#34;PASS,&#34; and move on. Second, being 
+seduced by the first 80%: you see a polished UI or a passing test suite 
+and feel inclined to pass it, not noticing half the buttons do nothing...
+</code></pre><p><strong><code>criticalSystemReminder_EXPERIMENTAL</code></strong> 是一个在每个 user turn 都注入的提醒：</p>
+<pre tabindex="0"><code>CRITICAL: This is a VERIFICATION-ONLY task. You CANNOT edit, write, or 
+create files IN THE PROJECT DIRECTORY. You MUST end with VERDICT: PASS, 
+VERDICT: FAIL, or VERDICT: PARTIAL.
+</code></pre><p>输出格式严格规定为 <code>VERDICT: PASS / FAIL / PARTIAL</code>。</p>
+<h3 id="35-claude-code-guide-agent--使用指南顾问">3.5 Claude Code Guide Agent — 使用指南顾问</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>agentType</td>
+<td><code>claude-code-guide</code></td>
+</tr>
+<tr>
+<td>模型</td>
+<td><code>haiku</code>（快速响应）</td>
+</tr>
+<tr>
+<td>permissionMode</td>
+<td><code>dontAsk</code>（完全无需权限确认）</td>
+</tr>
+<tr>
+<td>工具</td>
+<td>Glob、Grep、Read、WebFetch、WebSearch</td>
+</tr>
+</tbody>
+</table>
+<p>Guide Agent 是唯一一个使用<strong>动态上下文注入</strong>的内置 Agent。它的 <code>getSystemPrompt</code> 接收 <code>toolUseContext</code>，在运行时注入：</p>
+<ol>
+<li>用户配置的自定义 Skills</li>
+<li>自定义 Agents 列表</li>
+<li>已连接的 MCP 服务器</li>
+<li>插件命令</li>
+<li>用户 settings.json</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span>getSystemPrompt({ toolUseContext }) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> commands <span style="color:#ff79c6">=</span> toolUseContext.options.commands
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> contextSections: <span style="color:#8be9fd">string</span>[] <span style="color:#ff79c6">=</span> []
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. 注入自定义 Skills
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> customCommands <span style="color:#ff79c6">=</span> commands.filter(cmd <span style="color:#ff79c6">=&gt;</span> cmd.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;prompt&#39;</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (customCommands.length <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>    contextSections.push(<span style="color:#f1fa8c">`**Available custom skills:**</span>\<span style="color:#f1fa8c">n</span><span style="color:#f1fa8c">${</span>commandList<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">`</span>)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. 注入自定义 Agents
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 3. 注入 MCP 服务器
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 4. 注入用户设置
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// ...
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><h3 id="36-statusline-setup-agent--状态栏配置师">3.6 Statusline Setup Agent — 状态栏配置师</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>agentType</td>
+<td><code>statusline-setup</code></td>
+</tr>
+<tr>
+<td>模型</td>
+<td><code>sonnet</code></td>
+</tr>
+<tr>
+<td>颜色</td>
+<td>orange</td>
+</tr>
+<tr>
+<td>工具</td>
+<td><code>['Read', 'Edit']</code></td>
+</tr>
+</tbody>
+</table>
+<p>最轻量的内置 Agent，仅用于配置 Claude Code 终端状态栏，能够解析用户的 shell PS1 配置并转换为 Claude Code 的 statusLine 格式。</p>
+<hr>
+<h2 id="四sub-agent-完整生命周期">四、Sub-Agent 完整生命周期</h2>
+<p>
+  <img src="/img/claude-code/subagent-lifecycle.svg" alt="Sub-Agent 完整生命周期">
+
+</p>
+<h3 id="41-调用入口与类型路由">4.1 调用入口与类型路由</h3>
+<p>当主 Agent 调用 <code>Agent</code> 工具时，入口在 <code>AgentTool.tsx</code> 的 <code>call()</code> 方法。输入 Schema：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  description: <span style="color:#8be9fd">string</span>,         <span style="color:#6272a4">// 3-5 字简短描述
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  prompt: <span style="color:#8be9fd">string</span>,              <span style="color:#6272a4">// 任务提示
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  subagent_type?: <span style="color:#8be9fd">string</span>,      <span style="color:#6272a4">// Agent 类型（可选）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  model<span style="color:#ff79c6">?:</span> <span style="color:#f1fa8c">&#39;sonnet&#39;</span><span style="color:#ff79c6">|</span><span style="color:#f1fa8c">&#39;opus&#39;</span><span style="color:#ff79c6">|</span><span style="color:#f1fa8c">&#39;haiku&#39;</span>,  <span style="color:#6272a4">// 模型覆盖
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  run_in_background?: <span style="color:#8be9fd">boolean</span>, <span style="color:#6272a4">// 后台运行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  name?: <span style="color:#8be9fd">string</span>,               <span style="color:#6272a4">// Agent 名称（用于 SendMessage 路由）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  isolation<span style="color:#ff79c6">?:</span> <span style="color:#f1fa8c">&#39;worktree&#39;</span><span style="color:#ff79c6">|</span><span style="color:#f1fa8c">&#39;remote&#39;</span>, <span style="color:#6272a4">// 隔离模式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p><strong>类型路由逻辑</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// AgentTool.tsx
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> effectiveType <span style="color:#ff79c6">=</span> subagent_type 
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">??</span> (isForkSubagentEnabled() <span style="color:#ff79c6">?</span> <span style="color:#ff79c6">undefined</span> <span style="color:#ff79c6">:</span> GENERAL_PURPOSE_AGENT.agentType)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> isForkPath <span style="color:#ff79c6">=</span> effectiveType <span style="color:#ff79c6">===</span> <span style="color:#ff79c6">undefined</span>
+</span></span></code></pre></div><ul>
+<li><code>subagent_type</code> 明确指定 → 使用该类型</li>
+<li>省略且 Fork 功能开启 → 进入 Fork 路径</li>
+<li>省略且 Fork 未开启 → 默认使用 <code>general-purpose</code></li>
+</ul>
+<h3 id="42-agent-选择与验证">4.2 Agent 选择与验证</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 1. 从活跃 Agent 列表中过滤被权限规则拒绝的
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> agents <span style="color:#ff79c6">=</span> filterDeniedAgents(allAgents, toolPermissionContext, AGENT_TOOL_NAME)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 2. 查找目标 Agent
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> found <span style="color:#ff79c6">=</span> agents.find(agent <span style="color:#ff79c6">=&gt;</span> agent.agentType <span style="color:#ff79c6">===</span> effectiveType)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 3. 如果不存在但被权限拒绝，给出明确错误
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">if</span> (agentExistsButDenied) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">throw</span> <span style="color:#ff79c6">new</span> <span style="color:#8be9fd;font-style:italic">Error</span>(<span style="color:#f1fa8c">`Agent type &#39;</span><span style="color:#f1fa8c">${</span>effectiveType<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&#39; has been denied by permission rule...`</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 4. 等待 MCP 服务器就绪（最多 30 秒）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">if</span> (requiredMcpServers<span style="color:#ff79c6">?</span>.length) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// ... 轮询等待 MCP 连接
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><h3 id="43-工具池组装">4.3 工具池组装</h3>
+<p>Worker 独立于父代组装自己的工具池，避免工具定义的耦合：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// AgentTool.tsx
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> workerPermissionContext <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  ...appState.toolPermissionContext,
+</span></span><span style="display:flex;"><span>  mode: <span style="color:#8be9fd">selectedAgent.permissionMode</span> <span style="color:#ff79c6">??</span> <span style="color:#f1fa8c">&#39;acceptEdits&#39;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> workerTools <span style="color:#ff79c6">=</span> assembleToolPool(workerPermissionContext, appState.mcp.tools)
+</span></span></code></pre></div><h3 id="44-系统提示构建fork-vs-标准路径">4.4 系统提示构建（Fork vs 标准路径）</h3>
+<p>这是整个系统最关键的分叉点：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">if</span> (isForkPath) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// Fork 路径：继承父代的已渲染系统提示（字节级一致！）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  forkParentSystemPrompt <span style="color:#ff79c6">=</span> toolUseContext.renderedSystemPrompt
+</span></span><span style="display:flex;"><span>  promptMessages <span style="color:#ff79c6">=</span> buildForkedMessages(prompt, assistantMessage)
+</span></span><span style="display:flex;"><span>} <span style="color:#ff79c6">else</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 标准路径：使用 Agent 自己的 getSystemPrompt()
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> agentPrompt <span style="color:#ff79c6">=</span> selectedAgent.getSystemPrompt({ toolUseContext })
+</span></span><span style="display:flex;"><span>  enhancedSystemPrompt <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> enhanceSystemPromptWithEnvDetails([agentPrompt], ...)
+</span></span><span style="display:flex;"><span>  promptMessages <span style="color:#ff79c6">=</span> [createUserMessage({ content: <span style="color:#8be9fd">prompt</span> })]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="45-执行模式选择">4.5 执行模式选择</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> shouldRunAsync <span style="color:#ff79c6">=</span> (
+</span></span><span style="display:flex;"><span>  run_in_background <span style="color:#ff79c6">===</span> <span style="color:#ff79c6">true</span> <span style="color:#ff79c6">||</span>
+</span></span><span style="display:flex;"><span>  selectedAgent.background <span style="color:#ff79c6">===</span> <span style="color:#ff79c6">true</span> <span style="color:#ff79c6">||</span>
+</span></span><span style="display:flex;"><span>  isCoordinator <span style="color:#ff79c6">||</span>
+</span></span><span style="display:flex;"><span>  forceAsync <span style="color:#ff79c6">||</span>              <span style="color:#6272a4">// Fork 实验：全部异步化
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  assistantForceAsync <span style="color:#ff79c6">||</span>     <span style="color:#6272a4">// KAIROS 模式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  proactiveModule<span style="color:#ff79c6">?</span>.isProactiveActive()
+</span></span><span style="display:flex;"><span>) <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#ff79c6">!</span>isBackgroundTasksDisabled
+</span></span></code></pre></div><h3 id="46-进入-runagent-会话循环">4.6 进入 runAgent() 会话循环</h3>
+<p><code>runAgent()</code> 是一个 <code>async generator</code>，核心流程：</p>
+<pre tabindex="0"><code>1. 解析模型 (getAgentModel)
+2. 生成 agentId
+3. 构建上下文 (createSubagentContext)
+4. 执行 SubagentStart hooks
+5. 注册 frontmatter hooks
+6. 预加载 Skills
+7. 初始化 Agent MCP 服务器
+8. 调用 query() 进入 LLM 对话循环
+   ├── 每条消息 yield 给调用者
+   ├── 记录 sidechain transcript
+   └── 受 maxTurns 限制
+9. finally 块清理
+   ├── MCP 清理
+   ├── Session hooks 清理
+   ├── Prompt cache tracking 清理
+   ├── File state cache 释放
+   ├── Perfetto agent 注销
+   ├── Transcript subdir 清除
+   ├── Todos 条目清除
+   └── Shell 任务终止
+</code></pre><h4 id="深入createsubagentcontext-的状态隔离模型">深入：<code>createSubagentContext</code> 的状态隔离模型</h4>
+<p>这是 Sub-Agent 技术实现中最关键的函数之一。它对 <code>ToolUseContext</code> 的每个字段采取三种策略——<strong>克隆、新建、No-op</strong>——精确控制父子 Agent 之间的状态边界：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// forkedAgent.ts — 三策略隔离模型
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> createSubagentContext(parentContext, overrides<span style="color:#ff79c6">?</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ===== 克隆（Clone）：避免交叉污染但保留初始状态 =====
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    readFileState: <span style="color:#8be9fd">cloneFileStateCache</span>(overrides<span style="color:#ff79c6">?</span>.readFileState <span style="color:#ff79c6">??</span> parentContext.readFileState),
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 关键：contentReplacementState 必须克隆而非新建！
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 原因：fork 子代处理父消息中的 tool_use_id 时，
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 如果是新建状态，会将这些 ID 视为&#34;从未见过&#34; → 做出不同的替换决策
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// → wire prefix 不同 → Prompt Cache miss
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 克隆确保做出相同决策 → 相同的 wire prefix → Cache hit
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    contentReplacementState: <span style="color:#8be9fd">overrides?.contentReplacementState</span> 
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">??</span> cloneContentReplacementState(parentContext.contentReplacementState),
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ===== 新建（Fresh）：完全独立的实例 =====
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    nestedMemoryAttachmentTriggers: <span style="color:#8be9fd">new</span> Set&lt;<span style="color:#ff79c6">string</span>&gt;(),
+</span></span><span style="display:flex;"><span>    discoveredSkillNames: <span style="color:#8be9fd">new</span> Set&lt;<span style="color:#ff79c6">string</span>&gt;(),
+</span></span><span style="display:flex;"><span>    localDenialTracking: <span style="color:#8be9fd">createDenialTrackingState</span>(), <span style="color:#6272a4">// 独立的拒绝追踪
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    queryTracking<span style="color:#ff79c6">:</span> { chainId: <span style="color:#8be9fd">randomUUID</span>(), depth: <span style="color:#8be9fd">parentDepth</span> <span style="color:#ff79c6">+</span> <span style="color:#bd93f9">1</span> },
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// ===== No-op / 共享 =====
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    setAppState: <span style="color:#8be9fd">overrides?.shareSetAppState</span> <span style="color:#ff79c6">?</span> parentContext.setAppState <span style="color:#ff79c6">:</span> () <span style="color:#ff79c6">=&gt;</span> {},
+</span></span><span style="display:flex;"><span>    setAppStateForTasks: <span style="color:#8be9fd">parentContext.setAppStateForTasks</span>, <span style="color:#6272a4">// 始终共享！防止僵尸进程
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// UI 回调全部 undefined（子 Agent 无法控制父 UI）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    addNotification: <span style="color:#8be9fd">undefined</span>,
+</span></span><span style="display:flex;"><span>    setToolJSX: <span style="color:#8be9fd">undefined</span>,
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>为什么 <code>setAppStateForTasks</code> 必须始终共享？</strong> 即使 <code>setAppState</code> 是 no-op（异步 Agent 无法修改父状态），bash task 的注册和 kill 必须到达 root store。否则异步 Agent 产生的后台 shell 循环（如 <code>fake-logs.sh</code>）会变成 PPID=1 的僵尸进程——主会话退出后仍然存活。</p>
+<h4 id="深入abortcontroller-的-weakref-联动">深入：AbortController 的 WeakRef 联动</h4>
+<p>子 Agent 的 AbortController 通过 <code>createChildAbortController</code> 创建，使用 <strong>WeakRef</strong> 实现单向传播 + 内存安全：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// abortController.ts — WeakRef 防止内存泄漏
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> createChildAbortController(parent) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> child <span style="color:#ff79c6">=</span> createAbortController(<span style="color:#bd93f9">50</span>) <span style="color:#6272a4">// maxListeners=50
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> weakChild <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> WeakRef(child)   <span style="color:#6272a4">// 父不强持有子
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> weakParent <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> WeakRef(parent) <span style="color:#6272a4">// 子不强持有父
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 父 abort → 传播到子（单向）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  parent.signal.addEventListener(<span style="color:#f1fa8c">&#39;abort&#39;</span>, 
+</span></span><span style="display:flex;"><span>    propagateAbort.bind(weakParent, weakChild), { once: <span style="color:#8be9fd">true</span> })
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 子 abort → 清理父上的 listener（防止 handler 堆积）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  child.signal.addEventListener(<span style="color:#f1fa8c">&#39;abort&#39;</span>,
+</span></span><span style="display:flex;"><span>    removeAbortHandler.bind(weakParent, <span style="color:#ff79c6">new</span> WeakRef(handler)), { once: <span style="color:#8be9fd">true</span> })
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> child <span style="color:#6272a4">// 子 abort 不影响父！
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p>三级优先级：<code>override.abortController &gt; shareAbortController（共享父代） &gt; createChildAbortController（默认）</code></p>
+<h4 id="深入权限模式的层级覆盖">深入：权限模式的层级覆盖</h4>
+<p><code>agentGetAppState()</code> 闭包每次调用都重新获取 parent state 并做条件覆盖，实现了精细的权限降级防护：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> agentGetAppState <span style="color:#ff79c6">=</span> () <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> state <span style="color:#ff79c6">=</span> toolUseContext.getAppState()
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. permissionMode 覆盖 — 但最高权限级别不被降级
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (agentPermissionMode <span style="color:#ff79c6">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>      state.mode <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;bypassPermissions&#39;</span> <span style="color:#ff79c6">&amp;&amp;</span>  <span style="color:#6272a4">// 最高，不可降级
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      state.mode <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;acceptEdits&#39;</span> <span style="color:#ff79c6">&amp;&amp;</span>         <span style="color:#6272a4">// 次高，不可降级
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">!</span>(feature(<span style="color:#f1fa8c">&#39;TRANSCRIPT_CLASSIFIER&#39;</span>) <span style="color:#ff79c6">&amp;&amp;</span> state.mode <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;auto&#39;</span>)) {
+</span></span><span style="display:flex;"><span>    toolPermissionContext <span style="color:#ff79c6">=</span> { ...toolPermissionContext, mode: <span style="color:#8be9fd">agentPermissionMode</span> }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. shouldAvoidPrompts — bubble 模式的特殊行为
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">//    bubble: 即使异步也显示提示（冒泡到父终端）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">//    非 bubble 异步: 隐避提示（auto-deny）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> shouldAvoidPrompts <span style="color:#ff79c6">=</span> agentPermissionMode <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;bubble&#39;</span> <span style="color:#ff79c6">?</span> <span style="color:#ff79c6">false</span> <span style="color:#ff79c6">:</span> isAsync
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 3. awaitAutomatedChecksBeforeDialog
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">//    后台 Agent 如果能显示提示，应先等待自动化检查完成，
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">//    只在自动化检查无法解决时才中断用户
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (isAsync <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#ff79c6">!</span>shouldAvoidPrompts) {
+</span></span><span style="display:flex;"><span>    toolPermissionContext.awaitAutomatedChecksBeforeDialog <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="47-结果最终化">4.7 结果最终化</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> finalizeAgentTool(agentMessages, agentId, metadata) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 提取最后一条 assistant 消息的文本内容
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> lastAssistantMessage <span style="color:#ff79c6">=</span> getLastAssistantMessage(agentMessages)
+</span></span><span style="display:flex;"><span>  <span style="color:#8be9fd;font-style:italic">let</span> content <span style="color:#ff79c6">=</span> lastAssistantMessage.message.content.filter(_ <span style="color:#ff79c6">=&gt;</span> _.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;text&#39;</span>)
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 统计 token 使用和工具调用次数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> totalTokens <span style="color:#ff79c6">=</span> getTokenCountFromUsage(lastAssistantMessage.message.usage)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> totalToolUseCount <span style="color:#ff79c6">=</span> countToolUses(agentMessages)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 发送缓存驱逐提示
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  logEvent(<span style="color:#f1fa8c">&#39;tengu_cache_eviction_hint&#39;</span>, { scope<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;subagent_end&#39;</span>, ... })
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> { agentId, agentType, content, totalDurationMs, totalTokens, totalToolUseCount, usage }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="五fork-sub-agentprompt-cache-共享的精巧设计">五、Fork Sub-Agent：Prompt Cache 共享的精巧设计</h2>
+<p>Fork Sub-Agent 是 Claude Code 在 Token 优化方面最精巧的设计之一。</p>
+<p>
+  <img src="/img/claude-code/subagent-fork-cache.svg" alt="Fork Sub-Agent Prompt Cache 共享机制">
+
+</p>
+<h3 id="51-核心思想">5.1 核心思想</h3>
+<p><strong>所有 Fork 子代共享父代的 Prompt Cache 前缀</strong>。这意味着多个并行 Fork 子代不会各自消耗 cache_creation tokens，而是复用父代已缓存的系统提示和工具定义。</p>
+<h3 id="52-feature-gate">5.2 Feature Gate</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> isForkSubagentEnabled()<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">boolean</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (feature(<span style="color:#f1fa8c">&#39;FORK_SUBAGENT&#39;</span>)) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (isCoordinatorMode()) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>   <span style="color:#6272a4">// 与 Coordinator 互斥
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (getIsNonInteractiveSession()) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span> <span style="color:#6272a4">// 非交互会话不支持
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="53-fork-vs-标准-sub-agent-关键差异">5.3 Fork vs 标准 Sub-Agent 关键差异</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>标准 Sub-Agent</th>
+<th>Fork Sub-Agent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>上下文</td>
+<td>全新，零上下文</td>
+<td>继承父代完整会话上下文</td>
+</tr>
+<tr>
+<td>系统提示</td>
+<td>Agent 自己的 <code>getSystemPrompt()</code></td>
+<td>父代的已渲染系统提示（字节级一致）</td>
+</tr>
+<tr>
+<td>工具池</td>
+<td><code>workerTools</code>（独立构建）</td>
+<td>父代的精确工具池</td>
+</tr>
+<tr>
+<td>Prompt Cache</td>
+<td>独立缓存链</td>
+<td><strong>共享父代缓存</strong></td>
+</tr>
+<tr>
+<td>思考配置</td>
+<td><code>{ type: 'disabled' }</code></td>
+<td>继承父代的 <code>thinkingConfig</code></td>
+</tr>
+<tr>
+<td>模型</td>
+<td>可覆盖</td>
+<td>必须 <code>inherit</code></td>
+</tr>
+<tr>
+<td>权限模式</td>
+<td><code>acceptEdits</code>（默认）</td>
+<td><code>bubble</code>（冒泡到父终端）</td>
+</tr>
+<tr>
+<td>maxTurns</td>
+<td>Agent 定义或默认</td>
+<td>200</td>
+</tr>
+</tbody>
+</table>
+<h3 id="54-fork-消息构建">5.4 Fork 消息构建</h3>
+<p><code>buildForkedMessages()</code> 的核心设计目标是<strong>最大化 Prompt Cache 命中率</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> buildForkedMessages(
+</span></span><span style="display:flex;"><span>  directive: <span style="color:#8be9fd">string</span>,
+</span></span><span style="display:flex;"><span>  assistantMessage: <span style="color:#8be9fd">AssistantMessage</span>,
+</span></span><span style="display:flex;"><span>)<span style="color:#ff79c6">:</span> MessageType[] {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. 克隆父代的完整 assistant 消息（保留所有 tool_use、thinking、text 块）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> fullAssistantMessage <span style="color:#ff79c6">=</span> { ...assistantMessage, uuid: <span style="color:#8be9fd">randomUUID</span>(), ... }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. 为每个 tool_use 构建统一占位符 tool_result
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> toolResultBlocks <span style="color:#ff79c6">=</span> toolUseBlocks.map(block <span style="color:#ff79c6">=&gt;</span> ({
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;tool_result&#39;</span>,
+</span></span><span style="display:flex;"><span>    tool_use_id: <span style="color:#8be9fd">block.id</span>,
+</span></span><span style="display:flex;"><span>    content<span style="color:#ff79c6">:</span> [{ <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;text&#39;</span>, text<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;Fork started — processing in background&#39;</span> }]
+</span></span><span style="display:flex;"><span>  }))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 3. 构建单一 user 消息：占位符 results + 每子代独有指令
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> toolResultMessage <span style="color:#ff79c6">=</span> createUserMessage({
+</span></span><span style="display:flex;"><span>    content<span style="color:#ff79c6">:</span> [...toolResultBlocks, { <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;text&#39;</span>, text: <span style="color:#8be9fd">buildChildMessage</span>(directive) }]
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> [fullAssistantMessage, toolResultMessage]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>结构</strong>：<code>[...历史消息, assistant(所有tool_use块), user(占位符tool_results..., 每子代独有指令)]</code></p>
+<p>关键细节：</p>
+<ul>
+<li>所有 <code>tool_result</code> 使用相同文本 <code>&quot;Fork started — processing in background&quot;</code></li>
+<li>只有最后的 text 块（指令）不同</li>
+<li>→ <strong>所有 Fork 子代的消息前缀字节一致，最大化缓存共享</strong></li>
+</ul>
+<h3 id="55-fork-子代指令格式">5.5 Fork 子代指令格式</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#ff79c6">&lt;fork-boilerplate&gt;</span>
+</span></span><span style="display:flex;"><span>STOP. READ THIS FIRST.
+</span></span><span style="display:flex;"><span>You are a forked worker process. You are NOT the main agent.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RULES (non-negotiable):
+</span></span><span style="display:flex;"><span>1. Do NOT spawn sub-agents; execute directly
+</span></span><span style="display:flex;"><span>2. Do NOT converse, ask questions
+</span></span><span style="display:flex;"><span>3. USE your tools directly
+</span></span><span style="display:flex;"><span>4. If you modify files, commit your changes
+</span></span><span style="display:flex;"><span>5. Keep report under 500 words
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">&lt;/fork-boilerplate&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>FORK_DIRECTIVE: {directive}
+</span></span></code></pre></div><h3 id="56-递归-fork-保护">5.6 递归 Fork 保护</h3>
+<p>双重保护机制防止 Fork 子代再次 Fork：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 方式一：检查 querySource（抗 autocompact）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">if</span> (toolUseContext.options.querySource <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;agent:builtin:fork&#39;</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">throw</span> <span style="color:#ff79c6">new</span> <span style="color:#8be9fd;font-style:italic">Error</span>(<span style="color:#f1fa8c">&#39;Fork is not available inside a forked worker.&#39;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 方式二：消息内容扫描（备用）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">function</span> isInForkChild(messages: <span style="color:#8be9fd">MessageType</span>[])<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">boolean</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> messages.some(m <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (m.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;user&#39;</span>) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> content.some(block <span style="color:#ff79c6">=&gt;</span>
+</span></span><span style="display:flex;"><span>      block.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;text&#39;</span> <span style="color:#ff79c6">&amp;&amp;</span> block.text.includes(<span style="color:#f1fa8c">`&lt;fork-boilerplate&gt;`</span>)
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>querySource</code> 设置在 <code>context.options</code> 上，能够在 autocompact（消息压缩）后存活。消息扫描作为 fallback 兜底。</p>
+<hr>
+<h2 id="六三层工具过滤机制">六、三层工具过滤机制</h2>
+<p>Claude Code 使用三层过滤确保每个 Sub-Agent 只能使用它应该使用的工具。</p>
+<p>
+  <img src="/img/claude-code/subagent-tool-filter.svg" alt="三层工具过滤机制">
+
+</p>
+<h3 id="61-第一层全局过滤filtertoolsforagent">6.1 第一层：全局过滤（filterToolsForAgent）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> filterToolsForAgent({ tools, isBuiltIn, isAsync, permissionMode }) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> tools.filter(tool <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// MCP 工具始终放行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (tool.name.startsWith(<span style="color:#f1fa8c">&#39;mcp__&#39;</span>)) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 全局禁止列表
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (ALL_AGENT_DISALLOWED_TOOLS.has(tool.name)) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 自定义 Agent 额外禁止列表
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>isBuiltIn <span style="color:#ff79c6">&amp;&amp;</span> CUSTOM_AGENT_DISALLOWED_TOOLS.has(tool.name)) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 异步 Agent 白名单过滤
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (isAsync <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#ff79c6">!</span>ASYNC_AGENT_ALLOWED_TOOLS.has(tool.name)) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>全局禁止（ALL_AGENT_DISALLOWED_TOOLS）</strong>：</p>
+<ul>
+<li><code>TaskOutput</code>、<code>ExitPlanMode_v2</code>、<code>EnterPlanMode</code></li>
+<li><code>Agent</code>（外部版本禁止嵌套；ant 版允许）</li>
+<li><code>TaskStop</code>、<code>Workflow</code></li>
+</ul>
+<p><strong>异步 Agent 白名单（ASYNC_AGENT_ALLOWED_TOOLS）</strong>：</p>
+<ul>
+<li>Read, WebSearch, TodoWrite, Grep, WebFetch, Glob</li>
+<li>Bash/Shell, Edit, Write, NotebookEdit</li>
+<li>Skill, SyntheticOutput, ToolSearch</li>
+<li>EnterWorktree, ExitWorktree</li>
+</ul>
+<h3 id="62-第二层agent-定义级过滤resolveagenttools">6.2 第二层：Agent 定义级过滤（resolveAgentTools）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> resolveAgentTools(agentDefinition, availableTools, isAsync) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 先应用第一层全局过滤
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> filteredAvailableTools <span style="color:#ff79c6">=</span> filterToolsForAgent(...)
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 应用 disallowedTools 排除
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> allowedAvailableTools <span style="color:#ff79c6">=</span> filteredAvailableTools.filter(
+</span></span><span style="display:flex;"><span>    tool <span style="color:#ff79c6">=&gt;</span> <span style="color:#ff79c6">!</span>disallowedToolSet.has(tool.name)
+</span></span><span style="display:flex;"><span>  )
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// tools: [&#39;*&#39;] → 使用全部
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// tools: [&#39;Read&#39;, &#39;Bash&#39;] → 只包含列出的
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (hasWildcard) <span style="color:#ff79c6">return</span> { resolvedTools: <span style="color:#8be9fd">allowedAvailableTools</span> }
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 精确匹配
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> toolSpec <span style="color:#ff79c6">of</span> agentTools) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> tool <span style="color:#ff79c6">=</span> availableToolMap.<span style="color:#ff79c6">get</span>(toolName)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (tool) resolved.push(tool)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="63-第三层allowedagenttypes-元数据">6.3 第三层：allowedAgentTypes 元数据</h3>
+<p>通过 <code>Agent(worker, researcher)</code> 语法限制可产生的子 Agent 类型：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 解析 &#34;Agent(worker, researcher)&#34; 中的类型列表
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">if</span> (toolName <span style="color:#ff79c6">===</span> AGENT_TOOL_NAME <span style="color:#ff79c6">&amp;&amp;</span> ruleContent) {
+</span></span><span style="display:flex;"><span>  allowedAgentTypes <span style="color:#ff79c6">=</span> ruleContent.split(<span style="color:#f1fa8c">&#39;,&#39;</span>).map(s <span style="color:#ff79c6">=&gt;</span> s.trim())
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="64-fork-路径的特殊处理">6.4 Fork 路径的特殊处理</h3>
+<p>Fork 子代使用 <code>useExactTools: true</code>，<strong>完全跳过</strong> <code>resolveAgentTools()</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> resolvedTools <span style="color:#ff79c6">=</span> useExactTools
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">?</span> availableTools  <span style="color:#6272a4">// 直接使用父代的精确工具池
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">:</span> resolveAgentTools(agentDefinition, availableTools, isAsync).resolvedTools
+</span></span></code></pre></div><p>这保证了 API 请求中工具定义的<strong>字节级一致</strong>，从而命中 Prompt Cache。</p>
+<hr>
+<h2 id="七权限冒泡permission-bubbling">七、权限冒泡（Permission Bubbling）</h2>
+<h3 id="71-bubble-权限模式">7.1 <code>bubble</code> 权限模式</h3>
+<p><code>bubble</code> 是一个内部权限模式（不对用户暴露），专为 Fork Sub-Agent 设计：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// runAgent.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> shouldAvoidPrompts <span style="color:#ff79c6">=</span>
+</span></span><span style="display:flex;"><span>  canShowPermissionPrompts <span style="color:#ff79c6">!==</span> <span style="color:#ff79c6">undefined</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">?</span> <span style="color:#ff79c6">!</span>canShowPermissionPrompts
+</span></span><span style="display:flex;"><span>    : <span style="color:#8be9fd">agentPermissionMode</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;bubble&#39;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">?</span> <span style="color:#ff79c6">false</span>   <span style="color:#6272a4">// bubble 模式：始终不隐避提示
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">:</span> isAsync  <span style="color:#6272a4">// 普通异步 Agent：隐避提示
+</span></span></span></code></pre></div><p>关键行为：</p>
+<ul>
+<li><strong>bubble 模式下，即使 Agent 是异步的，权限提示仍然显示在父终端</strong></li>
+<li>对于后台 Agent 且可显示提示的，设置 <code>awaitAutomatedChecksBeforeDialog: true</code></li>
+</ul>
+<h3 id="72-工具权限作用域隔离">7.2 工具权限作用域隔离</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">if</span> (allowedTools <span style="color:#ff79c6">!==</span> <span style="color:#ff79c6">undefined</span>) {
+</span></span><span style="display:flex;"><span>  toolPermissionContext <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>    ...toolPermissionContext,
+</span></span><span style="display:flex;"><span>    alwaysAllowRules<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>      cliArg: <span style="color:#8be9fd">state.toolPermissionContext.alwaysAllowRules.cliArg</span>, <span style="color:#6272a4">// 保留 SDK 级权限
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      session<span style="color:#ff79c6">:</span> [...allowedTools], <span style="color:#6272a4">// 用提供的作为会话级权限
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    },
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这防止了父代的 session-level 权限泄漏到子代。</p>
+<hr>
+<h2 id="八模型选择机制">八、模型选择机制</h2>
+<p><code>getAgentModel()</code> 的优先级链：</p>
+<pre tabindex="0"><code>1. 环境变量 CLAUDE_CODE_SUBAGENT_MODEL → 最高
+2. 工具调用指定的 model 参数 → 次高
+3. Agent 定义的 model 字段 → 次低
+4. getDefaultSubagentModel() → &#39;inherit&#39; → 最低
+</code></pre><p><code>'inherit'</code> 的解析逻辑：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">if</span> (agentModelWithExp <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;inherit&#39;</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> getRuntimeMainLoopModel({
+</span></span><span style="display:flex;"><span>    permissionMode: <span style="color:#8be9fd">permissionMode</span> <span style="color:#ff79c6">??</span> <span style="color:#f1fa8c">&#39;default&#39;</span>,
+</span></span><span style="display:flex;"><span>    mainLoopModel: <span style="color:#8be9fd">parentModel</span>,
+</span></span><span style="display:flex;"><span>    exceeds200kTokens: <span style="color:#8be9fd">false</span>,
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>别名匹配优化</strong>：如果 <code>sonnet</code> 别名匹配父代的 tier（如父代已经是 Sonnet），直接使用父代的精确模型字符串，避免别名解析到不同版本。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> aliasMatchesParentTier(alias: <span style="color:#8be9fd">string</span>, parentModel: <span style="color:#8be9fd">string</span>)<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">boolean</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> canonical <span style="color:#ff79c6">=</span> getCanonicalName(parentModel)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">switch</span> (alias.toLowerCase()) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;opus&#39;</span><span style="color:#ff79c6">:</span>   <span style="color:#ff79c6">return</span> canonical.includes(<span style="color:#f1fa8c">&#39;opus&#39;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;sonnet&#39;</span><span style="color:#ff79c6">:</span> <span style="color:#ff79c6">return</span> canonical.includes(<span style="color:#f1fa8c">&#39;sonnet&#39;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;haiku&#39;</span><span style="color:#ff79c6">:</span>  <span style="color:#ff79c6">return</span> canonical.includes(<span style="color:#f1fa8c">&#39;haiku&#39;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">default</span><span style="color:#ff79c6">:</span>       <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>Bedrock 区域前缀继承</strong>：子代自动继承父代的跨区域推理前缀（如 <code>eu.</code>、<code>us.</code>），除非子代显式指定了自己的区域。</p>
+<hr>
+<h2 id="九异步后台-agent-生命周期">九、异步/后台 Agent 生命周期</h2>
+<h3 id="91-触发条件">9.1 触发条件</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> shouldRunAsync <span style="color:#ff79c6">=</span> (
+</span></span><span style="display:flex;"><span>  run_in_background <span style="color:#ff79c6">===</span> <span style="color:#ff79c6">true</span> <span style="color:#ff79c6">||</span>       <span style="color:#6272a4">// 明确请求
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  selectedAgent.background <span style="color:#ff79c6">===</span> <span style="color:#ff79c6">true</span> <span style="color:#ff79c6">||</span> <span style="color:#6272a4">// Agent 定义标记
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  isCoordinator <span style="color:#ff79c6">||</span>                     <span style="color:#6272a4">// Coordinator 模式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  forceAsync <span style="color:#ff79c6">||</span>                        <span style="color:#6272a4">// Fork 实验（全部异步化）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  assistantForceAsync <span style="color:#ff79c6">||</span>               <span style="color:#6272a4">// KAIROS 模式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  proactiveModule<span style="color:#ff79c6">?</span>.isProactiveActive() <span style="color:#6272a4">// 主动模式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>) <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#ff79c6">!</span>isBackgroundTasksDisabled
+</span></span></code></pre></div><h3 id="92-异步生命周期runasyncagentlifecycle">9.2 异步生命周期（runAsyncAgentLifecycle）</h3>
+<pre tabindex="0"><code>1. registerAsyncAgent() → 在 AppState.tasks 中创建条目
+2. 名称注册 → agentNameRegistry（用于 SendMessage 路由）
+3. 创建 ProgressTracker → 追踪 token 和工具调用
+4. 可选启动摘要 → startAgentSummarization()
+5. for await (message of makeStream(...)):
+   ├── agentMessages.push(message)
+   ├── updateProgressFromMessage()
+   └── updateAsyncAgentProgress()
+6. finalizeAgentTool() → 生成最终结果
+7. completeAsyncAgent() → 标记完成
+8. classifyHandoffIfNeeded() → 安全分类器审查
+9. enqueueAgentNotification() → &lt;task-notification&gt; 通知父代
+</code></pre><h3 id="93-同步到异步的转换">9.3 同步到异步的转换</h3>
+<p>同步 Agent 注册为 foreground 任务后，支持<strong>中途背景化</strong>——这是一个精巧的<strong>运行时执行模式热切换</strong>：</p>
+<p><strong>原理</strong>：同步执行的消息循环中，通过 <code>Promise.race</code> 同时竞争两个 Promise——下一条 LLM 消息和背景化信号。当用户触发 <code>backgroundAll()</code> 时，背景化 Promise 先 resolve，触发模式切换。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 注册时设置 120 秒自动背景化计时器
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> registration <span style="color:#ff79c6">=</span> registerAgentForeground({
+</span></span><span style="display:flex;"><span>  agentId: <span style="color:#8be9fd">syncAgentId</span>,
+</span></span><span style="display:flex;"><span>  autoBackgroundMs: <span style="color:#8be9fd">getAutoBackgroundMs</span>() <span style="color:#ff79c6">||</span> <span style="color:#ff79c6">undefined</span> <span style="color:#6272a4">// 120秒
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 核心竞争循环
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">while</span> (<span style="color:#ff79c6">true</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> nextMessagePromise <span style="color:#ff79c6">=</span> agentIterator.next()
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// Promise.race：消息 vs 背景化信号
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> raceResult <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> Promise.race([
+</span></span><span style="display:flex;"><span>    nextMessagePromise.then(r <span style="color:#ff79c6">=&gt;</span> ({ <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;message&#39;</span>, result: <span style="color:#8be9fd">r</span> })),
+</span></span><span style="display:flex;"><span>    backgroundPromise  <span style="color:#6272a4">// 背景化信号（用户 ESC 或 120 秒超时）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  ])
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (raceResult.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;background&#39;</span>) {
+</span></span><span style="display:flex;"><span>    wasBackgrounded <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 关键步骤 1：清理前台 async iterator
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// agentIterator.return() 触发 runAgent() 的 finally block
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 释放 MCP 连接、session hooks、prompt cache tracking 等
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">// 1 秒超时保护 + .catch() 防止未处理 rejection
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">await</span> Promise.race([
+</span></span><span style="display:flex;"><span>      agentIterator.<span style="color:#ff79c6">return</span>(<span style="color:#ff79c6">undefined</span>).<span style="color:#ff79c6">catch</span>(() <span style="color:#ff79c6">=&gt;</span> {}),
+</span></span><span style="display:flex;"><span>      sleep(<span style="color:#bd93f9">1000</span>)
+</span></span><span style="display:flex;"><span>    ])
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 关键步骤 2：启动新的后台流
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">void</span> runWithAgentContext(syncAgentContext, <span style="color:#ff79c6">async</span> () <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 回放已收集的消息到新的 progress tracker
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> existingMsg <span style="color:#ff79c6">of</span> agentMessages) {
+</span></span><span style="display:flex;"><span>        updateProgressFromMessage(tracker, existingMsg, ...)
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 使用正确的 agentId 和 task 自己的 abortController 创建新流
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#6272a4">// 注意：abortController 不链接到父代（后台 Agent 在用户 ESC 时存活）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">for</span> <span style="color:#ff79c6">await</span> (<span style="color:#ff79c6">const</span> msg <span style="color:#ff79c6">of</span> runAgent({
+</span></span><span style="display:flex;"><span>        ...runAgentParams,
+</span></span><span style="display:flex;"><span>        isAsync: <span style="color:#8be9fd">true</span>,
+</span></span><span style="display:flex;"><span>        override<span style="color:#ff79c6">:</span> { agentId: <span style="color:#8be9fd">backgroundedTaskId</span>, abortController: <span style="color:#8be9fd">task.abortController</span> }
+</span></span><span style="display:flex;"><span>      })) { ... }
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 关键步骤 3：立即返回 async_launched 结果
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">return</span> { data<span style="color:#ff79c6">:</span> { status<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;async_launched&#39;</span>, agentId: <span style="color:#8be9fd">backgroundedTaskId</span> } }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>设计要点</strong>：</p>
+<ol>
+<li><strong>Iterator 清理的超时保护</strong>：<code>agentIterator.return()</code> 可能因 MCP 服务器清理挂起而阻塞，1 秒超时确保不会无限等待</li>
+<li><strong>Progress 回放</strong>：新的后台流需要知道前台已经完成了多少工作，通过回放 <code>agentMessages</code> 实现进度连续性</li>
+<li><strong>AbortController 隔离</strong>：后台 Agent 使用 task 注册时的独立 controller，不链接到父代——这确保用户 ESC 取消主线程时，后台 Agent 继续运行</li>
+</ol>
+<hr>
+<h3 id="94-安全交接handoff-classifier">9.4 安全交接：Handoff Classifier</h3>
+<p>Sub-Agent 完成后，如果处于 <code>auto</code> 权限模式，会触发<strong>安全分类器</strong>审查 Sub-Agent 的所有操作：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// agentToolUtils.ts — 仅在 auto 模式下触发
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> classifyHandoffIfNeeded({ agentMessages, tools, ... }) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (toolPermissionContext.mode <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;auto&#39;</span>) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">null</span> <span style="color:#6272a4">// 非 auto 模式跳过
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. 构建紧凑的操作 transcript（不是完整消息体）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> agentTranscript <span style="color:#ff79c6">=</span> buildTranscriptForClassifier(agentMessages, tools)
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 格式：每条 tool_use → &#34;toolName encodedInput\n&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 格式：每条 user text → &#34;User: text\n&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. 调用 YOLO 分类器
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> classifierResult <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> classifyYoloAction(agentMessages, {
+</span></span><span style="display:flex;"><span>    role<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;user&#39;</span>,
+</span></span><span style="display:flex;"><span>    content<span style="color:#ff79c6">:</span> [{ <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;text&#39;</span>, 
+</span></span><span style="display:flex;"><span>      text<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;Sub-agent has finished. Review the sub-agent&#39;s work based on block rules...&#34;</span> }]
+</span></span><span style="display:flex;"><span>  }, tools, toolPermissionContext, abortSignal)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 3. 结果处理
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (classifierResult.unavailable)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">&#34;Note: Safety classifier was unavailable. Please carefully verify...&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (classifierResult.shouldBlock)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">&#34;SECURITY WARNING: This sub-agent performed actions that may violate security policy...&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">null</span> <span style="color:#6272a4">// 允许通过
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p><strong>设计关键</strong>：<code>completeAsyncAgent()</code> 在 <code>classifyHandoffIfNeeded()</code> 之前调用（gh-20236），确保 <code>TaskOutput(block=true)</code> 立即解除阻塞。分类器是异步的&quot;装饰&quot;操作，不应阻塞状态转换。</p>
+<hr>
+<h2 id="十coordinator-模式">十、Coordinator 模式</h2>
+<p>
+  <img src="/img/claude-code/subagent-coordinator.svg" alt="Coordinator 模式架构">
+
+</p>
+<h3 id="101-启用条件">10.1 启用条件</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> isCoordinatorMode()<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">boolean</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (feature(<span style="color:#f1fa8c">&#39;COORDINATOR_MODE&#39;</span>)) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> isEnvTruthy(process.env.CLAUDE_CODE_COORDINATOR_MODE)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="102-核心设计">10.2 核心设计</h3>
+<p>Coordinator 是一个<strong>纯编排者</strong>，只负责调度 Worker，自己不直接执行工具。</p>
+<p><strong>可用工具</strong>：</p>
+<ul>
+<li><code>Agent</code> — 产生新 Worker</li>
+<li><code>SendMessage</code> — 继续现有 Worker</li>
+<li><code>TaskStop</code> — 停止运行中的 Worker</li>
+<li><code>subscribe_pr_activity</code> / <code>unsubscribe_pr_activity</code></li>
+</ul>
+<p><strong>系统提示的关键原则</strong>：</p>
+<pre tabindex="0"><code>1. 角色: 编排者，不直接执行
+2. 并行优先: &#34;Parallelism is your superpower&#34;
+3. 不窥探: Fork 的输出文件不要主动读取
+4. 不捏造: 不预测 Worker 结果
+5. 合成优先: 必须先理解研究结果再指导实施
+</code></pre><p><strong>任务工作流</strong>：</p>
+<pre tabindex="0"><code>Research (Workers, parallel) → Synthesis (Coordinator) → Implementation (Workers) → Verification (Workers)
+</code></pre><h3 id="103-worker-上下文注入">10.3 Worker 上下文注入</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> getCoordinatorUserContext(mcpClients, scratchpadDir<span style="color:#ff79c6">?</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#8be9fd;font-style:italic">let</span> content <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">`Workers have access to these tools: </span><span style="color:#f1fa8c">${</span>workerTools<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">`</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (mcpClients.length <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>    content <span style="color:#ff79c6">+=</span> <span style="color:#f1fa8c">`</span>\<span style="color:#f1fa8c">nWorkers also have MCP tools from: </span><span style="color:#f1fa8c">${</span>serverNames<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">`</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (scratchpadDir <span style="color:#ff79c6">&amp;&amp;</span> isScratchpadGateEnabled()) {
+</span></span><span style="display:flex;"><span>    content <span style="color:#ff79c6">+=</span> <span style="color:#f1fa8c">`</span>\<span style="color:#f1fa8c">nScratchpad directory: </span><span style="color:#f1fa8c">${</span>scratchpadDir<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">`</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// Workers 可以在此目录无需权限提示地读写
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="104-与-fork-的互斥关系">10.4 与 Fork 的互斥关系</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> isForkSubagentEnabled()<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">boolean</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (feature(<span style="color:#f1fa8c">&#39;FORK_SUBAGENT&#39;</span>)) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (isCoordinatorMode()) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>  <span style="color:#6272a4">// 互斥！
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    ...
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Coordinator 和 Fork 代表了两种不同的多代理协作范式：</p>
+<ul>
+<li><strong>Coordinator</strong>：中央编排，Worker 无上下文</li>
+<li><strong>Fork</strong>：去中心化，子代继承完整上下文</li>
+</ul>
+<h3 id="105-worker-通知机制的技术实现">10.5 Worker 通知机制的技术实现</h3>
+<p>Worker 完成后通过 <code>&lt;task-notification&gt;</code> XML 格式的 user-role 消息异步通知 Coordinator。关键实现细节：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// LocalAgentTask.tsx — 原子化防重复通知
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">function</span> enqueueAgentNotification({ taskId, description, status, ... }) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 原子化 check-and-set：防止重复通知
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#8be9fd;font-style:italic">let</span> shouldEnqueue <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>  updateTaskState(taskId, setAppState, task <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (task.notified) <span style="color:#ff79c6">return</span> task  <span style="color:#6272a4">// 已通知过，跳过
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    shouldEnqueue <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> { ...task, notified: <span style="color:#8be9fd">true</span> }
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>shouldEnqueue) <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 中止正在进行的推测执行（背景任务状态变更，推测结果可能过时）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  abortSpeculation(setAppState)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 构建 XML 通知消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> message <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">`&lt;task-notification&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">&lt;task-id&gt;</span><span style="color:#f1fa8c">${</span>taskId<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&lt;/task-id&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">&lt;tool-use-id&gt;</span><span style="color:#f1fa8c">${</span>toolUseId<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&lt;/tool-use-id&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">&lt;output-file&gt;</span><span style="color:#f1fa8c">${</span>outputPath<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&lt;/output-file&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">&lt;status&gt;</span><span style="color:#f1fa8c">${</span>status<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&lt;/status&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">&lt;summary&gt;</span><span style="color:#f1fa8c">${</span>summary<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&lt;/summary&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">&lt;result&gt;</span><span style="color:#f1fa8c">${</span>finalMessage<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&lt;/result&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">&lt;usage&gt;&lt;total_tokens&gt;N&lt;/total_tokens&gt;&lt;tool_uses&gt;N&lt;/tool_uses&gt;&lt;/usage&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">&lt;worktree&gt;&lt;worktree-path&gt;...&lt;/worktree-path&gt;&lt;/worktree&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">&lt;/task-notification&gt;`</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  enqueuePendingNotification({ value: <span style="color:#8be9fd">message</span>, mode<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;task-notification&#39;</span> })
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="106-session-模式恢复">10.6 Session 模式恢复</h3>
+<p>恢复（resume）会话时，Coordinator 模式通过<strong>实时翻转环境变量</strong>确保模式一致性：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> matchSessionMode(sessionMode<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;coordinator&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;normal&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#ff79c6">undefined</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (currentIsCoordinator <span style="color:#ff79c6">===</span> sessionIsCoordinator) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">undefined</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 翻转 env var — isCoordinatorMode() 实时读取，无缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (sessionIsCoordinator) process.env.CLAUDE_CODE_COORDINATOR_MODE <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#39;1&#39;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">delete</span> process.env.CLAUDE_CODE_COORDINATOR_MODE
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="十一prompt-cache-优化策略全景">十一、Prompt Cache 优化策略全景</h2>
+<p>Token 优化是 Claude Code Sub-Agent 系统中最值得学习的工程实践。</p>
+<p>
+  <img src="/img/claude-code/subagent-token-optimization.svg" alt="Token 优化效果量化">
+
+</p>
+<h3 id="111-fork-的缓存共享">11.1 Fork 的缓存共享</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>实现方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>系统提示</td>
+<td>使用父代已渲染字节 <code>renderedSystemPrompt</code></td>
+</tr>
+<tr>
+<td>工具定义</td>
+<td><code>useExactTools: true</code> 传递父代工具池</td>
+</tr>
+<tr>
+<td>思考配置</td>
+<td>继承父代 <code>thinkingConfig</code></td>
+</tr>
+<tr>
+<td>消息前缀</td>
+<td><code>buildForkedMessages()</code> 确保字节一致</td>
+</tr>
+<tr>
+<td>占位符</td>
+<td>统一 <code>&quot;Fork started — processing in background&quot;</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="112-exploreplan-agent-的优化">11.2 Explore/Plan Agent 的优化</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 省略 CLAUDE.md（节省 ~5-15 Gtok/周，涉及 3400万+ Explore 调用）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> shouldOmitClaudeMd <span style="color:#ff79c6">=</span> agentDefinition.omitClaudeMd <span style="color:#ff79c6">&amp;&amp;</span> ...
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 省略 gitStatus（节省 ~1-3 Gtok/周）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> resolvedSystemContext <span style="color:#ff79c6">=</span>
+</span></span><span style="display:flex;"><span>  agentDefinition.agentType <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;Explore&#39;</span> <span style="color:#ff79c6">||</span> agentDefinition.agentType <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;Plan&#39;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">?</span> systemContextNoGit : <span style="color:#8be9fd">baseSystemContext</span>
+</span></span></code></pre></div><h3 id="113-agent-列表动态化">11.3 Agent 列表动态化</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> shouldInjectAgentListInMessages()<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">boolean</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 将 agent 列表从工具 description 移到 attachment 消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 避免 MCP/plugin/权限变化导致工具 schema 缓存失效
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 该列表占 fleet cache_creation tokens 的 ~10.2%
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><h3 id="114-one-shot-agent-的-token-节省">11.4 One-Shot Agent 的 Token 节省</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// Explore/Plan 是一次性 Agent，不需要 SendMessage 继续
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> ONE_SHOT_BUILTIN_AGENT_TYPES <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Set([<span style="color:#f1fa8c">&#39;Explore&#39;</span>, <span style="color:#f1fa8c">&#39;Plan&#39;</span>])
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 跳过 agentId/SendMessage/usage 尾部
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// ~135 字符 × 3400万/周 ≈ 1-2 Gtok/周
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">if</span> (ONE_SHOT_BUILTIN_AGENT_TYPES.has(data.agentType) <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#ff79c6">!</span>worktreeInfoText) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> { content: <span style="color:#8be9fd">contentOrMarker</span> }  <span style="color:#6272a4">// 无尾部
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><h3 id="115-token-优化效果汇总">11.5 Token 优化效果汇总</h3>
+<table>
+<thead>
+<tr>
+<th>优化项</th>
+<th>节省量</th>
+<th>触发频率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Explore/Plan 省略 CLAUDE.md</td>
+<td>~5-15 Gtok/周</td>
+<td>3400万+ 次/周</td>
+</tr>
+<tr>
+<td>Explore/Plan 省略 gitStatus</td>
+<td>~1-3 Gtok/周</td>
+<td>3400万+ 次/周</td>
+</tr>
+<tr>
+<td>One-shot trailer 省略</td>
+<td>~1-2 Gtok/周</td>
+<td>3400万+ 次/周</td>
+</tr>
+<tr>
+<td>Agent 列表动态化</td>
+<td>~10.2% cache_creation</td>
+<td>每次工具调用</td>
+</tr>
+<tr>
+<td>Fork 缓存共享</td>
+<td>避免重复 cache_creation</td>
+<td>每次 Fork</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="十二agent-内存系统">十二、Agent 内存系统</h2>
+<h3 id="121-三种持久内存作用域">12.1 三种持久内存作用域</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">type</span> AgentMemoryScope <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#39;user&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;project&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;local&#39;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> getAgentMemoryDir(agentType: <span style="color:#8be9fd">string</span>, scope: <span style="color:#8be9fd">AgentMemoryScope</span>)<span style="color:#ff79c6">:</span> <span style="color:#8be9fd">string</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">switch</span> (scope) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;user&#39;</span><span style="color:#ff79c6">:</span>    <span style="color:#ff79c6">return</span> join(getMemoryBaseDir(), <span style="color:#f1fa8c">&#39;agent-memory&#39;</span>, dirName)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;project&#39;</span><span style="color:#ff79c6">:</span> <span style="color:#ff79c6">return</span> join(getCwd(), <span style="color:#f1fa8c">&#39;.claude&#39;</span>, <span style="color:#f1fa8c">&#39;agent-memory&#39;</span>, dirName)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;local&#39;</span><span style="color:#ff79c6">:</span>   <span style="color:#ff79c6">return</span> join(getCwd(), <span style="color:#f1fa8c">&#39;.claude&#39;</span>, <span style="color:#f1fa8c">&#39;agent-memory-local&#39;</span>, dirName)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><ul>
+<li><strong>user</strong>：<code>~/.claude/agent-memory/&lt;agentType&gt;/</code> — 跨项目通用</li>
+<li><strong>project</strong>：<code>.claude/agent-memory/&lt;agentType&gt;/</code> — 项目级，可入版本控制</li>
+<li><strong>local</strong>：<code>.claude/agent-memory-local/&lt;agentType&gt;/</code> — 本地，不入版本控制</li>
+</ul>
+<h3 id="122-内存快照机制">12.2 内存快照机制</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> checkAgentMemorySnapshot(agentType, scope) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 检查是否存在项目快照
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> snapshotMeta <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> readJsonFile(getSnapshotJsonPath(agentType), ...)
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 本地无内存 → 从快照初始化
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>hasLocalMemory) <span style="color:#ff79c6">return</span> { action<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;initialize&#39;</span>, snapshotTimestamp }
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 快照比本地新 → 提示更新
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">new</span> <span style="color:#8be9fd;font-style:italic">Date</span>(snapshotMeta.updatedAt) <span style="color:#ff79c6">&gt;</span> <span style="color:#ff79c6">new</span> <span style="color:#8be9fd;font-style:italic">Date</span>(syncedMeta.syncedFrom))
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> { action<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;prompt-update&#39;</span>, snapshotTimestamp }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="十二点五agent-恢复resume机制">十二点五、Agent 恢复（Resume）机制</h2>
+<p>Sub-Agent 支持从 sidechain transcript 恢复执行，这是一个涉及<strong>消息过滤、状态重建、缓存稳定性</strong>的复杂流程。</p>
+<h3 id="126-transcript-加载与三层过滤">12.6 Transcript 加载与三层过滤</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// resumeAgent.ts — 三层过滤确保消息一致性
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> resumedMessages <span style="color:#ff79c6">=</span> filterWhitespaceOnlyAssistantMessages(    <span style="color:#6272a4">// L3: 空白 assistant
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  filterOrphanedThinkingOnlyMessages(                              <span style="color:#6272a4">// L2: 孤立 thinking
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    filterUnresolvedToolUses(transcript.messages)                  <span style="color:#6272a4">// L1: 未配对 tool_use
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  )
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></div><ul>
+<li><strong>L1 <code>filterUnresolvedToolUses</code></strong>：移除没有对应 <code>tool_result</code> 的 <code>tool_use</code> 块（防止 API 400 错误）</li>
+<li><strong>L2 <code>filterOrphanedThinkingOnlyMessages</code></strong>：移除仅含 thinking 的孤立消息（autocompact 残留）</li>
+<li><strong>L3 <code>filterWhitespaceOnlyAssistantMessages</code></strong>：移除仅含空白的 assistant 消息</li>
+</ul>
+<h3 id="127-contentreplacementstate-的状态重建">12.7 contentReplacementState 的状态重建</h3>
+<p>恢复时需要重建 <code>contentReplacementState</code> 以确保 Prompt Cache 稳定性：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// toolResultStorage.ts — 从 sidechain records 重建
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">function</span> reconstructForSubagentResume(parentState, resumedMessages, sidechainRecords) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>parentState) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">undefined</span> <span style="color:#6272a4">// 功能关闭
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 从 sidechain records 中提取已知的替换记录
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// parent 的 live replacements 填充 fork 继承的 mustReapply 条目的缺口
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">return</span> reconstructContentReplacementState(
+</span></span><span style="display:flex;"><span>    resumedMessages, sidechainRecords, parentState.replacements
+</span></span><span style="display:flex;"><span>  )
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="128-fork-vs-非-fork-的恢复差异">12.8 Fork vs 非 Fork 的恢复差异</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Fork 恢复</th>
+<th>非 Fork 恢复</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Agent 选择</td>
+<td>使用 <code>FORK_AGENT</code></td>
+<td>在 activeAgents 中查找，fallback 到 general-purpose</td>
+</tr>
+<tr>
+<td>系统提示</td>
+<td>优先用 <code>renderedSystemPrompt</code>，否则完整重建</td>
+<td><code>undefined</code>（runAgent 在 wrapWithCwd 内重新计算）</td>
+</tr>
+<tr>
+<td>工具池</td>
+<td>父代的精确工具池（cache hit）</td>
+<td><code>assembleToolPool</code> 重新构建</td>
+</tr>
+<tr>
+<td><code>useExactTools</code></td>
+<td><code>true</code></td>
+<td>不设置</td>
+</tr>
+<tr>
+<td><code>forkContextMessages</code></td>
+<td><code>undefined</code>（transcript 已含父上下文）</td>
+<td><code>undefined</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="129-worktree-路径的安全验证">12.9 Worktree 路径的安全验证</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 恢复时验证 worktree 目录是否仍然存在
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> resumedWorktreePath <span style="color:#ff79c6">=</span> meta<span style="color:#ff79c6">?</span>.worktreePath
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">?</span> <span style="color:#ff79c6">await</span> fsp.stat(meta.worktreePath).then(
+</span></span><span style="display:flex;"><span>      s <span style="color:#ff79c6">=&gt;</span> s.isDirectory() <span style="color:#ff79c6">?</span> meta.worktreePath : <span style="color:#8be9fd">undefined</span>,
+</span></span><span style="display:flex;"><span>      () <span style="color:#ff79c6">=&gt;</span> { <span style="color:#6272a4">/* 目录不存在，优雅降级到 parent cwd */</span> <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">undefined</span> }
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">:</span> <span style="color:#ff79c6">undefined</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 更新 mtime 防止 stale-worktree 清理删除刚恢复的 worktree (#22355)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">if</span> (resumedWorktreePath) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">await</span> fsp.utimes(resumedWorktreePath, <span style="color:#ff79c6">new</span> <span style="color:#8be9fd;font-style:italic">Date</span>(), <span style="color:#ff79c6">new</span> <span style="color:#8be9fd;font-style:italic">Date</span>())
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="十三mcp-服务器集成">十三、MCP 服务器集成</h2>
+<p>每个 Agent 可以定义自己的 MCP 服务器，作为父代的<strong>补充</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> initializeAgentMcpServers(agentDefinition, parentClients) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> spec <span style="color:#ff79c6">of</span> agentDefinition.mcpServers) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">typeof</span> spec <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;string&#39;</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 字符串引用：查找已有 MCP 配置
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      config <span style="color:#ff79c6">=</span> getMcpConfigByName(spec)
+</span></span><span style="display:flex;"><span>    } <span style="color:#ff79c6">else</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 内联定义：{ [name]: config } → 新建连接
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      isNewlyCreated <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> client <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> connectToServer(name, config)
+</span></span><span style="display:flex;"><span>    agentClients.push(client)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 清理：仅清理新创建的连接，不影响共享引用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> cleanup <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">async</span> () <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> client <span style="color:#ff79c6">of</span> newlyCreatedClients) {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">await</span> client.cleanup()
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> { clients<span style="color:#ff79c6">:</span> [...parentClients, ...agentClients], tools: <span style="color:#8be9fd">agentTools</span>, cleanup }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>安全约束</strong>：在 <code>strictPluginOnlyCustomization</code> 模式下，用户定义的 Agent 的 MCP 服务器被跳过，只允许管理员信任源的 MCP。</p>
+<hr>
+<h2 id="十四feature-flag-控制体系">十四、Feature Flag 控制体系</h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>用途</th>
+<th>控制方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FORK_SUBAGENT</code></td>
+<td>Fork Sub-Agent</td>
+<td>代码 Feature Gate</td>
+</tr>
+<tr>
+<td><code>BUILTIN_EXPLORE_PLAN_AGENTS</code></td>
+<td>Explore/Plan Agent</td>
+<td>GrowthBook <code>tengu_amber_stoat</code></td>
+</tr>
+<tr>
+<td><code>VERIFICATION_AGENT</code></td>
+<td>Verification Agent</td>
+<td>GrowthBook <code>tengu_hive_evidence</code></td>
+</tr>
+<tr>
+<td><code>COORDINATOR_MODE</code></td>
+<td>Coordinator 模式</td>
+<td>环境变量 <code>CLAUDE_CODE_COORDINATOR_MODE</code></td>
+</tr>
+<tr>
+<td><code>TRANSCRIPT_CLASSIFIER</code></td>
+<td>安全分类器</td>
+<td>代码 Feature Gate</td>
+</tr>
+<tr>
+<td><code>PROMPT_CACHE_BREAK_DETECTION</code></td>
+<td>Cache 断裂检测</td>
+<td>代码 Feature Gate</td>
+</tr>
+<tr>
+<td><code>AGENT_MEMORY_SNAPSHOT</code></td>
+<td>内存快照</td>
+<td>代码 Feature Gate</td>
+</tr>
+<tr>
+<td><code>KAIROS</code></td>
+<td>Assistant/Daemon 模式</td>
+<td>代码 Feature Gate</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="十五架构总结">十五、架构总结</h2>
+<h3 id="设计亮点总结">设计亮点总结</h3>
+<ol>
+<li>
+<p><strong>三策略状态隔离模型</strong>：<code>createSubagentContext</code> 对每个字段采取克隆/新建/No-op 三种策略，其中 <code>contentReplacementState</code> 必须克隆而非新建以确保 Prompt Cache 命中，<code>setAppStateForTasks</code> 必须始终共享以防止僵尸进程——每个设计决策都有明确的技术原因。</p>
+</li>
+<li>
+<p><strong>WeakRef 实现的内存安全 AbortController 联动</strong>：父到子单向传播，子被丢弃后可安全 GC，子 abort 自动清理父上的 listener 防止 handler 堆积。这解决了长会话中可能产生数百个子 Agent 的内存泄漏问题。</p>
+</li>
+<li>
+<p><strong>Fork 缓存共享的五维字节一致性</strong>：系统提示（renderedSystemPrompt）、工具定义（useExactTools）、思考配置（thinkingConfig）、消息前缀（buildForkedMessages 统一占位符）、contentReplacementState（克隆确保相同替换决策）——五个维度共同保证 API 请求前缀字节级一致。</p>
+</li>
+<li>
+<p><strong>运行时执行模式热切换</strong>：通过 <code>Promise.race</code> 实现同步→异步的无缝转换，包含 iterator 清理的超时保护（1秒）、progress 回放确保连续性、AbortController 隔离确保后台 Agent 在 ESC 时存活。</p>
+</li>
+<li>
+<p><strong>原子化防重复通知</strong>：<code>enqueueAgentNotification</code> 使用 <code>updateTaskState</code> 的原子 check-and-set 模式，配合 <code>notified</code> flag 防止 <code>TaskStopTool</code> 和 Agent 完成通知的竞态重复。<code>completeAsyncAgent</code> 在所有异步操作（classifier、worktree cleanup）之前执行，确保 <code>TaskOutput(block=true)</code> 立即解除阻塞（gh-20236）。</p>
+</li>
+<li>
+<p><strong>三层消息过滤的恢复机制</strong>：<code>filterUnresolvedToolUses → filterOrphanedThinkingOnlyMessages → filterWhitespaceOnlyAssistantMessages</code>，配合 <code>reconstructForSubagentResume</code> 从 sidechain records 重建 <code>contentReplacementState</code>，确保恢复后的 Agent 与中断前的 Prompt Cache 前缀完全一致。</p>
+</li>
+<li>
+<p><strong>Handoff Classifier 的非阻塞安全审查</strong>：仅在 <code>auto</code> 权限模式下触发，将 Agent 的操作 transcript 压缩为紧凑格式送入分类器。分类器不可用时降级为警告而非阻塞——体现了&quot;安全作为装饰而非门控&quot;的设计哲学。</p>
+</li>
+<li>
+<p><strong>对抗性验证的认知去偏</strong>：Verification Agent 的 <code>criticalSystemReminder_EXPERIMENTAL</code> 在每个 user turn 注入提醒，系统提示明确列举 LLM 验证者的两种已知偏见（验证回避、被 80% 完成度诱惑），这是 Anthropic 在&quot;让 AI 审查 AI&quot;领域的实践探索。</p>
+</li>
+</ol>
+<hr>
+<h2 id="参考资料">参考资料</h2>
+<ul>
+<li>Claude Code 源码（npm 包泄露，基于公开快照分析）</li>
+<li><a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching">Anthropic Prompt Caching 文档</a></li>
+<li><a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code 官方文档</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-04-01-claude-code%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Claude Code源码深度技术解析：AnthropicAI编程助手的架构全貌">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2026-04-07-claude-code%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AE%A1%E7%90%86%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Claude Code上下文管理深度解析：200K→1M窗口下的无限对话引擎">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

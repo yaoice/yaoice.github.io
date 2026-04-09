@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Claude Code Agent Teams深度解析：多智能体协作系统的技术实现原理" />
+    <meta property="og:title" content="Claude Code Agent Teams深度解析：多智能体协作系统的技术实现原理" />
+    <meta property="twitter:title" content="Claude Code Agent Teams深度解析：多智能体协作系统的技术实现原理" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Claude Code Agent Teams深度解析：多智能体协作系统的技术实现原理 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-04-08-claude-code-agent-teams%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                    </div>
+                    <h1>Claude Code Agent Teams深度解析：多智能体协作系统的技术实现原理</h1>
+                    <h2 class="subheading">从团队创建、队友产卵、邮箱通信到权限同步的多智能体协作全链路剖析</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Wednesday, April 8, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言从单-agent-到多-agent-协作">一、引言：从单 Agent 到多 Agent 协作</h2>
+<p>在 <a href="/post/2026-04-06-claude-code%E5%86%85%E7%BD%AEsub-agent%E5%8E%9F%E7%90%86%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/">前文</a> 中，我们分析了 Claude Code 的 Sub-Agent 系统——父子关系、fork 缓存、内存快照等机制。但 Sub-Agent 本质上是<strong>层级式</strong>的：父 Agent 同步等待子 Agent 完成。当面对复杂的多步骤任务（如&quot;前端、后端、测试并行开发&quot;）时，这种模式效率有限。</p>
+<p><strong>Agent Teams</strong>（内部代号 &ldquo;Tengu&rdquo;）是 Claude Code 的下一步进化——一个真正的<strong>多智能体协作系统</strong>。它的核心设计思想是：</p>
+<blockquote>
+<p><strong>一个 Team Lead 创建并协调多个 Teammates，每个 Teammate 是一个独立的 Agent 实例，通过基于文件的邮箱系统进行异步通信，共同完成复杂任务。</strong></p>
+</blockquote>
+<p>本文基于 2026 年 3 月 31 日的源码快照，从源码层面深入剖析 Agent Teams 的完整实现。</p>
+<h3 id="全文架构">全文架构</h3>
+<p>
+  <img src="/img/claude-code/agent-teams-arch.svg" alt="Agent Teams 架构总览">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>章节</th>
+<th>主题</th>
+<th>核心文件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>二</td>
+<td>功能开关与团队创建</td>
+<td><code>agentSwarmsEnabled.ts</code>, <code>TeamCreateTool.ts</code></td>
+</tr>
+<tr>
+<td>三</td>
+<td>队友产卵与三种后端</td>
+<td><code>spawnMultiAgent.ts</code>, <code>backends/types.ts</code></td>
+</tr>
+<tr>
+<td>四</td>
+<td>邮箱通信协议</td>
+<td><code>teammateMailbox.ts</code>, <code>SendMessageTool.ts</code></td>
+</tr>
+<tr>
+<td>五</td>
+<td>队友生命周期与主循环</td>
+<td><code>inProcessRunner.ts</code>, <code>teammateInit.ts</code></td>
+</tr>
+<tr>
+<td>六</td>
+<td>权限同步模型</td>
+<td><code>permissionSync.ts</code>, <code>leaderPermissionBridge.ts</code></td>
+</tr>
+<tr>
+<td>七</td>
+<td>状态持久化与上下文隔离</td>
+<td><code>teamHelpers.ts</code>, <code>teammateContext.ts</code></td>
+</tr>
+<tr>
+<td>八</td>
+<td>任务列表协调模式</td>
+<td><code>tasks.ts</code>, <code>TaskCreateTool.ts</code></td>
+</tr>
+<tr>
+<td>九</td>
+<td>计划审批模式</td>
+<td><code>ExitPlanModeTool.ts</code></td>
+</tr>
+<tr>
+<td>十</td>
+<td>总结与设计哲学</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="二功能开关与团队创建">二、功能开关与团队创建</h2>
+<h3 id="21-功能开关谁能使用-agent-teams">2.1 功能开关：谁能使用 Agent Teams？</h3>
+<p>Agent Teams 功能由 <code>isAgentSwarmsEnabled()</code> 集中控制：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/agentSwarmsEnabled.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> isAgentSwarmsEnabled()<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">boolean</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// Anthropic 内部用户：始终启用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (process.env.USER_TYPE <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;ant&#39;</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 外部用户需要同时满足两个条件：
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 1. 环境变量 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=true 或 --agent-teams CLI 标志
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>isEnvTruthy(process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS) <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#ff79c6">!</span>isAgentTeamsFlagSet()) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. GrowthBook 远程开关 tengu_amber_flint 启用（作为 killswitch）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>getFeatureValue_CACHED_MAY_BE_STALE(<span style="color:#f1fa8c">&#39;tengu_amber_flint&#39;</span>, <span style="color:#ff79c6">true</span>)) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这个双重门控设计确保了：</p>
+<ul>
+<li><strong>内部用户</strong>（Anthropic 工程师）可以随时使用进行开发和测试</li>
+<li><strong>外部用户</strong>需要显式 opt-in，同时 Anthropic 保留远程 killswitch 能力</li>
+</ul>
+<h3 id="22-团队创建流程">2.2 团队创建流程</h3>
+<p><code>TeamCreateTool</code> 是创建团队的入口，其 <code>call()</code> 方法执行以下步骤：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// tools/TeamCreateTool/TeamCreateTool.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">async</span> call(input, context) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. 唯一性检查 — 每个 Leader 只能管理一个团队
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (existingTeam) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">throw</span> <span style="color:#ff79c6">new</span> <span style="color:#8be9fd;font-style:italic">Error</span>(<span style="color:#f1fa8c">`Already leading team &#34;</span><span style="color:#f1fa8c">${</span>existingTeam<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&#34;.`</span>)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. 生成唯一团队名 — 冲突时使用 word slug
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> finalTeamName <span style="color:#ff79c6">=</span> generateUniqueTeamName(team_name)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 3. 创建确定性 Leader Agent ID
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> leadAgentId <span style="color:#ff79c6">=</span> formatAgentId(TEAM_LEAD_NAME, finalTeamName)
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 结果: &#34;team-lead@my-project&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 4. 写入 TeamFile (config.json)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> teamFile: <span style="color:#8be9fd">TeamFile</span> <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>    name: <span style="color:#8be9fd">finalTeamName</span>,
+</span></span><span style="display:flex;"><span>    createdAt: <span style="color:#8be9fd">Date.now</span>(),
+</span></span><span style="display:flex;"><span>    leadAgentId,
+</span></span><span style="display:flex;"><span>    leadSessionId: <span style="color:#8be9fd">getSessionId</span>(),
+</span></span><span style="display:flex;"><span>    members<span style="color:#ff79c6">:</span> [{ agentId: <span style="color:#8be9fd">leadAgentId</span>, name: <span style="color:#8be9fd">TEAM_LEAD_NAME</span>, ... }],
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">await</span> writeTeamFileAsync(finalTeamName, teamFile)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 5. 注册会话清理 — 确保退出时清理孤立目录
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  registerTeamForSessionCleanup(finalTeamName)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 6. 创建对应的任务列表目录（Team = TaskList，1:1 对应）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">await</span> resetTaskList(taskListId)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">await</span> ensureTasksDir(taskListId)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 7. 更新 AppState
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  setAppState(prev <span style="color:#ff79c6">=&gt;</span> ({
+</span></span><span style="display:flex;"><span>    ...prev,
+</span></span><span style="display:flex;"><span>    teamContext<span style="color:#ff79c6">:</span> { teamName, teamFilePath, leadAgentId, teammates<span style="color:#ff79c6">:</span> {...} },
+</span></span><span style="display:flex;"><span>  }))
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>关键设计决策：</strong></p>
+<ul>
+<li><strong>确定性 Agent ID</strong>：格式为 <code>agentName@teamName</code>（如 <code>researcher@my-project</code>），可重复、人类可读、可预测，无需查询即可计算出队友的 ID</li>
+<li><strong>Team = TaskList</strong>：每个团队自动创建一个同名的任务列表目录，实现 1:1 对应</li>
+<li><strong>会话清理注册</strong>：解决了 GitHub issue #32730 中团队目录永远残留在磁盘上的问题</li>
+</ul>
+<h3 id="23-teamfile-数据结构">2.3 TeamFile 数据结构</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/swarm/teamHelpers.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">type</span> TeamFile <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  name: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  description?: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  createdAt: <span style="color:#8be9fd">number</span>
+</span></span><span style="display:flex;"><span>  leadAgentId: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  leadSessionId?: <span style="color:#8be9fd">string</span>     <span style="color:#6272a4">// Leader 的 Session UUID
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  hiddenPaneIds?: <span style="color:#8be9fd">string</span>[]   <span style="color:#6272a4">// 隐藏的窗格 ID
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  teamAllowedPaths?: <span style="color:#8be9fd">TeamAllowedPath</span>[]  <span style="color:#6272a4">// 团队级路径权限
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  members: <span style="color:#8be9fd">Array</span><span style="color:#ff79c6">&lt;</span>{
+</span></span><span style="display:flex;"><span>    agentId: <span style="color:#8be9fd">string</span>          <span style="color:#6272a4">// &#34;researcher@my-team&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    name: <span style="color:#8be9fd">string</span>             <span style="color:#6272a4">// &#34;researcher&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    agentType?: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>    model?: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>    color?: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>    planModeRequired?: <span style="color:#8be9fd">boolean</span>
+</span></span><span style="display:flex;"><span>    joinedAt: <span style="color:#8be9fd">number</span>
+</span></span><span style="display:flex;"><span>    tmuxPaneId: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>    cwd: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>    backendType?: <span style="color:#8be9fd">BackendType</span>   <span style="color:#6272a4">// &#39;tmux&#39; | &#39;iterm2&#39; | &#39;in-process&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    isActive?: <span style="color:#8be9fd">boolean</span>          <span style="color:#6272a4">// false=idle, true/undefined=active
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    mode?: <span style="color:#8be9fd">PermissionMode</span>       <span style="color:#6272a4">// 当前权限模式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }<span style="color:#ff79c6">&gt;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>存储路径：<code>~/.claude/teams/{team-name}/config.json</code></p>
+<hr>
+<h2 id="三队友产卵与三种后端">三、队友产卵与三种后端</h2>
+<h3 id="31-三种执行后端">3.1 三种执行后端</h3>
+<p>Claude Code 支持三种队友执行后端，每种适用于不同场景：</p>
+<table>
+<thead>
+<tr>
+<th>后端类型</th>
+<th>进程模型</th>
+<th>通信方式</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>in-process</strong></td>
+<td>同一 Node.js 进程</td>
+<td>AsyncLocalStorage 隔离</td>
+<td>默认模式，资源共享</td>
+</tr>
+<tr>
+<td><strong>tmux</strong></td>
+<td>独立 CLI 进程</td>
+<td>tmux 分屏 + 文件邮箱</td>
+<td>终端用户</td>
+</tr>
+<tr>
+<td><strong>iterm2</strong></td>
+<td>独立 CLI 进程</td>
+<td>iTerm2 原生分屏 + 文件邮箱</td>
+<td>macOS iTerm2 用户</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/swarm/backends/types.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">type</span> BackendType <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#39;tmux&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;iterm2&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;in-process&#39;</span>
+</span></span></code></pre></div><h3 id="32-产卵流程">3.2 产卵流程</h3>
+<p><code>spawnTeammate()</code> 是产卵的主入口，根据后端类型分发到不同处理器：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// tools/shared/spawnMultiAgent.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> handleSpawn(input, context) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 优先检查 in-process 模式
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (isInProcessEnabled()) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> handleSpawnInProcess(input, context)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// Pre-flight: 确保 pane 后端可用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">await</span> detectAndGetBackend()
+</span></span><span style="display:flex;"><span>  } <span style="color:#ff79c6">catch</span> (error) {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// auto 模式下自动回退到 in-process
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (getTeammateModeFromSnapshot() <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;auto&#39;</span>) <span style="color:#ff79c6">throw</span> error
+</span></span><span style="display:flex;"><span>    markInProcessFallback()
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> handleSpawnInProcess(input, context)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 使用分屏或独立窗口
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">return</span> input.use_splitpane <span style="color:#ff79c6">!==</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">?</span> handleSpawnSplitPane(input, context)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">:</span> handleSpawnSeparateWindow(input, context)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="33-进程内产卵详解">3.3 进程内产卵详解</h3>
+<p>进程内模式是最核心的后端，其产卵流程：</p>
+<pre tabindex="0"><code>1. resolveTeammateModel()     → 解析模型（&#39;inherit&#39; → 跟随 Leader）
+2. generateUniqueTeammateName() → 生成唯一名称（冲突时加后缀 -2, -3）
+3. sanitizeAgentName()         → 清理 @ 字符防止 ID 冲突
+4. formatAgentId()             → 生成确定性 ID: &#34;name@team&#34;
+5. assignTeammateColor()       → 分配唯一 UI 颜色
+6. spawnInProcessTeammate()    → 创建 TeammateContext + AbortController
+7. startInProcessTeammate()    → fire-and-forget 启动执行循环
+8. 注册到 TeamFile + AppState
+</code></pre><p><strong>关键差异</strong>：进程内队友的初始 prompt <strong>不通过邮箱</strong>传递（避免重复消息），而是直接传递给 <code>startInProcessTeammate()</code>。</p>
+<h3 id="34-tmuxiterm2-分屏产卵">3.4 Tmux/iTerm2 分屏产卵</h3>
+<p>分屏模式的队友是完全独立的 Claude Code CLI 进程：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">cd</span> /path/to/cwd <span style="color:#ff79c6">&amp;&amp;</span> env <span style="color:#8be9fd;font-style:italic">CLAUDECODE</span><span style="color:#ff79c6">=</span>... <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  claude --agent-id <span style="color:#f1fa8c">&#34;researcher@my-team&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>         --agent-name <span style="color:#f1fa8c">&#34;researcher&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>         --team-name <span style="color:#f1fa8c">&#34;my-team&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>         --agent-color <span style="color:#f1fa8c">&#34;blue&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>         --parent-session-id <span style="color:#f1fa8c">&#34;xxx&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>         --model <span style="color:#f1fa8c">&#34;claude-sonnet-4-20250514&#34;</span>
+</span></span></code></pre></div><p>初始 prompt 通过邮箱发送，队友启动后通过 <code>useInboxPoller</code> 轮询收到第一条消息。</p>
+<h3 id="35-权限继承">3.5 权限继承</h3>
+<p>队友继承 Leader 的权限配置：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> buildInheritedCliFlags(options) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// plan_mode_required 时不继承 bypassPermissions（安全优先）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (planModeRequired) {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 不继承 --dangerously-skip-permissions
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  } <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span> (permissionMode <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;bypassPermissions&#39;</span>) {
+</span></span><span style="display:flex;"><span>    flags.push(<span style="color:#f1fa8c">&#39;--dangerously-skip-permissions&#39;</span>)
+</span></span><span style="display:flex;"><span>  } <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span> (permissionMode <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;auto&#39;</span>) {
+</span></span><span style="display:flex;"><span>    flags.push(<span style="color:#f1fa8c">&#39;--permission-mode auto&#39;</span>)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 继承 --model, --settings, --plugin-dir, --chrome
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><hr>
+<h2 id="四邮箱通信协议">四、邮箱通信协议</h2>
+<h3 id="41-基于文件的邮箱系统">4.1 基于文件的邮箱系统</h3>
+<p>Agent Teams 的通信核心是一个<strong>基于文件的邮箱系统</strong>——每个队友有一个 JSON 文件作为收件箱：</p>
+<p>
+  <img src="/img/claude-code/agent-teams-comm.svg" alt="通信协议">
+
+</p>
+<pre tabindex="0"><code>~/.claude/teams/{team_name}/inboxes/{agent_name}.json
+</code></pre><p>消息格式：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/teammateMailbox.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">type</span> TeammateMessage <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">from</span><span style="color:#ff79c6">:</span> <span style="color:#8be9fd">string</span>       <span style="color:#6272a4">// 发送者名称
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  text: <span style="color:#8be9fd">string</span>       <span style="color:#6272a4">// 消息内容（可以是纯文本或 JSON 结构化消息）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  timestamp: <span style="color:#8be9fd">string</span>  <span style="color:#6272a4">// ISO 时间戳
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  read: <span style="color:#8be9fd">boolean</span>      <span style="color:#6272a4">// 是否已读
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  color?: <span style="color:#8be9fd">string</span>     <span style="color:#6272a4">// 发送者颜色
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  summary?: <span style="color:#8be9fd">string</span>   <span style="color:#6272a4">// 5-10 字摘要（UI 预览用）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><h3 id="42-并发控制">4.2 并发控制</h3>
+<p>多个 Agent 同时写入同一个邮箱时，使用 <code>proper-lockfile</code> 库实现文件锁：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> LOCK_OPTIONS <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  retries<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>    retries: <span style="color:#8be9fd">10</span>,      <span style="color:#6272a4">// 10 次重试
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    minTimeout: <span style="color:#8be9fd">5</span>,     <span style="color:#6272a4">// 最小等待 5ms
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    maxTimeout: <span style="color:#8be9fd">100</span>,   <span style="color:#6272a4">// 最大等待 100ms
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  },
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> writeToMailbox(recipientName, message, teamName) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> lockFilePath <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">`</span><span style="color:#f1fa8c">${</span>inboxPath<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">.lock`</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> release <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> lockfile.lock(inboxPath, { lockfilePath, ...LOCK_OPTIONS })
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> messages <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> readMailbox(recipientName, teamName)
+</span></span><span style="display:flex;"><span>    messages.push({ ...message, read: <span style="color:#8be9fd">false</span> })
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">await</span> writeFile(inboxPath, JSON.stringify(messages, <span style="color:#ff79c6">null</span>, <span style="color:#bd93f9">2</span>), <span style="color:#f1fa8c">&#39;utf-8&#39;</span>)
+</span></span><span style="display:flex;"><span>  } <span style="color:#ff79c6">finally</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">await</span> release()
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="43-消息类型全景">4.3 消息类型全景</h3>
+<p>邮箱中传递的消息类型远不止纯文本，完整的结构化协议消息包括：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>方向</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permission_request</code></td>
+<td>Worker → Leader</td>
+<td>请求工具使用权限</td>
+</tr>
+<tr>
+<td><code>permission_response</code></td>
+<td>Leader → Worker</td>
+<td>权限审批结果</td>
+</tr>
+<tr>
+<td><code>sandbox_permission_request</code></td>
+<td>Worker → Leader</td>
+<td>沙箱网络访问权限</td>
+</tr>
+<tr>
+<td><code>sandbox_permission_response</code></td>
+<td>Leader → Worker</td>
+<td>沙箱权限结果</td>
+</tr>
+<tr>
+<td><code>shutdown_request</code></td>
+<td>Leader → Worker</td>
+<td>请求队友关闭</td>
+</tr>
+<tr>
+<td><code>shutdown_approved</code></td>
+<td>Worker → Leader</td>
+<td>确认关闭</td>
+</tr>
+<tr>
+<td><code>shutdown_rejected</code></td>
+<td>Worker → Leader</td>
+<td>拒绝关闭（附原因）</td>
+</tr>
+<tr>
+<td><code>plan_approval_request</code></td>
+<td>Worker → Leader</td>
+<td>请求计划审批</td>
+</tr>
+<tr>
+<td><code>plan_approval_response</code></td>
+<td>Leader → Worker</td>
+<td>计划审批结果</td>
+</tr>
+<tr>
+<td><code>idle_notification</code></td>
+<td>Worker → Leader</td>
+<td>队友空闲通知</td>
+</tr>
+<tr>
+<td><code>task_assignment</code></td>
+<td>Leader → Worker</td>
+<td>任务分配</td>
+</tr>
+<tr>
+<td><code>team_permission_update</code></td>
+<td>Leader → All</td>
+<td>广播权限更新</td>
+</tr>
+<tr>
+<td><code>mode_set_request</code></td>
+<td>Leader → Worker</td>
+<td>设置权限模式</td>
+</tr>
+</tbody>
+</table>
+<h3 id="44-sendmessagetool">4.4 SendMessageTool</h3>
+<p><code>SendMessageTool</code> 是 LLM 使用的通信接口，支持多种路由方式：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// tools/SendMessageTool/SendMessageTool.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">async</span> call(input, context) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. UDS/Bridge 地址 → 跨会话发送
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (feature(<span style="color:#f1fa8c">&#39;UDS_INBOX&#39;</span>) <span style="color:#ff79c6">&amp;&amp;</span> parseAddress(input.to).scheme <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;bridge&#39;</span>) { ... }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. 进程内 subagent（通过 agentNameRegistry 查找）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">typeof</span> input.message <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;string&#39;</span> <span style="color:#ff79c6">&amp;&amp;</span> input.to <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;*&#39;</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> registered <span style="color:#ff79c6">=</span> appState.agentNameRegistry.<span style="color:#ff79c6">get</span>(input.to)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (registered) {
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 运行中 → 直接加入 pendingMessages 队列
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">if</span> (task.status <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;running&#39;</span>) {
+</span></span><span style="display:flex;"><span>        queuePendingMessage(agentId, input.message, ...)
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 已停止 → 自动恢复 (auto-resume)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">else</span> { <span style="color:#ff79c6">await</span> resumeAgentBackground(...) }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 3. &#34;*&#34; → 广播到所有队友
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (input.to <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;*&#39;</span>) <span style="color:#ff79c6">return</span> handleBroadcast(...)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 4. 名称 → 写入目标邮箱
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">return</span> handleMessage(input.to, input.message, ...)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 5. 结构化消息 → 分发到对应 handler
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">switch</span> (input.message.<span style="color:#ff79c6">type</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;shutdown_request&#39;</span><span style="color:#ff79c6">:</span> <span style="color:#ff79c6">return</span> handleShutdownRequest(...)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;shutdown_response&#39;</span><span style="color:#ff79c6">:</span> ...
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;plan_approval_response&#39;</span><span style="color:#ff79c6">:</span> ...
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="五队友生命周期与主循环">五、队友生命周期与主循环</h2>
+<p>
+  <img src="/img/claude-code/agent-teams-lifecycle.svg" alt="队友生命周期">
+
+</p>
+<h3 id="51-进程内队友主循环">5.1 进程内队友主循环</h3>
+<p><code>runInProcessTeammate()</code> 是进程内队友的核心执行引擎：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/swarm/inProcessRunner.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> runInProcessTeammate(config) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">while</span> (<span style="color:#ff79c6">!</span>abortController.signal.aborted <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#ff79c6">!</span>shouldExit) {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 1. 创建 per-turn AbortController
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#6272a4">//    Escape 键可中断当前轮次但不杀死队友
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> currentWorkAbortController <span style="color:#ff79c6">=</span> createAbortController()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 2. 检查是否需要自动压缩
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (tokenCount <span style="color:#ff79c6">&gt;</span> getAutoCompactThreshold(model)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">const</span> compactedSummary <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> compactConversation(allMessages, ...)
+</span></span><span style="display:flex;"><span>      contextMessages <span style="color:#ff79c6">=</span> buildPostCompactMessages(compactedSummary)
+</span></span><span style="display:flex;"><span>      allMessages.length <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>      allMessages.push(...contextMessages)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 3. 在双重上下文中执行 runAgent()
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">await</span> runWithTeammateContext(teammateContext, <span style="color:#ff79c6">async</span> () <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">return</span> runWithAgentContext(agentContext, <span style="color:#ff79c6">async</span> () <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">for</span> <span style="color:#ff79c6">await</span> (<span style="color:#ff79c6">const</span> message <span style="color:#ff79c6">of</span> runAgent({
+</span></span><span style="display:flex;"><span>          agentDefinition: <span style="color:#8be9fd">iterationAgentDefinition</span>,
+</span></span><span style="display:flex;"><span>          promptMessages,
+</span></span><span style="display:flex;"><span>          canUseTool: <span style="color:#8be9fd">createInProcessCanUseTool</span>(identity, ...),
+</span></span><span style="display:flex;"><span>          forkContextMessages,
+</span></span><span style="display:flex;"><span>          ...
+</span></span><span style="display:flex;"><span>        })) {
+</span></span><span style="display:flex;"><span>          iterationMessages.push(message)
+</span></span><span style="display:flex;"><span>          allMessages.push(message)
+</span></span><span style="display:flex;"><span>          <span style="color:#6272a4">// 更新进度、追踪工具调用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        }
+</span></span><span style="display:flex;"><span>      })
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 4. 标记为 idle 并通知 Leader
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    updateTaskState(taskId, task <span style="color:#ff79c6">=&gt;</span> ({ ...task, isIdle: <span style="color:#8be9fd">true</span> }))
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">await</span> sendIdleNotification(identity.agentName, identity.color, ...)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 5. 等待唤醒（轮询邮箱 + 任务列表）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> waitResult <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> waitForNextPromptOrShutdown(...)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">switch</span> (waitResult.<span style="color:#ff79c6">type</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;shutdown_request&#39;</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 传递给 LLM 模型决策
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        currentPrompt <span style="color:#ff79c6">=</span> formatAsTeammateMessage(waitResult.request.<span style="color:#ff79c6">from</span>, ...)
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">break</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;new_message&#39;</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>        currentPrompt <span style="color:#ff79c6">=</span> formatAsTeammateMessage(waitResult.<span style="color:#ff79c6">from</span>, waitResult.message, ...)
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">break</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#39;aborted&#39;</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>        shouldExit <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">break</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="52-等待唤醒的优先级策略">5.2 等待唤醒的优先级策略</h3>
+<p><code>waitForNextPromptOrShutdown()</code> 的轮询策略经过精心设计：</p>
+<pre tabindex="0"><code>优先级从高到低:
+① pendingUserMessages — 进程内直接注入的用户消息（最高优先）
+② shutdown_request   — Leader 的关闭请求（扫描全部未读消息）
+③ team-lead 消息     — Leader 的普通消息（代表用户意图）
+④ 其他队友消息       — Peer DM（FIFO 顺序）
+⑤ 任务列表          — 自动认领 pending + 无 owner 的任务
+⑥ 无消息            — sleep(500ms) → 继续轮询
+</code></pre><p>这个优先级设计确保了：</p>
+<ul>
+<li><strong>用户输入</strong>永远被最先处理</li>
+<li><strong>关闭请求</strong>不会被 peer-to-peer 消息洪水淹没</li>
+<li><strong>Leader 消息</strong>优先于队友间通信</li>
+<li><strong>空闲队友</strong>自动认领任务，无需 Leader 手动分配</li>
+</ul>
+<h3 id="53-tmux-队友初始化">5.3 Tmux 队友初始化</h3>
+<p>Tmux 模式下的队友在启动时通过 <code>initializeTeammateHooks()</code> 初始化：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/swarm/teammateInit.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> initializeTeammateHooks(setAppState, sessionId, teamInfo) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. 读取 TeamFile 获取 Leader 信息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> teamFile <span style="color:#ff79c6">=</span> readTeamFile(teamName)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. 应用团队级路径权限
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> allowedPath <span style="color:#ff79c6">of</span> teamFile.teamAllowedPaths) {
+</span></span><span style="display:flex;"><span>    setAppState(prev <span style="color:#ff79c6">=&gt;</span> ({
+</span></span><span style="display:flex;"><span>      ...prev,
+</span></span><span style="display:flex;"><span>      toolPermissionContext: <span style="color:#8be9fd">applyPermissionUpdate</span>(prev.toolPermissionContext, {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;addRules&#39;</span>,
+</span></span><span style="display:flex;"><span>        rules<span style="color:#ff79c6">:</span> [{ toolName: <span style="color:#8be9fd">allowedPath.toolName</span>, ruleContent<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">`/</span><span style="color:#f1fa8c">${</span>allowedPath.path<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">/**`</span> }],
+</span></span><span style="display:flex;"><span>        behavior<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;allow&#39;</span>,
+</span></span><span style="display:flex;"><span>        destination<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;session&#39;</span>,
+</span></span><span style="display:flex;"><span>      }),
+</span></span><span style="display:flex;"><span>    }))
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 3. 注册 Stop 钩子 — 停止时自动发送 idle_notification
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  addFunctionHook(setAppState, sessionId, <span style="color:#f1fa8c">&#39;Stop&#39;</span>, <span style="color:#f1fa8c">&#39;&#39;</span>, <span style="color:#ff79c6">async</span> (messages) <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">void</span> setMemberActive(teamName, agentName, <span style="color:#ff79c6">false</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> notification <span style="color:#ff79c6">=</span> createIdleNotification(agentName, { idleReason<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;available&#39;</span> })
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">await</span> writeToMailbox(leadAgentName, { <span style="color:#ff79c6">from</span><span style="color:#ff79c6">:</span> agentName, text: <span style="color:#8be9fd">JSON.stringify</span>(notification), ... })
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这段初始化代码只覆盖了“变成 idle 时写回 <code>isActive = false</code>”的下半程；对应的上半程在 <code>REPL.tsx</code> 中完成：每当队友开始新一轮 query，<code>onQuery()</code> 会调用 <code>setMemberActive(teamName, agentName, true)</code>。也就是说，<strong><code>config.json</code> 里的 <code>isActive</code> 字段并不是一次性元数据，而是被运行时持续刷新</strong>，Teams UI 读取的 running/idle 状态，本质上就是这套文件级心跳机制的结果。</p>
+<h3 id="54-优雅关闭流程">5.4 优雅关闭流程</h3>
+<p>关闭流程是<strong>协商式</strong>的——Leader 发请求，但最终由 LLM 模型决策：</p>
+<pre tabindex="0"><code>1. Leader 调用 SendMessage(shutdown_request) → 写入队友邮箱
+2. 队友在 waitForNextPromptOrShutdown() 中检测到请求
+3. 请求被格式化为 &lt;teammate-message&gt; 传递给 LLM
+4. LLM 决策：
+   - approve → 发送 shutdown_approved → abortController.abort() 或 gracefulShutdown()
+   - reject  → 发送 shutdown_rejected (附原因) → 继续工作
+</code></pre><p><strong>强制杀死</strong>路径：</p>
+<ul>
+<li>进程内：<code>killInProcessTeammate()</code> → <code>abortController.abort()</code></li>
+<li>tmux/iTerm2：<code>getBackendByType(backendType).killPane(paneId)</code></li>
+</ul>
+<hr>
+<h2 id="六权限同步模型">六、权限同步模型</h2>
+<p>
+  <img src="/img/claude-code/agent-teams-permission.svg" alt="权限同步">
+
+</p>
+<h3 id="61-路径一leader-ui-队列首选">6.1 路径一：Leader UI 队列（首选）</h3>
+<p>进程内队友的权限请求直接加入 Leader 的 <code>ToolUseConfirm</code> 队列：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/swarm/inProcessRunner.ts — createInProcessCanUseTool()
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> setToolUseConfirmQueue <span style="color:#ff79c6">=</span> getLeaderToolUseConfirmQueue()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> (setToolUseConfirmQueue) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">new</span> Promise(resolve <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    setToolUseConfirmQueue(queue <span style="color:#ff79c6">=&gt;</span> [...queue, {
+</span></span><span style="display:flex;"><span>      tool, description, input, toolUseContext, toolUseID,
+</span></span><span style="display:flex;"><span>      permissionResult: <span style="color:#8be9fd">result</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// Worker 标识 — 在 Leader UI 中显示名称和颜色
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      workerBadge<span style="color:#ff79c6">:</span> { name: <span style="color:#8be9fd">identity.agentName</span>, color: <span style="color:#8be9fd">identity.color</span> },
+</span></span><span style="display:flex;"><span>      onAllow(updatedInput, permissionUpdates, feedback) {
+</span></span><span style="display:flex;"><span>        persistPermissionUpdates(permissionUpdates)
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// 权限更新回写到 Leader 的共享上下文
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">if</span> (permissionUpdates.length <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>          setToolPermissionContext(updatedContext, { preserveMode: <span style="color:#8be9fd">true</span> })
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        resolve({ behavior<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;allow&#39;</span>, updatedInput })
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      onReject(feedback) {
+</span></span><span style="display:flex;"><span>        resolve({ behavior<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;ask&#39;</span>, message: <span style="color:#8be9fd">SUBAGENT_REJECT_MESSAGE</span> })
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>    }])
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>特点</strong>：实时 UI 交互、工具特定组件（Bash/FileEdit 各有专用 UI）、权限更新双向同步。</p>
+<h3 id="62-路径二邮箱系统回退">6.2 路径二：邮箱系统（回退）</h3>
+<p>当 UI 桥接不可用时，使用邮箱系统：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// Worker 侧：发送请求
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> request <span style="color:#ff79c6">=</span> createPermissionRequest({ toolName, toolUseId, input, description, ... })
+</span></span><span style="display:flex;"><span>registerPermissionCallback({ requestId: <span style="color:#8be9fd">request.id</span>, onAllow, onReject })
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">await</span> sendPermissionRequestViaMailbox(request)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// Worker 轮询响应 (每 500ms)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> pollInterval <span style="color:#ff79c6">=</span> setInterval(<span style="color:#ff79c6">async</span> () <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> allMessages <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> readMailbox(identity.agentName, identity.teamName)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> msg <span style="color:#ff79c6">of</span> allMessages) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> parsed <span style="color:#ff79c6">=</span> isPermissionResponse(msg.text)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (parsed <span style="color:#ff79c6">&amp;&amp;</span> parsed.request_id <span style="color:#ff79c6">===</span> request.id) {
+</span></span><span style="display:flex;"><span>      processMailboxPermissionResponse(parsed)
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}, PERMISSION_POLL_INTERVAL_MS)
+</span></span></code></pre></div><h3 id="63-bash-分类器优化">6.3 Bash 分类器优化</h3>
+<p>进程内队友对 Bash 命令有特殊优化——先等分类器结果，再决定是否弹出审批：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">if</span> (feature(<span style="color:#f1fa8c">&#39;BASH_CLASSIFIER&#39;</span>) <span style="color:#ff79c6">&amp;&amp;</span> tool.name <span style="color:#ff79c6">===</span> BASH_TOOL_NAME <span style="color:#ff79c6">&amp;&amp;</span> result.pendingClassifierCheck) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> classifierDecision <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> awaitClassifierAutoApproval(
+</span></span><span style="display:flex;"><span>    result.pendingClassifierCheck,
+</span></span><span style="display:flex;"><span>    abortController.signal,
+</span></span><span style="display:flex;"><span>  )
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (classifierDecision) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> { behavior<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;allow&#39;</span>, updatedInput: <span style="color:#8be9fd">input</span>, decisionReason: <span style="color:#8be9fd">classifierDecision</span> }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="七状态持久化与上下文隔离">七、状态持久化与上下文隔离</h2>
+<h3 id="71-文件系统持久化">7.1 文件系统持久化</h3>
+<pre tabindex="0"><code>~/.claude/
+├── teams/{team-name}/
+│   ├── config.json                  # TeamFile — 团队配置
+│   ├── inboxes/
+│   │   ├── team-lead.json           # Leader 的收件箱
+│   │   ├── researcher.json          # 队友的收件箱
+│   │   └── tester.json
+│   └── permissions/
+│       ├── pending/                 # 待审批的权限请求
+│       └── resolved/               # 已处理的权限请求
+└── tasks/{team-name}/              # 任务列表（与团队 1:1 对应）
+</code></pre><h3 id="72-内存状态-appstate">7.2 内存状态 (AppState)</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// AppState.teamContext
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>teamContext<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>  teamName: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  teamFilePath: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  leadAgentId: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  teammates<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>    [agentId: <span style="color:#8be9fd">string</span>]<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>      name: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>      agentType?: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>      color?: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>      tmuxSessionName: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>      tmuxPaneId: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>      cwd: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>      spawnedAt: <span style="color:#8be9fd">number</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// AppState.tasks[taskId] — InProcessTeammateTaskState
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;in_process_teammate&#39;</span>
+</span></span><span style="display:flex;"><span>  identity: <span style="color:#8be9fd">TeammateIdentity</span>        <span style="color:#6272a4">// agentId, agentName, teamName, color
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  prompt: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  abortController?: <span style="color:#8be9fd">AbortController</span> <span style="color:#6272a4">// 生命周期控制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  currentWorkAbortController?: <span style="color:#8be9fd">AbortController</span> <span style="color:#6272a4">// 当前轮次控制
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  permissionMode: <span style="color:#8be9fd">PermissionMode</span>
+</span></span><span style="display:flex;"><span>  messages?: <span style="color:#8be9fd">Message</span>[]              <span style="color:#6272a4">// UI 镜像，上限 50 条
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  pendingUserMessages: <span style="color:#8be9fd">string</span>[]     <span style="color:#6272a4">// 待传递的用户消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  isIdle: <span style="color:#8be9fd">boolean</span>
+</span></span><span style="display:flex;"><span>  shutdownRequested: <span style="color:#8be9fd">boolean</span>
+</span></span><span style="display:flex;"><span>  progress?: <span style="color:#8be9fd">AgentProgress</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="73-asynclocalstorage-上下文隔离">7.3 AsyncLocalStorage 上下文隔离</h3>
+<p>进程内队友使用 Node.js 的 <code>AsyncLocalStorage</code> 实现上下文隔离：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/teammateContext.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> teammateContextStorage <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> AsyncLocalStorage&lt;<span style="color:#ff79c6">TeammateContext</span>&gt;()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">type</span> TeammateContext <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  agentId: <span style="color:#8be9fd">string</span>           <span style="color:#6272a4">// &#34;researcher@my-team&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  agentName: <span style="color:#8be9fd">string</span>         <span style="color:#6272a4">// &#34;researcher&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  teamName: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  color?: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  planModeRequired: <span style="color:#8be9fd">boolean</span>
+</span></span><span style="display:flex;"><span>  parentSessionId: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  isInProcess: <span style="color:#8be9fd">true</span>         <span style="color:#6272a4">// 始终为 true
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  abortController: <span style="color:#8be9fd">AbortController</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 在特定上下文中运行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> runWithTeammateContext&lt;<span style="color:#ff79c6">T</span>&gt;(context: <span style="color:#8be9fd">TeammateContext</span>, fn<span style="color:#ff79c6">:</span> () <span style="color:#ff79c6">=&gt;</span> T)<span style="color:#ff79c6">:</span> T {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> teammateContextStorage.run(context, fn)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>身份解析优先级</strong>（<code>teammate.ts</code>）：</p>
+<pre tabindex="0"><code>1. AsyncLocalStorage（进程内队友）→ getTeammateContext()
+2. dynamicTeamContext（tmux 队友通过 CLI 参数）
+3. 传入的 teamContext（Leader 通过 AppState）
+</code></pre><hr>
+<h2 id="八任务列表协调模式">八、任务列表协调模式</h2>
+<h3 id="81-任务驱动协调">8.1 任务驱动协调</h3>
+<p>团队通过共享的任务列表进行工作协调：</p>
+<pre tabindex="0"><code>1. Leader 创建任务 → TaskCreate → ~/.claude/tasks/{team}/
+2. 队友自动认领   → 空闲时扫描 pending + 无 owner 的任务
+3. 按 ID 顺序优先 → 低 ID 先认领（保证依赖顺序）
+4. 完成后标记     → TaskUpdate → status: completed
+5. 检查依赖       → blockedBy 解除后才能认领
+</code></pre><p>这里需要特别注意一个容易写错的实现细节：<strong>当前版本的任务列表解析优先级，已经明确偏向“团队名统一寻址”</strong>。<code>getTaskListId()</code> 的优先级是：<code>CLAUDE_CODE_TASK_LIST_ID</code> → 进程内队友的 <code>teamName</code> → 进程型队友的 <code>CLAUDE_CODE_TEAM_NAME</code> → Leader 侧的 <code>leaderTeamName</code> → <code>sessionId</code> 回退。因此 <code>TeamCreateTool</code> 中那次 <code>setLeaderTeamName()</code> 调用并不是装饰性代码，而是一个关键补丁：它确保 Team Lead 不会继续把任务写进自己的 session 目录，而是与所有队友共享同一个团队任务目录。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// utils/swarm/inProcessRunner.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">function</span> findAvailableTask(tasks: <span style="color:#8be9fd">Task</span>[])<span style="color:#ff79c6">:</span> Task <span style="color:#ff79c6">|</span> <span style="color:#ff79c6">undefined</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> unresolvedTaskIds <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Set(
+</span></span><span style="display:flex;"><span>    tasks.filter(t <span style="color:#ff79c6">=&gt;</span> t.status <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;completed&#39;</span>).map(t <span style="color:#ff79c6">=&gt;</span> t.id)
+</span></span><span style="display:flex;"><span>  )
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> tasks.find(task <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (task.status <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;pending&#39;</span>) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (task.owner) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 所有前置依赖必须已完成
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">return</span> task.blockedBy.every(id <span style="color:#ff79c6">=&gt;</span> <span style="color:#ff79c6">!</span>unresolvedTaskIds.has(id))
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="82-空闲通知机制">8.2 空闲通知机制</h3>
+<p>每个队友完成一轮执行后，自动发送 <code>idle_notification</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> notification <span style="color:#ff79c6">=</span> createIdleNotification(agentName, {
+</span></span><span style="display:flex;"><span>  idleReason: <span style="color:#8be9fd">workWasAborted</span> <span style="color:#ff79c6">?</span> <span style="color:#f1fa8c">&#39;interrupted&#39;</span> <span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;available&#39;</span>,
+</span></span><span style="display:flex;"><span>  summary: <span style="color:#8be9fd">getLastPeerDmSummary</span>(allMessages),  <span style="color:#6272a4">// 最后一条 peer DM 的摘要
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  completedTaskId,
+</span></span><span style="display:flex;"><span>  completedStatus<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;resolved&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;blocked&#39;</span> <span style="color:#ff79c6">|</span> <span style="color:#f1fa8c">&#39;failed&#39;</span>,
+</span></span><span style="display:flex;"><span>})
+</span></span></code></pre></div><p>Leader 收到通知后可以：</p>
+<ul>
+<li>分配新任务</li>
+<li>发送后续消息</li>
+<li>忽略（队友会自动认领任务列表中的工作）</li>
+</ul>
+<hr>
+<h2 id="九计划审批模式">九、计划审批模式</h2>
+<p>当 <code>plan_mode_required</code> 为 true 时，队友必须先制定计划再实施：</p>
+<pre tabindex="0"><code>1. 队友进入计划模式 → 制定实施方案
+2. 发送 plan_approval_request → Leader 邮箱
+   { planFilePath, planContent, requestId }
+3. Leader 侧收到请求后，当前默认实现会在 useInboxPoller 中自动批准：
+   - approved = true
+   - permissionMode 继承 Leader 当前模式（如果 Leader 自己仍是 plan，则降级成 default）
+4. 队友收到 plan_approval_response 后退出计划态，进入实施阶段
+</code></pre><p>这里有一个很值得点出的实现现状：<strong>协议层保留了“手工批准 / 手工拒绝”的完整能力，但默认运行路径已经改成了 auto-approve</strong>。一方面，<code>SendMessageTool</code> 仍然实现了 <code>plan_approval_response</code> 的 approve / reject 处理逻辑，并且通过 <code>isTeamLead()</code> 限制只有 Team Lead 才能发送这类审批结果；另一方面，<code>useInboxPoller</code> 在 Leader 侧检测到 <code>plan_approval_request</code> 时，会直接构造批准消息写回队友邮箱，并把原消息继续作为普通消息透传给模型。</p>
+<p>这意味着当前版本更像是一个**“协议先完整、产品策略后收敛”**的过渡态：底层消息协议已经支持严格的人工 gate，但默认 UX 为了减少阻塞，选择了自动批准。写文章时如果只说“Leader 手工审阅后批准”，就会和现状实现有偏差；更准确的描述应该是：<strong>手工审批是协议能力，自动批准是当前默认策略。</strong></p>
+<hr>
+<h2 id="十队友系统提示">十、队友系统提示</h2>
+<p>所有队友在标准系统提示之后附加 <code>TEAMMATE_SYSTEM_PROMPT_ADDENDUM</code>：</p>
+<pre tabindex="0"><code># Agent Teammate Communication
+
+IMPORTANT: You are running as an agent in a team. To communicate with anyone on your team:
+- Use the SendMessage tool with `to: &#34;&lt;name&gt;&#34;` to send messages to specific teammates
+- Use the SendMessage tool with `to: &#34;*&#34;` sparingly for team-wide broadcasts
+
+Just writing a response in text is not visible to others on your team —
+you MUST use the SendMessage tool.
+</code></pre><p>进程内队友还始终注入以下<strong>团队必需工具</strong>（即使 agent 定义限制了工具列表）：</p>
+<ul>
+<li><code>SendMessage</code> — 通信</li>
+<li><code>TeamCreate</code> / <code>TeamDelete</code> — 团队管理</li>
+<li><code>TaskCreate</code> / <code>TaskGet</code> / <code>TaskList</code> / <code>TaskUpdate</code> — 任务协调</li>
+</ul>
+<hr>
+<h2 id="十一总结与设计哲学">十一、总结与设计哲学</h2>
+<h3 id="核心设计原则">核心设计原则</h3>
+<table>
+<thead>
+<tr>
+<th>原则</th>
+<th>实现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>基础设施简单</strong></td>
+<td>文件系统作为消息总线，无需额外中间件</td>
+</tr>
+<tr>
+<td><strong>确定性 ID</strong></td>
+<td><code>name@team</code> 格式，可预测、人类可读</td>
+</tr>
+<tr>
+<td><strong>协商式关闭</strong></td>
+<td>shutdown 由 LLM 决策而非强制终止</td>
+</tr>
+<tr>
+<td><strong>权限安全</strong></td>
+<td>计划模式下不继承 bypassPermissions</td>
+</tr>
+<tr>
+<td><strong>自动回退</strong></td>
+<td>in-process 可自动降级到 tmux/iTerm2</td>
+</tr>
+<tr>
+<td><strong>会话清理</strong></td>
+<td>退出时自动清理孤立的团队目录和窗格</td>
+</tr>
+</tbody>
+</table>
+<h3 id="架构层次">架构层次</h3>
+<pre tabindex="0"><code>┌──────────────────────────────────────────┐
+│              Coordination Layer           │  TeamCreateTool / TaskListTool
+├──────────────────────────────────────────┤
+│              Communication Layer          │  SendMessageTool / Mailbox
+├──────────────────────────────────────────┤
+│              Execution Layer              │  inProcessRunner / tmux / iTerm2
+├──────────────────────────────────────────┤
+│              Permission Layer             │  permissionSync / workerBadge
+├──────────────────────────────────────────┤
+│              Identity Layer               │  agentId / teammateContext / ALS
+├──────────────────────────────────────────┤
+│              Storage Layer                │  TeamFile / AppState / TaskList
+└──────────────────────────────────────────┘
+</code></pre><h3 id="与传统多-agent-框架的对比">与传统多 Agent 框架的对比</h3>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>Claude Code Agent Teams</th>
+<th>AutoGen / CrewAI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>通信方式</td>
+<td>文件邮箱 + 进程内队列</td>
+<td>内存消息传递</td>
+</tr>
+<tr>
+<td>进程模型</td>
+<td>同进程 ALS / tmux 分屏</td>
+<td>通常同进程</td>
+</tr>
+<tr>
+<td>权限控制</td>
+<td>两路径审批 + 计划模式</td>
+<td>通常无权限隔离</td>
+</tr>
+<tr>
+<td>任务协调</td>
+<td>文件系统任务列表 + 自动认领</td>
+<td>框架级编排</td>
+</tr>
+<tr>
+<td>关闭方式</td>
+<td>协商式（LLM 决策）</td>
+<td>通常编程式</td>
+</tr>
+<tr>
+<td>状态持久化</td>
+<td>文件 + 内存双写</td>
+<td>通常仅内存</td>
+</tr>
+</tbody>
+</table>
+<p>Agent Teams 的设计体现了 Claude Code 一贯的工程哲学：<strong>用最简单的基础设施（文件系统）实现最可靠的分布式协调</strong>，同时保持对安全性和用户体验的极致关注。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-04-07-claude-code-skill-runtime%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Claude Code Skill Runtime 深度解析：可复用 AI 工作流引擎的架构与实现">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

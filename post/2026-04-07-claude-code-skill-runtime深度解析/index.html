@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Claude Code Skill Runtime 深度解析：可复用 AI 工作流引擎的架构与实现" />
+    <meta property="og:title" content="Claude Code Skill Runtime 深度解析：可复用 AI 工作流引擎的架构与实现" />
+    <meta property="twitter:title" content="Claude Code Skill Runtime 深度解析：可复用 AI 工作流引擎的架构与实现" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Claude Code Skill Runtime 深度解析：可复用 AI 工作流引擎的架构与实现 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-04-07-claude-code-skill-runtime%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                    </div>
+                    <h1>Claude Code Skill Runtime 深度解析：可复用 AI 工作流引擎的架构与实现</h1>
+                    <h2 class="subheading">从 Promise Memoization、realpath 去重到 contextModifier 闭包链的 Skill Runtime 实现原理全解剖</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Tuesday, April 7, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言skill-是-claude-code-最精巧的运行时子系统">一、引言：Skill 是 Claude Code 最精巧的运行时子系统</h2>
+<p>在 <a href="/post/2026-04-01-claude-code%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/">上一篇文章</a> 中，我们全景式地拆解了 Claude Code 的启动流程、Agentic Loop、工具系统与权限治理。本文聚焦于其中工程密度最高的子系统——<strong>Skill Runtime</strong>，深入到每一个关键函数的实现原理。</p>
+<blockquote>
+<p><strong>一句话定义</strong>：Skill = <code>Command { type: 'prompt', getPromptForCommand: (args, ctx) =&gt; ContentBlockParam[] }</code>。它是一段可参数化、带权限声明、支持 hooks 和条件激活的 Markdown prompt，在运行时通过 <code>SkillTool</code> 的三路分发引擎（inline / fork / remote）注入 LLM 对话。</p>
+</blockquote>
+<p>本文基于 2026 年 3 月 31 日泄露的 TypeScript 源码快照，<strong>逐函数剖析</strong> Skill Runtime 的完整实现链路。</p>
+<h3 id="全文架构">全文架构</h3>
+<p>
+  <img src="/img/claude-code/skill-runtime-arch.svg" alt="Skill Runtime 架构总览">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>章节</th>
+<th>核心实现原理</th>
+<th>关键文件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>二</td>
+<td>Skill 数据模型与 Prompt 展开管线</td>
+<td><code>bundledSkills.ts</code>, <code>loadSkillsDir.ts</code></td>
+</tr>
+<tr>
+<td>三</td>
+<td>六源并行加载与 realpath 去重算法</td>
+<td><code>loadSkillsDir.ts</code></td>
+</tr>
+<tr>
+<td>四</td>
+<td>SkillTool 三路分发与 contextModifier 闭包链</td>
+<td><code>SkillTool.ts</code></td>
+</tr>
+<tr>
+<td>五</td>
+<td>Safe Properties 排除法白名单权限模型</td>
+<td><code>SkillTool.ts</code>, <code>PermissionContext.ts</code></td>
+</tr>
+<tr>
+<td>六</td>
+<td>Post-sampling Hook 驱动的自动改进引擎</td>
+<td><code>skillImprovement.ts</code>, <code>registerSkillHooks.ts</code></td>
+</tr>
+<tr>
+<td>七</td>
+<td>Compaction 恢复与 Invoked Skills 状态管理</td>
+<td><code>state.ts</code>, <code>processSlashCommand.tsx</code></td>
+</tr>
+<tr>
+<td>八</td>
+<td>chokidar + Bun polling fallback 热重载机制</td>
+<td><code>skillChangeDetector.ts</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="二skill-数据模型与-prompt-展开管线">二、Skill 数据模型与 Prompt 展开管线</h2>
+<h3 id="21-运行时类型统一所有来源--command">2.1 运行时类型统一：所有来源 → Command</h3>
+<p>无论来自哪个来源（bundled / disk / plugin / MCP），Skill 在运行时都被统一表示为 <code>Command { type: 'prompt' }</code> 类型。核心是 <code>getPromptForCommand</code> 方法——一个 <strong>异步闭包</strong>，封装了完整的 prompt 展开逻辑：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// src/skills/loadSkillsDir.ts — createSkillCommand 核心
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">async</span> getPromptForCommand(args, toolUseContext) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// Step 1: Base directory 前缀注入
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#8be9fd;font-style:italic">let</span> finalContent <span style="color:#ff79c6">=</span> baseDir
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">?</span> <span style="color:#f1fa8c">`Base directory for this skill: </span><span style="color:#f1fa8c">${</span>baseDir<span style="color:#f1fa8c">}</span>\<span style="color:#f1fa8c">n</span>\<span style="color:#f1fa8c">n</span><span style="color:#f1fa8c">${</span>markdownContent<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">`</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">:</span> markdownContent
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// Step 2: 命名参数替换 ($arg_name → 实际值)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  finalContent <span style="color:#ff79c6">=</span> substituteArguments(finalContent, args, <span style="color:#ff79c6">true</span>, argumentNames)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// Step 3: ${CLAUDE_SKILL_DIR} 变量替换 (Windows 路径归一化)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (baseDir) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> skillDir <span style="color:#ff79c6">=</span> process.platform <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;win32&#39;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">?</span> baseDir.replace(<span style="color:#f1fa8c">/\\/g</span>, <span style="color:#f1fa8c">&#39;/&#39;</span>)  <span style="color:#6272a4">// Windows: 反斜杠 → 正斜杠
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">:</span> baseDir
+</span></span><span style="display:flex;"><span>    finalContent <span style="color:#ff79c6">=</span> finalContent.replace(<span style="color:#f1fa8c">/\${CLAUDE_SKILL_DIR}/g</span>, skillDir)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// Step 4: ${CLAUDE_SESSION_ID} 替换
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  finalContent <span style="color:#ff79c6">=</span> finalContent.replace(<span style="color:#f1fa8c">/\${CLAUDE_SESSION_ID}/g</span>, getSessionId())
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// Step 5: Shell 命令内联执行 (!`command` 语法)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 安全关键: MCP 技能 (loadedFrom === &#39;mcp&#39;) 禁止此步骤
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (loadedFrom <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;mcp&#39;</span>) {
+</span></span><span style="display:flex;"><span>    finalContent <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> executeShellCommandsInPrompt(
+</span></span><span style="display:flex;"><span>      finalContent,
+</span></span><span style="display:flex;"><span>      {
+</span></span><span style="display:flex;"><span>        ...toolUseContext,
+</span></span><span style="display:flex;"><span>        getAppState() {
+</span></span><span style="display:flex;"><span>          <span style="color:#6272a4">// 注入 allowedTools 到权限上下文，使 shell 命令继承技能权限
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>          <span style="color:#ff79c6">const</span> appState <span style="color:#ff79c6">=</span> toolUseContext.getAppState()
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">return</span> {
+</span></span><span style="display:flex;"><span>            ...appState,
+</span></span><span style="display:flex;"><span>            toolPermissionContext<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>              ...appState.toolPermissionContext,
+</span></span><span style="display:flex;"><span>              alwaysAllowRules<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>                ...appState.toolPermissionContext.alwaysAllowRules,
+</span></span><span style="display:flex;"><span>                command: <span style="color:#8be9fd">allowedTools</span>,  <span style="color:#6272a4">// ← 技能声明的工具权限
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>              },
+</span></span><span style="display:flex;"><span>            },
+</span></span><span style="display:flex;"><span>          }
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#f1fa8c">`/</span><span style="color:#f1fa8c">${</span>skillName<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">`</span>,
+</span></span><span style="display:flex;"><span>      shell,  <span style="color:#6272a4">// 可选的自定义 shell (从 frontmatter 解析)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    )
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> [{ <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;text&#39;</span>, text: <span style="color:#8be9fd">finalContent</span> }]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>关键设计</strong>：Step 5 中 <code>getAppState</code> 的 monkey-patch 使得技能 Markdown 中嵌入的 <code>!command</code> shell 命令<strong>自动继承</strong>技能声明的 <code>allowed-tools</code> 权限——无需用户二次授权。</p>
+<h3 id="22-内置技能的-promise-memoization-模式">2.2 内置技能的 Promise Memoization 模式</h3>
+<p>内置技能（bundled skills）可能附带参考文件（如 <code>verify</code> 技能的 examples），这些文件需要懒提取到磁盘。<code>registerBundledSkill</code> 使用了一个精妙的<strong>闭包级 Promise memoization</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// src/skills/bundledSkills.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> registerBundledSkill(definition: <span style="color:#8be9fd">BundledSkillDefinition</span>)<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">void</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (files <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#8be9fd;font-style:italic">Object</span>.keys(files).length <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>    skillRoot <span style="color:#ff79c6">=</span> getBundledSkillExtractDir(definition.name)
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 关键: memo 的是 Promise 本身, 不是 result
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#8be9fd;font-style:italic">let</span> extractionPromise: <span style="color:#8be9fd">Promise</span>&lt;<span style="color:#ff79c6">string</span> | <span style="color:#50fa7b">null</span>&gt; <span style="color:#ff79c6">|</span> <span style="color:#ff79c6">undefined</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> inner <span style="color:#ff79c6">=</span> definition.getPromptForCommand
+</span></span><span style="display:flex;"><span>    getPromptForCommand <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">async</span> (args, ctx) <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>      extractionPromise <span style="color:#ff79c6">??=</span> extractBundledSkillFiles(definition.name, files)
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">const</span> extractedDir <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> extractionPromise
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">const</span> blocks <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> inner(args, ctx)
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">if</span> (extractedDir <span style="color:#ff79c6">===</span> <span style="color:#ff79c6">null</span>) <span style="color:#ff79c6">return</span> blocks  <span style="color:#6272a4">// 提取失败 → 优雅降级
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">return</span> prependBaseDir(blocks, extractedDir)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// ...
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p><strong>为什么 memo Promise 而非 result?</strong></p>
+<ul>
+<li>如果 memo result（<code>string | null</code>），并发调用者在第一次提取完成前会触发<strong>重复的文件写入</strong></li>
+<li><code>??=</code> (nullish coalescing assignment) 确保只赋值一次，后续调用者 <code>await</code> 同一个 Promise</li>
+<li>提取失败返回 <code>null</code>，技能继续工作（无 base-directory 前缀），实现优雅降级</li>
+</ul>
+<h3 id="23-文件提取的安全措施链">2.3 文件提取的安全措施链</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// 安全层级 1: per-process nonce 目录 (getBundledSkillsRoot)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// 即使攻击者通过 inotify 获知父目录, 也无法预测子目录名
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 安全层级 2: 路径遍历防护
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">function</span> resolveSkillFilePath(baseDir: <span style="color:#8be9fd">string</span>, relPath: <span style="color:#8be9fd">string</span>)<span style="color:#ff79c6">:</span> <span style="color:#8be9fd">string</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> normalized <span style="color:#ff79c6">=</span> normalize(relPath)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (isAbsolute(normalized) <span style="color:#ff79c6">||</span>
+</span></span><span style="display:flex;"><span>      normalized.split(pathSep).includes(<span style="color:#f1fa8c">&#39;..&#39;</span>) <span style="color:#ff79c6">||</span>
+</span></span><span style="display:flex;"><span>      normalized.split(<span style="color:#f1fa8c">&#39;/&#39;</span>).includes(<span style="color:#f1fa8c">&#39;..&#39;</span>))  <span style="color:#6272a4">// 兼容 Windows 路径分隔符
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">throw</span> <span style="color:#ff79c6">new</span> <span style="color:#8be9fd;font-style:italic">Error</span>(<span style="color:#f1fa8c">`bundled skill file path escapes skill dir: </span><span style="color:#f1fa8c">${</span>relPath<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">`</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> join(baseDir, normalized)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 安全层级 3: 防符号链接写入
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> SAFE_WRITE_FLAGS <span style="color:#ff79c6">=</span> process.platform <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;win32&#39;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">?</span> <span style="color:#f1fa8c">&#39;wx&#39;</span>  <span style="color:#6272a4">// Windows: libuv 不支持 numeric O_EXCL
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">:</span> fsConstants.O_WRONLY <span style="color:#ff79c6">|</span> fsConstants.O_CREAT <span style="color:#ff79c6">|</span> fsConstants.O_EXCL <span style="color:#ff79c6">|</span> O_NOFOLLOW
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> safeWriteFile(p: <span style="color:#8be9fd">string</span>, content: <span style="color:#8be9fd">string</span>)<span style="color:#ff79c6">:</span> Promise&lt;<span style="color:#ff79c6">void</span>&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> fh <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> open(p, SAFE_WRITE_FLAGS, <span style="color:#bd93f9">0</span>o600)  <span style="color:#6272a4">// owner-only
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">try</span> { <span style="color:#ff79c6">await</span> fh.writeFile(content, <span style="color:#f1fa8c">&#39;utf8&#39;</span>) }
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">finally</span> { <span style="color:#ff79c6">await</span> fh.close() }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 安全层级 4: 目录权限
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">await</span> mkdir(parent, { recursive: <span style="color:#8be9fd">true</span>, mode: <span style="color:#8be9fd">0o700</span> })  <span style="color:#6272a4">// owner-only
+</span></span></span></code></pre></div><p>源码注释明确解释了设计意图：<strong>不 unlink+retry on EEXIST</strong>——因为 <code>unlink()</code> 会跟随中间路径上的符号链接。</p>
+<hr>
+<h2 id="三六源并行加载与-realpath-去重算法">三、六源并行加载与 realpath 去重算法</h2>
+<h3 id="31-五路并行加载--策略控制">3.1 五路并行加载 + 策略控制</h3>
+<p>
+  <img src="/img/claude-code/skill-discovery-flow.svg" alt="Skill 发现与加载流程">
+
+</p>
+<p><code>getSkillDirCommands</code> 使用 <code>lodash-es/memoize</code>（以 <code>cwd</code> 为缓存 key），首次调用时<strong>五路并行</strong>加载所有来源：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> [managed, user, projectNested, additionalNested, legacy] <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> Promise.all([
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. 管理策略目录 (除非 CLAUDE_CODE_DISABLE_POLICY_SKILLS)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  loadSkillsFromSkillsDir(managedSkillsDir, <span style="color:#f1fa8c">&#39;policySettings&#39;</span>),
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. 用户目录 (除非 !isSettingSourceEnabled(&#39;userSettings&#39;) || locked)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  loadSkillsFromSkillsDir(userSkillsDir, <span style="color:#f1fa8c">&#39;userSettings&#39;</span>),
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 3. 项目目录 (逐级上行: cwd/.claude/skills, ../claude/skills, ...)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  Promise.all(projectDirs.map(dir <span style="color:#ff79c6">=&gt;</span> loadSkillsFromSkillsDir(dir, <span style="color:#f1fa8c">&#39;projectSettings&#39;</span>))),
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 4. --add-dir 附加目录
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  Promise.all(additionalDirs.map(dir <span style="color:#ff79c6">=&gt;</span> loadSkillsFromSkillsDir(...))),
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 5. 旧式 /commands/ 目录
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  loadSkillsFromCommandsDir(cwd),
+</span></span><span style="display:flex;"><span>])
+</span></span></code></pre></div><p><strong>策略控制点</strong>：</p>
+<ul>
+<li><code>isRestrictedToPluginOnly('skills')</code> → 锁定后只加载 managed + plugin skills</li>
+<li><code>isBareMode()</code> → <code>--bare</code> 标志跳过所有自动发现，只加载 <code>--add-dir</code></li>
+<li><code>isEnvTruthy(CLAUDE_CODE_DISABLE_POLICY_SKILLS)</code> → 跳过管理策略</li>
+</ul>
+<h3 id="32-realpath-去重并行预计算--同步去重">3.2 realpath 去重：并行预计算 + 同步去重</h3>
+<p>去重面临一个性能挑战：<code>realpath()</code> 是 I/O 操作。解决方案是<strong>预计算并行化，去重同步化</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// Phase 1: 并行预计算所有文件的 canonical path
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> fileIds <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> Promise.all(
+</span></span><span style="display:flex;"><span>  allSkillsWithPaths.map(({ skill, filePath }) <span style="color:#ff79c6">=&gt;</span>
+</span></span><span style="display:flex;"><span>    skill.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;prompt&#39;</span> <span style="color:#ff79c6">?</span> getFileIdentity(filePath) <span style="color:#ff79c6">:</span> Promise.resolve(<span style="color:#ff79c6">null</span>),
+</span></span><span style="display:flex;"><span>  ),
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// Phase 2: 同步去重 (first-wins 优先级)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> seenFileIds <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Map&lt;<span style="color:#ff79c6">string</span>, <span style="color:#50fa7b">SettingSource</span>&gt;()
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">for</span> (<span style="color:#8be9fd;font-style:italic">let</span> i <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>; i <span style="color:#ff79c6">&lt;</span> allSkillsWithPaths.length; i<span style="color:#ff79c6">++</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> fileId <span style="color:#ff79c6">=</span> fileIds[i]
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (fileId <span style="color:#ff79c6">===</span> <span style="color:#ff79c6">null</span> <span style="color:#ff79c6">||</span> fileId <span style="color:#ff79c6">===</span> <span style="color:#ff79c6">undefined</span>) {
+</span></span><span style="display:flex;"><span>    deduplicatedSkills.push(skill)  <span style="color:#6272a4">// 无法解析的文件不去重
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">continue</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> existingSource <span style="color:#ff79c6">=</span> seenFileIds.<span style="color:#ff79c6">get</span>(fileId)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (existingSource <span style="color:#ff79c6">!==</span> <span style="color:#ff79c6">undefined</span>) {
+</span></span><span style="display:flex;"><span>    logForDebugging(<span style="color:#f1fa8c">`Skipping duplicate skill &#39;</span><span style="color:#f1fa8c">${</span>skill.name<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&#39; from </span><span style="color:#f1fa8c">${</span>skill.source<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">`</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">continue</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  seenFileIds.<span style="color:#ff79c6">set</span>(fileId, skill.source)
+</span></span><span style="display:flex;"><span>  deduplicatedSkills.push(skill)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>为什么用 <code>realpath</code> 而非 inode？</strong> 源码注释引用了 <a href="https://github.com/anthropics/claude-code/issues/13893">issue #13893</a>：某些文件系统（virtual/container/NFS/ExFAT）报告不可靠的 inode 值（如 inode 0 或精度丢失）。<code>realpath</code> 是 filesystem-agnostic 的。</p>
+<h3 id="33-条件技能的三-map-状态管理">3.3 条件技能的三 Map 状态管理</h3>
+<p>条件技能使用三个模块级状态协同工作：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> conditionalSkills <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Map&lt;<span style="color:#ff79c6">string</span>, <span style="color:#50fa7b">Command</span>&gt;()       <span style="color:#6272a4">// 待激活池
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> activatedConditionalSkillNames <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Set&lt;<span style="color:#ff79c6">string</span>&gt;()     <span style="color:#6272a4">// 已激活名 (跨 cache clear)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> dynamicSkills <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Map&lt;<span style="color:#ff79c6">string</span>, <span style="color:#50fa7b">Command</span>&gt;()             <span style="color:#6272a4">// 活跃池
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> activateConditionalSkillsForPaths(filePaths, cwd)<span style="color:#ff79c6">:</span> <span style="color:#8be9fd">string</span>[] {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> [name, skill] <span style="color:#ff79c6">of</span> conditionalSkills) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> skillIgnore <span style="color:#ff79c6">=</span> ignore().add(skill.paths)  <span style="color:#6272a4">// gitignore 风格匹配
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> filePath <span style="color:#ff79c6">of</span> filePaths) {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">const</span> relativePath <span style="color:#ff79c6">=</span> isAbsolute(filePath) <span style="color:#ff79c6">?</span> relative(cwd, filePath) <span style="color:#ff79c6">:</span> filePath
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 防御: 空路径、../逃逸、跨驱动器绝对路径
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>relativePath <span style="color:#ff79c6">||</span> relativePath.startsWith(<span style="color:#f1fa8c">&#39;..&#39;</span>) <span style="color:#ff79c6">||</span> isAbsolute(relativePath)) <span style="color:#ff79c6">continue</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">if</span> (skillIgnore.ignores(relativePath)) {
+</span></span><span style="display:flex;"><span>        dynamicSkills.<span style="color:#ff79c6">set</span>(name, skill)         <span style="color:#6272a4">// 移入活跃池
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        conditionalSkills.<span style="color:#ff79c6">delete</span>(name)          <span style="color:#6272a4">// 从待激活池移除
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        activatedConditionalSkillNames.add(name) <span style="color:#6272a4">// 持久记录 (cache clear 不影响)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">break</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  skillsLoaded.emit()  <span style="color:#6272a4">// Signal 通知
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p><strong><code>activatedConditionalSkillNames</code> 的设计意图</strong>：<code>clearSkillCaches()</code> 会清除 <code>conditionalSkills</code> 和 <code>dynamicSkills</code>，但 <code>activatedConditionalSkillNames</code> 保留——这样 reload 后已激活的技能不会回到待激活池。</p>
+<h3 id="34-mcp-技能桥接write-once-registry-打破循环依赖">3.4 MCP 技能桥接：Write-Once Registry 打破循环依赖</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// src/skills/mcpSkillBuilders.ts — 依赖图叶子节点 (只导入类型)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">let</span> builders: <span style="color:#8be9fd">MCPSkillBuilders</span> <span style="color:#ff79c6">|</span> <span style="color:#ff79c6">null</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">null</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> registerMCPSkillBuilders(b: <span style="color:#8be9fd">MCPSkillBuilders</span>)<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">void</span> { builders <span style="color:#ff79c6">=</span> b }
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> getMCPSkillBuilders()<span style="color:#ff79c6">:</span> MCPSkillBuilders {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>builders) <span style="color:#ff79c6">throw</span> <span style="color:#ff79c6">new</span> <span style="color:#8be9fd;font-style:italic">Error</span>(<span style="color:#f1fa8c">&#39;MCP skill builders not registered&#39;</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> builders
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// loadSkillsDir.ts 文件末尾的顶层副作用 (模块初始化时执行)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>registerMCPSkillBuilders({ createSkillCommand, parseSkillFrontmatterFields })
+</span></span></code></pre></div><p>源码注释详细解释了为什么两个替代方案都不可行：</p>
+<ul>
+<li><strong>变量名动态 import</strong> <code>await import(variable)</code> → Bun bundle 后路径解析为 <code>/$bunfs/root/...</code>，运行时找不到模块</li>
+<li><strong>字面量动态 import</strong> <code>await import('./loadSkillsDir.js')</code> → dependency-cruiser 追踪到，<code>loadSkillsDir</code> 传递性依赖几乎所有模块，单条新边扇出为数十条 cycle violations</li>
+</ul>
+<hr>
+<h2 id="四skilltool-三路分发与-contextmodifier-闭包链">四、SkillTool 三路分发与 contextModifier 闭包链</h2>
+<p>
+  <img src="/img/claude-code/skill-execution-pipeline.svg" alt="SkillTool 执行管线">
+
+</p>
+<h3 id="41-getallcommandsmcp-skill-的安全过滤">4.1 getAllCommands：MCP Skill 的安全过滤</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> getAllCommands(context: <span style="color:#8be9fd">ToolUseContext</span>)<span style="color:#ff79c6">:</span> Promise&lt;<span style="color:#ff79c6">Command</span>[]&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 只包含 loadedFrom === &#39;mcp&#39; 的 MCP skills, 不包含 plain MCP prompts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#6272a4">// 修复: 此前模型可以通过猜测 mcp__server__prompt 名称调用 MCP prompts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> mcpSkills <span style="color:#ff79c6">=</span> context.getAppState().mcp.commands.filter(
+</span></span><span style="display:flex;"><span>    cmd <span style="color:#ff79c6">=&gt;</span> cmd.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;prompt&#39;</span> <span style="color:#ff79c6">&amp;&amp;</span> cmd.loadedFrom <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;mcp&#39;</span>,
+</span></span><span style="display:flex;"><span>  )
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (mcpSkills.length <span style="color:#ff79c6">===</span> <span style="color:#bd93f9">0</span>) <span style="color:#ff79c6">return</span> getCommands(getProjectRoot())
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> localCommands <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> getCommands(getProjectRoot())
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> uniqBy([...localCommands, ...mcpSkills], <span style="color:#f1fa8c">&#39;name&#39;</span>)  <span style="color:#6272a4">// 本地优先
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><h3 id="42-inline-路径的-contextmodifier-闭包链">4.2 Inline 路径的 contextModifier 闭包链</h3>
+<p>Inline 执行是最复杂的路径。其核心创新是 <code>contextModifier</code>——一个闭包，在技能 prompt 注入后<strong>持续影响后续所有 tool 调用</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">return</span> {
+</span></span><span style="display:flex;"><span>  data<span style="color:#ff79c6">:</span> { success: <span style="color:#8be9fd">true</span>, commandName, allowedTools, model },
+</span></span><span style="display:flex;"><span>  newMessages,       <span style="color:#6272a4">// 技能 prompt 注入主对话
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  contextModifier(ctx) {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> modifiedContext <span style="color:#ff79c6">=</span> ctx
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// Layer 1: 工具权限合并
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (allowedTools.length <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">const</span> previousGetAppState <span style="color:#ff79c6">=</span> modifiedContext.getAppState  <span style="color:#6272a4">// 捕获前一层
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      modifiedContext <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>        ...modifiedContext,
+</span></span><span style="display:flex;"><span>        getAppState() {
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">const</span> appState <span style="color:#ff79c6">=</span> previousGetAppState()  <span style="color:#6272a4">// 链式调用, 不是 ctx.getAppState
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>          <span style="color:#ff79c6">return</span> {
+</span></span><span style="display:flex;"><span>            ...appState,
+</span></span><span style="display:flex;"><span>            toolPermissionContext<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>              ...appState.toolPermissionContext,
+</span></span><span style="display:flex;"><span>              alwaysAllowRules<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>                ...appState.toolPermissionContext.alwaysAllowRules,
+</span></span><span style="display:flex;"><span>                command<span style="color:#ff79c6">:</span> [
+</span></span><span style="display:flex;"><span>                  ...<span style="color:#ff79c6">new</span> Set([  <span style="color:#6272a4">// Set 去重
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>                    ...(appState.toolPermissionContext.alwaysAllowRules.command <span style="color:#ff79c6">||</span> []),
+</span></span><span style="display:flex;"><span>                    ...allowedTools,
+</span></span><span style="display:flex;"><span>                  ]),
+</span></span><span style="display:flex;"><span>                ],
+</span></span><span style="display:flex;"><span>              },
+</span></span><span style="display:flex;"><span>            },
+</span></span><span style="display:flex;"><span>          }
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// Layer 2: 模型覆盖 (保留 [1m] 后缀防止降低 context window)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (model) {
+</span></span><span style="display:flex;"><span>      modifiedContext <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>        ...modifiedContext,
+</span></span><span style="display:flex;"><span>        options<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>          ...modifiedContext.options,
+</span></span><span style="display:flex;"><span>          mainLoopModel: <span style="color:#8be9fd">resolveSkillModelOverride</span>(model, ctx.options.mainLoopModel),
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// Layer 3: Effort level 覆盖
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (effort <span style="color:#ff79c6">!==</span> <span style="color:#ff79c6">undefined</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">const</span> previousGetAppState <span style="color:#ff79c6">=</span> modifiedContext.getAppState  <span style="color:#6272a4">// 再次捕获
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      modifiedContext <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>        ...modifiedContext,
+</span></span><span style="display:flex;"><span>        getAppState() {
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">return</span> { ...previousGetAppState(), effortValue: <span style="color:#8be9fd">effort</span> }
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> modifiedContext
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>链式 <code>getAppState</code> 的关键</strong>：每层修改都捕获 <code>previousGetAppState</code>（而非 <code>ctx.getAppState</code>），确保多层 contextModifier 正确组合。如果直接引用 <code>ctx.getAppState</code>，Layer 3 的修改会跳过 Layer 1。</p>
+<h3 id="43-fork-路径的隔离执行与内存管理">4.3 Fork 路径的隔离执行与内存管理</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> executeForkedSkill(command, commandName, args, context, ...) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> agentId <span style="color:#ff79c6">=</span> createAgentId()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// prepareForkedCommandContext: 获取 prompt + 工具权限 + agent 定义
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> { modifiedGetAppState, baseAgent, promptMessages, skillContent } <span style="color:#ff79c6">=</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">await</span> prepareForkedCommandContext(command, args <span style="color:#ff79c6">||</span> <span style="color:#f1fa8c">&#39;&#39;</span>, context)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 合并 effort 到 agent definition
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> agentDefinition <span style="color:#ff79c6">=</span> command.effort <span style="color:#ff79c6">!==</span> <span style="color:#ff79c6">undefined</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">?</span> { ...baseAgent, effort: <span style="color:#8be9fd">command.effort</span> }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">:</span> baseAgent
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> agentMessages: <span style="color:#8be9fd">Message</span>[] <span style="color:#ff79c6">=</span> []
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// runAgent 返回 async iterator
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">for</span> <span style="color:#ff79c6">await</span> (<span style="color:#ff79c6">const</span> message <span style="color:#ff79c6">of</span> runAgent({
+</span></span><span style="display:flex;"><span>      agentDefinition,
+</span></span><span style="display:flex;"><span>      promptMessages,
+</span></span><span style="display:flex;"><span>      toolUseContext<span style="color:#ff79c6">:</span> { ...context, getAppState: <span style="color:#8be9fd">modifiedGetAppState</span> },
+</span></span><span style="display:flex;"><span>      isAsync: <span style="color:#8be9fd">false</span>,           <span style="color:#6272a4">// 同步执行, 阻塞主对话
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      querySource<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;agent:custom&#39;</span>,
+</span></span><span style="display:flex;"><span>      model: <span style="color:#8be9fd">command.model</span> <span style="color:#ff79c6">as</span> ModelAlias <span style="color:#ff79c6">|</span> <span style="color:#ff79c6">undefined</span>,
+</span></span><span style="display:flex;"><span>      override<span style="color:#ff79c6">:</span> { agentId },    <span style="color:#6272a4">// 注入自定义 agentId
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    })) {
+</span></span><span style="display:flex;"><span>      agentMessages.push(message)
+</span></span><span style="display:flex;"><span>      <span style="color:#6272a4">// 上报进度 (tool_use / tool_result)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">if</span> ((message.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;assistant&#39;</span> <span style="color:#ff79c6">||</span> message.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;user&#39;</span>) <span style="color:#ff79c6">&amp;&amp;</span> onProgress) {
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// ... progress reporting
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> resultText <span style="color:#ff79c6">=</span> extractResultText(agentMessages, <span style="color:#f1fa8c">&#39;Skill execution completed&#39;</span>)
+</span></span><span style="display:flex;"><span>    agentMessages.length <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>   <span style="color:#6272a4">// 显式释放消息内存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> { data<span style="color:#ff79c6">:</span> { success: <span style="color:#8be9fd">true</span>, commandName, status<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;forked&#39;</span>, agentId, result: <span style="color:#8be9fd">resultText</span> } }
+</span></span><span style="display:flex;"><span>  } <span style="color:#ff79c6">finally</span> {
+</span></span><span style="display:flex;"><span>    clearInvokedSkillsForAgent(agentId)  <span style="color:#6272a4">// 释放 compaction 状态
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>prepareForkedCommandContext</code> 内部通过 <code>createGetAppStateWithAllowedTools</code> 包装 <code>getAppState</code>，使用 <code>Set</code> 去重合并工具权限。Agent 查找遵循 fallback 链：<code>command.agent</code> → <code>'general-purpose'</code> → <code>agents[0]</code>。</p>
+<hr>
+<h2 id="五safe-properties-排除法白名单权限模型">五、Safe Properties 排除法白名单权限模型</h2>
+<p>
+  <img src="/img/claude-code/skill-security-model.svg" alt="Skill 安全与权限模型">
+
+</p>
+<h3 id="51-checkpermissions-的四阶段决策链">5.1 checkPermissions 的四阶段决策链</h3>
+<pre tabindex="0"><code>Deny Rules → [Remote Canonical 自动放行] → Allow Rules → Safe Properties 自动放行 → User Ask
+</code></pre><p><strong>规则匹配支持两种模式</strong>：</p>
+<ul>
+<li>精确匹配：<code>Skill(review-pr)</code> → 匹配 <code>review-pr</code></li>
+<li>前缀通配：<code>Skill(review:*)</code> → 匹配 <code>review-pr</code>、<code>review-code</code> 等</li>
+</ul>
+<h3 id="52-safe-properties-排除法白名单">5.2 Safe Properties 排除法白名单</h3>
+<p>这是权限系统中最精巧的设计——<strong>排除法</strong>确保新属性默认需要权限：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> SAFE_SKILL_PROPERTIES <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Set([
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// PromptCommand properties
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#f1fa8c">&#39;type&#39;</span>, <span style="color:#f1fa8c">&#39;progressMessage&#39;</span>, <span style="color:#f1fa8c">&#39;contentLength&#39;</span>, <span style="color:#f1fa8c">&#39;argNames&#39;</span>, <span style="color:#f1fa8c">&#39;model&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f1fa8c">&#39;effort&#39;</span>, <span style="color:#f1fa8c">&#39;source&#39;</span>, <span style="color:#f1fa8c">&#39;pluginInfo&#39;</span>, <span style="color:#f1fa8c">&#39;disableNonInteractive&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f1fa8c">&#39;skillRoot&#39;</span>, <span style="color:#f1fa8c">&#39;context&#39;</span>, <span style="color:#f1fa8c">&#39;agent&#39;</span>, <span style="color:#f1fa8c">&#39;getPromptForCommand&#39;</span>, <span style="color:#f1fa8c">&#39;frontmatterKeys&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// CommandBase properties
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#f1fa8c">&#39;name&#39;</span>, <span style="color:#f1fa8c">&#39;description&#39;</span>, <span style="color:#f1fa8c">&#39;hasUserSpecifiedDescription&#39;</span>, <span style="color:#f1fa8c">&#39;isEnabled&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f1fa8c">&#39;isHidden&#39;</span>, <span style="color:#f1fa8c">&#39;aliases&#39;</span>, <span style="color:#f1fa8c">&#39;isMcp&#39;</span>, <span style="color:#f1fa8c">&#39;argumentHint&#39;</span>, <span style="color:#f1fa8c">&#39;whenToUse&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f1fa8c">&#39;paths&#39;</span>, <span style="color:#f1fa8c">&#39;version&#39;</span>, <span style="color:#f1fa8c">&#39;disableModelInvocation&#39;</span>, <span style="color:#f1fa8c">&#39;userInvocable&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f1fa8c">&#39;loadedFrom&#39;</span>, <span style="color:#f1fa8c">&#39;immediate&#39;</span>, <span style="color:#f1fa8c">&#39;userFacingName&#39;</span>,
+</span></span><span style="display:flex;"><span>])
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> skillHasOnlySafeProperties(command: <span style="color:#8be9fd">Command</span>)<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">boolean</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> key <span style="color:#ff79c6">of</span> <span style="color:#8be9fd;font-style:italic">Object</span>.keys(command)) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (SAFE_SKILL_PROPERTIES.has(key)) <span style="color:#ff79c6">continue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> value <span style="color:#ff79c6">=</span> (command <span style="color:#ff79c6">as</span> Record&lt;<span style="color:#ff79c6">string</span>, <span style="color:#50fa7b">unknown</span>&gt;)[key]
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 忽略: undefined, null, 空数组, 空对象
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">if</span> (value <span style="color:#ff79c6">===</span> <span style="color:#ff79c6">undefined</span> <span style="color:#ff79c6">||</span> value <span style="color:#ff79c6">===</span> <span style="color:#ff79c6">null</span>) <span style="color:#ff79c6">continue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (<span style="color:#8be9fd;font-style:italic">Array</span>.isArray(value) <span style="color:#ff79c6">&amp;&amp;</span> value.length <span style="color:#ff79c6">===</span> <span style="color:#bd93f9">0</span>) <span style="color:#ff79c6">continue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">typeof</span> value <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;object&#39;</span> <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#ff79c6">!</span><span style="color:#8be9fd;font-style:italic">Array</span>.isArray(value) <span style="color:#ff79c6">&amp;&amp;</span> <span style="color:#8be9fd;font-style:italic">Object</span>.keys(value).length <span style="color:#ff79c6">===</span> <span style="color:#bd93f9">0</span>) <span style="color:#ff79c6">continue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>  <span style="color:#6272a4">// 有非安全属性且有值 → 需要权限
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>注意 <code>hooks</code> 和 <code>allowedTools</code> <strong>不在白名单中</strong>——有 hooks 或 allowedTools 的技能必须经过用户审批。</p>
+<hr>
+<h2 id="六post-sampling-hook-驱动的自动改进引擎">六、Post-sampling Hook 驱动的自动改进引擎</h2>
+<h3 id="61-改进检测每-5-条消息的增量分析">6.1 改进检测：每 5 条消息的增量分析</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// src/utils/hooks/skillImprovement.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">function</span> createSkillImprovementHook() {
+</span></span><span style="display:flex;"><span>  <span style="color:#8be9fd;font-style:italic">let</span> lastAnalyzedCount <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>   <span style="color:#6272a4">// 上次分析时的 user 消息数
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#8be9fd;font-style:italic">let</span> lastAnalyzedIndex <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>   <span style="color:#6272a4">// 上次分析到的消息索引
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> config: <span style="color:#8be9fd">ApiQueryHookConfig</span>&lt;<span style="color:#ff79c6">SkillUpdate</span>[]&gt; <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">async</span> shouldRun(context) {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">if</span> (context.querySource <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;repl_main_thread&#39;</span>) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>findProjectSkill()) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>  <span style="color:#6272a4">// 只分析项目级技能
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      <span style="color:#ff79c6">const</span> userCount <span style="color:#ff79c6">=</span> count(context.messages, m <span style="color:#ff79c6">=&gt;</span> m.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;user&#39;</span>)
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">if</span> (userCount <span style="color:#ff79c6">-</span> lastAnalyzedCount <span style="color:#ff79c6">&lt;</span> <span style="color:#bd93f9">5</span>) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>  <span style="color:#6272a4">// 每 5 条才触发
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      lastAnalyzedCount <span style="color:#ff79c6">=</span> userCount
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    buildMessages(context) {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">const</span> projectSkill <span style="color:#ff79c6">=</span> findProjectSkill()<span style="color:#ff79c6">!</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">const</span> newMessages <span style="color:#ff79c6">=</span> context.messages.slice(lastAnalyzedIndex)  <span style="color:#6272a4">// 增量分析
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      lastAnalyzedIndex <span style="color:#ff79c6">=</span> context.messages.length
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">return</span> [createUserMessage({
+</span></span><span style="display:flex;"><span>        content<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">`...&lt;skill_definition&gt;</span><span style="color:#f1fa8c">${</span>projectSkill.content<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&lt;/skill_definition&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        &lt;recent_messages&gt;</span><span style="color:#f1fa8c">${</span>formatRecentMessages(newMessages)<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&lt;/recent_messages&gt;...`</span>
+</span></span><span style="display:flex;"><span>      })]
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    parseResponse(content) {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">const</span> updatesStr <span style="color:#ff79c6">=</span> extractTag(content, <span style="color:#f1fa8c">&#39;updates&#39;</span>)
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">return</span> updatesStr <span style="color:#ff79c6">?</span> jsonParse(updatesStr) <span style="color:#ff79c6">:</span> []  <span style="color:#6272a4">// 解析失败 → 空数组
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    },
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    getModel: <span style="color:#8be9fd">getSmallFastModel</span>,  <span style="color:#6272a4">// 使用小模型降低成本
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> createApiQueryHook(config)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>Feature Gate</strong>：双重开关 <code>feature('SKILL_IMPROVEMENT') &amp;&amp; getFeatureValue_CACHED_MAY_BE_STALE('tengu_copper_panda', false)</code></p>
+<h3 id="62-改进应用side-channel-llm-重写-skillmd">6.2 改进应用：side-channel LLM 重写 SKILL.md</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> applySkillImprovement(skillName: <span style="color:#8be9fd">string</span>, updates: <span style="color:#8be9fd">SkillUpdate</span>[]) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> filePath <span style="color:#ff79c6">=</span> join(getCwd(), <span style="color:#f1fa8c">&#39;.claude&#39;</span>, <span style="color:#f1fa8c">&#39;skills&#39;</span>, skillName, <span style="color:#f1fa8c">&#39;SKILL.md&#39;</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> currentContent <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> fs.readFile(filePath, <span style="color:#f1fa8c">&#39;utf-8&#39;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> response <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> queryModelWithoutStreaming({
+</span></span><span style="display:flex;"><span>    messages<span style="color:#ff79c6">:</span> [createUserMessage({ content<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">`...`</span> })],
+</span></span><span style="display:flex;"><span>    systemPrompt: <span style="color:#8be9fd">asSystemPrompt</span>([<span style="color:#f1fa8c">&#39;You edit skill definition files...&#39;</span>]),
+</span></span><span style="display:flex;"><span>    thinkingConfig<span style="color:#ff79c6">:</span> { <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;disabled&#39;</span> },  <span style="color:#6272a4">// 省 token
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    tools<span style="color:#ff79c6">:</span> [],                              <span style="color:#6272a4">// 不需要工具
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    signal: <span style="color:#8be9fd">createAbortController</span>().signal,  <span style="color:#6272a4">// 非阻塞
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    options<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>      model: <span style="color:#8be9fd">getSmallFastModel</span>(),
+</span></span><span style="display:flex;"><span>      temperatureOverride: <span style="color:#8be9fd">0</span>,               <span style="color:#6272a4">// 确定性输出
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      querySource<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;skill_improvement_apply&#39;</span>,
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> updatedContent <span style="color:#ff79c6">=</span> extractTag(responseText, <span style="color:#f1fa8c">&#39;updated_file&#39;</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (updatedContent) <span style="color:#ff79c6">await</span> fs.writeFile(filePath, updatedContent, <span style="color:#f1fa8c">&#39;utf-8&#39;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="63-技能-hooks-的-session-scoped-注册">6.3 技能 Hooks 的 Session-scoped 注册</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// src/utils/hooks/registerSkillHooks.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> registerSkillHooks(setAppState, sessionId, hooks, skillName, skillRoot<span style="color:#ff79c6">?</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> eventName <span style="color:#ff79c6">of</span> HOOK_EVENTS) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> matchers <span style="color:#ff79c6">=</span> hooks[eventName]
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>matchers) <span style="color:#ff79c6">continue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> matcher <span style="color:#ff79c6">of</span> matchers) {
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> hook <span style="color:#ff79c6">of</span> matcher.hooks) {
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// once: true → 成功后自动 removeSessionHook
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>        <span style="color:#ff79c6">const</span> onHookSuccess <span style="color:#ff79c6">=</span> hook.once
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">?</span> () <span style="color:#ff79c6">=&gt;</span> removeSessionHook(setAppState, sessionId, eventName, hook)
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">:</span> <span style="color:#ff79c6">undefined</span>
+</span></span><span style="display:flex;"><span>        addSessionHook(setAppState, sessionId, eventName,
+</span></span><span style="display:flex;"><span>          matcher.matcher <span style="color:#ff79c6">||</span> <span style="color:#f1fa8c">&#39;&#39;</span>, hook, onHookSuccess, skillRoot)
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>支持的 Hook 事件：<code>PreToolUse</code>, <code>PostToolUse</code>, <code>PostToolUseFailure</code>, <code>Stop</code>, <code>SessionStart</code>, <code>UserPromptSubmit</code>, <code>PreCompact</code>, <code>PostCompact</code>, <code>Notification</code>, <code>PermissionRequest</code></p>
+<hr>
+<h2 id="七compaction-恢复与-invoked-skills-状态管理">七、Compaction 恢复与 Invoked Skills 状态管理</h2>
+<h3 id="71-invokedskills-map-的复合键设计">7.1 invokedSkills Map 的复合键设计</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// src/bootstrap/state.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// 键格式: `${agentId ?? &#39;&#39;}:${skillName}`  — 防止跨 agent 覆盖
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>invokedSkills: <span style="color:#8be9fd">Map</span>&lt;<span style="color:#ff79c6">string</span>, {
+</span></span><span style="display:flex;"><span>  <span style="color:#50fa7b">skillName</span>: <span style="color:#50fa7b">string</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#50fa7b">skillPath</span>: <span style="color:#50fa7b">string</span>     // <span style="color:#50fa7b">格式</span>: `${<span style="color:#50fa7b">source</span>}:${<span style="color:#50fa7b">name</span>}` (<span style="color:#50fa7b">如</span> &#34;<span style="color:#50fa7b">projectSettings</span>:<span style="color:#50fa7b">my</span>-<span style="color:#50fa7b">skill</span>&#34;)
+</span></span><span style="display:flex;"><span>  <span style="color:#50fa7b">content</span>: <span style="color:#50fa7b">string</span>       // <span style="color:#50fa7b">已经过完整展开的</span> <span style="color:#50fa7b">prompt</span> <span style="color:#50fa7b">内容</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#50fa7b">invokedAt</span>: <span style="color:#50fa7b">number</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#50fa7b">agentId</span>: <span style="color:#50fa7b">string</span> | <span style="color:#50fa7b">null</span>  // <span style="color:#50fa7b">null </span><span style="color:#ff79c6">=</span> <span style="color:#50fa7b">主线程</span>
+</span></span><span style="display:flex;"><span>}&gt;
+</span></span></code></pre></div><p><strong>写入点</strong>（两处）：</p>
+<ol>
+<li><code>processSlashCommand.tsx</code> 中 <code>getMessagesForPromptSlashCommand</code> → <code>addInvokedSkill(command.name, skillPath, skillContent, agentId)</code></li>
+<li><code>SkillTool.ts</code> 中 <code>executeRemoteSkill</code> → <code>addInvokedSkill(commandName, skillPath, finalContent, agentId)</code></li>
+</ol>
+<p><strong>读取点</strong>：</p>
+<ul>
+<li><code>skillImprovement.ts</code> → <code>getInvokedSkillsForAgent(null)</code> 只读主线程技能</li>
+<li>Compaction 恢复逻辑 → <code>getInvokedSkills()</code> 获取所有技能内容</li>
+</ul>
+<p><strong>清理点</strong>：</p>
+<ul>
+<li><code>clearInvokedSkills(preservedAgentIds?)</code> — compaction 时保留指定 agent 的技能</li>
+<li><code>clearInvokedSkillsForAgent(agentId)</code> — fork 技能执行完毕后释放</li>
+</ul>
+<h3 id="72-processslashcommand-中的完整注册链">7.2 processSlashCommand 中的完整注册链</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// src/utils/processUserInput/processSlashCommand.tsx
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> getMessagesForPromptSlashCommand(command, args, context, ...) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 1. 获取展开后的 prompt 内容
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> result <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> command.getPromptForCommand(args, context)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 2. 注册 skill hooks (受策略控制)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> hooksAllowed <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">!</span>isRestrictedToPluginOnly(<span style="color:#f1fa8c">&#39;hooks&#39;</span>) <span style="color:#ff79c6">||</span> isSourceAdminTrusted(command.source)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (command.hooks <span style="color:#ff79c6">&amp;&amp;</span> hooksAllowed) {
+</span></span><span style="display:flex;"><span>    registerSkillHooks(context.setAppState, sessionId, command.hooks, command.name, command.skillRoot)
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 3. 注册到 compaction 恢复系统
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> skillPath <span style="color:#ff79c6">=</span> command.source <span style="color:#ff79c6">?</span> <span style="color:#f1fa8c">`</span><span style="color:#f1fa8c">${</span>command.source<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">:</span><span style="color:#f1fa8c">${</span>command.name<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">`</span> <span style="color:#ff79c6">:</span> command.name
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> skillContent <span style="color:#ff79c6">=</span> result.filter(b <span style="color:#ff79c6">=&gt;</span> b.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;text&#39;</span>).map(b <span style="color:#ff79c6">=&gt;</span> b.text).join(<span style="color:#f1fa8c">&#39;\n\n&#39;</span>)
+</span></span><span style="display:flex;"><span>  addInvokedSkill(command.name, skillPath, skillContent, getAgentContext()<span style="color:#ff79c6">?</span>.agentId <span style="color:#ff79c6">??</span> <span style="color:#ff79c6">null</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 4. 提取附件 (@-mentions, MCP resources) — skipSkillDiscovery 避免 AKI 延迟
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> attachmentMessages <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> toArray(
+</span></span><span style="display:flex;"><span>    getAttachmentMessages(<span style="color:#6272a4">/* ... */</span>, { skipSkillDiscovery: <span style="color:#8be9fd">true</span> })
+</span></span><span style="display:flex;"><span>  )
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 5. 构建消息列表
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">return</span> {
+</span></span><span style="display:flex;"><span>    messages<span style="color:#ff79c6">:</span> [
+</span></span><span style="display:flex;"><span>      createUserMessage({ content: <span style="color:#8be9fd">metadata</span>, uuid }),          <span style="color:#6272a4">// 元数据
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      createUserMessage({ content: <span style="color:#8be9fd">mainContent</span>, isMeta: <span style="color:#8be9fd">true</span> }), <span style="color:#6272a4">// 技能内容
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      ...attachmentMessages,                                    <span style="color:#6272a4">// 附件
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>      createAttachmentMessage({ <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;command_permissions&#39;</span>, allowedTools, model }), <span style="color:#6272a4">// 权限
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    ],
+</span></span><span style="display:flex;"><span>    shouldQuery: <span style="color:#8be9fd">true</span>,
+</span></span><span style="display:flex;"><span>    allowedTools, model, effort, command,
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="八chokidar--bun-polling-fallback-热重载机制">八、chokidar + Bun polling fallback 热重载机制</h2>
+<h3 id="81-bun-fswatcher-死锁的规避">8.1 Bun FSWatcher 死锁的规避</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// src/utils/skills/skillChangeDetector.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> USE_POLLING <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">typeof</span> Bun <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#39;undefined&#39;</span>
+</span></span></code></pre></div><p>源码注释引用了两个 Bun issue（#27469, #26385）：Bun 的 <code>fs.watch()</code> 有 PathWatcherManager 死锁——主线程关闭 watcher 时，如果 File Watcher 线程正在递送事件，两个线程会在 <code>__ulock_wait2</code> 中互相死锁。chokidar 在 <code>depth: 2</code> 的技能目录上可靠触发此 bug。</p>
+<h3 id="82-防抖的三重保护">8.2 防抖的三重保护</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> RELOAD_DEBOUNCE_MS <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">300</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">function</span> scheduleReload(changedPath: <span style="color:#8be9fd">string</span>)<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">void</span> {
+</span></span><span style="display:flex;"><span>  pendingChangedPaths.add(changedPath)       <span style="color:#6272a4">// 累积路径
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">if</span> (reloadTimer) clearTimeout(reloadTimer) <span style="color:#6272a4">// 重置定时器
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  reloadTimer <span style="color:#ff79c6">=</span> setTimeout(<span style="color:#ff79c6">async</span> () <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    reloadTimer <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">null</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> paths <span style="color:#ff79c6">=</span> [...pendingChangedPaths]
+</span></span><span style="display:flex;"><span>    pendingChangedPaths.clear()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 保护 1: ConfigChange hook 可阻止重载
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">const</span> results <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> executeConfigChangeHooks(<span style="color:#f1fa8c">&#39;skills&#39;</span>, paths[<span style="color:#bd93f9">0</span>]<span style="color:#ff79c6">!</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> (hasBlockingResult(results)) <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 保护 2: 级联清除三层缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    clearSkillCaches()       <span style="color:#6272a4">// getSkillDirCommands.cache + conditionalSkills
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    clearCommandsCache()     <span style="color:#6272a4">// getCommands memoization
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    resetSentSkillNames()    <span style="color:#6272a4">// 触发技能列表重发
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 保护 3: Signal 通知 UI (React hook 订阅)
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    skillsChanged.emit()
+</span></span><span style="display:flex;"><span>  }, RELOAD_DEBOUNCE_MS)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>动态技能加载的特殊处理</strong>：<code>onDynamicSkillsLoaded</code> 回调只清除 <code>clearCommandMemoizationCaches()</code>（不调用 <code>clearCommandsCache()</code>），因为后者会触发 <code>clearSkillCaches()</code> 清除刚刚加载的动态技能。</p>
+<h3 id="83-token-budget-管理算法">8.3 Token Budget 管理算法</h3>
+<p>技能列表在 system prompt 中的空间被精确控制：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">const</span> SKILL_BUDGET_CONTEXT_PERCENT <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0.01</span>  <span style="color:#6272a4">// 上下文窗口的 1%
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">const</span> CHARS_PER_TOKEN <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">4</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">const</span> MAX_LISTING_DESC_CHARS <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">250</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> formatCommandsWithinBudget(commands, contextWindowTokens<span style="color:#ff79c6">?</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> budget <span style="color:#ff79c6">=</span> getCharBudget(contextWindowTokens)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> fullTotal <span style="color:#ff79c6">=</span> commands.reduce((sum, cmd) <span style="color:#ff79c6">=&gt;</span> sum <span style="color:#ff79c6">+</span> stringWidth(formatDesc(cmd)), <span style="color:#bd93f9">0</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (fullTotal <span style="color:#ff79c6">&lt;=</span> budget) <span style="color:#ff79c6">return</span> fullEntries.join(<span style="color:#f1fa8c">&#39;\n&#39;</span>)  <span style="color:#6272a4">// 全描述
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// 分区: bundled (永不截断) vs rest
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  <span style="color:#ff79c6">const</span> bundledChars <span style="color:#ff79c6">=</span> <span style="color:#6272a4">/* bundled 技能占用 */</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> remainingBudget <span style="color:#ff79c6">=</span> budget <span style="color:#ff79c6">-</span> bundledChars
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> maxDescLen <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">Math</span>.floor(remainingBudget <span style="color:#ff79c6">/</span> restCommands.length)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (maxDescLen <span style="color:#ff79c6">&lt;</span> <span style="color:#bd93f9">20</span>) <span style="color:#ff79c6">return</span> <span style="color:#6272a4">/* 极端: rest 只显示名字 */</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> <span style="color:#6272a4">/* 截断 rest 描述到 maxDescLen */</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>使用 <code>stringWidth</code>（非 <code>length</code>）精确计算 CJK/emoji 字符宽度。</p>
+<hr>
+<h2 id="九设计洞察与关键实现模式">九、设计洞察与关键实现模式</h2>
+<h3 id="91-七大关键实现模式">9.1 七大关键实现模式</h3>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>实现位置</th>
+<th>解决的技术问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Promise Memoization</strong></td>
+<td><code>bundledSkills.ts</code></td>
+<td>并发安全的懒加载（memo Promise 而非 result）</td>
+</tr>
+<tr>
+<td><strong>realpath 并行去重</strong></td>
+<td><code>loadSkillsDir.ts</code></td>
+<td>I/O 密集操作的 <code>Promise.all</code> 预计算 + 同步去重</td>
+</tr>
+<tr>
+<td><strong>contextModifier 闭包链</strong></td>
+<td><code>SkillTool.ts</code></td>
+<td>多层 getAppState 修改的正确组合（链式捕获 previousGetAppState）</td>
+</tr>
+<tr>
+<td><strong>Safe Properties 排除法</strong></td>
+<td><code>SkillTool.ts</code></td>
+<td>新属性默认需要权限（正向枚举安全属性）</td>
+</tr>
+<tr>
+<td><strong>Write-once Registry</strong></td>
+<td><code>mcpSkillBuilders.ts</code></td>
+<td>Bun bundle 中的循环依赖（不是 dynamic import）</td>
+</tr>
+<tr>
+<td><strong>三 Map 条件激活</strong></td>
+<td><code>loadSkillsDir.ts</code></td>
+<td>conditional → dynamic 状态转移，activated 跨 cache clear 保留</td>
+</tr>
+<tr>
+<td><strong>Bun Polling Fallback</strong></td>
+<td><code>skillChangeDetector.ts</code></td>
+<td>FSWatcher 死锁的运行时环境检测与降级</td>
+</tr>
+</tbody>
+</table>
+<h3 id="92-skill-runtime-的数据流全景">9.2 Skill Runtime 的数据流全景</h3>
+<pre tabindex="0"><code>                           ┌─ bundled/index.ts ──→ registerBundledSkill()
+                           ├─ loadSkillsDir.ts ──→ getSkillDirCommands() [memoized]
+来源层 ─→ 注册层           ├─ builtinPlugins.ts ──→ getBuiltinPluginSkillCommands()
+                           ├─ MCP server ──→ mcpSkillBuilders → createSkillCommand()
+                           └─ dynamicSkills Map ←── discoverSkillDirsForPaths()
+                                    │
+                                    ▼
+发现层 ──→ getCommands(cwd) ──→ formatCommandsWithinBudget() ──→ System Prompt
+                                    │
+                                    ▼ (模型调用 Skill tool)
+执行层 ──→ SkillTool.validateInput() → checkPermissions() → call()
+                                    │
+                  ┌─────────────────┼──────────────────┐
+                  ▼                 ▼                   ▼
+              Inline              Fork               Remote
+         processPrompt...   executeForked...    executeRemote...
+              │                   │                    │
+              ▼                   ▼                    ▼
+        newMessages +        runAgent() →         loadRemoteSkill()
+        contextModifier     extractResult          + addInvokedSkill
+              │                   │                    │
+              └───────────────────┴────────────────────┘
+                                    │
+状态层 ──→ addInvokedSkill() ──→ compaction 恢复
+          registerSkillHooks() ──→ session hooks
+          skillImprovement ──→ auto-rewrite SKILL.md
+          skillChangeDetector ──→ chokidar + debounce → cache invalidation
+</code></pre><h3 id="93-对-ai-agent-工程化的启示">9.3 对 AI Agent 工程化的启示</h3>
+<p>Claude Code 的 Skill Runtime 展示了 <strong>&ldquo;Prompt-as-Function&rdquo;</strong> 范式的完整工程化实现：</p>
+<ul>
+<li><strong>参数化</strong>：<code>$arg_name</code> + <code>${CLAUDE_SKILL_DIR}</code> + <code>${CLAUDE_SESSION_ID}</code></li>
+<li><strong>权限声明式</strong>：<code>allowed-tools</code> frontmatter → contextModifier 自动注入</li>
+<li><strong>可组合</strong>：技能可以通过 SkillTool 调用其他技能</li>
+<li><strong>可观察</strong>：hooks 系统覆盖完整生命周期（9 种事件类型）</li>
+<li><strong>自进化</strong>：每 5 条消息自动检测用户偏好并重写 SKILL.md</li>
+<li><strong>可信任</strong>：六级信任层级 + Safe Properties 排除法 + per-process nonce 安全写入</li>
+</ul>
+<p>这种架构将 AI Agent 从&quot;单轮响应&quot;推向了&quot;可编程工作流引擎&quot;。</p>
+<hr>
+<blockquote>
+<p><strong>本文基于公开可获取的源码快照进行纯技术架构分析，仅用于学习和研究目的。原始 Claude Code 源码版权归 Anthropic 所有。</strong></p>
+</blockquote>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-04-07-claude-code%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AE%A1%E7%90%86%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Claude Code上下文管理深度解析：200K→1M窗口下的无限对话引擎">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2026-04-08-claude-code-agent-teams%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Claude Code Agent Teams深度解析：多智能体协作系统的技术实现原理">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
