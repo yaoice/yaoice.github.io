@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Harness设计：长时间运行应用开发的多智能体架构深度解析" />
+    <meta property="og:title" content="Harness设计：长时间运行应用开发的多智能体架构深度解析" />
+    <meta property="twitter:title" content="Harness设计：长时间运行应用开发的多智能体架构深度解析" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Harness设计：长时间运行应用开发的多智能体架构深度解析 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-04-11-harness%E8%AE%BE%E8%AE%A1-%E9%95%BF%E6%97%B6%E9%97%B4%E8%BF%90%E8%A1%8C%E5%BA%94%E7%94%A8%E5%BC%80%E5%8F%91%E7%9A%84%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93%E6%9E%B6%E6%9E%84/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/anthropic" title="Anthropic">
+                            Anthropic
+                        </a>
+                        
+                        <a class="tag" href="/tags/multi-agent" title="Multi-Agent">
+                            Multi-Agent
+                        </a>
+                        
+                    </div>
+                    <h1>Harness设计：长时间运行应用开发的多智能体架构深度解析</h1>
+                    <h2 class="subheading">从生成器-评估器循环到三智能体协作，系统拆解 Anthropic 设计长时间运行应用的工程方法论</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Saturday, April 11, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言">一、引言</h2>
+<p>当我们让AI自主开发一个完整的全栈应用时，真正棘手的问题往往不是“能不能写出代码”，而是：<strong>它能不能持续工作几个小时、能不能把任务真正做完、做出来的东西是不是既能用又好用</strong>。</p>
+<p>Anthropic工程团队的 Prithvi Rajasekaran 在 2026 年 3 月发表的工程博文 <a href="https://www.anthropic.com/engineering/harness-design-long-running-apps">Harness design for long-running application development</a>，讨论的正是这个问题：当模型不再只负责“补几行代码”，而是要在数小时内持续完成规划、实现、验证和修复时，应该怎样为它设计一套<strong>外部运行框架</strong>，让它从“会写代码”进化到“能交付应用”。</p>
+<p>文章提出的核心方案是 <strong>Harness</strong>。它不是单一 Prompt，也不是一个更复杂的工作流脚本，而是一种围绕模型能力边界搭建的<strong>运行时编排系统</strong>：</p>
+<blockquote>
+<p><strong>把生成、评估、规划、状态传递和验收标准从单个模型内部“外部化”出来，交给多个专职 Agent 和一组结构化工件共同完成。</strong></p>
+</blockquote>
+<p>这篇文章值得深挖的原因在于，它讨论的不是“如何让模型更聪明”，而是一个更工程化的问题：<strong>当模型本身并不稳定、也并不总是能自我纠错时，系统设计应该如何补位。</strong></p>
+<hr>
+<h2 id="二先给结论harness-真正解决的是什么">二、先给结论：Harness 真正解决的是什么</h2>
+<p>如果只看表面，很容易把 Harness 理解成“多加了一个 QA Agent”。但这篇博文真正有价值的地方，在于它揭示了长时间运行应用开发的三个系统性难题，以及对应的工程解法。</p>
+<h3 id="21-它解决的不是写代码能力而是任务闭环能力">2.1 它解决的不是“写代码能力”，而是“任务闭环能力”</h3>
+<p>模型经常能产出“看起来像完成了”的代码，却做不到：</p>
+<ul>
+<li>在数小时任务中保持目标一致性</li>
+<li>在复杂交互里发现自己忽略的问题</li>
+<li>在主观质量上持续迭代，而不是停留在第一版的“差不多”</li>
+</ul>
+<p>因此，Anthropic 的目标不是让单个 Agent 一次写对，而是让系统具备一种<strong>持续逼近高质量结果的闭环能力</strong>。</p>
+<h3 id="22-它的核心不是多-agent而是三种外部化">2.2 它的核心不是多 Agent，而是“三种外部化”</h3>
+<p>从工程视角看，Harness 最关键的不是 Agent 数量，而是把原本试图压进单个上下文窗口中的三个任务拆出来：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">外部化对象</th>
+<th style="text-align:left">具体做法</th>
+<th style="text-align:left">要解决的问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>判断外部化</strong></td>
+<td style="text-align:left">用独立评估器代替自评</td>
+<td style="text-align:left">模型会偏袒自己的产出</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>状态外部化</strong></td>
+<td style="text-align:left">用文件和交接工件传递状态</td>
+<td style="text-align:left">长任务里上下文会退化、溢出或漂移</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>验收外部化</strong></td>
+<td style="text-align:left">用 Sprint 合同和评分阈值明确“何为完成”</td>
+<td style="text-align:left">生成器和评估器对“做完了”理解不一致</td>
+</tr>
+</tbody>
+</table>
+<p>这三种外部化，本质上是在把模型不擅长的事情交给系统来兜底。</p>
+<h3 id="23-它不是固定架构而是随模型能力变化的脚手架">2.3 它不是固定架构，而是“随模型能力变化的脚手架”</h3>
+<p>文章最有启发性的一点是：Harness 并不被描述为一套永久正确的架构。相反，Anthropic 明确展示了从 Sonnet 4.5 到 Opus 4.6 的演进过程中，某些组件是如何被移除的。</p>
+<p>也就是说，<strong>Harness 不是产品，而是脚手架；不是原则本身，而是原则在某一代模型能力边界上的具体实现。</strong></p>
+<hr>
+<h2 id="三长时间运行应用开发的两大瓶颈">三、长时间运行应用开发的两大瓶颈</h2>
+<p>在设计 Harness 之前，Anthropic 团队在让 AI 长时间自主工作时，首先遇到的是两个非常典型、但很少被系统讨论的问题。</p>
+<h3 id="31-上下文焦虑模型会在快到极限时提前收工">3.1 上下文焦虑：模型会在“快到极限”时提前收工</h3>
+<p>旧版模型（如 Sonnet 4.5）在上下文窗口接近限制时，会出现一种近似“焦虑”的行为：<strong>它不是真的完成了任务，而是开始倾向于尽快结束任务。</strong></p>
+<p>这会带来一种非常糟糕的工程现象：</p>
+<ul>
+<li>任务看似进入收尾阶段，实则许多功能还没打通</li>
+<li>模型开始更频繁地产生“总结性语言”，而不是继续推进实现</li>
+<li>它会在关键地方留下“半截工程”——界面有了，交互没做完；API 写了，联调没验证；逻辑补了，但缺少最终测试</li>
+</ul>
+<h4 id="为什么上下文压缩不够">为什么“上下文压缩”不够</h4>
+<p>一个很自然的想法是做上下文压缩，即在同一对话内总结历史，再让模型继续干活。但文中给出的经验是：<strong>压缩并不能消除模型对上下文边界的行为偏移。</strong></p>
+<p>Anthropic 采用的是更激进但也更有效的做法：</p>
+<ul>
+<li>直接启动一个新的 Agent</li>
+<li>清空当前上下文窗口</li>
+<li>通过结构化交接工件，把必要状态移交给新 Agent</li>
+</ul>
+<p>这不是简单的“缩短历史”，而是<strong>重置运行时心理负担</strong>。从系统设计角度说，这等于把长期任务拆成多个局部最优的连续任务片段。</p>
+<h3 id="32-自我评估偏差模型对自己的作品往往过于宽容">3.2 自我评估偏差：模型对自己的作品往往过于宽容</h3>
+<p>第二个问题更关键：<strong>让同一个 Agent 既做事又验收，往往会产生严重偏差。</strong></p>
+<p>它的问题不是完全不会发现错误，而是：</p>
+<ul>
+<li>容易把“局部可用”误判为“整体可交付”</li>
+<li>容易把“界面看着没问题”误判为“交互已经完成”</li>
+<li>在主观任务上，容易对平庸结果给出过高评价</li>
+</ul>
+<p>这类偏差在前端设计里尤其明显。一个模型自己做出的页面，只要颜色不冲突、布局不崩，就很容易被自己判定为“还不错”；但从真实设计审美看，它可能依然非常模板化、缺乏原创性。</p>
+<p>因此，Anthropic 选择把“执行者”和“评估者”彻底分开，让评估器成为一个<strong>被刻意调优为更苛刻、更怀疑、更偏向发现问题</strong>的独立角色。</p>
+<hr>
+<h2 id="四核心架构生成器评估器反馈循环">四、核心架构：生成器—评估器反馈循环</h2>
+<p>Harness 的最小可行单元，是一个受到 GAN 思想启发的生成器—评估器循环。这里借用的不是 GAN 的训练机制，而是其最核心的系统直觉：<strong>高质量输出不是靠一次性生成得到的，而是靠“生成—判别—再生成”的对抗式迭代逼出来的。</strong></p>
+<p>
+  <img src="/img/harness-design/generator-evaluator-loop.svg" alt="生成器-评估器反馈循环">
+
+</p>
+<h3 id="41-这套循环是如何工作的">4.1 这套循环是如何工作的</h3>
+<p>它的基本流程并不复杂：</p>
+<ol>
+<li><strong>生成器 Agent</strong> 根据任务目标产出代码、页面或功能实现</li>
+<li><strong>评估器 Agent</strong> 通过真实运行环境观察结果，而不是只看代码片段</li>
+<li>评估器给出<strong>结构化评分</strong>与详细批评</li>
+<li>生成器基于反馈做出策略判断：是沿当前方向继续优化，还是彻底转向新的方案</li>
+<li>重复迭代，直到关键维度达标</li>
+</ol>
+<p>注意，这里最重要的不是“有反馈”，而是反馈必须满足两个条件：</p>
+<ul>
+<li><strong>结构化</strong>：不能只是“再优化一下 UI”，而要明确指出差在哪个维度、为什么差、怎么验证改好了</li>
+<li><strong>可操作</strong>：必须让生成器能据此做策略决策，而不是停留在模糊的主观评价上</li>
+</ul>
+<h3 id="42-为什么这不只是多加了一个-qa">4.2 为什么这不只是“多加了一个 QA”</h3>
+<p>从系统设计角度看，这个环路真正带来的提升，是把输出优化从“Prompt 驱动”升级为“闭环控制”。</p>
+<p>单 Agent 模式更像开环系统：</p>
+<ul>
+<li>输入一个目标</li>
+<li>生成一个结果</li>
+<li>假设模型会自己负责质量</li>
+</ul>
+<p>而 Harness 则是闭环系统：</p>
+<ul>
+<li>系统持续测量输出质量</li>
+<li>将偏差反馈给生成器</li>
+<li>让下一轮生成朝着更小误差的方向迭代</li>
+</ul>
+<p>对工程师来说，这个差异非常关键。<strong>前者依赖模型一次性命中答案，后者依赖系统不断减少偏差。</strong> 当任务足够复杂时，后者明显更可靠。</p>
+<h3 id="43-关键技术支撑不是看代码而是操作应用">4.3 关键技术支撑：不是“看代码”，而是“操作应用”</h3>
+<p>文中一个非常务实的设计是：评估器大量使用 <strong>Playwright MCP</strong>。这意味着评估器不是像 code review 一样只读源代码，而是像真人测试人员一样：</p>
+<ul>
+<li>访问运行中的页面</li>
+<li>点击按钮</li>
+<li>导航不同视图</li>
+<li>截图并观察视觉结果</li>
+<li>验证交互路径是否闭环</li>
+</ul>
+<p>这一步非常关键，因为很多真实缺陷并不出现在代码语法层，而出现在<strong>跨层连接处</strong>：</p>
+<ul>
+<li>前端按钮存在，但没绑定正确事件</li>
+<li>API 返回成功，但状态没有真正持久化</li>
+<li>路由定义没问题，但具体匹配顺序导致端点失效</li>
+<li>页面布局看上去存在，但可用性和流程引导很差</li>
+</ul>
+<p>换句话说，Harness 的评估不是静态审查，而是<strong>运行时验收</strong>。</p>
+<hr>
+<h2 id="五前端设计实验如何把审美变成可迭代的工程对象">五、前端设计实验：如何把“审美”变成可迭代的工程对象</h2>
+<p>Anthropic 首先在前端设计任务上验证了 Harness。这个选择很有代表性，因为设计类任务恰好暴露了单 Agent 自评最弱的一面：<strong>你很难要求模型凭空“更有品位”，但你可以要求系统更严格地区分什么叫平庸、什么叫优秀。</strong></p>
+<p>
+  <img src="/img/harness-design/evaluation-dimensions.svg" alt="评估器四维度评分体系">
+
+</p>
+<h3 id="51-四维度评分体系把主观判断拆开">5.1 四维度评分体系：把主观判断拆开</h3>
+<p>他们把“这个页面好不好”拆成了四个维度：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">维度</th>
+<th style="text-align:left">关注的核心问题</th>
+<th style="text-align:left">为什么重要</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>设计质量</strong></td>
+<td style="text-align:left">整体是否统一，还是拼装感很重</td>
+<td style="text-align:left">区分“完整设计”与“组件堆砌”</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>原创性</strong></td>
+<td style="text-align:left">是否存在真正的定制决策</td>
+<td style="text-align:left">防止产出落入常见 AI 模板审美</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>工艺水平</strong></td>
+<td style="text-align:left">间距、层级、排版、对比度是否精细</td>
+<td style="text-align:left">保证实现质量，而不只看创意</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>功能性</strong></td>
+<td style="text-align:left">用户能否理解界面并完成任务</td>
+<td style="text-align:left">防止“好看但不好用”</td>
+</tr>
+</tbody>
+</table>
+<p>这套标准的价值不只在于评分本身，而在于它强迫系统承认：<strong>设计不是单一维度的“好看”，而是多个维度共同达标。</strong></p>
+<p>例如：</p>
+<ul>
+<li>一个页面可能有不错的色彩，但原创性很差</li>
+<li>一个页面可能很有创意，但功能性很弱</li>
+<li>一个页面可能布局没崩，但工艺水平很粗糙</li>
+</ul>
+<p>如果没有维度拆分，评估器就很容易给出“整体还行”的宽松判断；一旦拆分后，系统就能精准知道下一轮该优化哪里。</p>
+<h3 id="52-文中最值得注意的点评估器会逼生成器转向而非只做微调">5.2 文中最值得注意的点：评估器会逼生成器“转向”，而非只做微调</h3>
+<p>很多人理解迭代时，默认是“在第一版上继续修修补补”。但从文中的实验看，Harness 的价值之一恰恰在于：<strong>评估器不仅会要求优化，还会逼迫生成器放弃已经证明平庸的方向。</strong></p>
+<p>文章举的荷兰艺术博物馆网站就是典型例子：</p>
+<ul>
+<li>早期版本更像一个普通落地页</li>
+<li>随着迭代推进，系统逐步意识到这种方案虽然“合格”，但缺少独特性</li>
+<li>到后期版本，生成器转向了一个更具空间感的 3D 透视房间体验</li>
+</ul>
+<p>这说明 Harness 做的不只是质量抛光，更是在帮助系统进行<strong>解空间搜索</strong>：当当前设计方向的上限已经不高时，系统需要探索新的方向，而不是继续在旧方向上做局部优化。</p>
+<h3 id="53-这对产品设计意味着什么">5.3 这对产品设计意味着什么</h3>
+<p>Anthropic 的这套做法给了一个很强的工程启发：</p>
+<blockquote>
+<p><strong>对于主观任务，最有效的系统设计，不是让模型学会“审美”，而是让评估机制足够具体，能持续淘汰平庸方案。</strong></p>
+</blockquote>
+<p>也就是说，审美提升不是直接来自模型“更懂设计”，而是来自系统对低质量方案的不断否决。</p>
+<hr>
+<h2 id="六从前端到全栈三智能体协作架构">六、从前端到全栈：三智能体协作架构</h2>
+<p>当前端实验验证有效后，Anthropic 把相同思路扩展到了全栈应用开发，并将 Harness 进一步演化为一个包含 <strong>规划器、生成器、评估器</strong> 的三智能体系统。</p>
+<p>
+  <img src="/img/harness-design/three-agent-arch.svg" alt="三智能体全栈开发架构">
+
+</p>
+<h3 id="61-三个角色分别在优化什么">6.1 三个角色分别在优化什么</h3>
+<p>这三类 Agent 不是简单分工，而是在分别优化不同目标：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Agent</th>
+<th style="text-align:left">核心产物</th>
+<th style="text-align:left">优化目标</th>
+<th style="text-align:left">主要防止的失败</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>规划器 Planner</strong></td>
+<td style="text-align:left">产品规格说明书</td>
+<td style="text-align:left">范围完整性与方案雄心</td>
+<td style="text-align:left">需求过窄、结构松散、缺少 AI 能力嵌入</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>生成器 Builder</strong></td>
+<td style="text-align:left">代码与功能实现</td>
+<td style="text-align:left">实现速度与功能推进</td>
+<td style="text-align:left">只会规划、不落地；或只会局部实现</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>评估器 QA</strong></td>
+<td style="text-align:left">测试结论与修复反馈</td>
+<td style="text-align:left">交付质量与验收严格性</td>
+<td style="text-align:left">功能假完成、交互断裂、设计粗糙</td>
+</tr>
+</tbody>
+</table>
+<p>这个拆分特别重要，因为它避免了单 Agent 在不同目标之间反复切换：</p>
+<ul>
+<li>规划需要发散和抽象能力</li>
+<li>编码需要持续推进和局部细化</li>
+<li>评估需要挑错和怀疑能力</li>
+</ul>
+<p>把这三种目标硬塞给一个 Agent，同一轮里就可能出现“既想扩展 scope，又想赶紧写完，又想替自己辩护”的目标冲突。Harness 的做法，本质上是通过角色隔离来避免这种内耗。</p>
+<h3 id="62-规划器不是写一份-prd而是主动扩展问题空间">6.2 规划器：不是“写一份 PRD”，而是主动扩展问题空间</h3>
+<p>规划器的职责，不是把用户那 1-4 句话 Prompt 稍微润色一下，而是把它扩展成真正可驱动实现的规格说明。文中特别强调了两个点：</p>
+<ul>
+<li>规划器要主动寻找<strong>更有雄心的 Scope</strong></li>
+<li>规划器要主动挖掘<strong>AI 可以嵌入产品的机会</strong></li>
+</ul>
+<p>这很值得注意。Anthropic 不是把规划器当成一个“记录员”，而是把它当成一个<strong>产品放大器</strong>。在案例中，很多原始 Prompt 只描述了一个传统产品轮廓，但规划器会把它扩展成更完整的功能集，甚至引入 AI 生成能力，使最终产物的上限显著高于用户最初输入。</p>
+<h3 id="63-生成器用-sprint-推进但不靠-sprint-自证完成">6.3 生成器：用 Sprint 推进，但不靠 Sprint 自证完成</h3>
+<p>在 Sonnet 4.5 阶段，生成器以 Sprint 方式工作：</p>
+<ul>
+<li>每轮从规格中选一个功能块推进</li>
+<li>写完后先做自评</li>
+<li>再交由评估器验收</li>
+</ul>
+<p>这里最重要的不是 Sprint 本身，而是 Sprint 的工程意义：<strong>它把一个长达数小时的大任务，拆成若干可被验证的小闭环。</strong></p>
+<p>但 Anthropic 同时也承认：生成器的自评只能作为局部检查，不能当成正式验收。真正决定这一轮是否成功的，仍然是外部 QA。</p>
+<h3 id="64-评估器像真正的-qa-一样横跨-uiapi-和数据库">6.4 评估器：像真正的 QA 一样横跨 UI、API 和数据库</h3>
+<p>评估器的强大之处在于，它不是只盯着某一层：</p>
+<ul>
+<li>它会点击 UI，确认交互路径是否成立</li>
+<li>它会检查 API 响应，确认服务端逻辑是否成立</li>
+<li>它会看数据库状态，确认数据是否真的写入和更新</li>
+</ul>
+<p>这意味着评估器天然能发现“跨层错位”问题。很多应用之所以“看上去完成了，实际上不可交付”，恰恰是因为每一层单独看都像是正常的，但层与层之间没有真正闭合。</p>
+<h3 id="65-sprint-合同anthropic-最工程化也最容易被低估的设计">6.5 Sprint 合同：Anthropic 最工程化、也最容易被低估的设计</h3>
+<p>文中我认为最精彩的设计之一，是 <strong>Sprint 合同（Sprint Contract）</strong>。</p>
+<p>在 Builder 真正写代码之前，Builder 和 QA 需要先协商两件事：</p>
+<ul>
+<li>这一轮到底要交付什么</li>
+<li>交付完成以后，怎样验证它真的完成了</li>
+</ul>
+<p>这个设计的价值极高，因为它把“验收标准”前移了。</p>
+<p>如果没有合同机制，常见情况会是：</p>
+<ul>
+<li>规划器写得很高层</li>
+<li>生成器按自己的理解写了一版</li>
+<li>评估器按另一套理解否掉</li>
+<li>双方不断返工，但并不清楚争议到底在哪里</li>
+</ul>
+<p>而 Sprint 合同的作用，就是把“做什么”和“如何算做完”变成一个显式协议。这实际上是在为 Agent 系统引入一种<strong>轻量级需求对齐协议</strong>。</p>
+<h3 id="66-基于文件的通信简单但恰好适合长任务">6.6 基于文件的通信：简单，但恰好适合长任务</h3>
+<p>三个 Agent 之间通过文件系统通信，这看起来朴素，但恰恰非常适合长时间运行的任务：</p>
+<ul>
+<li>文件天然可持久化</li>
+<li>交接过程天然可追溯</li>
+<li>状态在 Agent 重启后仍可恢复</li>
+<li>没有复杂的消息队列依赖</li>
+</ul>
+<p>更重要的是，文件让“状态”从上下文窗口里解耦出来。Agent 可以丢上下文，但项目状态不会丢。这一点正是 Harness 能支撑长任务的基础设施前提。</p>
+<hr>
+<h2 id="七案例分析harness-的价值到底体现在哪里">七、案例分析：Harness 的价值到底体现在哪里</h2>
+<h3 id="71-案例一复古游戏制作器">7.1 案例一：复古游戏制作器</h3>
+<p>原始 Prompt 很简单：</p>
+<blockquote>
+<p>“Create a 2D retro game maker with features including a level editor, sprite editor, entity behaviors, and a playable test mode.”</p>
+</blockquote>
+<p>如果单看 Prompt，你会以为这是一个“做出编辑器原型”的任务。但在 Harness 下，系统并没有止步于一个原型，而是把它扩展成更完整的产品：更多功能、更细的交互、更高的完成度，以及额外的 AI 辅助能力。</p>
+<p>
+  <img src="/img/harness-design/case-comparison.svg" alt="案例对比">
+
+</p>
+<h3 id="72-单-agent-vs-harness差异不是线性的而是台阶式的">7.2 单 Agent vs Harness：差异不是线性的，而是台阶式的</h3>
+<p>文中的对比非常有说服力：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">维度</th>
+<th style="text-align:left">单 Agent 模式</th>
+<th style="text-align:left">Harness 模式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>耗时</strong></td>
+<td style="text-align:left">20 分钟</td>
+<td style="text-align:left">6 小时</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>成本</strong></td>
+<td style="text-align:left">$9</td>
+<td style="text-align:left">$200</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>范围</strong></td>
+<td style="text-align:left">基础功能，规划较浅</td>
+<td style="text-align:left">扩展成 16 个功能，10 个 Sprint</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>结果</strong></td>
+<td style="text-align:left">核心功能失败，不可用</td>
+<td style="text-align:left">核心能力可用，系统基本可交付</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>AI 集成</strong></td>
+<td style="text-align:left">无</td>
+<td style="text-align:left">具备内置 Claude 生成能力</td>
+</tr>
+</tbody>
+</table>
+<p>这里最值得强调的一点是：Harness 带来的不是 10% 或 20% 的优化，而是从“能演示”到“能使用”的级别跨越。</p>
+<h3 id="73-评估器发现的-bug恰恰说明了它为什么必要">7.3 评估器发现的 Bug，恰恰说明了它为什么必要</h3>
+<p>文章中列出的几个 Bug 非常典型：</p>
+<ul>
+<li>矩形填充工具只填了起点和终点，而没有真正填充区域</li>
+<li>删除键逻辑判断有误，导致实体无法删除</li>
+<li>FastAPI 路由顺序不对，使 <code>PUT /frames/reorder</code> 被动态路由错误吞掉，返回 422</li>
+</ul>
+<p>这些问题有一个共同特征：<strong>它们不是“写没写这段代码”的问题，而是“系统在真实运行中是否真的成立”的问题。</strong></p>
+<p>换句话说，这些 Bug 之所以重要，不是因为它们难修，而是因为它们揭示了单 Agent 自评的盲点：模型很容易在“局部代码合理”时，误以为“整体功能成立”。</p>
+<h3 id="74-案例二浏览器端-daw">7.4 案例二：浏览器端 DAW</h3>
+<p>第二个案例是浏览器端数字音频工作站（DAW），Prompt 更宏大，也更能测试模型在长任务中的持续能力：</p>
+<blockquote>
+<p>“Build a fully featured DAW in the browser using the Web Audio API.”</p>
+</blockquote>
+<p>这个案例使用的是针对 Opus 4.6 优化后的精简 Harness。其指标大致如下：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">阶段</th>
+<th style="text-align:left">耗时</th>
+<th style="text-align:left">成本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">规划阶段</td>
+<td style="text-align:left">4.7 分钟</td>
+<td style="text-align:left">$0.46</td>
+</tr>
+<tr>
+<td style="text-align:left">构建阶段</td>
+<td style="text-align:left">超过 2 小时连续运行</td>
+<td style="text-align:left">$113.85</td>
+</tr>
+<tr>
+<td style="text-align:left">QA 阶段（3 轮）</td>
+<td style="text-align:left">约 26 分钟</td>
+<td style="text-align:left">$10.39</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>总计</strong></td>
+<td style="text-align:left"><strong>约 4 小时</strong></td>
+<td style="text-align:left"><strong>$124.70</strong></td>
+</tr>
+</tbody>
+</table>
+<p>更重要的是，即使在 Opus 4.6 这样更强的模型下，评估器依然发现了关键缺口：</p>
+<ul>
+<li>音频片段无法拖拽</li>
+<li>录音功能只是空壳</li>
+<li>效果器缺少真正可理解的图形化可视化</li>
+</ul>
+<p>这说明一个事实：<strong>模型变强，会降低 Harness 的复杂度需求，但不会自动消除对外部评估的需求。</strong></p>
+<h3 id="75-这两个案例共同证明了什么">7.5 这两个案例共同证明了什么</h3>
+<p>如果把两个案例放在一起看，可以得到一个更清晰的判断：</p>
+<ol>
+<li><strong>规划器提高的是上限</strong>：它让任务从“一个 demo”变成“一个完整产品方向”</li>
+<li><strong>生成器提高的是推进速度</strong>：它把复杂规格持续落到代码上</li>
+<li><strong>评估器提高的是下限</strong>：它防止系统在“看似完成”的假象中停下来</li>
+</ol>
+<p>也就是说，Harness 的真正价值不在于某个 Agent 特别强，而在于三个角色共同塑造了一个更高上限、更高下限的系统。</p>
+<hr>
+<h2 id="八模型变强以后为什么-harness-反而要变简单">八、模型变强以后，为什么 Harness 反而要变简单</h2>
+<p>Anthropic 在文中反复强调一个原则：<strong>随着模型能力提升，Harness 应该被主动简化。</strong> 这一点非常重要，因为很多工程系统一旦做复杂了，就会天然倾向于继续堆复杂度；而 Anthropic 的做法恰恰相反。</p>
+<p>
+  <img src="/img/harness-design/model-evolution.svg" alt="模型演进驱动架构简化">
+
+</p>
+<h3 id="81-sonnet-45-时代复杂架构是在补模型短板">8.1 Sonnet 4.5 时代：复杂架构是在补模型短板</h3>
+<p>在 Sonnet 4.5 阶段，复杂 Harness 是必要的，因为模型本身存在明显短板：</p>
+<ul>
+<li>长上下文运行不稳定</li>
+<li>复杂任务容易提前收尾</li>
+<li>自主规划能力不足</li>
+<li>需要显式拆成多个 Sprint 才能稳步推进</li>
+</ul>
+<p>此时，引入 Sprint、合同、上下文重置、密集 QA，本质上是在用系统设计弥补模型能力缺陷。</p>
+<h3 id="82-opus-46-时代移除不再提供价值的部件">8.2 Opus 4.6 时代：移除不再提供价值的部件</h3>
+<p>到了 Opus 4.6，Anthropic 观察到：</p>
+<ul>
+<li>模型能更长时间连续工作</li>
+<li>对长任务的整体把握更强</li>
+<li>自我修正能力比过去更好</li>
+<li>许多原本必须显式拆分的步骤，如今可以自然完成</li>
+</ul>
+<p>于是，他们果断移除了部分脚手架，例如 Sprint 结构和频繁上下文重置，把系统压回更简单的形态。</p>
+<p>这背后的思想很工程化：<strong>复杂度本身从来不是价值，只有在它确实能对冲风险时才值得存在。</strong></p>
+<h3 id="83-为什么评估器被保留下来了">8.3 为什么评估器被保留下来了</h3>
+<p>最值得注意的是：在被删掉那么多部件之后，<strong>评估器并没有消失。</strong></p>
+<p>这说明 Anthropic 已经在实践中验证了一个稳定结论：</p>
+<blockquote>
+<p><strong>规划能力、自我修正能力和长上下文能力会随着模型升级而改善，但独立评估的价值衰减得最慢。</strong></p>
+</blockquote>
+<p>原因很简单：</p>
+<ul>
+<li>规划和分解属于“内部思考能力”，模型强了以后会自然改善</li>
+<li>但评估尤其是运行时评估，属于“输出后的独立验证”，它天然站在模型自我叙述之外</li>
+</ul>
+<p>因此，评估器更像是一种长期存在的“系统安全边界”，而不是某一代模型的过渡补丁。</p>
+<hr>
+<h2 id="九从-anthropic-的实践中可以提炼出什么工程方法论">九、从 Anthropic 的实践中，可以提炼出什么工程方法论</h2>
+<p>如果把这篇文章只当成 Anthropic 的内部经验分享，价值其实被低估了。更有意义的做法，是把它提炼成一套可迁移的方法论。</p>
+<h3 id="91-第一条把模型当组件而不是当完整系统">9.1 第一条：把模型当组件，而不是当完整系统</h3>
+<p>Harness 的前提假设非常明确：<strong>模型不是系统本身，模型只是系统中的一个高能力但不稳定的组件。</strong></p>
+<p>一旦接受这一点，很多设计就顺理成章了：</p>
+<ul>
+<li>评估应该外置</li>
+<li>状态应该外置</li>
+<li>验收标准应该外置</li>
+<li>关键过程应该可追溯、可恢复、可重启</li>
+</ul>
+<p>这和传统分布式系统设计并没有本质区别：当某个组件能力强但行为不完全可预测时，系统要通过协议、状态和边界来约束它。</p>
+<h3 id="92-第二条先让系统有纠偏能力再追求一次做对">9.2 第二条：先让系统有“纠偏能力”，再追求一次做对</h3>
+<p>很多 AI 工作流都默认一个目标：通过更好的 Prompt、更强的模型，让第一次输出尽量正确。但 Anthropic 的实践指向另一种思路：</p>
+<blockquote>
+<p><strong>在复杂任务上，比起追求“一次命中”，更重要的是让系统具备“持续纠偏”的能力。</strong></p>
+</blockquote>
+<p>原因很现实：</p>
+<ul>
+<li>复杂任务的正确解往往不是单点，而是一个需要搜索的区域</li>
+<li>主观质量本来就不可能靠一次生成达到最优</li>
+<li>真实产品的缺陷很多只会在运行后显现</li>
+</ul>
+<p>因此，Harness 的价值不在于“确保第一次就做对”，而在于<strong>确保做错了也能被发现，并继续逼近正确答案。</strong></p>
+<h3 id="93-第三条把是否值得上-harness做成判断题而不是信仰题">9.3 第三条：把“是否值得上 Harness”做成判断题，而不是信仰题</h3>
+<p>并不是所有任务都值得套上完整 Harness。结合文中经验，我认为可以用三个问题来判断：</p>
+<h4 id="问题一任务时长是否超过单轮高质量上下文的稳定边界">问题一：任务时长是否超过单轮高质量上下文的稳定边界？</h4>
+<p>如果一个任务 10 到 20 分钟就能稳定完成，上下文重置、状态交接这些机制通常意义不大。</p>
+<h4 id="问题二结果质量是否依赖真实交互而不是只看静态代码">问题二：结果质量是否依赖真实交互，而不是只看静态代码？</h4>
+<p>如果用户价值体现在复杂 UI、端到端流程、数据库联动和功能可用性上，那么独立评估器往往是值得的。</p>
+<h4 id="问题三任务是否处于模型能力边界附近">问题三：任务是否处于模型能力边界附近？</h4>
+<p>如果模型对这类任务已经非常成熟，Harness 可能只是额外成本；但如果任务本身涉及创新设计、复杂交互或长链路集成，Harness 往往会显著提高成功率。</p>
+<p>简化成一句话就是：<strong>任务越长、越主观、越依赖运行时验证、越接近模型能力边界，就越值得引入 Harness。</strong></p>
+<h3 id="94-一个可落地的最小版-harness">9.4 一个可落地的最小版 Harness</h3>
+<p>如果团队想把文中的思想迁移到自己的 AI 开发流程里，不一定要一步到位做三智能体系统。一个最小可用版本其实可以是：</p>
+<ol>
+<li><strong>一个 Builder Agent</strong>：负责实现功能</li>
+<li><strong>一个 Evaluator Agent</strong>：只做运行时验证和验收反馈</li>
+<li><strong>一组文件化工件</strong>：至少包括任务说明、验收标准、修复反馈</li>
+<li><strong>一个退出条件</strong>：例如“所有关键测试通过，且四个维度评分均达阈值”</li>
+</ol>
+<p>也就是说，最先应该搭起来的不是复杂编排，而是：</p>
+<ul>
+<li>独立评估</li>
+<li>结构化反馈</li>
+<li>显式验收标准</li>
+</ul>
+<p>这三件事，几乎构成了 Harness 价值的最小闭包。</p>
+<hr>
+<h2 id="十总结anthropic-真正展示的是一种模型之上的系统设计">十、总结：Anthropic 真正展示的是一种“模型之上的系统设计”</h2>
+<p>回到最开始的问题：Anthropic 这篇文章真正讨论的，究竟是什么？</p>
+<p>我的判断是，它讨论的不是某个 Agent Prompt 的写法，也不是某种特定模型的技巧，而是一个更本质的问题：</p>
+<blockquote>
+<p><strong>当模型已经足够强，但还不足以稳定独立完成复杂应用开发时，我们应该如何在模型之外搭建一层系统，使其输出从“偶尔惊艳”变成“可重复交付”。</strong></p>
+</blockquote>
+<p>Harness 的答案非常清晰：</p>
+<ul>
+<li>用独立评估器解决自评偏差</li>
+<li>用状态外部化解决长任务稳定性问题</li>
+<li>用显式验收和合同机制解决对齐问题</li>
+<li>并随着模型能力提升，持续移除不再必要的复杂度</li>
+</ul>
+<p>这套方法最有启发性的地方，在于它并不神化模型，而是把模型放回到工程系统里看待。<strong>模型负责生成潜力，系统负责质量边界。</strong></p>
+<p>从 Sonnet 4.5 时代的复杂多 Sprint 架构，到 Opus 4.6 时代的精简单次 QA，Harness 的演化本身已经说明了一切：<strong>最好的 AI 系统，不是最复杂的系统，而是能随着模型进步不断收缩脚手架的系统。</strong></p>
+<hr>
+<p><em>原文链接：<a href="https://www.anthropic.com/engineering/harness-design-long-running-apps">Harness design for long-running application development</a> — Anthropic Engineering Blog, 2026.03.24</em></p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-04-08-claude-code-agent-teams%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Claude Code Agent-Teams深度解析：多智能体协作系统的技术实现原理">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
