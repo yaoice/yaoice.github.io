@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="驾驭 Claude 的智能：构建 AI 应用的三大核心模式深度解析" />
+    <meta property="og:title" content="驾驭 Claude 的智能：构建 AI 应用的三大核心模式深度解析" />
+    <meta property="twitter:title" content="驾驭 Claude 的智能：构建 AI 应用的三大核心模式深度解析" />
+    
+
+    
+    <meta name="description" content="基于 Anthropic 官方博客 Harnessing Claude&#39;s Intelligence 的深度技术解读。系统性剖析在 Claude 持续进化的背景下，如何通过&#39;使用 Claude 已知的能力&#39;、&#39;减少不必要的控制&#39;、&#39;精准设置边界&#39;三大模式，构建平衡智能、延迟和成本的 AI 应用。涵盖上下文管理、子代理架构、提示缓存优化、声明式工具等核心技术。">
+    <meta property="og:description" content="基于 Anthropic 官方博客 Harnessing Claude&#39;s Intelligence 的深度技术解读。系统性剖析在 Claude 持续进化的背景下，如何通过&#39;使用 Claude 已知的能力&#39;、&#39;减少不必要的控制&#39;、&#39;精准设置边界&#39;三大模式，构建平衡智能、延迟和成本的 AI 应用。涵盖上下文管理、子代理架构、提示缓存优化、声明式工具等核心技术。" />
+    <meta property="twitter:description" content="基于 Anthropic 官方博客 Harnessing Claude&#39;s Intelligence 的深度技术解读。系统性剖析在 Claude 持续进化的背景下，如何通过&#39;使用 Claude 已知的能力&#39;、&#39;减少不必要的控制&#39;、&#39;精准设置边界&#39;三大模式，构建平衡智能、延迟和成本的 AI 应用。涵盖上下文管理、子代理架构、提示缓存优化、声明式工具等核心技术。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>驾驭 Claude 的智能：构建 AI 应用的三大核心模式深度解析 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/04/16/harnessing-claudes-intelligence/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                    </div>
+                    <h1>驾驭 Claude 的智能：构建 AI 应用的三大核心模式深度解析</h1>
+                    <h2 class="subheading">深入解析 Anthropic 官方提出的三大核心模式：如何在智能、延迟与成本之间找到最优平衡</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Thursday, April 16, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言ai-应用开发范式的转变">一、引言：AI 应用开发范式的转变</h2>
+<blockquote>
+<p>原文链接：<a href="https://claude.com/blog/harnessing-claudes-intelligence">Harnessing Claude&rsquo;s Intelligence</a>
+作者：Lance Martin（Anthropic Claude 平台技术团队）
+发布时间：2026 年 4 月 2 日</p>
+</blockquote>
+<p>Anthropic 联合创始人 Chris Olah 曾说过一句意味深长的话：</p>
+<blockquote>
+<p><strong>&ldquo;像 Claude 这样的生成式 AI 系统是&rsquo;培育&rsquo;出来的，而不是&rsquo;建造&rsquo;出来的。&rdquo;</strong></p>
+</blockquote>
+<p>研究人员设定条件来引导模型的成长，但最终涌现出的具体结构或能力并不总是可预测的。这意味着，<strong>围绕 Claude 构建的应用程序也需要持续适配模型能力的变化</strong>——不是一次性的架构设计，而是一个持续演进的过程。</p>
+<p>
+  <img src="/img/claude-intelligence/architecture-overview.svg" alt="Claude 智能架构总览">
+
+</p>
+<p>这篇来自 Anthropic 官方的技术博客，由 Claude 平台团队的 Lance Martin 撰写，系统性地提出了<strong>三大核心模式</strong>，帮助开发者在 Claude 不断进化的背景下，构建能够平衡<strong>智能（Intelligence）</strong>、<strong>延迟（Latency）</strong> 和 <strong>成本（Cost）</strong> 的应用程序。</p>
+<p>本文将对这三大模式进行深度技术解析，并结合具体的工程实践和基准测试数据，为开发者提供可落地的架构指导。<strong>需要说明的是：文中的配图、流程图和伪代码主要用于解释原文机制，均为作者基于原文整理的概念示意，并非 Anthropic 官方原图或官方接口定义。</strong></p>
+<hr>
+<h2 id="二概念关系图从基础工具到高阶模式">二、概念关系图：从基础工具到高阶模式</h2>
+<p>在深入三大模式之前，先做一个边界说明：<strong>原文并没有给出“应用层 / 编排层 / 基础层”的正式三层架构。</strong> 为了帮助理解，我把文中出现的工具与机制整理成下面这张概念关系图。</p>
+<p>
+  <img src="/img/claude-intelligence/concept-relations.svg" alt="从基础工具到高阶模式的概念关系图">
+
+</p>
+<p><strong>图注</strong>：作者基于原文整理的概念关系图，非官方分层架构。</p>
+<p>原文明确给出的事实是：Claude 已经非常熟悉 <code>bash</code> 工具和文本编辑器工具，而 <strong>Agent Skills</strong>、<strong>programmatic tool calling</strong>、<strong>memory tool / memory folder</strong> 这些更高阶的模式，都可以建立在这类通用工具之上。因此，与其为 Claude 设计一套过于复杂的专用工具体系，不如优先使用它已经“理解良好”的能力单元。</p>
+<hr>
+<h2 id="三模式一使用-claude-已知的能力">三、模式一：使用 Claude 已知的能力</h2>
+<h3 id="31-核心理念">3.1 核心理念</h3>
+<p>第一个模式的核心是一个反直觉的建议：<strong>不要给 Claude 使用你认为它需要的工具，而是使用 Claude 理解良好的工具来构建应用。</strong></p>
+<p>Claude 3.5 Sonnet 在 2024 年底于 <strong>SWE-bench Verified</strong> 基准上达到了 <strong>49%</strong> 的准确率，而它仅使用了两个工具：</p>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>功能</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Bash 工具</strong></td>
+<td>执行 shell 命令</td>
+<td>通用、可组合、Claude 深度理解</td>
+</tr>
+<tr>
+<td><strong>文本编辑器工具</strong></td>
+<td>查看、创建、编辑文件</td>
+<td>覆盖代码修改全生命周期</td>
+</tr>
+</tbody>
+</table>
+<p>
+  <img src="/img/claude-intelligence/three-core-patterns.svg" alt="三大核心模式概览">
+
+</p>
+<p><strong>图注</strong>：作者基于原文整理的三大模式概览图。</p>
+<h3 id="32-从基础工具到复杂模式">3.2 从基础工具到复杂模式</h3>
+<p>这两个简单工具的威力在于它们的<strong>可组合性</strong>。通过组合，它们可以构建出三种更高级的模式：</p>
+<p>
+  <img src="/img/claude-intelligence/tools-composition.svg" alt="从基础工具到复杂模式">
+
+</p>
+<h4 id="agent-skills代理技能">Agent Skills（代理技能）</h4>
+<p>技能本质上是<strong>预定义的、可按需加载的上下文片段</strong>。每个技能包含：</p>
+<ul>
+<li><strong>YAML 前置元数据</strong>：简短描述，始终预加载在上下文窗口中</li>
+<li><strong>完整内容</strong>：通过读取文件工具按需加载</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#6272a4"># 技能元数据示例（始终可见）</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">name</span>: api-design
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">description</span>: <span style="color:#f1fa8c">&#34;Guides REST and GraphQL API design&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">trigger</span>: <span style="color:#f1fa8c">&#34;designing APIs, creating endpoints&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 完整内容（按需加载）</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># → Claude 根据任务判断是否需要调用 read_file 加载</span>
+</span></span></code></pre></div><p>这种设计的精妙之处在于：<strong>它把上下文管理的决策权交给了 Claude 自身</strong>。</p>
+<h4 id="programmatic-tool-use程序化工具调用">Programmatic Tool Use（程序化工具调用）</h4>
+<p>不是每个工具调用的结果都需要流经 Claude 的上下文窗口。通过代码执行工具，Claude 可以：</p>
+<ol>
+<li><strong>编写代码</strong>来表达工具调用和它们之间的逻辑</li>
+<li><strong>决定过滤</strong>哪些结果、管道传输到下一个调用</li>
+<li>只有<strong>最终输出</strong>到达 Claude 的上下文窗口</li>
+</ol>
+<h4 id="memory-tools记忆工具">Memory Tools（记忆工具）</h4>
+<p>允许 Claude 将上下文<strong>写入文件</strong>并在需要时<strong>读取</strong>，实现跨会话的信息持久化。</p>
+<h3 id="33-工程启示">3.3 工程启示</h3>
+<blockquote>
+<p><strong>核心原则</strong>：Claude Code 就是基于这些相同的基础工具构建的。如果你正在构建代理应用，首先考虑 Claude 最擅长使用的工具，而不是设计最多功能的工具集。</p>
+</blockquote>
+<hr>
+<h2 id="四模式二问自己我可以停止做什么">四、模式二：问自己&quot;我可以停止做什么？&quot;</h2>
+<p>这是三大模式中最具颠覆性的一个。随着 Claude 能力的持续提升，开发者需要<strong>不断重新评估代理框架（agent harness）中的假设</strong>——特别是那些为弥补模型不足而添加的“辅助轮”。</p>
+<h3 id="41-让-claude-编排自己的操作">4.1 让 Claude 编排自己的操作</h3>
+<h4 id="问题工具结果的上下文膨胀">问题：工具结果的上下文膨胀</h4>
+<p>传统假设是：每个工具调用的结果都应该流经 Claude 的上下文窗口，以便 Claude 做出下一步决策。但这会导致：</p>
+<ul>
+<li><strong>速度慢</strong>：大量的工具输出占用处理时间</li>
+<li><strong>成本高</strong>：每个 token 都有计费</li>
+<li><strong>不必要</strong>：许多中间结果对最终决策没有价值</li>
+</ul>
+<h4 id="解决方案代码执行作为编排层">解决方案：代码执行作为编排层</h4>
+<p>提供代码执行工具（Bash 或特定语言 REPL），让 Claude <strong>自己决定信息流的编排</strong>：</p>
+<p>
+  <img src="/img/claude-intelligence/code-orchestration.svg" alt="代码执行作为编排层">
+
+</p>
+<h4 id="基准测试数据">基准测试数据</h4>
+<p>这种方法在 <strong>BrowseComp</strong> 基准上产生了显著的效果：</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>模型</th>
+<th>BrowseComp 准确率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>标准模式（全部结果流经上下文）</td>
+<td>Opus 4.6</td>
+<td><strong>45.3%</strong></td>
+</tr>
+<tr>
+<td>自编排模式（Claude 过滤自己的工具输出）</td>
+<td>Opus 4.6</td>
+<td><strong>61.6%</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>提升幅度：+16.3 个百分点（+36% 相对提升）</strong></p>
+<p>
+  <img src="/img/claude-intelligence/benchmark-comparison.png" alt="BrowseComp 基准性能对比">
+
+</p>
+<h3 id="42-让-claude-管理自己的上下文">4.2 让 Claude 管理自己的上下文</h3>
+<h4 id="问题手工系统提示的注意力稀释">问题：手工系统提示的注意力稀释</h4>
+<p>为每种任务手工编写特定的系统提示词（System Prompt）是不可扩展的。每添加一个 token 到系统提示中，都会<strong>消耗 Claude 有限的注意力预算</strong>，而大部分内容在任何给定任务中可能是无关的。</p>
+<h4 id="三种上下文管理策略">三种上下文管理策略</h4>
+<p>
+  <img src="/img/claude-intelligence/context-strategies.svg" alt="三种上下文管理策略">
+
+</p>
+<p><strong>子代理的关键价值</strong>在于<strong>上下文隔离</strong>：特定任务的工作在独立的上下文窗口中进行，不会污染主代理的上下文。</p>
+<h4 id="子代理基准数据">子代理基准数据</h4>
+<p>使用 <strong>Opus 4.6</strong>，生成子代理的能力在 BrowseComp 上比最佳单代理运行提高了 <strong>2.8%</strong>。看似不大，但在接近基准天花板时，每一个百分点的提升都意味着模型处理了更多高难度边界情况。</p>
+<h3 id="43-让-claude-持久化自己的上下文">4.3 让 Claude 持久化自己的上下文</h3>
+<h4 id="问题上下文窗口的物理限制">问题：上下文窗口的物理限制</h4>
+<p>长期运行的代理任务（如多日代码重构、持续学习）可能超过单个上下文窗口的容量限制。</p>
+<h4 id="两种持久化策略">两种持久化策略</h4>
+<p><strong>策略一：Compaction（压缩/精简）</strong></p>
+<p>原文这里使用的术语是 <strong>Compaction</strong>。它的核心思想是：让 Claude 对已经积累的上下文进行总结与提炼，使长期任务在切换到新的上下文窗口后仍能保持连续性。</p>
+<p>
+  <img src="/img/claude-intelligence/compaction.svg" alt="Compaction 压缩示意">
+
+</p>
+<p><strong>图注</strong>：作者基于原文整理的 Compaction 示意图。</p>
+<p><strong>策略二：记忆文件夹（Memory Folder）</strong></p>
+<p>另一种方式是让 Claude 把信息写入文件，并在之后按需读取。<strong>原文强调了 memory folder 的思路，但没有规定统一的固定目录路径或标准目录结构。</strong> 换句话说，重点不在“目录应该长什么样”，而在于：Claude 是否已经学会把长期任务中的关键经验、状态和失败教训持久化下来。</p>
+<h4 id="跨模型的-compaction-性能对比">跨模型的 Compaction 性能对比</h4>
+<p>不同模型在利用 Compaction 策略时表现出<strong>显著的能力差异</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>BrowseComp（无 Compaction）</th>
+<th>BrowseComp（有 Compaction）</th>
+<th>提升</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sonnet 4.5</strong></td>
+<td>43%</td>
+<td>43%</td>
+<td><strong>0%</strong>（无论给多少 compaction 预算）</td>
+</tr>
+<tr>
+<td><strong>Opus 4.5</strong></td>
+<td>-</td>
+<td>68%</td>
+<td>显著提升</td>
+</tr>
+<tr>
+<td><strong>Opus 4.6</strong></td>
+<td>-</td>
+<td><strong>84%</strong></td>
+<td>极大提升</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关键发现</strong>：Compaction 不是简单地“压缩文本”，而是要判断哪些信息值得被保留下来，用于支撑未来任务的连续性。原文的数据恰恰说明，这种能力与模型本身的智能水平强相关。</p>
+<h4 id="记忆文件夹的量化效果">记忆文件夹的量化效果</h4>
+<p>在 <strong>BrowseComp-Plus</strong> 基准上，给 <strong>Sonnet 4.5</strong> 提供记忆文件夹，准确率从 <strong>60.4%</strong> 提升到 <strong>67.2%</strong>。这说明即使对 Compaction 不敏感的模型，也可能从外部持久化记忆中受益。</p>
+<h3 id="44-案例研究从-sonnet-35-到-opus-46-的记忆进化">4.4 案例研究：从 Sonnet 3.5 到 Opus 4.6 的记忆进化</h3>
+<p>原文用《宝可梦》代理作为一个很生动的长期任务案例。它展示的不是“模型会不会写文件”，而是<strong>模型是否知道该记住什么，以及如何把记忆组织成真正可复用的工作资料</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Sonnet 3.5</th>
+<th>Opus 4.6</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>步数</strong></td>
+<td>14,000 步</td>
+<td>同样 14,000 步</td>
+</tr>
+<tr>
+<td><strong>记忆方式</strong></td>
+<td>更像“转录记录”，记录 NPC 说过的话</td>
+<td>主动组织信息，形成更可执行的战术知识</td>
+</tr>
+<tr>
+<td><strong>文件数量</strong></td>
+<td><strong>31 个文件</strong>，其中还包含近重复内容</td>
+<td><strong>10 个文件</strong>，并且按目录组织</td>
+</tr>
+<tr>
+<td><strong>游戏进度</strong></td>
+<td>仍停留在第二个城镇</td>
+<td>已获得 <strong>3 个徽章</strong></td>
+</tr>
+<tr>
+<td><strong>元认知表现</strong></td>
+<td>原文未强调明显的失败反思机制</td>
+<td>维护了一个从失败中提炼经验的学习文件</td>
+</tr>
+</tbody>
+</table>
+<p>这个案例生动地说明了：<strong>更强的模型不仅更会“用工具”，也更会“组织自己的工作记忆”。</strong></p>
+<p>
+  <img src="/img/claude-intelligence/context-management.png" alt="上下文管理策略示意">
+
+</p>
+<p><strong>图注</strong>：作者基于原文整理的上下文管理策略示意图。</p>
+<hr>
+<h2 id="五模式三精准设置边界">五、模式三：精准设置边界</h2>
+<p>代理框架（agent harness）为 Claude 提供结构性约束，用来落实 <strong>UX</strong>、<strong>成本</strong> 与 <strong>安全</strong> 要求。但原文的重点不是“多设一些边界”，而是<strong>只在真正需要的地方设边界</strong>。</p>
+<h3 id="51-设计上下文以最大化缓存命中">5.1 设计上下文以最大化缓存命中</h3>
+<p>Messages API 是<strong>无状态</strong>的——Claude 无法直接看到之前轮次的会话历史。因此，多轮应用往往需要不断重新发送上下文，而这正是 <strong>Prompt Caching</strong> 发挥价值的地方。</p>
+<h4 id="缓存优化的五大原则">缓存优化的五大原则</h4>
+<p>
+  <img src="/img/claude-intelligence/cache-principles.svg" alt="缓存优化五大原则">
+
+</p>
+<p><strong>图注</strong>：作者基于原文整理的缓存优化原则图。</p>
+<table>
+<thead>
+<tr>
+<th>原则</th>
+<th>原文要点</th>
+<th>工程含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>静态优先</strong></td>
+<td>稳定内容放前，动态内容放后</td>
+<td>系统提示、工具定义尽量稳定</td>
+</tr>
+<tr>
+<td><strong>消息追加</strong></td>
+<td>用 <code>&lt;system-reminder&gt;</code> 追加更新，而不是编辑提示</td>
+<td>降低缓存前缀失效概率</td>
+</tr>
+<tr>
+<td><strong>不切换模型</strong></td>
+<td>缓存与模型绑定</td>
+<td>会话中频繁换模型会破坏缓存收益</td>
+</tr>
+<tr>
+<td><strong>谨慎管理工具</strong></td>
+<td>工具定义位于缓存前缀中</td>
+<td>动态增删工具会让缓存失效</td>
+</tr>
+<tr>
+<td><strong>更新断点</strong></td>
+<td>多轮应用应移动断点位置</td>
+<td>让可复用前缀尽可能长</td>
+</tr>
+</tbody>
+</table>
+<p><strong>成本影响</strong>：缓存 token 的价格仅为基础输入 token 的 <strong>10%</strong>。</p>
+<h4 id="动态工具发现原文给的是模式不是固定-api">动态工具发现：原文给的是模式，不是固定 API</h4>
+<p>原文建议：如果工具集合需要动态发现，应考虑 <strong>tool search</strong> 这类模式，而不是每轮都直接增删工具定义。这里的重点是<strong>保持缓存前缀稳定</strong>，而不是某个固定的接口 schema。换句话说，真正值得记住的是设计原则：</p>
+<ul>
+<li><strong>尽量稳定工具定义</strong></li>
+<li><strong>把“发现工具”变成一次显式操作</strong></li>
+<li><strong>不要让工具列表频繁变化，破坏缓存收益</strong></li>
+</ul>
+<h3 id="52-声明式工具把边界变成可拦截可审计的动作">5.2 声明式工具：把边界变成可拦截、可审计的动作</h3>
+<p>原文强调，某些操作值得被提升成<strong>声明式工具（declarative tools）</strong>。这样做的好处，不在于“工具更多”，而在于这些动作会拥有<strong>类型化参数</strong>，从而让代理框架可以对它们进行拦截、门控、渲染或审计。</p>
+<p>
+  <img src="/img/claude-intelligence/declarative-tools.svg" alt="声明式工具安全与 UX 模式">
+
+</p>
+<p>
+  <img src="/img/claude-intelligence/declarative-tool-flow.svg" alt="声明式工具作用">
+
+</p>
+<p><strong>图注</strong>：作者基于原文整理的声明式工具作用示意图。</p>
+<p>原文给出的价值主要有三类：</p>
+<ul>
+<li><strong>安全边界</strong>：对不可逆或高风险操作进行用户确认或额外门控</li>
+<li><strong>UX 呈现</strong>：把操作渲染成更清晰的界面交互，而不是纯文本往返</li>
+<li><strong>可观察性</strong>：由于参数是结构化的，框架更容易记录、追踪和重放操作</li>
+</ul>
+<p>需要注意的是：<strong>原文讨论的是设计思想，没有给出固定的 JSON schema，也没有定义类似 <code>requires_confirmation</code>、<code>render_as</code>、<code>risk_level</code> 这样的标准字段。</strong></p>
+<h3 id="53-claude-code-的-auto-mode重新思考安全边界的粒度">5.3 Claude Code 的 auto-mode：重新思考安全边界的粒度</h3>
+<p>原文这里的表述更准确地说是：<strong>Claude Code 的 auto-mode（文章写作时处于 research mode）</strong>，会在 <code>bash</code> 工具周围提供一层安全边界——由<strong>第二个 Claude</strong> 读取命令字符串并判断其是否安全。</p>
+<p>
+  <img src="/img/claude-intelligence/auto-mode-sequence.svg" alt="auto-mode 安全边界">
+
+</p>
+<p><strong>图注</strong>：作者基于原文整理的 auto-mode 安全边界示意图。</p>
+<p>从工程视角看，这一段最值得关注的不是某个具体实现，而是一个更大的信号：<strong>随着 Claude 自身能力增强，一些原本必须依赖专用工具或外部控制逻辑的边界，可能会被重新内化到更灵活的代理框架里。</strong></p>
+<hr>
+<h2 id="六实践指南构建生产级-claude-应用的清单">六、实践指南：构建生产级 Claude 应用的清单</h2>
+<p>基于三大模式，以下是构建 Claude 应用时的工程决策清单：</p>
+<h3 id="61-工具设计清单">6.1 工具设计清单</h3>
+<pre tabindex="0"><code>✅ 优先使用 Claude 深度理解的通用工具（Bash、文本编辑器）
+✅ 提供代码执行环境让 Claude 编排多步骤操作
+✅ 将安全敏感操作封装为声明式工具
+✅ 为动态工具集使用工具搜索而非动态注册
+❌ 避免为每种操作创建专用工具
+❌ 避免所有工具输出都流经上下文窗口
+</code></pre><h3 id="62-上下文管理清单">6.2 上下文管理清单</h3>
+<pre tabindex="0"><code>✅ 使用技能系统（Skills）按需加载上下文
+✅ 实现上下文编辑，移除过期/无关信息
+✅ 对长期任务启用压缩策略
+✅ 提供记忆文件夹用于跨会话持久化
+✅ 为独立子任务分叉子代理
+❌ 避免将所有指令硬编码在系统提示中
+❌ 避免无限增长的上下文窗口
+</code></pre><h3 id="63-成本优化清单">6.3 成本优化清单</h3>
+<pre tabindex="0"><code>✅ 遵循&#34;静态优先，动态最后&#34;的请求结构
+✅ 用消息追加而非编辑系统提示
+✅ 会话内保持同一模型
+✅ 固定工具定义，使用工具搜索处理动态需求
+✅ 多轮应用中移动缓存断点
+❌ 避免会话中途切换模型
+❌ 避免频繁修改工具列表
+</code></pre><hr>
+<h2 id="七前瞻持续进化的应用架构">七、前瞻：持续进化的应用架构</h2>
+<h3 id="71-上下文焦虑的启示">7.1 &ldquo;上下文焦虑&quot;的启示</h3>
+<p>文章提到了一个引人深思的案例：</p>
+<ul>
+<li><strong>Sonnet 4.5</strong> 在感知到上下文限制接近时，会<strong>提前结束任务</strong>——团队称之为&quot;上下文焦虑&rdquo;</li>
+<li>为了应对这个问题，开发团队添加了<strong>上下文重置（Context Reset）</strong> 机制来清除上下文窗口</li>
+<li>当 <strong>Opus 4.5</strong> 发布后，这种行为<strong>完全消失了</strong>——之前为补偿不足而构建的上下文重置，反而成了代理框架中的**“死重”（Dead Weight）**</li>
+</ul>
+<h3 id="72-动态修剪架构">7.2 动态修剪架构</h3>
+<p>这个案例揭示了一个重要的工程原则：</p>
+<blockquote>
+<p><strong>随着模型能力的每一次飞跃，你需要重新测试&quot;Claude 不能做什么&quot;的假设。应用中的结构或边界应该基于这个问题持续修剪：&ldquo;我可以停止做什么？&rdquo;</strong></p>
+</blockquote>
+<p>
+  <img src="/img/claude-intelligence/pruning-evolution.svg" alt="动态修剪架构">
+
+</p>
+<p>这意味着 Claude 应用的架构不是一次性设计的静态产物，而是一个需要<strong>持续修剪的活文档</strong>：</p>
+<ol>
+<li><strong>定期基准测试</strong>：每次模型升级后，重新测试所有辅助机制的必要性</li>
+<li><strong>可拆卸设计</strong>：每个架构组件都应该可以独立移除</li>
+<li><strong>A/B 测试</strong>：在生产环境中对比有/无特定组件的效果</li>
+<li><strong>成本-收益审计</strong>：量化每个组件的延迟/成本开销与智能提升</li>
+</ol>
+<hr>
+<h2 id="八总结">八、总结</h2>
+<p>Anthropic 这篇博客传递的核心信息可以凝练为一句话：</p>
+<blockquote>
+<p><strong>最好的 Claude 应用是那些知道何时放手的应用。</strong></p>
+</blockquote>
+<p>三大模式的本质：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>核心问题</th>
+<th>设计哲学</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>使用 Claude 已知的能力</strong></td>
+<td>用什么工具？</td>
+<td>少即是多：通用工具 &gt; 专用工具</td>
+</tr>
+<tr>
+<td><strong>停止做不必要的事</strong></td>
+<td>控制什么？</td>
+<td>让 Claude 自主：减少外部编排</td>
+</tr>
+<tr>
+<td><strong>精准设置边界</strong></td>
+<td>约束什么？</td>
+<td>精准干预：只在安全/UX/成本需要时介入</td>
+</tr>
+</tbody>
+</table>
+<p>随着 Claude 从 Sonnet 3.5 进化到 Opus 4.6，我们看到的不仅是基准分数的提升，更是一种根本性的范式转变：<strong>从&quot;我如何让 AI 做正确的事&quot;到&quot;我如何停止阻碍 AI 做正确的事&quot;</strong>。</p>
+<p>对于开发者而言，最重要的实践是建立一个<strong>持续评估循环</strong>：每次模型能力升级后，重新审视你的假设、测试你的辅助机制、修剪不再需要的控制结构。你的代理框架应该随着 Claude 的成长而变得更简洁，而不是更复杂。</p>
+<hr>
+<blockquote>
+<p><strong>参考资源</strong>：原文最后提到，可查看 <code>claude-api</code> skill，以使用文中讨论的工具和模式。</p>
+</blockquote>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="http://localhost:1313/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/04/15/virtual-kubelet-ha/" data-toggle="tooltip" data-placement="top" title="Virtual Kubelet 源码深度解析：分布式高可用架构全面剖析">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/04/16/claude-code-subagents-deep-dive/" data-toggle="tooltip" data-placement="top" title="Claude Code 子代理 (Subagents) 深度解析：架构、机制与最佳实践">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/multi-agent" title="multi-agent">
+                            multi-agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+  
+<script type="module">  
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs'; 
+    mermaid.initialize({ startOnLoad: true });  
+</script>  
+<script>  
+    
+    Array.from(document.getElementsByClassName("language-mermaid")).forEach(  
+        (el) => {  
+            el.parentElement.outerHTML = `<div class="mermaid">${el.innerHTML}</div>`;  
+        }  
+    );  
+</script>  
+<style>  
+       
+    .mermaid svg {  
+        display: block;  
+        margin: auto;  
+    }  
+</style>  
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

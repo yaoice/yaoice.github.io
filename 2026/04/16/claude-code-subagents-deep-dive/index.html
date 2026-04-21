@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Claude Code 子代理 (Subagents) 深度解析：架构、机制与最佳实践" />
+    <meta property="og:title" content="Claude Code 子代理 (Subagents) 深度解析：架构、机制与最佳实践" />
+    <meta property="twitter:title" content="Claude Code 子代理 (Subagents) 深度解析：架构、机制与最佳实践" />
+    
+
+    
+    <meta name="description" content="深入解析 Claude Code 中子代理(Subagents)的技术原理、核心功能及实现机制。涵盖子代理的架构设计、五种触发方式（对话式调用、自定义代理、CLAUDE.md、技能、挂钩）、实用模式（研究、并行、审查、管道）以及最佳实践，帮助开发者高效利用子代理完成复杂编程任务。">
+    <meta property="og:description" content="深入解析 Claude Code 中子代理(Subagents)的技术原理、核心功能及实现机制。涵盖子代理的架构设计、五种触发方式（对话式调用、自定义代理、CLAUDE.md、技能、挂钩）、实用模式（研究、并行、审查、管道）以及最佳实践，帮助开发者高效利用子代理完成复杂编程任务。" />
+    <meta property="twitter:description" content="深入解析 Claude Code 中子代理(Subagents)的技术原理、核心功能及实现机制。涵盖子代理的架构设计、五种触发方式（对话式调用、自定义代理、CLAUDE.md、技能、挂钩）、实用模式（研究、并行、审查、管道）以及最佳实践，帮助开发者高效利用子代理完成复杂编程任务。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Claude Code 子代理 (Subagents) 深度解析：架构、机制与最佳实践 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/04/16/claude-code-subagents-deep-dive/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                    </div>
+                    <h1>Claude Code 子代理 (Subagents) 深度解析：架构、机制与最佳实践</h1>
+                    <h2 class="subheading">独立上下文、并行执行、差异化权限——深入理解 Claude Code 子代理的架构设计与工程实践</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Thursday, April 16, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言为什么需要子代理">一、引言：为什么需要子代理？</h2>
+<blockquote>
+<p>原文链接：<a href="https://claude.com/blog/subagents-in-claude-code">How and when to use subagents in Claude Code</a>
+发布日期：2026 年 4 月 7 日</p>
+</blockquote>
+<p>Claude Code 在处理复杂的多步骤项目时表现出色，但<strong>长会话</strong>带来了一个不可忽视的问题：随着对话持续推进，每次文件读取、每次探索、每次未完成的想法都会保留在上下文窗口中——<strong>上下文窗口逐渐膨胀，响应速度下降，Token 成本攀升</strong>。</p>
+<p>子代理提供了一个优雅的解决方案：它们就像浏览器标签页——你可以在新标签页中追逐某个切线问题，而不丢失主线进度。</p>
+<h3 id="本文导读">本文导读</h3>
+<table>
+<thead>
+<tr>
+<th>章节</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>第二节</strong></td>
+<td>子代理核心概念与架构设计</td>
+</tr>
+<tr>
+<td><strong>第三节</strong></td>
+<td>五种触发子代理的方式（从临时到自动化）</td>
+</tr>
+<tr>
+<td><strong>第四节</strong></td>
+<td>四大实用工作模式（研究/并行/审查/管道）</td>
+</tr>
+<tr>
+<td><strong>第五节</strong></td>
+<td>何时不应使用子代理</td>
+</tr>
+<tr>
+<td><strong>第六节</strong></td>
+<td>最佳实践与工程建议</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="二子代理核心概念与架构设计">二、子代理核心概念与架构设计</h2>
+<h3 id="21-什么是子代理">2.1 什么是子代理？</h3>
+<p>子代理（Subagent）是拥有<strong>独立上下文窗口</strong>的自包含代理实例。当 Claude Code 的主会话生成一个子代理时，该子代理会在独立的环境中工作——读取文件、探索代码或进行修改——完成后<strong>仅将精简的结果返回到主对话</strong>。</p>
+<p>
+  <img src="/img/claude-subagents/subagent-concept.svg" alt="子代理概念架构">
+
+</p>
+<h3 id="22-核心特性">2.2 核心特性</h3>
+<p>子代理具备三大核心特性，使其与普通的上下文切换有本质区别：</p>
+<p>
+  <img src="/img/claude-subagents/core-features.svg" alt="子代理三大核心特性">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>说明</th>
+<th>优势</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>独立上下文</strong></td>
+<td>子代理拥有全新的上下文窗口</td>
+<td>不受主对话历史负担，聚焦当前任务</td>
+</tr>
+<tr>
+<td><strong>并行执行</strong></td>
+<td>多个子代理可并发运行</td>
+<td>多任务并行 = 更短的完成时间</td>
+</tr>
+<tr>
+<td><strong>差异化权限</strong></td>
+<td>每个子代理可有不同的工具权限</td>
+<td>研究代理只读，实现代理可编辑</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-内置子代理类型">2.3 内置子代理类型</h3>
+<p>Claude Code 提供了三种内置子代理类型，覆盖最常见的使用场景：</p>
+<p>
+  <img src="/img/claude-subagents/builtin-types.svg" alt="Claude Code 内置子代理类型">
+
+</p>
+<p><strong>选择建议</strong>：</p>
+<ul>
+<li><strong>通用代理</strong>：当任务涉及代码修改时使用（如重构、新功能实现）</li>
+<li><strong>计划代理</strong>：当需要先理解现有架构再动手时使用（如大型重构前的调研）</li>
+<li><strong>探索代理</strong>：当只需要搜索和阅读代码时使用（如&quot;认证逻辑在哪里？&quot;）</li>
+</ul>
+<hr>
+<h2 id="三五种触发子代理的方式">三、五种触发子代理的方式</h2>
+<p>Claude Code 提供了从临时到完全自动化的五种触发方式，满足不同层次的自动化需求。</p>
+<p>
+  <img src="/img/claude-subagents/trigger-methods.svg" alt="五种触发方式对比">
+
+</p>
+<h3 id="31-方式一对话式调用">3.1 方式一：对话式调用</h3>
+<p><strong>最直接的使用方式</strong>——在对话中用自然语言要求 Claude 使用子代理。适用于所有 Claude Code 界面（终端、VS Code、JetBrains、Web、桌面应用）。</p>
+<h4 id="有效的自然语言模式">有效的自然语言模式</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span># 探索型
+</span></span><span style="display:flex;"><span>&#34;使用子代理探索此代码库中的身份验证如何工作&#34;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span># 审查型
+</span></span><span style="display:flex;"><span>&#34;让一个单独的代理审查此代码是否存在安全问题&#34;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span># 并行型
+</span></span><span style="display:flex;"><span>&#34;并行研究。同时检查 API 路由、数据库模型和前端组件&#34;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span># 修复型
+</span></span><span style="display:flex;"><span>&#34;启动子代理以修复不同包中的这些 TypeScript 错误&#34;
+</span></span></code></pre></div><h4 id="结构化提示词模板">结构化提示词模板</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>Use subagents to explore this codebase in parallel:
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> Find all API endpoints and summarize their purposes
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> Identify the database schema and relationships
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> Map out the authentication flow
+</span></span><span style="display:flex;"><span>Return a summary of each, not the full file contents.
+</span></span></code></pre></div><p><strong>提示技巧</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>技巧</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>明确范围</td>
+<td>告诉子代理要做什么、不做什么</td>
+</tr>
+<tr>
+<td>请求并行</td>
+<td>明确说&quot;并行&quot;或&quot;同时&quot;来触发多子代理</td>
+</tr>
+<tr>
+<td>指定返回</td>
+<td>说明需要摘要、发现列表还是具体建议</td>
+</tr>
+<tr>
+<td>要求新视角</td>
+<td>需要无偏见分析时，要求使用&quot;新上下文&quot;</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Pro Tip</strong>：当子代理耗时较长时，<code>Ctrl+B</code> 可将其发送到后台。对话继续进行，结果完成后自动浮现。使用 <code>/tasks</code> 命令查看后台运行状态。</p>
+</blockquote>
+<h3 id="32-方式二自定义子代理">3.2 方式二：自定义子代理</h3>
+<p>当同一种子代理被反复请求时（安全审查员、测试编写器、文档校对者），应将其定义为<strong>可复用的自定义子代理</strong>。</p>
+<h4 id="文件位置">文件位置</h4>
+<table>
+<thead>
+<tr>
+<th>级别</th>
+<th>路径</th>
+<th>作用域</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>项目级</td>
+<td><code>.claude/agents/</code></td>
+<td>与团队共享</td>
+</tr>
+<tr>
+<td>用户级</td>
+<td><code>~/.claude/agents/</code></td>
+<td>所有项目可用</td>
+</tr>
+</tbody>
+</table>
+<h4 id="创建方式">创建方式</h4>
+<p>使用 <code>/agents</code> 命令交互式设置，或从描述生成初稿。</p>
+<h4 id="完整示例安全审查代理">完整示例：安全审查代理</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>name: security-reviewer
+</span></span><span style="display:flex;"><span>description: Reviews code changes for security vulnerabilities,
+</span></span><span style="display:flex;"><span>  injection risks, auth issues, and sensitive data exposure.
+</span></span><span style="display:flex;"><span>  Use proactively before commits touching auth, payments,
+</span></span><span style="display:flex;"><span>  or user data.
+</span></span><span style="display:flex;"><span>tools: Read, Grep, Glob
+</span></span><span style="display:flex;"><span>model: sonnet
+</span></span><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>You are a security-focused code reviewer. Analyze the provided
+</span></span><span style="display:flex;"><span>changes for:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> SQL injection, XSS, and command injection risks
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Authentication and authorization gaps
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Sensitive data in logs, errors, or responses
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Insecure dependencies or configurations
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Return a prioritized list of findings with file:line references
+</span></span><span style="display:flex;"><span>and a recommended fix for each. Be critical. If you find nothing,
+</span></span><span style="display:flex;"><span>say so explicitly rather than inventing issues.
+</span></span></code></pre></div><p><strong>关键设计要素解析</strong>：</p>
+<p>
+  <img src="/img/claude-subagents/custom-elements.svg" alt="自定义子代理的设计要素">
+
+</p>
+<p><strong>最佳实践</strong>：</p>
+<ul>
+<li>在 <code>description</code> 中指定<strong>触发条件</strong>（&ldquo;before commits touching auth, payments&rdquo;），不仅仅描述能力</li>
+<li><code>tools</code> 遵循<strong>最小权限原则</strong>：只读代理只给 Read/Grep/Glob</li>
+<li>系统提示词应包含<strong>兜底行为</strong>（&ldquo;If you find nothing, say so explicitly&rdquo;），防止 AI 编造问题</li>
+</ul>
+<h3 id="33-方式三claudemd-指令">3.3 方式三：CLAUDE.md 指令</h3>
+<p><code>CLAUDE.md</code> 定义项目级规则，控制 Claude <strong>何时以及如何</strong>使用子代理。与自定义代理的区别在于：CLAUDE.md 规则<strong>始终加载</strong>，塑造每次交互。</p>
+<h4 id="适用场景">适用场景</h4>
+<ul>
+<li>代码审查应<strong>始终</strong>使用只读子代理</li>
+<li>项目有特定的研究模式需要 Claude 遵循</li>
+<li>需要团队成员和会话之间的<strong>一致行为</strong></li>
+</ul>
+<h4 id="示例配置">示例配置</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="font-weight:bold">## Code review standards
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span>When asked to review code, ALWAYS use a subagent with READ-ONLY
+</span></span><span style="display:flex;"><span>access (Glob, Grep, Read only). The review should ALWAYS check for:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Security vulnerabilities
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Performance issues
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Adherence to project patterns in /docs/architecture.md
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Return findings as a prioritized list with file:line references.
+</span></span></code></pre></div><p>
+  <img src="/img/claude-subagents/claudemd-mechanism.svg" alt="CLAUDE.md 指令机制">
+
+</p>
+<h3 id="34-方式四技能-skills">3.4 方式四：技能 (Skills)</h3>
+<p>对于<strong>重复运行的复杂多步骤工作流</strong>，技能提供了更强大的可复用接口。</p>
+<h4 id="技能-vs-claudemd">技能 vs CLAUDE.md</h4>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>CLAUDE.md</th>
+<th>技能 (Skills)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>加载方式</strong></td>
+<td>始终加载</td>
+<td>按需加载</td>
+</tr>
+<tr>
+<td><strong>触发方式</strong></td>
+<td>被动（塑造每次交互）</td>
+<td>主动（显式调用或自动匹配）</td>
+</tr>
+<tr>
+<td><strong>文件结构</strong></td>
+<td>单个文件</td>
+<td>目录（可含模板、脚本、示例）</td>
+</tr>
+<tr>
+<td><strong>适用范围</strong></td>
+<td>全局规则</td>
+<td>特定工作流</td>
+</tr>
+</tbody>
+</table>
+<h4 id="示例深度审查技能">示例：深度审查技能</h4>
+<p>文件位置：<code>.claude/skills/deep-review/SKILL.md</code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>name: deep-review
+</span></span><span style="display:flex;"><span>description: Comprehensive code review that checks security,
+</span></span><span style="display:flex;"><span>  performance, and style in parallel. Use when reviewing staged
+</span></span><span style="display:flex;"><span>  changes before a commit or PR.
+</span></span><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Run three parallel subagent reviews on the staged changes:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> Security review - check for vulnerabilities, injection risks,
+</span></span><span style="display:flex;"><span>   authentication issues, and sensitive data exposure
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> Performance review - check for N+1 queries, unnecessary
+</span></span><span style="display:flex;"><span>   iterations, memory leaks, and blocking operations
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> Style review - check for consistency with project patterns
+</span></span><span style="display:flex;"><span>   documented in /docs/style-guide.md
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Synthesize findings into a single summary with priority-ranked
+</span></span><span style="display:flex;"><span>issues. Each issue should include the file, line number, and
+</span></span><span style="display:flex;"><span>recommended fix.
+</span></span></code></pre></div><p>这个技能展示了子代理的<strong>组合威力</strong>——一次调用触发三个并行子代理，分别进行安全、性能、风格审查，最后综合为一份报告。</p>
+<p>
+  <img src="/img/claude-subagents/deep-review-skill.svg" alt="deep-review 技能：三个并行子代理">
+
+</p>
+<blockquote>
+<p><strong>注意</strong>：技能是一个<strong>目录</strong>，不是单个文件。除了 <code>SKILL.md</code>，还可以包含 Claude 填充的模板、示例输出、或工作流脚本。</p>
+</blockquote>
+<h3 id="35-方式五挂钩-hooks">3.5 方式五：挂钩 (Hooks)</h3>
+<p>挂钩是在 Claude Code 生命周期<strong>特定节点自动执行</strong>的用户定义操作（Shell 命令、HTTP 端点或 LLM 提示）。</p>
+<h4 id="适用场景-1">适用场景</h4>
+<ul>
+<li>每次提交前应<strong>自动审查</strong></li>
+<li>安全检查应运行<strong>无需任何人记住去询问</strong></li>
+<li>类似 CI 的质量门应属于<strong>本地开发流程</strong></li>
+</ul>
+<h4 id="示例stop-hook--阻止未通过测试的提交">示例：Stop Hook —— 阻止未通过测试的提交</h4>
+<p><code>.claude/settings.json</code> 配置：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;hooks&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;Stop&#34;</span>: [
+</span></span><span style="display:flex;"><span>      {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">&#34;hooks&#34;</span>: [
+</span></span><span style="display:flex;"><span>          {
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">&#34;type&#34;</span>: <span style="color:#f1fa8c">&#34;command&#34;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">&#34;command&#34;</span>: <span style="color:#f1fa8c">&#34;\&#34;$CLAUDE_PROJECT_DIR\&#34;/.claude/hooks/check-tests.sh&#34;</span>
+</span></span><span style="display:flex;"><span>          }
+</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    ]
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>.claude/hooks/check-tests.sh</code> 脚本：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">#!/bin/bash
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6"></span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">INPUT</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>cat<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">STOP_HOOK_ACTIVE</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span><span style="color:#8be9fd;font-style:italic">echo</span> <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$INPUT</span><span style="color:#f1fa8c">&#34;</span> | jq -r <span style="color:#f1fa8c">&#39;.stop_hook_active // false&#39;</span><span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 防止无限循环：如果本轮已经阻止过一次，直接放行</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> <span style="color:#ff79c6">[</span> <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$STOP_HOOK_ACTIVE</span><span style="color:#f1fa8c">&#34;</span> <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;true&#34;</span> <span style="color:#ff79c6">]</span>; <span style="color:#ff79c6">then</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#8be9fd;font-style:italic">exit</span> <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">fi</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 运行测试套件</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> ! npm <span style="color:#8be9fd;font-style:italic">test</span> --silent &gt; /dev/null 2&gt;&amp;1; <span style="color:#ff79c6">then</span>
+</span></span><span style="display:flex;"><span>  jq -n <span style="color:#f1fa8c">&#39;{
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    decision: &#34;block&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    reason: &#34;Tests are failing. Run `npm test` to see the failures and fix them before finishing.&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">  }&#39;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#8be9fd;font-style:italic">exit</span> <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">fi</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">exit</span> <span style="color:#bd93f9">0</span>
+</span></span></code></pre></div><p><strong>工作原理</strong>：</p>
+<p>
+  <img src="/img/claude-subagents/stop-hook.svg" alt="Stop Hook：阻止未通过测试的提交">
+
+</p>
+<p><strong>这个模式的价值</strong>：Claude 不会在测试失败的状态下结束工作——它会被&quot;推回去&quot;继续修复，直到所有测试通过。相当于给 AI 装了一个&quot;质量门卫&quot;。</p>
+<hr>
+<h2 id="四四大实用工作模式">四、四大实用工作模式</h2>
+<h3 id="41-模式一实施前研究">4.1 模式一：实施前研究</h3>
+<p><strong>场景</strong>：在动手实现之前，需要充分了解现有代码库。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>Before I implement user notifications, use a subagent to research:
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> How are emails currently sent in this codebase?
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> What notification patterns already exist?
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Where should new notification logic live based on the
+</span></span><span style="display:flex;"><span>  current architecture?
+</span></span><span style="display:flex;"><span>Summarize findings, then we&#39;ll plan the implementation together.
+</span></span></code></pre></div><p>
+  <img src="/img/claude-subagents/research-pattern.svg" alt="模式一：实施前研究">
+
+</p>
+<p><strong>优势</strong>：主对话不会被数十个文件的内容占满，收到的是提炼后的发现。</p>
+<h3 id="42-模式二并行修改">4.2 模式二：并行修改</h3>
+<p><strong>场景</strong>：多个文件需要应用相同的模式修改，彼此独立。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>Use parallel subagents to update the error handling in these files:
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> src/api/users.ts
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> src/api/orders.ts
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> src/api/products.ts
+</span></span><span style="display:flex;"><span>Each should follow the pattern established in src/api/auth.ts.
+</span></span><span style="display:flex;"><span>Work on all three simultaneously.
+</span></span></code></pre></div><p>
+  <img src="/img/claude-subagents/parallel-pattern.svg" alt="模式二：并行修改">
+
+</p>
+<p><strong>关键点</strong>：三个文件由三个子代理并行修改，总耗时约等于单个文件的修改时间（而非三倍）。</p>
+<h3 id="43-模式三独立审查">4.3 模式三：独立审查</h3>
+<p><strong>场景</strong>：需要不受之前对话影响的客观审查。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>Use a fresh subagent with read-only access to review my
+</span></span><span style="display:flex;"><span>implementation of the payment flow. It should not see our
+</span></span><span style="display:flex;"><span>previous discussion. I want an unbiased review.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Check for: security vulnerabilities, unhandled edge cases,
+</span></span><span style="display:flex;"><span>and error handling gaps. Be critical.
+</span></span></code></pre></div><p><strong>为什么需要&quot;新上下文&quot;？</strong></p>
+<p>
+  <img src="/img/claude-subagents/fresh-context-review.svg" alt="为什么独立审查需要&amp;quot;新上下文&amp;quot;">
+
+</p>
+<p><strong>核心洞察</strong>：当 Claude 参与了代码的设计和实现过程后，它对自己代码的&quot;审查&quot;往往带有确认偏误。子代理提供了真正的&quot;第二意见&quot;。</p>
+<h3 id="44-模式四管道工作流">4.4 模式四：管道工作流</h3>
+<p><strong>场景</strong>：具有清晰交接的顺序阶段。</p>
+<p>
+  <img src="/img/claude-subagents/pipeline-pattern.svg" alt="管道工作流模式">
+
+</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>Let&#39;s build this feature as a pipeline:
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> First subagent: Design the API contract and write it to
+</span></span><span style="display:flex;"><span>   docs/api-spec.md
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> Second subagent: Implement the backend endpoints based
+</span></span><span style="display:flex;"><span>   on that spec
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> Third subagent: Write integration tests for the
+</span></span><span style="display:flex;"><span>   implementation
+</span></span><span style="display:flex;"><span>Each stage should complete before the next begins. Use the
+</span></span><span style="display:flex;"><span>output files as the handoff mechanism between stages.
+</span></span></code></pre></div><p><strong>管道模式的精妙之处</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>设计要点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>顺序执行</strong></td>
+<td>每个阶段完成后才启动下一个</td>
+</tr>
+<tr>
+<td><strong>文件交接</strong></td>
+<td>输出文件（而非对话历史）作为阶段间的交接物</td>
+</tr>
+<tr>
+<td><strong>上下文隔离</strong></td>
+<td>每个子代理只看到本阶段需要的信息</td>
+</tr>
+<tr>
+<td><strong>关注点分离</strong></td>
+<td>设计者不关心实现，实现者不关心测试策略</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="五何时不使用子代理">五、何时不使用子代理</h2>
+<p>了解<strong>何时不用</strong>与知道何时使用同样重要。</p>
+<p>
+  <img src="/img/claude-subagents/when-to-use.svg" alt="使用决策指南">
+
+</p>
+<h3 id="不适合使用的五种情况">不适合使用的五种情况</h3>
+<table>
+<thead>
+<tr>
+<th>情况</th>
+<th>原因</th>
+<th>替代方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>顺序依赖的工作</strong></td>
+<td>步骤 B 需要步骤 A 的完整输出</td>
+<td>单个会话处理链</td>
+</tr>
+<tr>
+<td><strong>同文件编辑</strong></td>
+<td>两个子代理并行编辑同一文件=冲突</td>
+<td>串行处理同一文件</td>
+</tr>
+<tr>
+<td><strong>小任务</strong></td>
+<td>委派开销超过收益</td>
+<td>直接在主对话中完成</td>
+</tr>
+<tr>
+<td><strong>太多专业代理</strong></td>
+<td>选项过多导致自动委派不可靠</td>
+<td>精简代理数量</td>
+</tr>
+<tr>
+<td><strong>需要协调的工作</strong></td>
+<td>子代理之间<strong>无法互相通信</strong></td>
+<td>使用<strong>代理团队 (Agent Teams)</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>子代理 vs 代理团队</strong>：子代理向主对话报告，但彼此无法交流。如果任务需要代理间协调，应该使用 <a href="https://code.claude.com/docs/en/agent-teams">Agent Teams</a>。</p>
+</blockquote>
+<hr>
+<h2 id="六最佳实践与工程建议">六、最佳实践与工程建议</h2>
+<h3 id="61-渐进式自动化策略">6.1 渐进式自动化策略</h3>
+<p>Anthropic 推荐的自动化路径是<strong>从临时到永久、从手动到自动</strong>：</p>
+<p>
+  <img src="/img/claude-subagents/progressive-automation.svg" alt="渐进式自动化路径">
+
+</p>
+<p><strong>实施步骤</strong>：</p>
+<ol>
+<li><strong>从对话开始</strong>：用自然语言请求子代理，观察哪些请求反复出现</li>
+<li><strong>固化规则</strong>：将重复出现的模式写入 <code>CLAUDE.md</code></li>
+<li><strong>创建专用代理/技能</strong>：当模式成熟后，创建可复用的定义</li>
+<li><strong>设置自动触发</strong>：当确定某些检查必须始终运行时，创建挂钩</li>
+</ol>
+<h3 id="62-提示词设计原则">6.2 提示词设计原则</h3>
+<p>编写子代理提示词时，遵循以下原则可显著提升效果：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="font-weight:bold"># 好的提示词结构
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 1. 明确目标
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>&#34;研究认证模块的实现方式&#34;（而非&#34;看看代码&#34;）
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 2. 指定范围
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>&#34;只查看 src/auth/ 目录下的文件&#34;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 3. 定义输出
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>&#34;返回一个包含文件路径、功能描述和潜在问题的表格&#34;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 4. 设定约束
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>&#34;不要修改任何文件，只做只读分析&#34;
+</span></span></code></pre></div><table>
+<thead>
+<tr>
+<th>原则</th>
+<th>好的做法</th>
+<th>不好的做法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>目标清晰</strong></td>
+<td>&ldquo;查找所有 SQL 注入风险&rdquo;</td>
+<td>&ldquo;检查代码&rdquo;</td>
+</tr>
+<tr>
+<td><strong>范围明确</strong></td>
+<td>&ldquo;只看 src/api/ 目录&rdquo;</td>
+<td>&ldquo;看看整个项目&rdquo;</td>
+</tr>
+<tr>
+<td><strong>输出定义</strong></td>
+<td>&ldquo;返回问题列表+修复建议&rdquo;</td>
+<td>&ldquo;告诉我结果&rdquo;</td>
+</tr>
+<tr>
+<td><strong>权限最小</strong></td>
+<td>&ldquo;只读访问（Read, Grep）&rdquo;</td>
+<td>&ldquo;给所有工具权限&rdquo;</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-权限管理策略">6.3 权限管理策略</h3>
+<p>不同类型的子代理应配置不同的工具权限：</p>
+<p>
+  <img src="/img/claude-subagents/permission-tiers.svg" alt="权限管理策略">
+
+</p>
+<p><strong>原则</strong>：能用只读就不给编辑权限，能限制工具就不给完整权限。</p>
+<h3 id="64-后台执行与任务管理">6.4 后台执行与任务管理</h3>
+<p>当子代理执行时间较长时，充分利用 Claude Code 的后台能力：</p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>快捷键/命令</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>后台发送</td>
+<td><code>Ctrl+B</code></td>
+<td>当前子代理任务移至后台</td>
+</tr>
+<tr>
+<td>查看任务</td>
+<td><code>/tasks</code></td>
+<td>查看所有后台运行的任务</td>
+</tr>
+<tr>
+<td>继续对话</td>
+<td>正常输入</td>
+<td>后台任务不阻塞主对话</td>
+</tr>
+<tr>
+<td>结果浮现</td>
+<td>自动</td>
+<td>子代理完成后结果自动返回</td>
+</tr>
+</tbody>
+</table>
+<h3 id="65-常见陷阱与规避">6.5 常见陷阱与规避</h3>
+<table>
+<thead>
+<tr>
+<th>陷阱</th>
+<th>症状</th>
+<th>规避方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>上下文浪费</strong></td>
+<td>子代理返回大量原始内容</td>
+<td>在提示词中要求&quot;返回摘要而非原始内容&quot;</td>
+</tr>
+<tr>
+<td><strong>并行冲突</strong></td>
+<td>多个子代理修改同一文件</td>
+<td>确保并行任务操作不同文件</td>
+</tr>
+<tr>
+<td><strong>代理泛滥</strong></td>
+<td>自动委派变得不可靠</td>
+<td>限制自定义代理数量（5-8 个为宜）</td>
+</tr>
+<tr>
+<td><strong>过度委派</strong></td>
+<td>简单任务也用子代理</td>
+<td>只在 10+ 文件或 3+ 独立任务时启用</td>
+</tr>
+<tr>
+<td><strong>权限过松</strong></td>
+<td>审查代理意外修改代码</td>
+<td>严格配置 tools 白名单</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="七总结与关键要点">七、总结与关键要点</h2>
+<h3 id="子代理的核心价值">子代理的核心价值</h3>
+<p>
+  <img src="/img/claude-subagents/core-value.svg" alt="子代理的核心价值">
+
+</p>
+<h3 id="速查决策树">速查决策树</h3>
+<ol>
+<li><strong>识别信号</strong>：需要探索 10+ 文件？涉及 3+ 独立任务？需要无偏见审查？→ <strong>使用子代理</strong></li>
+<li><strong>选择方式</strong>：临时使用 → 对话式 | 反复使用 → 自定义代理 | 团队规范 → CLAUDE.md/技能 | 必须执行 → 挂钩</li>
+<li><strong>配置权限</strong>：只读场景 → Read/Grep/Glob | 编辑场景 → 加上 Write/Bash</li>
+<li><strong>管理结果</strong>：耗时任务 → <code>Ctrl+B</code> 后台 | 多任务 → <code>/tasks</code> 监控</li>
+</ol>
+<h3 id="一句话总结">一句话总结</h3>
+<blockquote>
+<p><strong>子代理让你在不丢失主线的情况下并行追逐多条线索</strong>——它是 Claude Code 处理复杂任务的核心机制，掌握它等于解锁了 AI 编程的并行化能力。</p>
+</blockquote>
+<hr>
+<h2 id="参考资料">参考资料</h2>
+<ol>
+<li><a href="https://claude.com/blog/subagents-in-claude-code">How and when to use subagents in Claude Code - Claude Blog</a></li>
+<li><a href="https://code.claude.com/docs/en/sub-agents">Claude Code Subagents Documentation</a></li>
+<li><a href="https://code.claude.com/docs/en/skills">Claude Code Skills Documentation</a></li>
+<li><a href="https://code.claude.com/docs/en/hooks-guide">Claude Code Hooks Guide</a></li>
+<li><a href="https://code.claude.com/docs/en/agent-teams">Agent Teams Documentation</a></li>
+</ol>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="http://localhost:1313/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/04/16/harnessing-claudes-intelligence/" data-toggle="tooltip" data-placement="top" title="驾驭 Claude 的智能：构建 AI 应用的三大核心模式深度解析">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/04/16/claude-code-session-management-1m-context/" data-toggle="tooltip" data-placement="top" title="Claude Code 会话管理与百万上下文窗口深度解析">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/multi-agent" title="multi-agent">
+                            multi-agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+  
+<script type="module">  
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs'; 
+    mermaid.initialize({ startOnLoad: true });  
+</script>  
+<script>  
+    
+    Array.from(document.getElementsByClassName("language-mermaid")).forEach(  
+        (el) => {  
+            el.parentElement.outerHTML = `<div class="mermaid">${el.innerHTML}</div>`;  
+        }  
+    );  
+</script>  
+<style>  
+       
+    .mermaid svg {  
+        display: block;  
+        margin: auto;  
+    }  
+</style>  
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

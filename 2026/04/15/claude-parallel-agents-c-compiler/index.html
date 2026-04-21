@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="用并行 Claude 代理团队构建 C 编译器：Anthropic 的自主编程极限实验深度解析" />
+    <meta property="og:title" content="用并行 Claude 代理团队构建 C 编译器：Anthropic 的自主编程极限实验深度解析" />
+    <meta property="twitter:title" content="用并行 Claude 代理团队构建 C 编译器：Anthropic 的自主编程极限实验深度解析" />
+    
+
+    
+    <meta name="description" content="深入解析 Anthropic 研究员 Nicholas Carlini 如何使用 16 个并行 Claude 代理，以近 2000 次会话、2 万美元 API 成本，从零构建出一个 10 万行 Rust 代码的 C 编译器，能够编译 Linux 6.9 内核（x86/ARM/RISC-V）。本文完整剖析代理循环、并行同步、任务锁定、测试驱动和多角色协作等关键工程设计。">
+    <meta property="og:description" content="深入解析 Anthropic 研究员 Nicholas Carlini 如何使用 16 个并行 Claude 代理，以近 2000 次会话、2 万美元 API 成本，从零构建出一个 10 万行 Rust 代码的 C 编译器，能够编译 Linux 6.9 内核（x86/ARM/RISC-V）。本文完整剖析代理循环、并行同步、任务锁定、测试驱动和多角色协作等关键工程设计。" />
+    <meta property="twitter:description" content="深入解析 Anthropic 研究员 Nicholas Carlini 如何使用 16 个并行 Claude 代理，以近 2000 次会话、2 万美元 API 成本，从零构建出一个 10 万行 Rust 代码的 C 编译器，能够编译 Linux 6.9 内核（x86/ARM/RISC-V）。本文完整剖析代理循环、并行同步、任务锁定、测试驱动和多角色协作等关键工程设计。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>用并行 Claude 代理团队构建 C 编译器：Anthropic 的自主编程极限实验深度解析 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/04/15/claude-parallel-agents-c-compiler/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/compiler" title="Compiler">
+                            Compiler
+                        </a>
+                        
+                    </div>
+                    <h1>用并行 Claude 代理团队构建 C 编译器：Anthropic 的自主编程极限实验深度解析</h1>
+                    <h2 class="subheading">16 个 Claude 实例并行协作，从零构建可编译 Linux 内核的 C 编译器——一次代理团队自主编程的极限实验</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Wednesday, April 15, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言当-16-个-ai-代理组成一支编译器开发团队">一、引言：当 16 个 AI 代理组成一支编译器开发团队</h2>
+<blockquote>
+<p>原文链接：<a href="https://www.anthropic.com/engineering/building-c-compiler">Building a C compiler with a team of parallel Claudes</a>
+作者：Nicholas Carlini（Anthropic Safeguards 团队研究员）
+项目源码：<a href="https://github.com/anthropics/claudes-c-compiler">github.com/anthropics/claudes-c-compiler</a></p>
+</blockquote>
+<p>如果有人告诉你：<strong>一个人指挥 16 个 AI 代理，用不到一个月的时间，从零写出了一个可以编译 Linux 内核的 C 编译器</strong>——你的第一反应可能是 &ldquo;这也太夸张了吧&rdquo;。但 Anthropic 研究员 Nicholas Carlini 确实做到了。</p>
+<p>
+  <img src="/img/claude-c-compiler/agent-team-parallel.svg" alt="并行 Claude 代理团队协作示意">
+
+</p>
+<p>这个项目的最终成果：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>数据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>代码量</strong></td>
+<td>100,000 行 Rust</td>
+</tr>
+<tr>
+<td><strong>Claude Code 会话数</strong></td>
+<td>~2,000 次</td>
+</tr>
+<tr>
+<td><strong>输入 Token</strong></td>
+<td>20 亿</td>
+</tr>
+<tr>
+<td><strong>输出 Token</strong></td>
+<td>1.4 亿</td>
+</tr>
+<tr>
+<td><strong>API 成本</strong></td>
+<td>~$20,000</td>
+</tr>
+<tr>
+<td><strong>目标架构</strong></td>
+<td>x86、ARM、RISC-V</td>
+</tr>
+<tr>
+<td><strong>核心成果</strong></td>
+<td>可编译 Linux 6.9 内核并启动</td>
+</tr>
+<tr>
+<td><strong>额外验证</strong></td>
+<td>可编译 QEMU、FFmpeg、SQLite、PostgreSQL、Redis</td>
+</tr>
+</tbody>
+</table>
+<p>但 Carlini 反复强调：<strong>这篇文章的重点不在于编译器本身，而在于背后&quot;代理团队&quot;（Agent Teams）的工程方法论</strong>。这是一次关于&quot;如何设计让多个自主 AI 代理长时间并行协作&quot;的压力测试。</p>
+<h3 id="本文导读">本文导读</h3>
+<ul>
+<li><strong>第二节</strong> 拆解单代理如何实现&quot;永不停歇&quot;的自主循环</li>
+<li><strong>第三节</strong> 分析多代理并行的核心难题与同步算法</li>
+<li><strong>第四节</strong> 总结代理团队编程中的实战经验</li>
+<li><strong>第五节</strong> 评估项目成果与已知局限</li>
+<li><strong>第六节</strong> 展望代理团队模式的未来与风险</li>
+</ul>
+<hr>
+<h2 id="二启用长期运行的自主代理从工具到自主循环">二、启用长期运行的自主代理：从工具到自主循环</h2>
+<h3 id="21-问题现有框架的天花板">2.1 问题：现有框架的天花板</h3>
+<p>当前的 AI 编程助手（包括 Claude Code 自身）主要面向<strong>人机协作</strong>场景：人类提出任务、AI 执行、人类审核、AI 调整。这种工作模式下，AI 的产出上限取决于人类的带宽。</p>
+<p>
+  <img src="/img/claude-c-compiler/human-loop.svg" alt="人机协作模式">
+
+</p>
+<p>如果要让 AI 自主完成一个大型项目，就必须打破这个&quot;人在循环中&quot;的限制。</p>
+<h3 id="22-解决方案无限循环驱动">2.2 解决方案：无限循环驱动</h3>
+<p>Carlini 的核心思路极其简单——<strong>把 Claude 放进一个 Bash 无限循环里</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">#!/bin/bash
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">while</span> true; <span style="color:#ff79c6">do</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">COMMIT</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>git rev-parse --short<span style="color:#ff79c6">=</span><span style="color:#bd93f9">6</span> HEAD<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">LOGFILE</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;agent_logs/agent_</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">COMMIT</span><span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">.log&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    claude --dangerously-skip-permissions <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>           -p <span style="color:#f1fa8c">&#34;</span><span style="color:#ff79c6">$(</span>cat AGENT_PROMPT.md<span style="color:#ff79c6">)</span><span style="color:#f1fa8c">&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>           --model claude-opus-4-0-20250514 &amp;&gt; <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$LOGFILE</span><span style="color:#f1fa8c">&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">done</span>
+</span></span></code></pre></div><blockquote>
+<p>⚠️ <strong>安全提醒</strong>：<code>--dangerously-skip-permissions</code> 跳过了所有权限检查。Carlini 强烈建议在 <strong>Docker 容器</strong> 中运行此脚本，而不是在裸机上。</p>
+</blockquote>
+<p>这段代码的运行逻辑如下：</p>
+<p>
+  <img src="/img/claude-c-compiler/loop-architecture.svg" alt="Bash 无限循环驱动的自主代理">
+
+</p>
+<p><strong>关键设计决策</strong>：每次循环迭代都是一个<strong>全新的 Claude Code 会话</strong>。这意味着：</p>
+<ol>
+<li><strong>上下文窗口自动刷新</strong>：不会因为长时间运行导致上下文窗口被历史信息填满</li>
+<li><strong>自动从最新状态恢复</strong>：每次启动时读取 <code>AGENT_PROMPT.md</code>，Claude 重新评估当前代码状态</li>
+<li><strong>天然的故障恢复</strong>：如果某次会话崩溃，循环会自动启动新会话继续工作</li>
+</ol>
+<h3 id="23-agent-prompt-的设计哲学">2.3 Agent Prompt 的设计哲学</h3>
+<p><code>AGENT_PROMPT.md</code> 是整个系统的&quot;灵魂&quot;。它不是简单的任务列表，而是一套<strong>自主决策框架</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="font-weight:bold"># 你是一个编译器开发者
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span>你正在开发一个用 Rust 编写的 C 编译器。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 工作方式
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span><span style="color:#ff79c6">1.</span> 查看 <span style="color:#f1fa8c">`current_tasks/`</span> 目录，了解当前待办事项
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> 选择一个你能解决的任务
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> 将问题分解为小步骤
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> 每完成一步就提交代码并运行测试
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">5.</span> 如果所有任务都完成了，检查是否有新的可优化点
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">6.</span> 持续工作，直到没有更多改进空间
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## 原则
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span><span style="color:#ff79c6">-</span> 每次修改后都要运行测试
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 不要破坏已有功能
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 优先修复回归问题
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 保持代码整洁
+</span></span></code></pre></div><p>这种设计让 Claude 具备了<strong>自主规划能力</strong>：它不仅执行预定义任务，还能在完成已知任务后主动发现新的改进点。</p>
+<hr>
+<h2 id="三并行运行多个-claude-代理从单兵到团队">三、并行运行多个 Claude 代理：从单兵到团队</h2>
+<h3 id="31-为什么需要并行">3.1 为什么需要并行？</h3>
+<p>单一代理循环虽然可以持续工作，但存在两个根本性限制：</p>
+<p>
+  <img src="/img/claude-c-compiler/single-vs-parallel.svg" alt="单代理瓶颈 vs 并行代理优势">
+
+</p>
+<h3 id="32-并行架构设计">3.2 并行架构设计</h3>
+<p>Carlini 的方案架构清晰：</p>
+<p>
+  <img src="/img/claude-c-compiler/parallel-architecture.svg" alt="并行代理架构">
+
+</p>
+<p>每个代理运行在<strong>独立的 Docker 容器</strong>中，拥有自己的代码工作副本。代理之间<strong>不直接通信</strong>——它们通过 Git 仓库进行间接协调。</p>
+<h3 id="33-任务锁定与同步算法">3.3 任务锁定与同步算法</h3>
+<p>多个代理并行修改同一代码库，最大的挑战是<strong>冲突管理</strong>。Carlini 设计了一个优雅的基于 Git 的同步算法：</p>
+<p>
+  <img src="/img/claude-c-compiler/task-locking.svg" alt="任务锁定与同步算法">
+
+</p>
+<p><strong>这个设计的巧妙之处</strong>在于利用了 Git 自身的并发控制机制：</p>
+<ol>
+<li><strong>乐观锁</strong>：两个代理同时尝试锁定同一任务时，先 push 成功的获得锁，后者会因为 push 冲突而自动放弃</li>
+<li><strong>无需额外协调服务</strong>：不需要 Redis、数据库或消息队列，Git 本身就是同步原语</li>
+<li><strong>容错性</strong>：即使某个代理崩溃，锁文件不会永久存在（其他代理可以在超时后清理）</li>
+</ol>
+<h3 id="34-完整的代理生命周期">3.4 完整的代理生命周期</h3>
+<p>把循环、同步和任务管理结合起来，一个代理的完整生命周期如下：</p>
+<p>
+  <img src="/img/claude-c-compiler/agent-lifecycle.svg" alt="代理完整生命周期">
+
+</p>
+<hr>
+<h2 id="四代理团队编程的实战经验">四、代理团队编程的实战经验</h2>
+<p>这一节是 Carlini 文章中最具实操价值的部分。以下经验来自近 2,000 次 Claude Code 会话的积累。</p>
+<h3 id="41-编写极致高质量的测试">4.1 编写极致高质量的测试</h3>
+<blockquote>
+<p><strong>核心原则</strong>：Claude 会自主解决你给出的任何问题，因此<strong>问题的定义（测试）必须几乎完美</strong>。</p>
+</blockquote>
+<p>在人机协作模式下，人类可以通过审查代码来弥补测试的不足。但在自主代理模式下，<strong>测试是唯一的质量看门人</strong>。</p>
+<p>
+  <img src="/img/claude-c-compiler/test-quality.svg" alt="测试质量对比">
+
+</p>
+<p>Carlini 的应对策略：</p>
+<ol>
+<li><strong>构建 CI 管道</strong>：当 Claude 频繁破坏已有功能时，实施持续集成，每次提交都运行完整测试套件</li>
+<li><strong>执行规则升级</strong>：在 Agent Prompt 中加入更严格的约束（如&quot;必须先运行全量测试再提交&quot;）</li>
+<li><strong>测试覆盖率警戒</strong>：确保关键路径有充分的测试保护</li>
+</ol>
+<h3 id="42-设身处地为-claude-设计">4.2 设身处地为 Claude 设计</h3>
+<p>测试框架是为 <strong>Claude</strong> 写的，不是为人类。这个认知转变带来了几个重要的设计调整：</p>
+<h4 id="上下文窗口污染问题">上下文窗口污染问题</h4>
+<p>
+  <img src="/img/claude-c-compiler/context-pollution.svg" alt="上下文窗口污染">
+
+</p>
+<ul>
+<li><strong>输出控制</strong>：测试框架不应该向 stdout 输出大量无用字节。关键信息应写入文件，让 Claude 按需读取</li>
+<li><strong>摘要优先</strong>：测试结果应先展示失败计数和关键错误，而非完整堆栈</li>
+</ul>
+<h4 id="时间盲区问题">时间盲区问题</h4>
+<p>Claude 没有时间概念——它不知道一个测试运行了 3 秒还是 3 小时。Carlini 的解决方案：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 默认运行 1% 的随机测试样本（快速检测回归）</span>
+</span></span><span style="display:flex;"><span>./run_tests.sh --fast
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 完整测试（仅在 CI 中运行）</span>
+</span></span><span style="display:flex;"><span>./run_tests.sh --full
+</span></span></code></pre></div><p><code>--fast</code> 模式让 Claude 能在几秒内判断自己的修改是否引入了回归，而不需要等待完整测试套件运行完毕。</p>
+<h3 id="43-让并行化变得容易">4.3 让并行化变得容易</h3>
+<p><strong>理想场景</strong>：有 100 个不同的失败测试 → 每个代理负责修复不同的测试 → 自然并行。</p>
+<p><strong>困难场景</strong>：编译 Linux 内核时，所有代理都遇到同一个编译错误 → 大家挤在同一个问题上 → 并行退化为串行。</p>
+<p>Carlini 的创新解决方案——<strong>GCC 作为预言机的随机分割策略</strong>：</p>
+<p>
+  <img src="/img/claude-c-compiler/gcc-oracle.svg" alt="GCC 作为预言机">
+
+</p>
+<p>这个方法的精妙之处：</p>
+<ol>
+<li><strong>用 GCC 作为&quot;已知正确&quot;的基准</strong>，保证内核整体可编译</li>
+<li><strong>随机选择一小部分文件</strong>用 Claude 的编译器编译，每次选择不同的文件</li>
+<li><strong>每个代理看到不同文件中的不同错误</strong>，自然实现并行化</li>
+<li><strong>渐进式覆盖</strong>：随着错误被修复，越来越多的文件可以切换到 Claude 编译器</li>
+</ol>
+<h3 id="44-多角色代理分工">4.4 多角色代理分工</h3>
+<p>并行化不仅是&quot;多个代理做同样的事&quot;，更重要的是<strong>专业化分工</strong>：</p>
+<p>
+  <img src="/img/claude-c-compiler/role-division.svg" alt="多角色代理分工">
+
+</p>
+<p>每种角色的 Agent Prompt 不同，确保它们关注的视角和产出也不同。</p>
+<hr>
+<h2 id="五编译器成果与能力评估">五、编译器成果与能力评估</h2>
+<h3 id="51-最终成果">5.1 最终成果</h3>
+<p>
+  <img src="/img/claude-c-compiler/compiler-pipeline.png" alt="编译器架构流水线">
+
+</p>
+<p>这个纯 AI 编写的编译器（&ldquo;净室实现&rdquo;——开发过程中 Claude 没有互联网访问，仅依赖 Rust 标准库）取得了令人印象深刻的成果：</p>
+<table>
+<thead>
+<tr>
+<th>能力维度</th>
+<th>具体成果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Linux 内核编译</strong></td>
+<td>可构建 Linux 6.9 并成功启动（x86、ARM、RISC-V）</td>
+</tr>
+<tr>
+<td><strong>大型项目编译</strong></td>
+<td>QEMU、FFmpeg、SQLite、PostgreSQL、Redis</td>
+</tr>
+<tr>
+<td><strong>测试通过率</strong></td>
+<td>大多数编译器测试套件 99% 通过</td>
+</tr>
+<tr>
+<td><strong>彩蛋</strong></td>
+<td>可以编译并运行 Doom 🎮</td>
+</tr>
+<tr>
+<td><strong>代码实现</strong></td>
+<td>净室实现，仅依赖 Rust 标准库</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-已知局限">5.2 已知局限</h3>
+<p>Carlini 非常坦诚地列出了编译器的不足：</p>
+<p>
+  <img src="/img/claude-c-compiler/limitations.svg" alt="编译器已知局限">
+
+</p>
+<p>特别值得注意的是：</p>
+<ul>
+<li><strong>16 位 x86 问题</strong>：Opus 模型无法实现 16 位 x86 代码生成器来启动进入实模式。因此在 x86 架构上，引导阶段仍调用 GCC（ARM 和 RISC-V 架构则完全由 Claude 编译器编译）</li>
+<li><strong>生成代码效率</strong>：编译器开启所有优化后，生成的代码效率仍低于 GCC 关闭所有优化（<code>-O0</code>）的水平——这说明当前 LLM 在<strong>底层性能工程</strong>方面仍有明显差距</li>
+</ul>
+<h3 id="53-成本效益分析">5.3 成本效益分析</h3>
+<p>
+  <img src="/img/claude-c-compiler/cost-breakdown.svg" alt="API 成本构成">
+
+</p>
+<p>一些有趣的对比思考：</p>
+<ul>
+<li><strong>$20,000</strong> 的成本大约等于一位中级 Rust 开发者 <strong>1-2 周</strong> 的薪资（美国市场）</li>
+<li>但一位人类开发者不太可能在 1-2 周内从零写出 10 万行可编译 Linux 内核的编译器</li>
+<li>当然，人类开发者写出的代码质量、性能和可维护性可能远优于 AI 的产出</li>
+</ul>
+<hr>
+<h2 id="六代理团队模式的工程启示">六、代理团队模式的工程启示</h2>
+<h3 id="61-对软件工程的影响">6.1 对软件工程的影响</h3>
+<p>Carlini 的实验揭示了一种<strong>全新的软件开发范式</strong>——人类从&quot;编码者&quot;转变为&quot;架构师和测试设计师&quot;：</p>
+<p>
+  <img src="/img/claude-c-compiler/paradigm-shift.svg" alt="范式转变">
+
+</p>
+<p><strong>关键角色转变</strong>：</p>
+<ol>
+<li><strong>测试设计 &gt; 代码编写</strong>：你的测试质量直接决定了 AI 代码的质量</li>
+<li><strong>架构设计 &gt; 实现细节</strong>：人类负责定义&quot;做什么&quot;和&quot;怎么验证&quot;，AI 负责&quot;怎么做&quot;</li>
+<li><strong>提示词工程 = 管理艺术</strong>：编写 Agent Prompt 本质上是在&quot;管理&quot;一支 AI 团队</li>
+</ol>
+<h3 id="62-安全与风险思考">6.2 安全与风险思考</h3>
+<p>Carlini 在文章结尾表达了一种<strong>谨慎的不安</strong>：</p>
+<blockquote>
+<p>&ldquo;当人类与 Claude 并肩开发时，可以确保质量和实时捕获错误。但对于自主系统，很容易看到测试通过就认为工作完成了。作为一个曾经从事渗透测试的人，想到程序员部署从未亲自验证过的软件，这是一个真正的担忧。&rdquo;</p>
+</blockquote>
+<p>这段话点出了自主代理编程的核心风险：</p>
+<p>
+  <img src="/img/claude-c-compiler/security-risks.svg" alt="安全风险对比">
+
+</p>
+<ul>
+<li><strong>测试覆盖率幻觉</strong>：99% 测试通过率可能掩盖了剩余 1% 中的严重问题</li>
+<li><strong>安全盲区</strong>：AI 可能不会主动考虑安全攻击向量</li>
+<li><strong>架构腐化</strong>：长时间自主运行可能导致代码结构逐渐劣化</li>
+</ul>
+<h3 id="63-可复用的工程模式">6.3 可复用的工程模式</h3>
+<p>从 Carlini 的实验中，可以提炼出一套<strong>可复用的代理团队框架</strong>：</p>
+<p>
+  <img src="/img/claude-c-compiler/reusable-framework.svg" alt="可复用的代理团队框架">
+
+</p>
+<p><strong>核心原则总结</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>原则</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Git 即协调</strong></td>
+<td>用 Git 的并发控制替代复杂的分布式协调服务</td>
+</tr>
+<tr>
+<td><strong>测试即管理</strong></td>
+<td>测试套件是&quot;管理&quot; AI 团队的最重要工具</td>
+</tr>
+<tr>
+<td><strong>容器即安全</strong></td>
+<td>每个代理在独立容器中运行，限制爆炸半径</td>
+</tr>
+<tr>
+<td><strong>循环即韧性</strong></td>
+<td>无限循环 + 新会话 = 天然故障恢复</td>
+</tr>
+<tr>
+<td><strong>角色即效率</strong></td>
+<td>专业化分工比通用代理更高效</td>
+</tr>
+<tr>
+<td><strong>预言机即标准</strong></td>
+<td>用已知正确的参考实现作为比较基准</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="七总结与展望">七、总结与展望</h2>
+<h3 id="这个实验证明了什么">这个实验证明了什么？</h3>
+<ol>
+<li><strong>LLM 已具备构建复杂系统的能力</strong>：10 万行代码、三种指令集架构、可编译 Linux 内核——这不是&quot;玩具项目&quot;</li>
+<li><strong>并行代理团队是可行的</strong>：通过简单的 Git 同步和任务锁定，16 个代理可以有效协作</li>
+<li><strong>人类角色正在转变</strong>：从&quot;写代码&quot;变为&quot;写测试&quot;和&quot;设计架构&quot;</li>
+<li><strong>自主≠无风险</strong>：测试通过不等于正确，人类审查仍不可或缺</li>
+</ol>
+<h3 id="哪些问题仍待解决">哪些问题仍待解决？</h3>
+<ul>
+<li><strong>代码质量天花板</strong>：AI 生成的 Rust 代码质量远不如人类专家</li>
+<li><strong>性能工程</strong>：AI 在底层优化（如寄存器分配、指令调度）上仍有明显差距</li>
+<li><strong>安全保证</strong>：缺乏有效的方法来验证 AI 自主编写的代码不含安全漏洞</li>
+<li><strong>成本可控性</strong>：$20,000 的实验成本对大多数团队来说仍然不菲</li>
+</ul>
+<h3 id="如何看待这项技术的未来">如何看待这项技术的未来？</h3>
+<p>用 Carlini 自己的话说：</p>
+<blockquote>
+<p>&ldquo;每一代语言模型都开辟了新的工作方式。积极的应用将超过消极的影响，但我们需要新的策略来安全地应对这个新世界。&rdquo;</p>
+</blockquote>
+<p><strong>代理团队模式</strong>不会取代人类程序员，但它正在重新定义&quot;编程&quot;这件事的含义。未来的软件工程师可能更像<strong>建筑师</strong>而非<strong>砌砖工</strong>——负责设计蓝图和质量标准，让 AI 团队去完成具体的实现。</p>
+<hr>
+<h2 id="参考资料">参考资料</h2>
+<ol>
+<li><a href="https://www.anthropic.com/engineering/building-c-compiler">Building a C compiler with a team of parallel Claudes - Anthropic Engineering</a></li>
+<li><a href="https://github.com/anthropics/claudes-c-compiler">Claude&rsquo;s C Compiler - GitHub</a></li>
+<li><a href="https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview">Claude Code - Anthropic</a></li>
+</ol>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="http://localhost:1313/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/04/14/mcp-code-execution/" data-toggle="tooltip" data-placement="top" title="MCP 代码执行深度技术解析：让 Agent 写代码而非调工具">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/04/15/virtual-kubelet-ha/" data-toggle="tooltip" data-placement="top" title="Virtual Kubelet 源码深度解析：分布式高可用架构全面剖析">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/multi-agent" title="multi-agent">
+                            multi-agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+  
+<script type="module">  
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs'; 
+    mermaid.initialize({ startOnLoad: true });  
+</script>  
+<script>  
+    
+    Array.from(document.getElementsByClassName("language-mermaid")).forEach(  
+        (el) => {  
+            el.parentElement.outerHTML = `<div class="mermaid">${el.innerHTML}</div>`;  
+        }  
+    );  
+</script>  
+<style>  
+       
+    .mermaid svg {  
+        display: block;  
+        margin: auto;  
+    }  
+</style>  
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

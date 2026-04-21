@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,10 L10,5 z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect width="960" height="640" fill="#f8fafc" rx="10"/>
+  <text x="480" y="32" text-anchor="middle" font-size="18" font-weight="700" fill="#1e293b">Lease Controller 核心流程（乐观更新 + 降级）</text>
+  <text x="480" y="52" text-anchor="middle" font-size="12" fill="#64748b">Ping 健康 → 乐观更新 → 指数退避重试 → 冲突解决</text>
+
+  <!-- 起点 -->
+  <rect x="380" y="80" width="200" height="40" rx="20" fill="#1e293b"/>
+  <text x="480" y="104" text-anchor="middle" font-size="12" font-weight="600" fill="#f1f5f9">leaseController.Run</text>
+
+  <line x1="480" y1="120" x2="480" y2="140" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- sync 周期 -->
+  <rect x="380" y="145" width="200" height="40" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="480" y="169" text-anchor="middle" font-size="12" font-weight="600" fill="#1e40af">sync 周期执行</text>
+
+  <line x1="480" y1="185" x2="480" y2="205" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- 读取 Ping -->
+  <rect x="380" y="210" width="200" height="40" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="480" y="234" text-anchor="middle" font-size="12" font-weight="600" fill="#1e40af">读取 Ping 结果</text>
+
+  <line x1="480" y1="250" x2="480" y2="270" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- 判断 Ping -->
+  <polygon points="480,275 580,310 480,345 380,310" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="480" y="307" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">Ping 是否</text>
+  <text x="480" y="322" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">健康？</text>
+
+  <!-- Ping 不通：停止续约 -->
+  <line x1="380" y1="310" x2="230" y2="310" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="305" y="300" text-anchor="middle" font-size="10" fill="#ef4444" font-weight="600">否</text>
+  <rect x="50" y="290" width="180" height="50" rx="8" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="140" y="310" text-anchor="middle" font-size="11" font-weight="600" fill="#991b1b">停止续约</text>
+  <text x="140" y="327" text-anchor="middle" font-size="9" fill="#7f1d1d">控制面感知节点异常</text>
+
+  <!-- Ping 通：继续 -->
+  <line x1="480" y1="345" x2="480" y2="365" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="500" y="358" font-size="10" fill="#10b981" font-weight="600">是</text>
+
+  <!-- 乐观更新 -->
+  <rect x="330" y="370" width="300" height="50" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="1.5"/>
+  <text x="480" y="390" text-anchor="middle" font-size="12" font-weight="600" fill="#065f46">基于 latestLease 乐观更新</text>
+  <text x="480" y="407" text-anchor="middle" font-size="10" fill="#064e3b">跳过 GET，直接 PUT</text>
+
+  <line x1="480" y1="420" x2="480" y2="440" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- 判断乐观更新成功 -->
+  <polygon points="480,445 600,480 480,515 360,480" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="480" y="477" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">乐观更新</text>
+  <text x="480" y="492" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">成功？</text>
+
+  <!-- 成功：完成 -->
+  <line x1="600" y1="480" x2="760" y2="480" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="680" y="470" text-anchor="middle" font-size="10" fill="#10b981" font-weight="600">是</text>
+  <rect x="760" y="460" width="170" height="40" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="1.5"/>
+  <text x="845" y="484" text-anchor="middle" font-size="12" font-weight="600" fill="#065f46">完成本轮续约 ✓</text>
+
+  <!-- 失败：降级 -->
+  <line x1="480" y1="515" x2="480" y2="535" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="500" y="528" font-size="10" fill="#ef4444" font-weight="600">否</text>
+
+  <rect x="220" y="540" width="520" height="55" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="480" y="562" text-anchor="middle" font-size="12" font-weight="600" fill="#5b21b6">降级：backoffEnsureLease + retryUpdateLease</text>
+  <text x="480" y="580" text-anchor="middle" font-size="10" fill="#475569">指数退避 100ms → 7s · 最多 5 次重试 · Conflict 时重新 GET</text>
+
+  <line x1="480" y1="595" x2="480" y2="615" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <path d="M480,615 Q480,625 845,500" fill="none" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,3"/>
+</svg>
