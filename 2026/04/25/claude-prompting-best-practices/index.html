@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Claude 提示词工程最佳实践深度解析：原则、技巧与 Opus 4.7 适配" />
+    <meta property="og:title" content="Claude 提示词工程最佳实践深度解析：原则、技巧与 Opus 4.7 适配" />
+    <meta property="twitter:title" content="Claude 提示词工程最佳实践深度解析：原则、技巧与 Opus 4.7 适配" />
+    
+
+    
+    <meta name="description" content="基于 Anthropic 官方 Claude Prompting Best Practices 文档的深度解读。系统性整理 Claude 的通用提示词原则、XML 结构化、长上下文排版、effort 参数调优、工具使用与代理工作流治理等关键技术，并重点解析 Claude Opus 4.7 在指令遵循、工具使用、子代理、前端默认风格等方面的行为变化，帮助开发者在真实产品中高效、稳定地驾驭 Claude。">
+    <meta property="og:description" content="基于 Anthropic 官方 Claude Prompting Best Practices 文档的深度解读。系统性整理 Claude 的通用提示词原则、XML 结构化、长上下文排版、effort 参数调优、工具使用与代理工作流治理等关键技术，并重点解析 Claude Opus 4.7 在指令遵循、工具使用、子代理、前端默认风格等方面的行为变化，帮助开发者在真实产品中高效、稳定地驾驭 Claude。" />
+    <meta property="twitter:description" content="基于 Anthropic 官方 Claude Prompting Best Practices 文档的深度解读。系统性整理 Claude 的通用提示词原则、XML 结构化、长上下文排版、effort 参数调优、工具使用与代理工作流治理等关键技术，并重点解析 Claude Opus 4.7 在指令遵循、工具使用、子代理、前端默认风格等方面的行为变化，帮助开发者在真实产品中高效、稳定地驾驭 Claude。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Claude 提示词工程最佳实践深度解析：原则、技巧与 Opus 4.7 适配 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/04/25/claude-prompting-best-practices/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                        <a class="tag" href="/tags/prompt-engineering" title="Prompt Engineering">
+                            Prompt Engineering
+                        </a>
+                        
+                    </div>
+                    <h1>Claude 提示词工程最佳实践深度解析：原则、技巧与 Opus 4.7 适配</h1>
+                    <h2 class="subheading">从黄金法则到 effort 参数：一份面向开发者的 Claude 提示词工程实战指南</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Saturday, April 25, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言提示词工程不是玄学而是一套可复用的工程学">一、引言：提示词工程不是玄学，而是一套可复用的工程学</h2>
+<blockquote>
+<p>原文链接：<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Claude Prompting Best Practices</a>
+出品方：Anthropic 官方文档
+适用模型：Claude Opus 4.7 / 4.6、Claude Sonnet 4.6、Claude Haiku 4.5</p>
+</blockquote>
+<p>很多团队在接入 Claude 之后的第一印象是：&ldquo;同样的提示词，有时效果惊艳，有时却漂移得离谱。&ldquo;这种不稳定感往往被归结为&quot;模型的随机性&rdquo;，但 Anthropic 官方的 Prompting Best Practices 给出了一个完全不同的视角：<strong>大多数稳定性问题的根因，在于我们没有把&quot;和 Claude 说话&quot;当作一项工程化任务来做。</strong></p>
+<p>这份官方文档把提示词工程拆成六个互相支撑的维度——通用原则、输出格式、工具使用、思考与推理、代理系统，以及针对 Claude Opus 4.7 的专属技巧。本文会沿着这条主线，结合具体示例和配图，逐层解读每一类最佳实践的工程含义，并重点说明 <strong>Opus 4.7 带来的一系列行为变化对现有提示词的影响</strong>。</p>
+<p>
+  <img src="/img/claude-prompting/overview.svg" alt="Claude 提示词工程知识体系总览">
+
+</p>
+<p><strong>图注</strong>：作者基于原文梳理的知识体系分类图，非 Anthropic 官方分层。</p>
+<p>需要强调一点：本文尽量贴近原文的事实与示例，但所有结构图、对比图都是作者为讲解目的绘制的概念示意，不代表 Anthropic 的官方架构定义。</p>
+<hr>
+<h2 id="二通用原则五条可以贴墙上的底层规律">二、通用原则：五条可以贴墙上的底层规律</h2>
+<h3 id="21-黄金法则把-claude-当作缺上下文的新同事">2.1 黄金法则——把 Claude 当作&quot;缺上下文的新同事&rdquo;</h3>
+<p>原文开篇给出了一个非常朴素但极具工程价值的判断标准：</p>
+<blockquote>
+<p>把你的提示词拿给一位对任务缺乏背景的同事看，如果他看完感到困惑，那么 Claude 也会困惑。</p>
+</blockquote>
+<p>这条黄金法则的含义是，<strong>模型并不是在&quot;猜&quot;你的意图，而是在&quot;拼接&quot;你给出的线索</strong>。线索不足，就只能退回到某种通用默认；线索充分，输出质量才会稳定。</p>
+<p>
+  <img src="/img/claude-prompting/golden-rule.svg" alt="清晰性黄金法则：模糊 vs 清晰">
+
+</p>
+<p>以文档里的 &ldquo;analytics dashboard&rdquo; 示例来看差别：</p>
+<ul>
+<li>模糊版：<code>Create an analytics dashboard</code></li>
+<li>清晰版：<code>Create an analytics dashboard. Include as many relevant features and interactions as possible. Go beyond the basics to create a fully-featured implementation.</code></li>
+</ul>
+<p>第二条提示词并没有多出什么&quot;魔法词&quot;，它只是把&quot;什么叫完成&quot;定义得更具体——要尽量多的相关特性、要交互元素、要超越基础版。<strong>这就是把&quot;隐性标准&quot;变成&quot;显性标准&quot;</strong>。</p>
+<h3 id="22-为为什么提供理由不只是做什么">2.2 为&quot;为什么&quot;提供理由，不只是&quot;做什么&quot;</h3>
+<p>文档里另一个被反复强调的原则是：<strong>给指令附上动机</strong>。比如同样是禁止使用省略号，下面两种写法效果差距很大：</p>
+<ul>
+<li>效果较差：<code>NEVER use ellipses</code></li>
+<li>效果更好：<code>Your response will be read aloud by a text-to-speech engine, so never use ellipses since the text-to-speech engine will not know how to pronounce them.</code></li>
+</ul>
+<p>第二个版本多出来的不是&quot;语气&quot;，而是<strong>因果链</strong>。模型理解了&quot;为什么不能用省略号&quot;之后，能够把这条规则推广到其他类似场景——例如避免连续破折号、避免异常 Unicode 符号等。对提示词工程来说，<strong>说清楚&quot;因为&quot;能显著提升规则的泛化能力</strong>。</p>
+<h3 id="23-few-shot-示例35-个相关多样结构化">2.3 Few-shot 示例——3~5 个、相关、多样、结构化</h3>
+<p>示例是提示词工程里性价比最高的杠杆之一，但它不是&quot;多多益善&quot;。原文给出的经验是：</p>
+<ul>
+<li><strong>相关</strong>：贴近你真实的输入分布，而不是挑一些&quot;好看但罕见&quot;的样本</li>
+<li><strong>多样</strong>：覆盖边缘情况，让模型理解规则的边界在哪里</li>
+<li><strong>结构化</strong>：用 <code>&lt;example&gt;</code> 标签包裹，避免与指令语义混在一起</li>
+</ul>
+<p>数量上，<strong>3~5 个示例通常效果最佳</strong>。更多示例会拉长上下文、稀释指令，也会让模型倾向于过拟合到具体样本，反而降低泛化能力。</p>
+<h3 id="24-用-xml-标签结构化提示">2.4 用 XML 标签结构化提示</h3>
+<p>对于稍微复杂一点的提示词，XML 标签几乎是必选项。它的作用不是&quot;美化&quot;，而是<strong>给模型一棵可以解析的文档树</strong>——让模型清楚地知道：哪一段是指令、哪一段是数据、哪一段是输出样例。</p>
+<p>
+  <img src="/img/claude-prompting/xml-structure.svg" alt="XML 标签：给提示词一个&amp;quot;文档树&amp;quot;">
+
+</p>
+<p>一个多文档分析任务的典型写法：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#ff79c6">&lt;documents&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&lt;document</span> <span style="color:#50fa7b">index=</span><span style="color:#f1fa8c">&#34;1&#34;</span><span style="color:#ff79c6">&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&lt;source&gt;</span>annual_report_2023.pdf<span style="color:#ff79c6">&lt;/source&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&lt;document_content&gt;</span>
+</span></span><span style="display:flex;"><span>      {{ANNUAL_REPORT}}
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&lt;/document_content&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&lt;/document&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&lt;document</span> <span style="color:#50fa7b">index=</span><span style="color:#f1fa8c">&#34;2&#34;</span><span style="color:#ff79c6">&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&lt;source&gt;</span>competitor_analysis_q2.xlsx<span style="color:#ff79c6">&lt;/source&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&lt;document_content&gt;</span>
+</span></span><span style="display:flex;"><span>      {{COMPETITOR_ANALYSIS}}
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&lt;/document_content&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&lt;/document&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">&lt;/documents&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Analyze the annual report and competitor analysis. Identify strategic
+</span></span><span style="display:flex;"><span>advantages and recommend Q3 focus areas.
+</span></span></code></pre></div><p>几条关于 XML 使用的经验：</p>
+<ul>
+<li>标签名要<strong>一致且有语义</strong>——<code>&lt;instructions&gt;</code>、<code>&lt;context&gt;</code>、<code>&lt;example&gt;</code> 这类；</li>
+<li>有自然层级时再嵌套，没必要的层级只会增加噪音；</li>
+<li>重要字段前后的空白行会提升可读性，也让模型更容易识别边界。</li>
+</ul>
+<h3 id="25-给-claude-一个角色">2.5 给 Claude 一个角色</h3>
+<p>system prompt 里的角色设定，不是&quot;扮演的噱头&quot;，而是一种<strong>先验上下文</strong>。它会影响模型的词汇选择、判断尺度和默认假设。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">import</span> anthropic
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>client <span style="color:#ff79c6">=</span> anthropic<span style="color:#ff79c6">.</span>Anthropic()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>message <span style="color:#ff79c6">=</span> client<span style="color:#ff79c6">.</span>messages<span style="color:#ff79c6">.</span>create(
+</span></span><span style="display:flex;"><span>    model<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;claude-opus-4-7&#34;</span>,
+</span></span><span style="display:flex;"><span>    max_tokens<span style="color:#ff79c6">=</span><span style="color:#bd93f9">1024</span>,
+</span></span><span style="display:flex;"><span>    system<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;You are a helpful coding assistant specializing in Python.&#34;</span>,
+</span></span><span style="display:flex;"><span>    messages<span style="color:#ff79c6">=</span>[
+</span></span><span style="display:flex;"><span>        {<span style="color:#f1fa8c">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;user&#34;</span>, <span style="color:#f1fa8c">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;How do I sort a list of dictionaries by key?&#34;</span>}
+</span></span><span style="display:flex;"><span>    ],
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></div><p>角色设定越贴近真实岗位（&ldquo;Python coding assistant&rdquo;、&ldquo;SRE on-call engineer&rdquo;），模型的回答越稳定；反过来，过于戏剧化的设定（&ldquo;你是世界上最好的黑客&rdquo;）往往会引入不可控的语气漂移。</p>
+<hr>
+<h2 id="三长上下文把文档放顶部把问题放末尾">三、长上下文：把文档放顶部，把问题放末尾</h2>
+<p>当你给 Claude 一份几万 token 的长文档时，<strong>提示词的&quot;排版顺序&quot;会直接影响回答质量</strong>。原文给出的经验是：</p>
+<ul>
+<li>长文档放在提示词<strong>顶部</strong>；</li>
+<li>查询和指令放在<strong>末尾</strong>；</li>
+<li>这种排版相比&quot;问题在前、文档在后&quot;的写法，在原文中的报告可以带来<strong>最多约 30% 的质量提升</strong>。</li>
+</ul>
+<p>
+  <img src="/img/claude-prompting/long-context-layout.svg" alt="长上下文排版：文档在前、指令在后">
+
+</p>
+<p>从工程视角看，这个现象并不反直觉：模型是<strong>自回归生成</strong>的，越靠近生成位置的 token，对输出的影响权重越大。把指令放末尾，相当于在模型即将回答的位置&quot;再提醒一次目标&quot;。</p>
+<p>结合长上下文场景，原文还给出两条配套建议：</p>
+<ol>
+<li>用 XML 标签包装每份文档的<strong>元数据和正文</strong>（来源、日期、标题），便于模型引用；</li>
+<li>要求模型<strong>先提取相关引用，再回答</strong>——相当于一个隐式的 chain-of-thought，显著降低幻觉。</li>
+</ol>
+<pre tabindex="0"><code>请先用 &lt;relevant_quotes&gt; 标签列出你引用的原文片段，
+再在 &lt;answer&gt; 标签中给出你的回答。
+</code></pre><hr>
+<h2 id="四输出与格式控制模型想多说什么">四、输出与格式：控制&quot;模型想多说什么&quot;</h2>
+<p>Claude 最新一代模型（4.6 / 4.7）在风格上变得<strong>更直接、更基于事实、更少冗长</strong>。这是一个重要的信号：<strong>很多此前用来&quot;压制啰嗦&quot;的提示词，现在反而可能让输出过度收紧</strong>。</p>
+<h3 id="41-控制冗长度用正面示例代替负面指令">4.1 控制冗长度：用正面示例代替负面指令</h3>
+<p>原文明确建议，当你想要简洁输出时：</p>
+<pre tabindex="0"><code>Provide concise, focused responses. Skip non-essential context, and keep examples minimal.
+</code></pre><p>比 <code>Do not be verbose, do not add unnecessary fluff</code> 这样的负面指令更有效。<strong>正面示例告诉模型&quot;要长成什么样&quot;，负面指令只告诉模型&quot;不要长成什么样&quot;，前者约束更紧。</strong></p>
+<h3 id="42-抑制过度-markdown">4.2 抑制过度 Markdown</h3>
+<p>Claude 默认倾向于使用较多 Markdown（粗体、斜体、项目符号）。在一些需要&quot;散文感&quot;的场景（长篇报告、正式文档），可以用下面这段 system prompt 片段：</p>
+<pre tabindex="0"><code>&lt;avoid_excessive_markdown_and_bullet_points&gt;
+When writing reports, documents, technical explanations, analyses, or any
+long-form content, write in clear, flowing prose using complete paragraphs
+and sentences. Use standard paragraph breaks for organization and reserve
+markdown primarily for `inline code`, code blocks, and simple headings.
+Avoid using **bold** and *italics*.
+
+DO NOT use ordered lists or unordered lists unless: a) you&#39;re presenting
+truly discrete items where a list format is the best option, or b) the user
+explicitly requests a list or ranking
+&lt;/avoid_excessive_markdown_and_bullet_points&gt;
+</code></pre><h3 id="43-迁移离开预填充响应">4.3 迁移离开&quot;预填充响应&quot;</h3>
+<p>这是一个容易被忽略、但在产品侧影响很大的变化：</p>
+<p><strong>从 Claude 4.6 以及 Claude Mythos Preview 开始，不再支持在最后一个 assistant 回合做预填充响应（prefilled response）。</strong></p>
+<p>对常见用法，原文给出的迁移路线如下：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>迁移方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>控制输出格式</td>
+<td>改用 <strong>Structured Outputs</strong> 或工具调用</td>
+</tr>
+<tr>
+<td>消除冗余序言</td>
+<td>在 system prompt 里用直接指令控制</td>
+</tr>
+<tr>
+<td>避免误拒绝</td>
+<td>直接用清晰的 user 消息提示</td>
+</tr>
+<tr>
+<td>继续之前的响应</td>
+<td>把&quot;请继续&quot;放进 user 消息</td>
+</tr>
+<tr>
+<td>上下文保持</td>
+<td>通过 user 消息或工具注入提醒</td>
+</tr>
+</tbody>
+</table>
+<p>这条变化对依赖预填充做格式锁定的系统影响最大，迁移时<strong>建议优先考虑 Structured Outputs</strong>——它从协议层保证了 JSON Schema 级别的结构稳定性，比传统的 prefill 更可靠。</p>
+<hr>
+<h2 id="五effort-参数用思考档位代替反复改提示词">五、effort 参数：用&quot;思考档位&quot;代替反复改提示词</h2>
+<p>Claude Opus 4.7 引入了一个极其关键的设计：<strong>effort 参数</strong>。它不是另一个采样温度，而是一个<strong>对模型内部&quot;思考深度&quot;的显式开关</strong>。</p>
+<p>
+  <img src="/img/claude-prompting/effort-levels.svg" alt="effort 参数：5 个档位的定位">
+
+</p>
+<p>原文给出了 5 个档位的定位：</p>
+<ul>
+<li><strong><code>max</code></strong>：极限努力，适合智能要求最高的任务，但有过度思考的风险；</li>
+<li><strong><code>xhigh</code></strong>（Opus 4.7 新增）：编码和代理类用例的最佳设置；</li>
+<li><strong><code>high</code></strong>：平衡 token 使用和智能，大多数智能敏感场景的<strong>最低推荐</strong>；</li>
+<li><strong><code>medium</code></strong>：成本敏感场景的默认；</li>
+<li><strong><code>low</code></strong>：适合短小任务和对延迟敏感的高并发工作负载。</li>
+</ul>
+<h3 id="51-严格遵循档位带来的新陷阱">5.1 &ldquo;严格遵循档位&quot;带来的新陷阱</h3>
+<p>Opus 4.7 与 4.6 相比，有一个很容易踩坑的行为变化：</p>
+<blockquote>
+<p><strong>Opus 4.7 会严格遵循 effort 档位，特别是在低端。</strong></p>
+</blockquote>
+<p>这意味着，<strong>在 4.6 时代用 <code>low</code> 依然能跑得动的推理任务，到 4.7 可能直接&quot;想都不想&rdquo;</strong>。处理方式有两种：</p>
+<ol>
+<li>把 effort 提到 <code>high</code> 或 <code>xhigh</code>，这是最直接的手段；</li>
+<li>若因为延迟 / 成本必须维持 <code>low</code>，就在提示词里显式要求推理：</li>
+</ol>
+<pre tabindex="0"><code>This task involves multi-step reasoning. Think carefully through the problem before responding.
+</code></pre><h3 id="52-自适应思考从预算式迁移到-adaptive">5.2 自适应思考：从预算式迁移到 adaptive</h3>
+<p>Claude Opus 4.6 和 Sonnet 4.6 同时还支持 <strong>自适应思考</strong>（<code>thinking: {type: &quot;adaptive&quot;}</code>）。它让模型<strong>动态决定何时、多深地思考</strong>，省去了手动设置 budget 的调参成本。</p>
+<p>从预算式迁移到自适应思考的写法：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 旧：固定 budget 的扩展思考</span>
+</span></span><span style="display:flex;"><span>client<span style="color:#ff79c6">.</span>messages<span style="color:#ff79c6">.</span>create(
+</span></span><span style="display:flex;"><span>    model<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;claude-sonnet-4-5-20250929&#34;</span>,
+</span></span><span style="display:flex;"><span>    max_tokens<span style="color:#ff79c6">=</span><span style="color:#bd93f9">64000</span>,
+</span></span><span style="display:flex;"><span>    thinking<span style="color:#ff79c6">=</span>{<span style="color:#f1fa8c">&#34;type&#34;</span>: <span style="color:#f1fa8c">&#34;enabled&#34;</span>, <span style="color:#f1fa8c">&#34;budget_tokens&#34;</span>: <span style="color:#bd93f9">32000</span>},
+</span></span><span style="display:flex;"><span>    messages<span style="color:#ff79c6">=</span>[{<span style="color:#f1fa8c">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;user&#34;</span>, <span style="color:#f1fa8c">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;...&#34;</span>}],
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 新：自适应思考 + effort</span>
+</span></span><span style="display:flex;"><span>client<span style="color:#ff79c6">.</span>messages<span style="color:#ff79c6">.</span>create(
+</span></span><span style="display:flex;"><span>    model<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;claude-opus-4-7&#34;</span>,
+</span></span><span style="display:flex;"><span>    max_tokens<span style="color:#ff79c6">=</span><span style="color:#bd93f9">64000</span>,
+</span></span><span style="display:flex;"><span>    thinking<span style="color:#ff79c6">=</span>{<span style="color:#f1fa8c">&#34;type&#34;</span>: <span style="color:#f1fa8c">&#34;adaptive&#34;</span>},
+</span></span><span style="display:flex;"><span>    output_config<span style="color:#ff79c6">=</span>{<span style="color:#f1fa8c">&#34;effort&#34;</span>: <span style="color:#f1fa8c">&#34;high&#34;</span>},
+</span></span><span style="display:flex;"><span>    messages<span style="color:#ff79c6">=</span>[{<span style="color:#f1fa8c">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;user&#34;</span>, <span style="color:#f1fa8c">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;...&#34;</span>}],
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></div><p>一个工程上的经验：<strong>当你开启 <code>max</code> 或 <code>xhigh</code> 时，建议把 <code>max_tokens</code> 预算设到 64k</strong>，避免长推理被截断在关键一步。</p>
+<h3 id="53-避免过度思考">5.3 避免过度思考</h3>
+<p>另一个被原文点名的问题是&quot;过度彻底&quot;——模型前期花大量 token 在探索不必要的分支。原文推荐用下面这段提示抑制：</p>
+<pre tabindex="0"><code>When you&#39;re deciding how to approach a problem, choose an approach and commit
+to it. Avoid revisiting decisions unless you encounter new information that
+directly contradicts your reasoning.
+</code></pre><p>以及这段在<strong>不需要深度推理</strong>时的提示：</p>
+<pre tabindex="0"><code>Extended thinking adds latency and should only be used when it will meaningfully
+improve answer quality - typically for problems that require multi-step reasoning.
+When in doubt, respond directly.
+</code></pre><p>此外，原文提到一个小但实用的细节：<strong>禁用扩展思考时，Opus 4.5 对&quot;think&quot;一词特别敏感</strong>，可以考虑用 <code>consider</code>、<code>evaluate</code>、<code>reason through</code> 等替代词。</p>
+<hr>
+<h2 id="六工具使用让-claude-真的动手而不是只说建议">六、工具使用：让 Claude 真的&quot;动手&quot;，而不是只说建议</h2>
+<p>这是一个经常被低估的细节：<strong>Claude 会非常严格地按动词行事</strong>。</p>
+<h3 id="61-行动-vs-建议">6.1 行动 vs 建议</h3>
+<p>以下两句在大多数人看来几乎同义，但在 Claude 那里差别巨大：</p>
+<ul>
+<li><code>Can you suggest some changes to improve this function?</code> → 只会给出建议</li>
+<li><code>Change this function to improve its performance.</code> → 直接修改函数</li>
+</ul>
+<p>对 agent 场景，原文提供了两个可以直接贴到 system prompt 的块：</p>
+<p><strong>偏向&quot;默认动手&quot;</strong>：</p>
+<pre tabindex="0"><code>&lt;default_to_action&gt;
+By default, implement changes rather than only suggesting them. If the user&#39;s
+intent is unclear, infer the most useful likely action and proceed, using tools
+to discover any missing details instead of guessing.
+&lt;/default_to_action&gt;
+</code></pre><p><strong>偏向&quot;保守询问&quot;</strong>：</p>
+<pre tabindex="0"><code>&lt;do_not_act_before_instructions&gt;
+Do not jump into implementation or changes files unless clearly instructed to
+make changes. When the user&#39;s intent is ambiguous, default to providing
+information, doing research, and providing recommendations rather than taking action.
+&lt;/do_not_act_before_instructions&gt;
+</code></pre><p>选择哪种，取决于产品场景的<strong>可逆性要求</strong>——对 IDE 里的代码修改倾向于&quot;动手&quot;，对生产环境的运维操作倾向于&quot;保守&quot;。</p>
+<h3 id="62-并行工具调用">6.2 并行工具调用</h3>
+<p>另一个高 ROI 的工程手段是让模型<strong>并行调用工具</strong>。当多个调用之间<strong>没有依赖关系</strong>时（比如同时读三个文件），一次下发三个调用比串行依次读快数倍。</p>
+<pre tabindex="0"><code>&lt;use_parallel_tool_calls&gt;
+If you intend to call multiple tools and there are no dependencies between
+the tool calls, make all of the independent tool calls in parallel. For example,
+when reading 3 files, run 3 tool calls in parallel. Maximize use of parallel
+tool calls where possible to increase speed and efficiency. However, if some
+tool calls depend on previous calls, do NOT call these tools in parallel.
+&lt;/use_parallel_tool_calls&gt;
+</code></pre><p>需要注意的是，Claude 4.5 / 4.6 对 system prompt 的响应变得更敏感——<strong>一些过于激烈的写法（如 <code>CRITICAL: You MUST ...</code>）可能引起&quot;过度触发&quot;</strong>。原文的建议是，把这类语气收敛为 <code>Use this tool when ...</code> 这种更中性的条件式指令。</p>
+<hr>
+<h2 id="七代理系统长时间任务的四个治理点">七、代理系统：长时间任务的四个治理点</h2>
+<p>对于长周期的 agent 工作流（研究、多文件重构、跨系统自动化），提示词工程的重点从&quot;单次问答&quot;转向<strong>循环治理</strong>。</p>
+<p>
+  <img src="/img/claude-prompting/agent-governance.svg" alt="代理工作流四大治理点">
+
+</p>
+<h3 id="71-上下文与状态跟踪">7.1 上下文与状态跟踪</h3>
+<p>Claude 4.6 / 4.5 具备<strong>上下文感知能力</strong>——它能感知自己剩余的 token 预算。这带来一个很实用的提示模式：</p>
+<pre tabindex="0"><code>Your context window will be automatically compacted as it approaches its limit,
+allowing you to continue working indefinitely. Therefore, do not stop tasks
+early due to token budget concerns. As you approach your token budget limit,
+save your current progress and state to memory before the context window refreshes.
+</code></pre><p>配合工程侧的几条最佳实践：</p>
+<ul>
+<li>结构化状态用 <strong>JSON</strong>（便于模型读回、写回）；</li>
+<li>进度笔记用<strong>自由文本 + 时间戳</strong>；</li>
+<li>用 <strong>git</strong> 或文件系统做长期持久化；</li>
+<li>提示词里<strong>强调增量进度</strong>，避免重做。</li>
+</ul>
+<h3 id="72-平衡自主性与安全性">7.2 平衡自主性与安全性</h3>
+<p>另一条被原文明确点出的治理原则是：<strong>&ldquo;不同动作，有不同的审慎等级&rdquo;</strong>。</p>
+<pre tabindex="0"><code>Consider the reversibility and potential impact of your actions. You are
+encouraged to take local, reversible actions like editing files or running
+tests, but for actions that are hard to reverse, affect shared systems, or
+could be destructive, ask the user before proceeding.
+
+Examples of actions that warrant confirmation:
+- Destructive operations: deleting files or branches, dropping database tables, rm -rf
+- Hard to reverse operations: git push --force, git reset --hard
+- Operations visible to others: pushing code, commenting on PRs/issues
+</code></pre><p>这段提示本质上是在<strong>把可逆性作为一种分级信号注入到代理的决策循环</strong>。它和传统的 &ldquo;ask for confirmation before X&rdquo; 不同之处在于——它给了模型一个可以泛化判断新情况的原则，而不是枚举所有需要确认的动作。</p>
+<h3 id="73-子代理编排">7.3 子代理编排</h3>
+<p>如果发现子代理被过度使用（每个小子任务都要派发一个子代理），可以用下面这段收紧：</p>
+<pre tabindex="0"><code>Use subagents when tasks can run in parallel, require isolated context, or
+involve independent workstreams. For simple tasks, sequential operations,
+single-file edits, or tasks where you need to maintain context across steps,
+work directly rather than delegating.
+</code></pre><p>反过来，如果 Opus 4.7 默认<strong>不肯</strong>派发子代理（它比 4.6 更克制），可以显式补充：</p>
+<pre tabindex="0"><code>Do not spawn a subagent for work you can complete directly in a single response.
+Spawn multiple subagents in the same turn when fanning out across items or reading multiple files.
+</code></pre><h3 id="74-抑制幻觉和过度工程">7.4 抑制幻觉和过度工程</h3>
+<p><strong>幻觉</strong>的典型症状是&quot;没读过文件就回答&quot;。用这段可以显著降低：</p>
+<pre tabindex="0"><code>&lt;investigate_before_answering&gt;
+Never speculate about code you have not opened. If the user references a
+specific file, you MUST read the file before answering. Never make any
+claims about code before investigating unless you are certain.
+&lt;/investigate_before_answering&gt;
+</code></pre><p><strong>过度工程</strong>的典型症状是模型自作主张去改无关代码、加注释、加类型标注。收紧方式：</p>
+<pre tabindex="0"><code>Avoid over-engineering. Only make changes that are directly requested or clearly necessary.
+
+- Scope: Don&#39;t add features, refactor code, or make &#34;improvements&#34; beyond what was asked.
+- Documentation: Don&#39;t add docstrings, comments, or type annotations to code you didn&#39;t change.
+- Defensive coding: Don&#39;t add error handling for scenarios that can&#39;t happen.
+- Abstractions: Don&#39;t create helpers for one-time operations.
+</code></pre><p>还有一条对&quot;应付测试&quot;的常见反模式的约束：</p>
+<pre tabindex="0"><code>Please write a high-quality, general-purpose solution. Do not create helper
+scripts or workarounds. Implement a solution that works correctly for all
+valid inputs, not just the test cases. Do not hard-code values.
+</code></pre><hr>
+<h2 id="八claude-opus-47-专属行为变化速查">八、Claude Opus 4.7 专属行为变化速查</h2>
+<p>Opus 4.7 相比 4.6 的行为变化比较多，单独列一张速查图便于迁移对照：</p>
+<p>
+  <img src="/img/claude-prompting/opus-47-changes.svg" alt="Claude Opus 4.7 — 需要关注的行为变化">
+
+</p>
+<p>几个值得单独强调的点：</p>
+<ul>
+<li><strong>指令更字面化</strong>：需要广泛应用某条规则时，要显式写&quot;apply to every section, not just the first one&quot;；</li>
+<li><strong>工具使用更克制，但 bug 检出率反而更高</strong>（代码审查召回率 +11pp）——这意味着在代码审查场景里，要主动提醒模型&quot;不要过早过滤严重性&quot;：</li>
+</ul>
+<pre tabindex="0"><code>Report every issue you find, including ones you are uncertain about or consider
+low-severity. Do not filter for importance or confidence at this stage - a separate
+verification step will do that. Your goal here is coverage: it is better to surface
+a finding that later gets filtered out than to silently drop a real bug.
+</code></pre><ul>
+<li><strong>前端默认风格明显</strong>：Opus 4.7 有一套一致的&quot;家族风格&quot;（米色底 <code>#F4F1EA</code> + Georgia / Fraunces 等衬线字体 + 赤陶色强调），如果你不想要这种默认，要么给出具体替代规格，要么让模型<strong>先提 4 个不同方向再选择</strong>：</li>
+</ul>
+<pre tabindex="0"><code>Before building, propose 4 distinct visual directions tailored to this brief
+(each as: bg hex / accent hex / typeface — one-line rationale).
+Ask the user to pick one, then implement only that direction.
+</code></pre><ul>
+<li><strong>避免&quot;AI slop&quot;美学</strong>：以下这段前端 aesthetics 提示可以贴进 system prompt：</li>
+</ul>
+<pre tabindex="0"><code>&lt;frontend_aesthetics&gt;
+NEVER use generic AI-generated aesthetics like overused font families (Inter, Roboto,
+Arial, system fonts), cliched color schemes (particularly purple gradients on white
+or dark backgrounds), predictable layouts and component patterns, and cookie-cutter
+design that lacks context-specific character. Use unique fonts, cohesive colors and
+themes, and animations for effects and micro-interactions.
+&lt;/frontend_aesthetics&gt;
+</code></pre><p>对于<strong>交互式编码产品</strong>（类似 IDE 里的 AI 助手），原文的总建议是：<strong>effort 用 <code>xhigh</code> 或 <code>high</code>，开启自动模式等自主功能，首次对话中尽可能一次讲清任务、意图和约束</strong>。这条经验对减少&quot;反复让用户确认&quot;的体验问题非常有效。</p>
+<hr>
+<h2 id="九工程实践建议一个可以直接照抄的迁移清单">九、工程实践建议：一个可以直接照抄的迁移清单</h2>
+<p>基于原文的迁移指南，我整理了一份<strong>从 4.5/4.6 升级到 4.7 的实操清单</strong>，适合团队直接作为 checklist 使用：</p>
+<ol>
+<li><strong>显式说明行为期望</strong>：任何隐式约束都补成显式（&ldquo;apply to every section&rdquo;）；</li>
+<li><strong>把固定 thinking budget 迁到 adaptive + effort</strong>：更省心，也更贴合 4.7 的动态思考特性；</li>
+<li><strong>优先把智能敏感任务升到 <code>high</code> / <code>xhigh</code></strong>：比反复改提示词更有效；</li>
+<li><strong>迁移离开 prefilled response</strong>：优先用 Structured Outputs 或工具调用；</li>
+<li><strong>收敛反懒惰提示</strong>：4.6+ 模型已经更主动，老的&quot;请不要偷懒&quot;类提示可能过度触发；</li>
+<li><strong>检视子代理生成策略</strong>：如果你依赖模型主动 fan-out，需要显式写条件；</li>
+<li><strong>覆盖前端默认审美</strong>：要么给规格，要么走&quot;先提方案再实现&quot;的两步流程；</li>
+<li><strong>对长上下文任务</strong>：文档靠前、指令末尾、用 XML 结构化、要求先引用后回答；</li>
+<li><strong>对 agent 任务</strong>：加上&quot;状态持久化&quot;和&quot;行动可逆性&quot;这两块提示；</li>
+<li><strong>保持一个评估集</strong>：任何提示词变更都跑一遍固定样本，避免&quot;改一个好一个坏一个&quot;。</li>
+</ol>
+<p>这份清单有两条隐含前提：</p>
+<ul>
+<li><strong>提示词工程的稳定性来自测量，不来自灵感</strong>。没有固定评估集的情况下，任何&quot;似乎变好了&quot;的改动都是幻觉；</li>
+<li><strong>effort 参数值得优先于提示词调整</strong>——它是更粗但更可靠的杠杆。只有在 effort 无法解决的问题上，再去调提示词细节。</li>
+</ul>
+<hr>
+<h2 id="十结语把提示词当作接口契约来维护">十、结语：把提示词当作&quot;接口契约&quot;来维护</h2>
+<p>回头看 Anthropic 的 Prompting Best Practices，贯穿全文的其实是一个很朴素的观念：<strong>提示词不是一次性的&quot;咒语&quot;，而是一份需要持续维护的接口契约</strong>。</p>
+<ul>
+<li>它有<strong>输入契约</strong>：你提供什么样的上下文、数据和示例；</li>
+<li>它有<strong>输出契约</strong>：你期望什么样的格式、冗长度和完成标准；</li>
+<li>它有<strong>行为契约</strong>：你允许模型动什么、不能动什么、什么时候必须问；</li>
+<li>它还有<strong>演化契约</strong>：当模型升级时（4.6 → 4.7），哪些写法需要随之调整。</li>
+</ul>
+<p>把这四层契约都写清楚，你就能让 Claude 像一位合格的工程同事一样<strong>在不确定的边界内稳定工作</strong>——这正是&quot;把提示词工程化&quot;的真正含义。</p>
+<p>随着 Claude 的模型能力持续迭代，很多今天需要靠提示词小心治理的问题（比如过度思考、子代理滥用、风格漂移），未来会有更多被下放到 API 层的显式参数（effort、adaptive thinking、structured outputs 等）去解决。对于开发者来说，最好的策略不是追逐每一个&quot;新技巧&quot;，而是<strong>把通用原则、XML 结构化、effort 调优、agent 治理这几套核心能力内化为日常工程习惯</strong>——这比任何一条&quot;万能提示词&quot;都更长期有效。</p>
+<hr>
+<h2 id="参考链接">参考链接</h2>
+<ul>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Claude Prompting Best Practices（原文）</a></li>
+<li><a href="https://platform.claude.com/docs">Extended Thinking 与 Adaptive Thinking 官方说明</a></li>
+<li><a href="https://platform.claude.com/docs">Structured Outputs 官方文档</a></li>
+</ul>
+<p><strong>声明</strong>：本文所有图表均为作者为讲解目的整理的概念示意图，非 Anthropic 官方原图；文中代码片段与提示词示例忠实取自原文，中文翻译与解读由作者完成，若与官方文档存在差异，请以官方文档为准。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/04/16/claude-code-session-management-1m-context/" data-toggle="tooltip" data-placement="top" title="Claude Code 会话管理与百万上下文窗口深度解析">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/04/27/cl4r1t4s-ai-transparency-project-analysis/" data-toggle="tooltip" data-placement="top" title="CL4R1T4S 项目深度解析：AI 系统透明度与系统提示词工程">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/multi-agent" title="multi-agent">
+                            multi-agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+  
+<script type="module">  
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs'; 
+    mermaid.initialize({ startOnLoad: true });  
+</script>  
+<script>  
+    
+    Array.from(document.getElementsByClassName("language-mermaid")).forEach(  
+        (el) => {  
+            el.parentElement.outerHTML = `<div class="mermaid">${el.innerHTML}</div>`;  
+        }  
+    );  
+</script>  
+<style>  
+       
+    .mermaid svg {  
+        display: block;  
+        margin: auto;  
+    }  
+</style>  
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
