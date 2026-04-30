@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="从 RAG 到 LLM Wiki：一种可持续演化的个人知识库技术方案" />
+    <meta property="og:title" content="从 RAG 到 LLM Wiki：一种可持续演化的个人知识库技术方案" />
+    <meta property="twitter:title" content="从 RAG 到 LLM Wiki：一种可持续演化的个人知识库技术方案" />
+    
+
+    
+    <meta name="description" content="基于 Karpathy 的 LLM Wiki 设计模式，系统拆解一种由 LLM Agent 持续维护 Markdown Wiki 的知识库架构。本文从传统 RAG 的局限出发，深入分析 Raw Sources、Wiki、Schema 三层模型，设计 Ingest、Query、Lint 三类核心工作流，并给出目录结构、页面数据模型、Agent 规则、检索策略、质量控制、Git 审计与规模化路线，帮助技术爱好者理解如何把 LLM 从一次性问答工具升级为长期知识库维护者。">
+    <meta property="og:description" content="基于 Karpathy 的 LLM Wiki 设计模式，系统拆解一种由 LLM Agent 持续维护 Markdown Wiki 的知识库架构。本文从传统 RAG 的局限出发，深入分析 Raw Sources、Wiki、Schema 三层模型，设计 Ingest、Query、Lint 三类核心工作流，并给出目录结构、页面数据模型、Agent 规则、检索策略、质量控制、Git 审计与规模化路线，帮助技术爱好者理解如何把 LLM 从一次性问答工具升级为长期知识库维护者。" />
+    <meta property="twitter:description" content="基于 Karpathy 的 LLM Wiki 设计模式，系统拆解一种由 LLM Agent 持续维护 Markdown Wiki 的知识库架构。本文从传统 RAG 的局限出发，深入分析 Raw Sources、Wiki、Schema 三层模型，设计 Ingest、Query、Lint 三类核心工作流，并给出目录结构、页面数据模型、Agent 规则、检索策略、质量控制、Git 审计与规模化路线，帮助技术爱好者理解如何把 LLM 从一次性问答工具升级为长期知识库维护者。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>从 RAG 到 LLM Wiki：一种可持续演化的个人知识库技术方案 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/04/29/llm-wiki-technical-design/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/rag" title="RAG">
+                            RAG
+                        </a>
+                        
+                    </div>
+                    <h1>从 RAG 到 LLM Wiki：一种可持续演化的个人知识库技术方案</h1>
+                    <h2 class="subheading">从一次性检索到持续性知识编译：基于 LLM Agent、Markdown 与 Git 的个人 Memex 架构设计</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Wednesday, April 29, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言知识不该死在聊天记录里">一、引言：知识不该死在聊天记录里</h2>
+<blockquote>
+<p>原文链接：<a href="https://gist.githubusercontent.com/karpathy/442a6bf555914893e9891c11519de94f/raw/ac46de1ad27f92b28ac95459c782c07f6b8c964a/llm-wiki.md">LLM Wiki</a><br>
+原文副标题：<em>A pattern for building personal knowledge bases using LLMs.</em></p>
+</blockquote>
+<p>过去两年，很多人使用大模型处理资料的方式越来越像这样：上传几篇论文、几份会议纪要、几个网页剪藏，然后问它：“帮我总结一下”“这几份材料有什么冲突”“给我写一份技术方案”。模型确实能给出不错的答案，但问题也很明显：<strong>这次综合出的知识，大概率会死在这次聊天记录里</strong>。</p>
+<p>下一次你换个角度再问，它又要重新检索、重新拼接、重新推理。上一次好不容易得出的概念关系、矛盾点、判断依据、对比表，并没有变成一个可以长期复用的资产。</p>
+<p>这正是 Karpathy 在 <code>LLM Wiki</code> 里提出的关键洞察：传统 RAG 解决的是“从资料里找答案”，但它不天然解决“让知识长期沉淀、结构化演化并持续复用”。如果我们把 LLM 从一次性问答器，升级为一个长期维护 Markdown Wiki 的知识工程师，事情就会完全不同。</p>
+<p>
+  <img src="/img/llm-wiki/rag-vs-wiki.svg" alt="传统 RAG 与 LLM Wiki 的差异">
+
+</p>
+<p><strong>图注</strong>：RAG 更像“查询时综合”，LLM Wiki 更像“持续性知识编译”。两者不是互斥关系，LLM Wiki 可以在 RAG 之上增加一个可版本化、可审计、可复用的知识层。</p>
+<p>本文会把原文中的模式扩展成一套更完整的技术方案：它应该如何分层？目录如何组织？LLM Agent 应该遵守什么规则？如何摄入资料、回答问题、做健康检查？如何用 Git、Obsidian、本地搜索和 MCP 把这个系统做成可长期运行的个人 Memex？</p>
+<hr>
+<h2 id="二核心理念从检索增强生成到知识编译系统">二、核心理念：从“检索增强生成”到“知识编译系统”</h2>
+<p>传统 RAG 的典型流程是：</p>
+<ol>
+<li>把文档切块；</li>
+<li>为每个 chunk 建索引；</li>
+<li>用户提问时检索相关片段；</li>
+<li>LLM 基于片段生成答案。</li>
+</ol>
+<p>这个模式非常适合“从资料里找信息”。但当问题变成“长期研究一个主题”时，它会暴露出三个结构性短板。</p>
+<h3 id="21-rag-的第一个短板没有长期综合层">2.1 RAG 的第一个短板：没有长期综合层</h3>
+<p>RAG 检索到的是片段，不是知识结构。</p>
+<p>比如你研究一个复杂开源项目，第一次问“它的架构怎么分层”，模型读了 8 个片段，生成了一份不错的架构说明；第二次问“它和另一个项目有什么差异”，模型又重新检索另一批片段。上一次的架构理解并不会自动变成下一次的中间表示。</p>
+<p>这就像编译器每次执行程序都从源码重新猜 AST，却从不保存中间产物。</p>
+<p>LLM Wiki 的做法是：<strong>把一次综合的结果保存成页面</strong>。架构说明变成 <code>syntheses/architecture-overview.md</code>，项目实体变成 <code>entities/project-x.md</code>，关键概念变成 <code>concepts/scheduler.md</code>。下一次查询时，LLM 不只读原始资料，也读这些已经编译过的知识页面。</p>
+<h3 id="22-rag-的第二个短板答案没有写回闭环">2.2 RAG 的第二个短板：答案没有写回闭环</h3>
+<p>很多高价值内容不是来自原始资料，而是来自“围绕资料的提问”。</p>
+<p>例如：</p>
+<ul>
+<li>“这三种方案的本质差异是什么？”</li>
+<li>“哪些结论互相矛盾？”</li>
+<li>“如果要落地成 MVP，优先级怎么排？”</li>
+<li>“哪些部分需要补充资料？”</li>
+</ul>
+<p>这些问题会生成新的对比、新的抽象、新的判断。如果答案只停留在聊天窗口里，它就无法参与后续推理。LLM Wiki 的关键机制是：<strong>好的查询结果也要写回 Wiki</strong>。</p>
+<p>这让 Query 不只是消费知识，也成为生产知识的一部分。</p>
+<h3 id="23-rag-的第三个短板缺少可审计的演化历史">2.3 RAG 的第三个短板：缺少可审计的演化历史</h3>
+<p>知识不是静态的。今天的结论可能被明天的新资料推翻，两个来源可能互相冲突，早期摘要可能被后来的理解修正。</p>
+<p>传统聊天记录很难维护这种演化过程。LLM Wiki 则天然适合 Git：每次新增页面、更新引用、标记矛盾、重构目录，都可以通过 diff 审查；如果 LLM 犯错，也可以回滚。</p>
+<p>这就是原文那句非常重要的类比：</p>
+<blockquote>
+<p>Obsidian is the IDE; the LLM is the programmer; the wiki is the codebase.</p>
+</blockquote>
+<p>Obsidian 是知识 IDE，LLM 是知识库程序员，Markdown Wiki 是知识代码库。</p>
+<hr>
+<h2 id="三总体架构raw-sourceswikischema-三层模型">三、总体架构：Raw Sources、Wiki、Schema 三层模型</h2>
+<p>LLM Wiki 最小可行架构并不复杂，核心是三层：</p>
+<ul>
+<li><code>Raw Sources</code>：原始资料层；</li>
+<li><code>Markdown Wiki</code>：知识编译层；</li>
+<li><code>Schema</code>：约束 LLM 行为的规则层。</li>
+</ul>
+<p>
+  <img src="/img/llm-wiki/architecture.svg" alt="LLM Wiki 三层架构">
+
+</p>
+<p><strong>图注</strong>：Raw Sources 提供不可变证据，Schema 约束 Agent 的维护行为，Markdown Wiki 保存结构化知识。Obsidian、Git、Dataview、本地搜索与 MCP 则构成外围工具链。</p>
+<h3 id="31-raw-sources不可变事实源">3.1 Raw Sources：不可变事实源</h3>
+<p><code>raw/</code> 目录保存的是原始资料，例如：</p>
+<ul>
+<li>网页剪藏；</li>
+<li>论文 PDF；</li>
+<li>技术报告；</li>
+<li>会议纪要；</li>
+<li>图片、表格、日志；</li>
+<li>用户自己的原始笔记。</li>
+</ul>
+<p>这一层最重要的原则是：<strong>LLM 可以读，但不应该改</strong>。</p>
+<p>原因很简单：Wiki 页面是解释、摘要、综合，可能出错；Raw Sources 是证据链的根。如果 LLM 可以随意修改原始资料，整个知识库就会失去可审计性。</p>
+<p>这和数据库里的 <code>source of truth</code> 很像：上层缓存、视图、报表都可以重建，但原始事实不能被悄悄污染。</p>
+<h3 id="32-markdown-wiki知识编译层">3.2 Markdown Wiki：知识编译层</h3>
+<p><code>wiki/</code> 目录保存由 LLM 生成和维护的结构化页面。它不是原始资料的简单摘要，而是一个持续演化的知识网络。</p>
+<p>典型页面类型包括：</p>
+<table>
+<thead>
+<tr>
+<th>页面类型</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>source summary</td>
+<td>对单个来源的摘要、引用、重要事实提取</td>
+</tr>
+<tr>
+<td>entity page</td>
+<td>人物、公司、项目、系统、地点等实体页面</td>
+</tr>
+<tr>
+<td>concept page</td>
+<td>技术概念、方法论、术语、模式页面</td>
+</tr>
+<tr>
+<td>synthesis page</td>
+<td>跨资料综合分析，例如架构、路线图、趋势判断</td>
+</tr>
+<tr>
+<td>comparison page</td>
+<td>多方案、多产品、多论文对比</td>
+</tr>
+<tr>
+<td>timeline page</td>
+<td>时间线、版本演化、事件链</td>
+</tr>
+<tr>
+<td>contradiction page</td>
+<td>记录来源之间的冲突与待验证问题</td>
+</tr>
+</tbody>
+</table>
+<p>如果说 Raw Sources 是源码，Wiki 就是编译后的中间表示：更适合阅读、链接、查询和二次推理。</p>
+<h3 id="33-schema让-agent-稳定工作的维护契约">3.3 Schema：让 Agent 稳定工作的维护契约</h3>
+<p><code>Schema</code> 不是数据库 schema，而是一份写给 LLM Agent 的规则文件。不同工具可以叫不同名字：<code>AGENTS.md</code>、<code>CLAUDE.md</code>、<code>CODEBUDDY.md</code>、<code>README.md</code> 都可以。</p>
+<p>它至少要规定：</p>
+<ul>
+<li>目录结构；</li>
+<li>文件命名规则；</li>
+<li>页面 frontmatter；</li>
+<li>引用格式；</li>
+<li>Ingest 流程；</li>
+<li>Query 流程；</li>
+<li>Lint 流程；</li>
+<li>何时创建新页面；</li>
+<li>如何更新 <code>index.md</code>；</li>
+<li>如何追加 <code>log.md</code>；</li>
+<li>如何处理矛盾；</li>
+<li>哪些修改必须等待人类审查。</li>
+</ul>
+<p>没有 Schema，LLM 只是一个“会写 Markdown 的聊天机器人”；有了 Schema，它才更像一个“有工程纪律的知识库维护者”。</p>
+<hr>
+<h2 id="四目录结构设计先用文件系统表达知识边界">四、目录结构设计：先用文件系统表达知识边界</h2>
+<p>一个实用的 LLM Wiki 可以从下面的目录结构起步：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>knowledge-base/
+</span></span><span style="display:flex;"><span>  raw/
+</span></span><span style="display:flex;"><span>    articles/
+</span></span><span style="display:flex;"><span>    papers/
+</span></span><span style="display:flex;"><span>    meetings/
+</span></span><span style="display:flex;"><span>    assets/
+</span></span><span style="display:flex;"><span>    notes/
+</span></span><span style="display:flex;"><span>  wiki/
+</span></span><span style="display:flex;"><span>    index.md
+</span></span><span style="display:flex;"><span>    log.md
+</span></span><span style="display:flex;"><span>    overview.md
+</span></span><span style="display:flex;"><span>    entities/
+</span></span><span style="display:flex;"><span>    concepts/
+</span></span><span style="display:flex;"><span>    sources/
+</span></span><span style="display:flex;"><span>    syntheses/
+</span></span><span style="display:flex;"><span>    comparisons/
+</span></span><span style="display:flex;"><span>    timelines/
+</span></span><span style="display:flex;"><span>    contradictions/
+</span></span><span style="display:flex;"><span>  AGENTS.md
+</span></span><span style="display:flex;"><span>  README.md
+</span></span></code></pre></div><p>这套结构背后的设计原则是：<strong>用目录把不同知识对象的生命周期区分开</strong>。</p>
+<h3 id="41-raw保留事实原貌">4.1 <code>raw/</code>：保留事实原貌</h3>
+<p><code>raw/</code> 下的文件最好只做两类操作：新增和重命名。不要让 Agent 修改正文。</p>
+<p>如果网页剪藏里有图片，建议把图片下载到 <code>raw/assets/</code>，不要只保留外部 URL。很多网页几年后会失效，图片链接更脆弱。本地化资产能让知识库更接近一个自包含档案馆。</p>
+<h3 id="42-wikiindexmd让-agent-不迷路">4.2 <code>wiki/index.md</code>：让 Agent 不迷路</h3>
+<p><code>index.md</code> 是内容地图。它不必复杂，但要稳定。</p>
+<p>一个简单条目可以长这样：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span><span style="font-weight:bold">## Concepts
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> [[concepts/knowledge-compounding.md]] - 解释查询结果写回 Wiki 后如何形成知识复利。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> [[concepts/source-of-truth.md]] - 说明 Raw Sources 与 Wiki 页面之间的证据关系。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Syntheses
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> [[syntheses/rag-vs-llm-wiki.md]] - 对比传统 RAG 与 LLM Wiki 的系统边界。
+</span></span></code></pre></div><p>对 LLM 来说，<code>index.md</code> 就像代码仓库里的 <code>README</code> + <code>symbols index</code>。当 Wiki 还在数百页以内时，一个维护良好的 <code>index.md</code> 往往比一套复杂向量库更可靠。</p>
+<h3 id="43-wikilogmd记录知识库如何演化">4.3 <code>wiki/log.md</code>：记录知识库如何演化</h3>
+<p><code>log.md</code> 是 append-only 的时间线。每次摄入、查询写回、Lint、重大重构，都追加一条记录。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span><span style="font-weight:bold">## [2026-04-29] ingest | LLM Wiki gist
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Added source summary: [[sources/llm-wiki-karpathy.md]]
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Updated concept pages: [[concepts/llm-wiki.md]], [[concepts/knowledge-compounding.md]]
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Created synthesis: [[syntheses/rag-vs-llm-wiki.md]]
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Open questions: how to evaluate contradiction detection quality?
+</span></span></code></pre></div><p><code>log.md</code> 的价值在于：它让知识库有“时间感”。你不仅知道现在有什么页面，还知道这些页面为什么出现、何时被更新、哪些问题还悬而未决。</p>
+<h3 id="44-页面-frontmatter给工具和人类共同读取的元数据">4.4 页面 frontmatter：给工具和人类共同读取的元数据</h3>
+<p>Markdown 页面建议统一 frontmatter。比如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">title</span>: <span style="color:#f1fa8c">&#34;Knowledge Compounding&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">type</span>: <span style="color:#f1fa8c">&#34;concept&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">status</span>: <span style="color:#f1fa8c">&#34;draft&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">created</span>: <span style="color:#f1fa8c">&#34;2026-04-29&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">updated</span>: <span style="color:#f1fa8c">&#34;2026-04-29&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">sources</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f1fa8c">&#34;raw/articles/llm-wiki.md&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">confidence</span>: <span style="color:#f1fa8c">&#34;medium&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">tags</span>:
+</span></span><span style="display:flex;"><span>  - llm-wiki
+</span></span><span style="display:flex;"><span>  - knowledge-management
+</span></span><span style="display:flex;"><span>---
+</span></span></code></pre></div><p>这里的 <code>status</code>、<code>sources</code>、<code>confidence</code> 很关键：</p>
+<ul>
+<li><code>status</code> 表示页面成熟度，避免草稿被误当成定论；</li>
+<li><code>sources</code> 表示证据来源，防止无引用主张扩散；</li>
+<li><code>confidence</code> 表示综合结论的置信度，提醒读者哪些内容还需要复核。</li>
+</ul>
+<p>如果配合 Obsidian Dataview，这些元数据还能生成动态列表，例如“所有低置信度结论”“最近 7 天更新的 synthesis”“没有来源引用的页面”。</p>
+<hr>
+<h2 id="五核心工作流ingestquerylint">五、核心工作流：Ingest、Query、Lint</h2>
+<p>LLM Wiki 的生命力来自三个循环：摄入资料、查询生成、健康检查。</p>
+<p>
+  <img src="/img/llm-wiki/workflows.svg" alt="LLM Wiki 三类核心工作流">
+
+</p>
+<p><strong>图注</strong>：Ingest 负责增长，Query 负责复用和再生产，Lint 负责维护知识库健康度。三者共同构成长期知识系统的运行闭环。</p>
+<h3 id="51-ingest新资料不只是入库而是并入知识网络">5.1 Ingest：新资料不只是“入库”，而是“并入知识网络”</h3>
+<p>当一份新资料进入 <code>raw/</code> 后，Agent 不应该只做摘要，而应该执行一次结构化摄入。</p>
+<p>推荐流程：</p>
+<ol>
+<li>阅读新资料，提取标题、作者、日期、来源、核心论点；</li>
+<li>创建 <code>wiki/sources/&lt;source-name&gt;.md</code>；</li>
+<li>标注关键事实和引用位置；</li>
+<li>查找现有实体页、概念页、综合页；</li>
+<li>更新相关页面；</li>
+<li>如果出现新概念，创建新概念页；</li>
+<li>如果新资料推翻旧结论，写入 <code>contradictions/</code> 或在相关页面标记；</li>
+<li>更新 <code>index.md</code>；</li>
+<li>追加 <code>log.md</code>。</li>
+</ol>
+<p>这一步的本质不是“总结文件”，而是“把一个新证据并入已有知识图谱”。</p>
+<p>一个好的摄入提示可以这样写：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span>请摄入 raw/articles/llm-wiki.md：
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> 创建 source summary 页面，保留核心引用和原文链接。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> 找出已有 wiki 页面中需要更新的实体、概念和 synthesis。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> 新建必要概念页，但避免重复创建同义页面。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> 如果新资料与旧页面冲突，不要覆盖旧结论，先标记 contradiction。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">5.</span> 更新 index.md，并在 log.md 追加本次摄入记录。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">6.</span> 所有新增主张必须能追溯到 source 页面或 raw 文件。
+</span></span></code></pre></div><p>这里最重要的一句是：<strong>不要覆盖冲突，先标记冲突</strong>。知识库不是只保存“看起来一致”的结论，而是要保存证据之间的张力。</p>
+<h3 id="52-query从-wiki-中回答并把高价值答案写回-wiki">5.2 Query：从 Wiki 中回答，并把高价值答案写回 Wiki</h3>
+<p>Query 阶段不只是问答。它应该遵守三段式：定位、综合、沉淀。</p>
+<p>第一步，Agent 先读 <code>index.md</code>，确定可能相关的页面。必要时再用本地搜索工具查找关键词或语义相似页面。</p>
+<p>第二步，Agent 阅读相关页面和 source 引用，生成答案。答案里要区分：</p>
+<ul>
+<li>哪些是来源明确的事实；</li>
+<li>哪些是跨来源综合；</li>
+<li>哪些是推断；</li>
+<li>哪些仍然不确定。</li>
+</ul>
+<p>第三步，如果这次回答产生了可复用知识，就应该写回 Wiki。例如：</p>
+<ul>
+<li>生成了一个新的多方案对比表；</li>
+<li>梳理出一个系统架构；</li>
+<li>总结出一条技术路线图；</li>
+<li>发现两个概念之间的新关系；</li>
+<li>提出了值得后续研究的问题清单。</li>
+</ul>
+<p>这类内容不应该只存在于聊天记录中。它们应该成为 <code>syntheses/</code>、<code>comparisons/</code> 或 <code>questions/</code> 页面。</p>
+<h3 id="53-lint知识库也需要静态分析">5.3 Lint：知识库也需要静态分析</h3>
+<p>当 Wiki 页面越来越多，知识债务会自然出现：重复页面、孤岛页面、过期结论、缺失引用、概念命名不一致、页面互相矛盾。</p>
+<p>这时需要 Lint。</p>
+<p>典型检查项包括：</p>
+<table>
+<thead>
+<tr>
+<th>检查项</th>
+<th>问题信号</th>
+<th>修复动作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>孤岛页面</td>
+<td>没有入链或出链</td>
+<td>补充相关链接或归档</td>
+</tr>
+<tr>
+<td>重复概念</td>
+<td>多个页面描述同一概念</td>
+<td>合并或建立 redirect</td>
+</tr>
+<tr>
+<td>缺失引用</td>
+<td>重要判断没有 source</td>
+<td>补引用或降级为假设</td>
+</tr>
+<tr>
+<td>过期结论</td>
+<td>新资料推翻旧判断</td>
+<td>标记 outdated 并更新 synthesis</td>
+</tr>
+<tr>
+<td>冲突未处理</td>
+<td>多来源观点不一致</td>
+<td>创建 contradiction 页面</td>
+</tr>
+<tr>
+<td>索引漂移</td>
+<td>页面存在但未进 index</td>
+<td>更新 <code>index.md</code></td>
+</tr>
+<tr>
+<td>日志缺失</td>
+<td>重大修改没有记录</td>
+<td>追加 <code>log.md</code></td>
+</tr>
+</tbody>
+</table>
+<p>Lint 的频率可以按规模调整：小型个人 Wiki 每周一次即可；团队 Wiki 或快速增长的研究项目，可以每天或每次批量摄入后执行。</p>
+<hr>
+<h2 id="六schema-设计agent-的操作系统说明书">六、Schema 设计：Agent 的“操作系统说明书”</h2>
+<p>LLM Wiki 成败的关键不在模型有多聪明，而在 Agent 的行为是否稳定。稳定性的核心就是 Schema。</p>
+<p>
+  <img src="/img/llm-wiki/schema-contract.svg" alt="Schema 作为 LLM Wiki 的维护契约">
+
+</p>
+<p><strong>图注</strong>：Schema 不是摆设，而是 Agent 维护 Wiki 的操作系统说明书。它定义目录、页面格式、工作流、索引、日志、冲突处理和安全边界。</p>
+<h3 id="61-schema-应该包含哪些规则">6.1 Schema 应该包含哪些规则</h3>
+<p>一份实用的 <code>AGENTS.md</code> 可以包含以下章节：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span><span style="font-weight:bold"># Knowledge Base Maintenance Rules
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Repository layout
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span><span style="color:#ff79c6">-</span> raw/ is immutable evidence. Never edit raw files unless explicitly asked.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> wiki/ is maintained by the Agent.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Page types
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span><span style="color:#ff79c6">-</span> source: one page per raw source
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> entity: people, projects, organizations, systems
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> concept: reusable ideas and technical terms
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> synthesis: cross-source analysis
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> comparison: side-by-side evaluation
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> contradiction: unresolved conflicts
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Citation rules
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span><span style="color:#ff79c6">-</span> Every factual claim must link to a source page or raw file.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> If a claim is inferred, mark it as inference.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> If confidence is low, set confidence: low in frontmatter.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Ingest workflow
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>...
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Query workflow
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>...
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Lint workflow
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>...
+</span></span></code></pre></div><p>规则不要写成散文，尽量写成可执行 checklist。LLM 对明确步骤的遵守通常比对抽象原则更稳定。</p>
+<h3 id="62-无引用不主张原则">6.2 “无引用，不主张”原则</h3>
+<p>知识库最怕的是幻觉被沉淀下来。一旦错误结论进入 Wiki，它会被未来查询反复读取，形成“自我污染”。</p>
+<p>因此建议把下面这条写进 Schema：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span>No citation, no claim.
+</span></span><span style="display:flex;"><span>If a statement cannot be traced to a source, mark it as hypothesis or remove it.
+</span></span></code></pre></div><p>中文可以理解为：<strong>没有证据链的内容，只能作为假设，不能作为结论</strong>。</p>
+<h3 id="63-冲突不是异常而是一等公民">6.3 冲突不是异常，而是一等公民</h3>
+<p>很多知识库会下意识追求“整洁一致”，但真实世界的资料经常互相矛盾。LLM 不应该急着把冲突抹平。</p>
+<p>更好的做法是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span>When sources conflict:
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> Do not overwrite the older claim silently.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> Record both claims with source references.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> Create or update a contradiction page.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> Explain possible reasons: date, scope, definition, measurement method.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">5.</span> Mark what evidence would resolve the conflict.
+</span></span></code></pre></div><p>这种设计会让 Wiki 更像研究系统，而不是宣传材料。</p>
+<hr>
+<h2 id="七检索策略不是一上来就需要向量数据库">七、检索策略：不是一上来就需要向量数据库</h2>
+<p>很多人一提知识库就想到 embedding、向量数据库、rerank、混合检索。它们当然有价值，但 LLM Wiki 的一个重要观点是：<strong>中小规模知识库不必一开始就上复杂基础设施</strong>。</p>
+<h3 id="71-第一阶段indexmd--文件系统搜索">7.1 第一阶段：<code>index.md</code> + 文件系统搜索</h3>
+<p>如果资料规模在 100 个 source、几百个 Wiki 页面以内，维护良好的 <code>index.md</code> 加上文件系统搜索已经足够强。</p>
+<p>优点：</p>
+<ul>
+<li>简单；</li>
+<li>可读；</li>
+<li>易调试；</li>
+<li>没有索引同步问题；</li>
+<li>Agent 能直接理解目录结构。</li>
+</ul>
+<p>这一阶段最重要的是索引质量，而不是搜索算法。<code>index.md</code> 的摘要越清晰，Agent 越容易定位页面。</p>
+<h3 id="72-第二阶段bm25--frontmatter-过滤">7.2 第二阶段：BM25 + frontmatter 过滤</h3>
+<p>当页面数量增长后，可以加入本地 Markdown 搜索工具。关键词搜索依然非常有价值，因为很多技术术语、项目名、函数名、论文名就是精确字符串。</p>
+<p>可以按这些字段过滤：</p>
+<ul>
+<li><code>type</code>：只搜 concept 或 synthesis；</li>
+<li><code>status</code>：排除 archived；</li>
+<li><code>updated</code>：优先近期页面；</li>
+<li><code>tags</code>：限定主题；</li>
+<li><code>confidence</code>：区分低置信度和高置信度页面。</li>
+</ul>
+<p>这一阶段的目标是“让 Agent 更快找到候选页面”，而不是让搜索系统替代 Wiki 结构。</p>
+<h3 id="73-第三阶段向量搜索--mcp-工具化">7.3 第三阶段：向量搜索 + MCP 工具化</h3>
+<p>当知识库达到数千页面、跨主题、多团队协作时，向量搜索和混合检索才开始明显必要。</p>
+<p>推荐路线是：</p>
+<ol>
+<li>保留 Markdown 文件作为主存储；</li>
+<li>用索引器派生 BM25 / embedding 索引；</li>
+<li>通过 CLI 或 MCP 暴露搜索能力；</li>
+<li>搜索结果返回页面路径、摘要、匹配片段和置信度；</li>
+<li>Agent 最终仍然读取 Markdown 原文再回答。</li>
+</ol>
+<p>也就是说，搜索索引是加速器，不是 source of truth。</p>
+<hr>
+<h2 id="八质量控制让知识库可信而不是看起来很聪明">八、质量控制：让知识库可信，而不是看起来很聪明</h2>
+<p>LLM Wiki 的最大风险不是“生成得不够多”，而是“生成得太顺滑”。一篇语气自信但引用薄弱的页面，会比空白页面更危险。</p>
+<h3 id="81-风险一幻觉被长期保存">8.1 风险一：幻觉被长期保存</h3>
+<p>聊天里的幻觉，最多影响一次回答；Wiki 里的幻觉，会影响未来许多次回答。</p>
+<p>治理方式：</p>
+<ul>
+<li>所有事实主张必须有 source；</li>
+<li>推断必须标记为 inference；</li>
+<li>低置信度页面必须写明不确定性；</li>
+<li>重要 synthesis 需要人工审查；</li>
+<li>定期 Lint 查找无引用断言。</li>
+</ul>
+<h3 id="82-风险二错误合并概念">8.2 风险二：错误合并概念</h3>
+<p>LLM 有时会把相似概念合并。例如把“个人知识库”“企业知识库”“RAG 系统”“Wiki 系统”混成一个页面。短期看很整洁，长期会造成概念污染。</p>
+<p>治理方式：</p>
+<ul>
+<li>合并页面前列出相同点和差异点；</li>
+<li>无法确定时保留两个页面，并建立 <code>related</code> 链接；</li>
+<li>在概念页开头写清楚定义边界；</li>
+<li>对同名不同义概念使用命名空间。</li>
+</ul>
+<h3 id="83-风险三自动编辑污染大范围页面">8.3 风险三：自动编辑污染大范围页面</h3>
+<p>一次摄入可能影响 10 到 15 个页面。如果 Agent 大范围重写，会让 Git diff 失去可审查性。</p>
+<p>治理方式：</p>
+<ul>
+<li>要求 Agent 做最小修改；</li>
+<li>大规模重构前先生成计划；</li>
+<li>每次提交只包含一个明确主题；</li>
+<li>对关键页面启用人工审查；</li>
+<li>用 Git diff 检查是否有无关改动。</li>
+</ul>
+<h3 id="84-风险四隐私和敏感资料泄露">8.4 风险四：隐私和敏感资料泄露</h3>
+<p>个人 Wiki 可能包含健康、财务、日记、公司内部资料。团队 Wiki 可能包含客户信息和商业机密。</p>
+<p>治理方式：</p>
+<ul>
+<li>明确哪些目录不能被外部模型读取；</li>
+<li>本地优先处理敏感资料；</li>
+<li>对导出和分享设置白名单；</li>
+<li>不把密钥、账号、个人隐私写入可公开页面；</li>
+<li>Git 仓库注意私有权限和历史记录清理。</li>
+</ul>
+<hr>
+<h2 id="九落地实施方案30-天把-llm-wiki-跑成一个可用系统">九、落地实施方案：30 天把 LLM Wiki 跑成一个可用系统</h2>
+<p>LLM Wiki 不应该一开始就做成大工程。真正可行的路线是：<strong>先用一个真实主题跑通闭环，再围绕质量、检索、协作逐步工程化</strong>。如果第一周就引入向量数据库、复杂权限系统和自动化流水线，通常会把注意力从“知识是否真正复用”转移到“工具是否足够酷”。</p>
+<p>下面给出一套可以直接在实际项目中照搬的 30 天实施方案。</p>
+<p>
+  <img src="/img/llm-wiki/implementation-roadmap.svg" alt="LLM Wiki 30 天落地路线图">
+
+</p>
+<p><strong>图注</strong>：30 天路线图强调每个阶段都要有可检查产物。不要追求一次性完美架构，而要持续验证“摄入—查询—写回—审查”闭环。</p>
+<h3 id="91-第-03-天准备与建仓">9.1 第 0~3 天：准备与建仓</h3>
+<p>目标不是“搭完平台”，而是准备一个可被 Agent 稳定维护的最小工作区。</p>
+<p><strong>输入材料</strong>：</p>
+<ul>
+<li>一个明确主题，例如“LLM Wiki 落地”“某个开源项目调研”“竞品分析”“团队故障复盘”；</li>
+<li>5~10 个高质量 source，优先选择你真的会反复使用的资料；</li>
+<li>一个 LLM Agent 工具，例如 Claude Code、CodeBuddy、Codex CLI 或其他能读写本地文件的 Agent。</li>
+</ul>
+<p><strong>必须完成的目录结构</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>knowledge-base/
+</span></span><span style="display:flex;"><span>  raw/
+</span></span><span style="display:flex;"><span>    articles/
+</span></span><span style="display:flex;"><span>    papers/
+</span></span><span style="display:flex;"><span>    meetings/
+</span></span><span style="display:flex;"><span>    assets/
+</span></span><span style="display:flex;"><span>  wiki/
+</span></span><span style="display:flex;"><span>    index.md
+</span></span><span style="display:flex;"><span>    log.md
+</span></span><span style="display:flex;"><span>    sources/
+</span></span><span style="display:flex;"><span>    concepts/
+</span></span><span style="display:flex;"><span>    syntheses/
+</span></span><span style="display:flex;"><span>    comparisons/
+</span></span><span style="display:flex;"><span>    contradictions/
+</span></span><span style="display:flex;"><span>  AGENTS.md
+</span></span><span style="display:flex;"><span>  README.md
+</span></span></code></pre></div><p><strong><code>AGENTS.md</code> 最小规则</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span><span style="font-weight:bold"># LLM Wiki Maintenance Rules
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> raw/ is immutable evidence. Never edit raw files unless explicitly asked.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> wiki/ is maintained by the Agent.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> Every factual claim in wiki/ must cite a source page or raw file.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> New pages must be added to wiki/index.md.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">5.</span> Every ingest, query writeback, lint, or refactor must append wiki/log.md.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">6.</span> If sources conflict, preserve both claims and create/update contradictions/.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">7.</span> Prefer small diffs. Do not rewrite unrelated pages.
+</span></span></code></pre></div><p><strong>验收标准</strong>：</p>
+<ul>
+<li><code>raw/</code> 和 <code>wiki/</code> 边界清晰；</li>
+<li>Agent 能读到 <code>AGENTS.md</code> 并按规则输出；</li>
+<li>手工摄入 1 个 source 后，能看到 <code>sources/</code>、<code>index.md</code>、<code>log.md</code> 同步更新；</li>
+<li>Git diff 中没有无关重写。</li>
+</ul>
+<h3 id="92-第-410-天mvp-闭环">9.2 第 4~10 天：MVP 闭环</h3>
+<p>这一阶段只关心一件事：<strong>让知识真的复用起来</strong>。</p>
+<p>
+  <img src="/img/llm-wiki/mvp-backlog.svg" alt="LLM Wiki MVP 任务看板">
+
+</p>
+<p><strong>图注</strong>：MVP 不需要复杂平台，但需要清晰任务拆解。每张卡片都应该对应一个可检查交付物，而不是一句抽象愿望。</p>
+<p><strong>推荐执行顺序</strong>：</p>
+<ol>
+<li>每天摄入 1~3 个 source，不要一次性批量导入；</li>
+<li>每个 source 都创建一个 <code>wiki/sources/&lt;slug&gt;.md</code>；</li>
+<li>每次摄入至少更新一个 <code>concepts/</code> 或 <code>syntheses/</code> 页面；</li>
+<li>每天结束前检查 <code>index.md</code> 是否能导航到新增页面；</li>
+<li>每天追加 <code>log.md</code>，记录本次摄入影响了哪些页面；</li>
+<li>第 7~10 天提出 5 个跨资料问题，观察是否能基于 Wiki 回答；</li>
+<li>对高价值答案执行写回，形成新的 <code>syntheses/</code> 或 <code>comparisons/</code> 页面。</li>
+</ol>
+<p><strong>建议的 5 类回归问题</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>问题类型</th>
+<th>示例</th>
+<th>目的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>事实定位</td>
+<td>“这个方案依赖哪些前提？”</td>
+<td>检查 source 引用是否完整</td>
+</tr>
+<tr>
+<td>概念解释</td>
+<td>“LLM Wiki 和传统 RAG 的本质差异是什么？”</td>
+<td>检查概念页是否清晰</td>
+</tr>
+<tr>
+<td>横向对比</td>
+<td>“A、B、C 三种做法如何取舍？”</td>
+<td>检查 synthesis 能力</td>
+</tr>
+<tr>
+<td>冲突发现</td>
+<td>“哪些资料之间存在观点不一致？”</td>
+<td>检查 contradiction 机制</td>
+</tr>
+<tr>
+<td>行动计划</td>
+<td>“如果下周落地，优先做什么？”</td>
+<td>检查能否从知识到决策</td>
+</tr>
+</tbody>
+</table>
+<p><strong>MVP 成功标准</strong>：</p>
+<ul>
+<li>至少摄入 10 个 source；</li>
+<li>生成 20~40 个 Wiki 页面；</li>
+<li>至少有 3 个 <code>syntheses/</code> 页面不是单篇摘要，而是跨资料综合；</li>
+<li>至少 30% 的高价值查询被写回 Wiki；</li>
+<li>一周后再问相似问题，答案明显能复用之前的综合页面。</li>
+</ul>
+<h3 id="93-第-1120-天质量门禁与检索增强">9.3 第 11~20 天：质量门禁与检索增强</h3>
+<p>当页面开始增长，真正的风险不是“资料不够”，而是“知识债务变多”。这时要引入质量门禁。</p>
+<p>
+  <img src="/img/llm-wiki/quality-dashboard.svg" alt="LLM Wiki 质量度量看板">
+
+</p>
+<p><strong>图注</strong>：LLM Wiki 的健康度不能只看页面数量。更重要的是引用覆盖率、孤岛页面、索引延迟、冲突积压、查询写回率和审查 SLA。</p>
+<p><strong>建议落地的 6 个指标</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th style="text-align:right">目标值</th>
+<th>采集方式</th>
+<th>处理动作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>引用覆盖率</td>
+<td style="text-align:right"><code>&gt;= 90%</code></td>
+<td>Lint 扫描无 source 的事实主张</td>
+<td>低于阈值时禁止发布 synthesis</td>
+</tr>
+<tr>
+<td>孤岛页面率</td>
+<td style="text-align:right"><code>&lt;= 5%</code></td>
+<td>统计无入链且无出链页面</td>
+<td>补链、合并或归档</td>
+</tr>
+<tr>
+<td>索引延迟</td>
+<td style="text-align:right"><code>&lt;= 1 天</code></td>
+<td>比较页面更新时间与 <code>index.md</code> 更新时间</td>
+<td>更新索引，修正 Agent 规则</td>
+</tr>
+<tr>
+<td>冲突积压</td>
+<td style="text-align:right"><code>&lt;= 10 条</code></td>
+<td>统计 <code>contradictions/</code> 未关闭问题</td>
+<td>按影响范围排序处理</td>
+</tr>
+<tr>
+<td>查询写回率</td>
+<td style="text-align:right"><code>&gt;= 30%</code></td>
+<td>统计 Query 中写回 Wiki 的比例</td>
+<td>低于阈值说明仍停留在聊天模式</td>
+</tr>
+<tr>
+<td>审查 SLA</td>
+<td style="text-align:right"><code>&lt;= 48h</code></td>
+<td>统计关键 synthesis 的 review 时间</td>
+<td>超时则保持 <code>status: draft</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>首次 Lint 提示模板</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span>请对 wiki/ 执行一次健康检查：
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> 找出没有进入 index.md 的页面。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> 找出没有 source 引用的事实主张。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> 找出孤岛页面：没有入链或出链。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> 找出疑似重复概念页，并说明是否建议合并。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">5.</span> 找出过期结论：被更新 source 推翻但未标记 outdated 的页面。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">6.</span> 输出一份 Wiki Health Report，并按优先级列出修复清单。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">7.</span> 不要直接大规模修改，先给出计划和影响范围。
+</span></span></code></pre></div><p><strong>何时引入搜索增强</strong>：</p>
+<ul>
+<li>页面少于 100：优先维护 <code>index.md</code>，不要急着上向量库；</li>
+<li>页面 100~500：加入本地全文搜索或 BM25；</li>
+<li>页面超过 500，且跨主题明显：考虑向量搜索 + BM25 混合检索；</li>
+<li>团队共享场景：通过 MCP 或 CLI 暴露搜索能力，并保留 Markdown 作为主存储。</li>
+</ul>
+<h3 id="94-第-2130-天团队化运行与-runbook-固化">9.4 第 21~30 天：团队化运行与 Runbook 固化</h3>
+<p>当 MVP 被证明有价值后，就要把“个人使用习惯”固化成“团队可执行流程”。否则知识库会再次退化成少数人的私人笔记。</p>
+<p>
+  <img src="/img/llm-wiki/operation-runbook.svg" alt="LLM Wiki 日常运行 Runbook">
+
+</p>
+<p><strong>图注</strong>：团队化运行的关键是明确人类、Agent、Git、Obsidian 和检索索引各自负责什么。知识库不是生成一次，而是每天运行。</p>
+<p><strong>每日 Runbook</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span>Daily LLM Wiki Runbook
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> Human selects 1~3 new sources and writes the research focus.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> Agent ingests each source separately.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> Agent updates sources/, concepts/, syntheses/, index.md, log.md.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> Human reviews Git diff.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">5.</span> Human opens Obsidian graph and checks whether new pages are connected.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">6.</span> If search index exists, rebuild or refresh it.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">7.</span> Run one regression query from the question set.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">8.</span> If answer produces reusable insight, write it back to wiki/.
+</span></span></code></pre></div><p><strong>每周 Runbook</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span>Weekly LLM Wiki Review
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> Run wiki lint and generate Wiki Health Report.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> Review unresolved contradictions.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> Merge duplicate concepts or add disambiguation notes.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> Find top 10 orphan pages and decide: link, merge, archive, or delete.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">5.</span> Review draft synthesis pages and promote reliable ones to reviewed.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">6.</span> Update AGENTS.md if Agent repeatedly makes the same mistake.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">7.</span> Pick next week&#39;s research questions.
+</span></span></code></pre></div><p><strong>团队角色建议</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>职责</th>
+<th style="text-align:right">最小投入</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Topic Owner</td>
+<td>决定研究方向、审查关键结论</td>
+<td style="text-align:right">每周 1 小时</td>
+</tr>
+<tr>
+<td>Wiki Maintainer</td>
+<td>维护目录、规则、Lint、Git review</td>
+<td style="text-align:right">每周 2~3 小时</td>
+</tr>
+<tr>
+<td>Source Curator</td>
+<td>选择高质量输入资料</td>
+<td style="text-align:right">每周 30 分钟</td>
+</tr>
+<tr>
+<td>Reader / Consumer</td>
+<td>提出真实问题，验证 Wiki 是否有用</td>
+<td style="text-align:right">按需</td>
+</tr>
+</tbody>
+</table>
+<h3 id="95-可直接复用的-agent-prompt-模板">9.5 可直接复用的 Agent Prompt 模板</h3>
+<p>下面这些模板可以直接复制到实际项目中使用。</p>
+<p><strong>单篇摄入模板</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span>请摄入 raw/articles/&lt;<span style="color:#ff79c6">file</span>&gt;.md。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>要求：
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> 创建 wiki/sources/&lt;<span style="color:#ff79c6">slug</span>&gt;.md，包含摘要、核心论点、关键引用、局限性。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> 更新相关 concepts/、entities/、syntheses/ 页面。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> 如果没有合适页面，先说明新建理由，再创建页面。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> 所有事实主张必须引用 source。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">5.</span> 如果与旧页面冲突，不要覆盖旧结论，更新 contradictions/。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">6.</span> 更新 wiki/index.md。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">7.</span> 追加 wiki/log.md。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">8.</span> 最后输出 Git diff 摘要：新增页面、修改页面、潜在风险。
+</span></span></code></pre></div><p><strong>查询写回模板</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span>请基于 wiki/ 回答下面的问题：&lt;<span style="color:#ff79c6">question</span>&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>要求：
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> 先读取 index.md 定位相关页面。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> 回答中区分事实、综合判断和推断。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> 每个关键结论给出来源引用。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> 如果本次回答产生可复用洞察，请建议写回到哪个页面。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">5.</span> 在我确认后，再执行写回和 log.md 更新。
+</span></span></code></pre></div><p><strong>质量检查模板</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-md" data-lang="md"><span style="display:flex;"><span>请执行一次 Wiki Lint，不要直接修改文件，先输出报告：
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> orphan pages
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> duplicate concepts
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> missing citations
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> outdated claims
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> unresolved contradictions
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> index drift
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> log missing entries
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> recommended fixes ranked by impact
+</span></span></code></pre></div><h3 id="96-实战验收清单">9.6 实战验收清单</h3>
+<p>一个 LLM Wiki 项目是否已经“可用”，可以用下面这张清单判断：</p>
+<table>
+<thead>
+<tr>
+<th>验收项</th>
+<th>判断标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>能摄入</td>
+<td>新 source 能稳定转成 source summary，并更新相关页面</td>
+</tr>
+<tr>
+<td>能导航</td>
+<td>从 <code>index.md</code> 能找到主要实体、概念和综合页</td>
+</tr>
+<tr>
+<td>能引用</td>
+<td>关键事实都有 source，推断被明确标记</td>
+</tr>
+<tr>
+<td>能复用</td>
+<td>后续查询会读取既有 synthesis，而不是每次从 raw 重新开始</td>
+</tr>
+<tr>
+<td>能写回</td>
+<td>好答案会沉淀到 Wiki，不只停留在聊天记录</td>
+</tr>
+<tr>
+<td>能审查</td>
+<td>Git diff 足够小，人类能判断 Agent 改了什么</td>
+</tr>
+<tr>
+<td>能回滚</td>
+<td>错误摄入或错误合并能通过 Git 恢复</td>
+</tr>
+<tr>
+<td>能运营</td>
+<td>每周能产出 Wiki Health Report，并持续偿还知识债务</td>
+</tr>
+</tbody>
+</table>
+<p>这时 LLM Wiki 就不只是个人第二大脑，而是一个可被持续运营的知识系统。</p>
+<hr>
+<h2 id="十为什么它像-memexllm-补上了维护关联的缺口">十、为什么它像 Memex：LLM 补上了“维护关联”的缺口</h2>
+<p>原文最后把 LLM Wiki 和 Vannevar Bush 在 1945 年提出的 Memex 联系起来。Memex 的核心不是搜索框，而是个人化、可关联、可追溯的知识空间。</p>
+<p>过去的问题是：谁来维护这些关联？</p>
+<p>人类一开始很有热情，后来会被琐碎维护拖垮：补链接、改摘要、合并重复页面、更新索引、处理冲突、维护时间线。知识库价值越高，维护成本也越高，最后很多 Wiki 都变成了“曾经很有用的废墟”。</p>
+<p>LLM 的优势恰好在这里：它不怕重复劳动，擅长读写 Markdown，可以一次修改多个文件，可以按规则更新索引，可以做周期性检查。人类不再需要承担所有簿记工作，而是把注意力放回更重要的事情：选择资料、提出问题、判断意义。</p>
+<p>
+  <img src="/img/llm-wiki/compounding-loop.svg" alt="LLM Wiki 知识复利飞轮">
+
+</p>
+<p><strong>图注</strong>：LLM Wiki 的核心飞轮是“摄入—结构化—链接—查询—写回—Lint”。只有形成写回闭环，知识才会产生复利。</p>
+<hr>
+<h2 id="十一技术方案小结llm-wiki-的十条设计原则">十一、技术方案小结：LLM Wiki 的十条设计原则</h2>
+<p>最后，把这套方案浓缩成十条原则：</p>
+<ol>
+<li><strong>Raw Sources 不可变</strong>：原始资料是证据源，不要让 Agent 悄悄修改。</li>
+<li><strong>Wiki 是知识编译层</strong>：它不是文件仓库，而是持续演化的结构化理解。</li>
+<li><strong>Schema 是系统稳定性的核心</strong>：规则越清晰，Agent 越像维护者，而不是聊天者。</li>
+<li><strong><code>index.md</code> 让 Agent 不迷路</strong>：中小规模下，一个好索引比复杂基础设施更重要。</li>
+<li><strong><code>log.md</code> 让知识库有时间感</strong>：每次摄入、查询写回和重构都应该可追溯。</li>
+<li><strong>好答案必须写回</strong>：查询不是终点，而是知识增长的一部分。</li>
+<li><strong>冲突要保留，不要抹平</strong>：矛盾是研究对象，不是格式错误。</li>
+<li><strong>无引用，不主张</strong>：没有证据链的内容只能是猜想，不能沉淀为结论。</li>
+<li><strong>Git 是安全网</strong>：diff、review、rollback 让知识库维护具备工程纪律。</li>
+<li><strong>从简单开始，按规模演进</strong>：Markdown + Obsidian + Agent 足以启动，复杂检索和 MCP 可以后置。</li>
+</ol>
+<p>如果说 RAG 是给大模型装上“临时资料夹”，那么 LLM Wiki 就是给它一个“长期工作区”。前者让模型在一次问答中更聪明，后者让你的知识系统在每一次互动后都更聪明。</p>
+<p>真正迷人的地方也在这里：当 LLM 不再只是回答问题，而是持续维护一个可版本化的知识网络时，我们离个人 Memex 的设想就近了一大步。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/04/27/cl4r1t4s-ai-transparency-project-analysis/" data-toggle="tooltip" data-placement="top" title="CL4R1T4S 项目深度解析：AI 系统透明度与系统提示词工程">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/04/29/vllm-ascend-hccl-multinode-inference/" data-toggle="tooltip" data-placement="top" title="vLLM-Ascend 多机推理HCCL通信原理深度解析">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ascend" title="ascend">
+                            ascend
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubernetes" title="kubernetes">
+                            kubernetes
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/multi-agent" title="multi-agent">
+                            multi-agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

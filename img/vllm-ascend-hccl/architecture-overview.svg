@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="780" viewBox="0 0 1280 780">
+  <defs><linearGradient id="bgGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f172a"/><stop offset="100%" stop-color="#1e293b"/></linearGradient>
+    <style>
+      .bg{fill:url(#bgGradient)}.panel{fill:#f8fafc;stroke:#38bdf8;stroke-width:2;rx:18}.node{fill:#dbeafe;stroke:#2563eb;stroke-width:2;rx:12}.npu{fill:#cffafe;stroke:#06b6d4;stroke-width:1.5;rx:8}.svc{fill:#fef3c7;stroke:#d97706;stroke-width:2;rx:10}.comm{fill:#dcfce7;stroke:#22c55e;stroke-width:2;rx:10}.warn{fill:#fed7aa;stroke:#fb923c;stroke-width:2;rx:10}.title{font:700 28px Arial,"Microsoft YaHei",sans-serif;fill:#f8fafc}.h2{font:700 20px Arial,"Microsoft YaHei",sans-serif;fill:#0f172a}.txt{font:15px Arial,"Microsoft YaHei",sans-serif;fill:#1e293b}.small{font:13px Arial,"Microsoft YaHei",sans-serif;fill:#475569}.mono{font:13px Menlo,Consolas,monospace;fill:#1e293b}.arrow{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.dash{stroke:#38bdf8;stroke-width:2;stroke-dasharray:8 6;fill:none;marker-end:url(#arrow)}.green{stroke:#22c55e}.orange{stroke:#fb923c}.blue{stroke:#2563eb}.link{stroke:#38bdf8;stroke-width:2;fill:none}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker>
+  </defs>
+  <rect class="bg" width="1280" height="780"/>
+  <text x="640" y="48" text-anchor="middle" class="title">vLLM-Ascend 多机推理通信拓扑：Node0 服务入口 + Headless Worker + HCCL 通信域</text>
+
+  <rect x="52" y="92" width="540" height="550" class="panel"/>
+  <text x="322" y="126" text-anchor="middle" class="h2">Node0：DP Master / API 入口</text>
+  <rect x="92" y="152" width="200" height="66" class="svc"/>
+  <text x="192" y="180" text-anchor="middle" class="h2">OpenAI API</text>
+  <text x="192" y="202" text-anchor="middle" class="small">--host 0.0.0.0 / --port 8077</text>
+  <rect x="352" y="152" width="190" height="66" class="comm"/>
+  <text x="447" y="180" text-anchor="middle" class="h2">DP Coordinator</text>
+  <text x="447" y="202" text-anchor="middle" class="small">RPC: data-parallel-rpc-port</text>
+  <path d="M292 185 L352 185" class="arrow blue"/>
+
+  <rect x="92" y="264" width="450" height="278" class="node"/>
+  <text x="317" y="292" text-anchor="middle" class="h2">DP Rank 0：TP Group 0</text>
+  <text x="317" y="316" text-anchor="middle" class="small">A3 示例 TP=16；A2 示例 TP=8；EP enabled</text>
+  <g>
+    <rect x="125" y="348" width="72" height="46" class="npu"/><text x="161" y="376" text-anchor="middle" class="mono">NPU0</text>
+    <rect x="207" y="348" width="72" height="46" class="npu"/><text x="243" y="376" text-anchor="middle" class="mono">NPU1</text>
+    <rect x="289" y="348" width="72" height="46" class="npu"/><text x="325" y="376" text-anchor="middle" class="mono">...</text>
+    <rect x="371" y="348" width="72" height="46" class="npu"/><text x="407" y="376" text-anchor="middle" class="mono">NPU N</text>
+  </g>
+  <rect x="130" y="426" width="374" height="70" class="comm"/>
+  <text x="317" y="454" text-anchor="middle" class="h2">HCCL Communicator</text>
+  <text x="317" y="478" text-anchor="middle" class="small">TP/EP 集合通信：AllReduce、AllGather、ReduceScatter、AlltoAll</text>
+
+  <rect x="688" y="92" width="540" height="550" class="panel"/>
+  <text x="958" y="126" text-anchor="middle" class="h2">Node1：Headless Worker</text>
+  <rect x="728" y="152" width="450" height="66" class="warn"/>
+  <text x="953" y="180" text-anchor="middle" class="h2">--headless + --data-parallel-start-rank 1</text>
+  <text x="953" y="202" text-anchor="middle" class="small">不暴露 API，仅加入 Node0 管理的多机 DP 集群</text>
+
+  <rect x="728" y="264" width="450" height="278" class="node"/>
+  <text x="953" y="292" text-anchor="middle" class="h2">DP Rank 1：TP Group 1</text>
+  <text x="953" y="316" text-anchor="middle" class="small">每个 DP rank 内部再按 TP 切分模型权重与激活</text>
+  <g>
+    <rect x="761" y="348" width="72" height="46" class="npu"/><text x="797" y="376" text-anchor="middle" class="mono">NPU0</text>
+    <rect x="843" y="348" width="72" height="46" class="npu"/><text x="879" y="376" text-anchor="middle" class="mono">NPU1</text>
+    <rect x="925" y="348" width="72" height="46" class="npu"/><text x="961" y="376" text-anchor="middle" class="mono">...</text>
+    <rect x="1007" y="348" width="72" height="46" class="npu"/><text x="1043" y="376" text-anchor="middle" class="mono">NPU N</text>
+  </g>
+  <rect x="766" y="426" width="374" height="70" class="comm"/>
+  <text x="953" y="454" text-anchor="middle" class="h2">HCCL Communicator</text>
+  <text x="953" y="478" text-anchor="middle" class="small">本地 TP 通信 + 跨节点 EP/DP 同步</text>
+
+  <rect x="422" y="666" width="436" height="62" class="comm"/>
+  <text x="640" y="692" text-anchor="middle" class="h2">NPU RoCE / HCCS / 交换网络</text>
+  <text x="640" y="716" text-anchor="middle" class="small">HCCL_IF_IP、HCCL_SOCKET_IFNAME、TP_SOCKET_IFNAME 绑定通信路径</text>
+
+  <path d="M542 464 C610 588, 670 588, 766 464" class="dash green"/>
+  <path d="M542 185 C636 250, 684 250, 728 185" class="dash orange"/>
+  <path d="M640 642 L640 666" class="arrow green"/>
+  <path d="M317 542 C360 610, 500 650, 640 666" class="link"/>
+  <path d="M953 542 C910 610, 780 650, 640 666" class="link"/>
+
+  <rect x="76" y="676" width="292" height="52" class="panel"/>
+  <text x="222" y="697" text-anchor="middle" class="small">控制面：Gloo / DP RPC / ZMQ</text>
+  <text x="222" y="718" text-anchor="middle" class="small">负责调度、心跳、请求转发与 rank 协调</text>
+  <rect x="912" y="676" width="292" height="52" class="panel"/>
+  <text x="1058" y="697" text-anchor="middle" class="small">数据面：HCCL / NPU 通信网络</text>
+  <text x="1058" y="718" text-anchor="middle" class="small">负责张量分片、规约、聚合和专家通信</text>
+</svg>

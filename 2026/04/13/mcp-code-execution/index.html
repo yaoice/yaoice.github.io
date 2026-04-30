@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="MCP 代码执行深度技术解析：让 Agent 写代码而非调工具" />
+    <meta property="og:title" content="MCP 代码执行深度技术解析：让 Agent 写代码而非调工具" />
+    <meta property="twitter:title" content="MCP 代码执行深度技术解析：让 Agent 写代码而非调工具" />
+    
+
+    
+    <meta name="description" content="深入解析 Anthropic 提出的 MCP 代码执行架构，涵盖渐进式工具发现、上下文高效的数据处理、隐私保护机制与安全沙箱设计，帮助开发者理解为什么代码执行能显著降低 Agent 的令牌与延迟成本。">
+    <meta property="og:description" content="深入解析 Anthropic 提出的 MCP 代码执行架构，涵盖渐进式工具发现、上下文高效的数据处理、隐私保护机制与安全沙箱设计，帮助开发者理解为什么代码执行能显著降低 Agent 的令牌与延迟成本。" />
+    <meta property="twitter:description" content="深入解析 Anthropic 提出的 MCP 代码执行架构，涵盖渐进式工具发现、上下文高效的数据处理、隐私保护机制与安全沙箱设计，帮助开发者理解为什么代码执行能显著降低 Agent 的令牌与延迟成本。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>MCP 代码执行深度技术解析：让 Agent 写代码而非调工具 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/04/13/mcp-code-execution/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/mcp" title="MCP">
+                            MCP
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                    </div>
+                    <h1>MCP 代码执行深度技术解析：让 Agent 写代码而非调工具</h1>
+                    <h2 class="subheading">从直接工具调用到代码执行范式，拆解 Anthropic 如何让 Agent 以编程方式高效操控 MCP 服务器</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Monday, April 13, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言agent-的效率瓶颈很多时候不在模型而在工具调用方式">一、引言：Agent 的效率瓶颈，很多时候不在模型，而在工具调用方式</h2>
+<p>当我们讨论如何让 AI Agent 更高效时，注意力往往集中在模型能力、提示工程或上下文窗口大小上。但 Anthropic 在 <a href="https://www.anthropic.com/engineering/code-execution-with-mcp">Code execution with MCP</a> 这篇工程文章里指出了一个更底层的问题：<strong>传统的 MCP 工具调用方式，本身就会制造大量不必要的上下文开销和交互延迟。</strong></p>
+<p>核心洞察很直接：与其让模型在每一步都&quot;看见工具定义、发起调用、再接收中间结果&quot;，不如让模型<strong>写一小段代码</strong>，由代码在受控执行环境中完成多步编排。按照文中的量化示例，这种方式可以把工具定义相关的上下文开销从 <strong>150,000 tokens</strong> 压缩到 <strong>2,000 tokens</strong>，也就是 <strong>98.7%</strong> 的降幅。</p>
+<p>但这里必须先厘清一个边界：<strong>代码执行不是 MCP 协议本身的新能力，而是构建在 MCP 之上的一种客户端实现模式。</strong> 协议没有变，变的是客户端如何把 MCP 服务器呈现给 Agent，以及 Agent 如何消费这些能力。</p>
+<p>本文重点回答四个问题：</p>
+<ul>
+<li>传统 MCP 客户端到底慢在哪里？</li>
+<li>代码执行模式的核心架构是什么？</li>
+<li>为什么它既能提效，又能改善隐私保护？</li>
+<li>这类系统落地时，安全沙箱应该怎样设计？</li>
+</ul>
+<hr>
+<h2 id="二先把边界说清楚这不是改造-mcp而是重构客户端">二、先把边界说清楚：这不是&quot;改造 MCP&quot;，而是&quot;重构客户端&quot;</h2>
+<p>如果只看标题，很多人会下意识以为&quot;Code execution with MCP&quot;意味着 MCP 协议新增了一种代码执行语义。其实不是。</p>
+<p>Anthropic 文章讨论的是：<strong>客户端如何把一组 MCP 工具重新组织成适合代码消费的 API 视图</strong>。也就是说，原来 Agent 面对的是&quot;工具列表 + 参数 Schema&quot;；现在 Agent 面对的是&quot;文件树 + 类型化函数 + 代码运行时&quot;。</p>
+<p>可以把它理解为一层客户端侧适配器：</p>
+<ol>
+<li>先连接原有的 MCP 服务器</li>
+<li>获取这些服务器暴露出来的工具定义</li>
+<li>自动生成一套可浏览、可导入、可调用的代码接口</li>
+<li>把这套接口挂到安全的执行环境里供 Agent 使用</li>
+</ol>
+<p>从这个角度看，代码执行模式的本质并不是&quot;给协议加能力&quot;，而是<strong>给 Agent 加了一个更高效的编排层</strong>。</p>
+<p>下图展示了 MCP 协议层、客户端适配层和 Agent 执行层三者的分层关系——协议本身不变，变化只发生在客户端的呈现方式上：</p>
+<p>
+  <img src="/img/mcp-code-execution/A_clean_layered_architecture_d_2026-04-14T08-33-36.png" alt="MCP 协议层与客户端编排层的分层关系">
+
+</p>
+<hr>
+<h2 id="三问题诊断传统-mcp-工具调用为什么昂贵">三、问题诊断：传统 MCP 工具调用为什么昂贵</h2>
+<p>传统 MCP 客户端常见的做法是：连接服务器之后，把所有工具定义一次性注入上下文；之后每次需要做事，再由模型逐步决定调用哪个工具、传什么参数、如何处理返回值。</p>
+<p>这套模式的主要问题有两个。</p>
+<h3 id="31-工具定义会过载上下文窗口">3.1 工具定义会过载上下文窗口</h3>
+<p>假设一个系统接了很多 MCP 服务器，每个服务器又暴露了很多工具，那么客户端往往会在会话开始时把整批定义喂给模型。类似下面这种描述，数量一多就会迅速膨胀：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>gdrive.getDocument
+</span></span><span style="display:flex;"><span>     Description: Retrieves a document from Google Drive
+</span></span><span style="display:flex;"><span>     Parameters:
+</span></span><span style="display:flex;"><span>                documentId (required, string): The ID of the document to retrieve
+</span></span><span style="display:flex;"><span>                fields (optional, string): Specific fields to return
+</span></span><span style="display:flex;"><span>     Returns: Document object with title, body content, metadata, permissions, etc.
+</span></span></code></pre></div><p>当工具数量上千时，模型还没真正开始解决问题，上下文窗口就已经先被工具说明书占满了。这不是&quot;推理成本高&quot;，而是<strong>准备阶段就已经浪费了大量令牌</strong>。</p>
+<h3 id="32-中间结果被迫经过模型上下文成了数据中转站">3.2 中间结果被迫经过模型，上下文成了数据中转站</h3>
+<p>第二个问题更隐蔽，但也更昂贵。</p>
+<p>假设你要把 Google Drive 里的会议纪要写进 Salesforce。传统模式下，流程通常是：</p>
+<ol>
+<li>模型调用 <code>gdrive.getDocument</code></li>
+<li>完整文档内容回到上下文</li>
+<li>模型再调用 <code>salesforce.updateRecord</code></li>
+<li>文档内容作为参数再次经过上下文传出去</li>
+</ol>
+<p>也就是说，<strong>模型并不需要真正理解整份文档，却被迫充当了一次数据搬运的中转站。</strong></p>
+<p>如果文档很长，比如一份 2 小时会议纪要，那么这些内容会在上下文里往返两次，成本自然居高不下。</p>
+<p>下图把传统模式和代码执行模式的差别并排画了出来：</p>
+<p>
+  <img src="/img/mcp-code-execution/A_clean_and_professional_compa_2026-04-13T23-43-01.png" alt="传统工具调用 vs 代码执行模式数据流对比">
+
+</p>
+<p>可以把两种模式的差异压缩成一句话：</p>
+<ul>
+<li><strong>传统工具调用</strong>：数据必须先经过模型，再流向另一个工具</li>
+<li><strong>代码执行模式</strong>：数据可以在执行环境里直接流动，模型只看代码和必要摘要</li>
+</ul>
+<hr>
+<h2 id="四核心架构把-mcp-服务器呈现为代码-api而不是直接工具列表">四、核心架构：把 MCP 服务器呈现为代码 API，而不是直接工具列表</h2>
+<p>Anthropic 给出的核心做法，是为所有可用的 MCP 工具生成一套可浏览的文件树。Agent 不是直接面对&quot;几千个工具定义&quot;，而是像开发者那样去浏览目录、打开文件、理解接口，然后按需写代码。</p>
+<h3 id="41-文件树是工具发现界面">4.1 文件树是工具发现界面</h3>
+<p>典型结构如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>servers/
+</span></span><span style="display:flex;"><span>├── google-drive/
+</span></span><span style="display:flex;"><span>│   ├── getDocument.ts
+</span></span><span style="display:flex;"><span>│   ├── getSheet.ts
+</span></span><span style="display:flex;"><span>│   ├── searchFiles.ts
+</span></span><span style="display:flex;"><span>│   └── index.ts
+</span></span><span style="display:flex;"><span>├── salesforce/
+</span></span><span style="display:flex;"><span>│   ├── updateRecord.ts
+</span></span><span style="display:flex;"><span>│   ├── query.ts
+</span></span><span style="display:flex;"><span>│   └── index.ts
+</span></span><span style="display:flex;"><span>├── slack/
+</span></span><span style="display:flex;"><span>│   ├── postMessage.ts
+</span></span><span style="display:flex;"><span>│   ├── getChannelHistory.ts
+</span></span><span style="display:flex;"><span>│   └── index.ts
+</span></span><span style="display:flex;"><span>└── ...
+</span></span></code></pre></div><p>这里最关键的不是&quot;用了 TypeScript&quot;，而是<strong>把工具发现改造成了渐进式信息暴露</strong>：</p>
+<ul>
+<li>先看有哪些服务器</li>
+<li>再看某个服务器有哪些工具</li>
+<li>最后只读取当前任务需要的那几个函数定义</li>
+</ul>
+<p>也正因为如此，工具定义不再需要一次性占满上下文。</p>
+<h3 id="42-每个工具都变成一个类型化函数">4.2 每个工具都变成一个类型化函数</h3>
+<p>文章里给出的示例大致如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#6272a4">// ./servers/google-drive/getDocument.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">import</span> { callMCPTool } <span style="color:#ff79c6">from</span> <span style="color:#f1fa8c">&#34;../../../client.js&#34;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">interface</span> GetDocumentInput {
+</span></span><span style="display:flex;"><span>  documentId: <span style="color:#8be9fd">string</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">interface</span> GetDocumentResponse {
+</span></span><span style="display:flex;"><span>  content: <span style="color:#8be9fd">string</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">/* Read a document from Google Drive */</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> getDocument(
+</span></span><span style="display:flex;"><span>  input: <span style="color:#8be9fd">GetDocumentInput</span>
+</span></span><span style="display:flex;"><span>)<span style="color:#ff79c6">:</span> Promise&lt;<span style="color:#ff79c6">GetDocumentResponse</span>&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> callMCPTool&lt;<span style="color:#ff79c6">GetDocumentResponse</span>&gt;(
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#39;google_drive__get_document&#39;</span>,
+</span></span><span style="display:flex;"><span>    input
+</span></span><span style="display:flex;"><span>  );
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这段代码透露出几个很重要的设计点：</p>
+<ul>
+<li><strong>MCP 协议细节被收敛到底层的 <code>callMCPTool</code></strong></li>
+<li><strong>上层暴露给 Agent 的是稳定的代码接口，而不是原始工具协议对象</strong></li>
+<li><strong>TypeScript 类型信息本身就能帮助模型减少参数理解错误</strong></li>
+<li><strong>工具文件是独立的，天然支持按需加载</strong></li>
+</ul>
+<h3 id="43-indexts-让工具既能细粒度读取也能模块化导入">4.3 <code>index.ts</code> 让工具既能细粒度读取，也能模块化导入</h3>
+<p>一个目录下的 <code>index.ts</code> 通常承担聚合导出的角色。这样做的好处是，Agent 既可以：</p>
+<ul>
+<li>打开单个工具文件，查看精确签名</li>
+<li>也可以直接 <code>import * as gdrive from './servers/google-drive'</code></li>
+</ul>
+<p>这就把&quot;工具系统&quot;变成了&quot;可编程 SDK&quot;。</p>
+<h3 id="44-渐进式工具发现才是令牌下降的关键原因">4.4 渐进式工具发现，才是令牌下降的关键原因</h3>
+<p>很多人会把注意力放在&quot;模型写代码&quot;这件事本身，但从工程角度看，真正带来显著令牌下降的，是<strong>工具定义改成了按需读取</strong>。</p>
+<p>可以把这个过程理解成下面三步：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Step 1: 只列出 servers/ 下有哪些服务器
+</span></span><span style="display:flex;"><span>Step 2: 只查看目标服务器有哪些导出函数
+</span></span><span style="display:flex;"><span>Step 3: 只读取当前要用的工具文件
+</span></span></code></pre></div><p>这就是文中提到的 progressive disclosure（渐进式披露）——Agent 只拿到当前任务真正需要的信息，而不是先吞下一整本工具手册。</p>
+<p>原文还提到一个补充思路：如果不想完全依赖文件遍历，也可以提供一个 <code>search_tools</code> 能力，让 Agent 先按名称、描述或完整定义级别去检索工具，再决定读取多少细节。这本质上仍然是在做同一件事——<strong>把工具发现做成按需展开，而不是全量注入。</strong></p>
+<p>下图直观展示了这种&quot;信息漏斗&quot;式的三步发现流程，以及与传统全量加载的巨大差异：</p>
+<p>
+  <img src="/img/mcp-code-execution/An_information_funnel_diagram__2026-04-14T08-33-37.png" alt="渐进式工具发现流程">
+
+</p>
+<hr>
+<h2 id="五工作原理代码执行模式下agent-实际是怎么做事的">五、工作原理：代码执行模式下，Agent 实际是怎么做事的</h2>
+<p>如果把整套系统合在一起，它的工作方式可以概括为：<strong>模型只负责编写和理解代码，真正的数据搬运、过滤、轮询、聚合，都发生在安全的执行环境里。</strong></p>
+<p>下面这张图可以先帮助你建立整体心智模型：</p>
+<p>
+  <img src="/img/mcp-code-execution/A_clean_and_professional_techn_2026-04-13T23-42-59.png" alt="MCP 代码执行系统架构">
+
+</p>
+<p>从交互路径上看，完整流程大致是：</p>
+<ol>
+<li>用户提出任务</li>
+<li>Agent 浏览 <code>servers/</code> 文件树</li>
+<li>Agent 读取少量目标工具文件</li>
+<li>Agent 写出一段 TypeScript 代码</li>
+<li>代码在受控沙箱中运行</li>
+<li>运行时代码通过 <code>callMCPTool()</code> 和各个 MCP 服务器交互</li>
+<li>最终只把摘要、日志或显式结果返回给模型</li>
+</ol>
+<p>也就是说，模型不再需要&quot;亲自参与&quot;每一跳数据传输，它只需要：</p>
+<ul>
+<li>理解要做什么</li>
+<li>写出怎样的程序</li>
+<li>根据输出决定下一步是否继续</li>
+</ul>
+<p>这是一种非常接近真实工程开发的工作方式。</p>
+<hr>
+<h2 id="六为什么代码执行模式更强它不是少调几次工具而是换了执行位置">六、为什么代码执行模式更强：它不是少调几次工具，而是换了执行位置</h2>
+<p>代码执行模式的优势，不只是&quot;更省 tokens&quot;，更重要的是它<strong>把很多本来要靠模型一轮轮思考的事情，搬到了执行环境里直接完成</strong>。</p>
+<h3 id="61-跨系统数据编排可以在环境内直接完成">6.1 跨系统数据编排可以在环境内直接完成</h3>
+<p>例如从 Google Drive 中读取会议纪要，再写入 Salesforce：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">import</span> <span style="color:#ff79c6">*</span> <span style="color:#ff79c6">as</span> gdrive <span style="color:#ff79c6">from</span> <span style="color:#f1fa8c">&#39;./servers/google-drive&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">import</span> <span style="color:#ff79c6">*</span> <span style="color:#ff79c6">as</span> salesforce <span style="color:#ff79c6">from</span> <span style="color:#f1fa8c">&#39;./servers/salesforce&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> transcript <span style="color:#ff79c6">=</span> (<span style="color:#ff79c6">await</span> gdrive.getDocument({
+</span></span><span style="display:flex;"><span>  documentId<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;abc123&#39;</span>
+</span></span><span style="display:flex;"><span>})).content;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">await</span> salesforce.updateRecord({
+</span></span><span style="display:flex;"><span>  objectType<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;SalesMeeting&#39;</span>,
+</span></span><span style="display:flex;"><span>  recordId<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;00Q5f000001abcXYZ&#39;</span>,
+</span></span><span style="display:flex;"><span>  data<span style="color:#ff79c6">:</span> { Notes: <span style="color:#8be9fd">transcript</span> }
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><p>这里最重要的不是&quot;代码比较简洁&quot;，而是 <code>transcript</code> 这份正文内容<strong>只在执行环境里存在</strong>。它不需要回到模型上下文里，也不需要被模型重新&quot;看到&quot;一遍。</p>
+<p>下图展示了数据在沙箱内直接从源系统流向目标系统、而模型只接收代码和摘要的完整路径：</p>
+<p>
+  <img src="/img/mcp-code-execution/A_data_flow_diagram_showing_cr_2026-04-14T08-33-46.png" alt="跨系统数据编排数据流">
+
+</p>
+<h3 id="62-数据过滤和聚合发生在执行环境而不是上下文窗口里">6.2 数据过滤和聚合发生在执行环境，而不是上下文窗口里</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> allRows <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> gdrive.getSheet({ sheetId<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;abc123&#39;</span> });
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> pendingOrders <span style="color:#ff79c6">=</span> allRows.filter(row <span style="color:#ff79c6">=&gt;</span>
+</span></span><span style="display:flex;"><span>  row[<span style="color:#f1fa8c">&#39;Status&#39;</span>] <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#39;pending&#39;</span>
+</span></span><span style="display:flex;"><span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>console.log(<span style="color:#f1fa8c">`Found </span><span style="color:#f1fa8c">${</span>pendingOrders.length<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c"> pending orders`</span>);
+</span></span><span style="display:flex;"><span>console.log(pendingOrders.slice(<span style="color:#bd93f9">0</span>, <span style="color:#bd93f9">5</span>));
+</span></span></code></pre></div><p>这个例子非常典型：</p>
+<ul>
+<li>原始表格可能很大</li>
+<li>模型并不需要看完整表格</li>
+<li>它只需要一个过滤后的摘要和少量样本</li>
+</ul>
+<p>于是，数据处理发生在代码里，模型拿到的是<strong>计算后的结果</strong>，而不是<strong>待计算的原始材料</strong>。</p>
+<h3 id="63-循环轮询重试等控制流不再消耗多轮-llm-推理">6.3 循环、轮询、重试等控制流不再消耗多轮 LLM 推理</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">let</span> found <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">false</span>;
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">while</span> (<span style="color:#ff79c6">!</span>found) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> messages <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> slack.getChannelHistory({ channel<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;C123456&#39;</span> });
+</span></span><span style="display:flex;"><span>  found <span style="color:#ff79c6">=</span> messages.some(m <span style="color:#ff79c6">=&gt;</span> m.text.includes(<span style="color:#f1fa8c">&#39;deployment complete&#39;</span>));
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>found) <span style="color:#ff79c6">await</span> <span style="color:#ff79c6">new</span> Promise(r <span style="color:#ff79c6">=&gt;</span> setTimeout(r, <span style="color:#bd93f9">5000</span>));
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>console.log(<span style="color:#f1fa8c">&#39;Deployment notification received&#39;</span>);
+</span></span></code></pre></div><p>在传统模式下，这类逻辑会变成多轮&quot;推理 → 调工具 → 再推理&quot;的循环；而在代码执行模式下，循环本身就在运行时完成了。</p>
+<p>这还会带来一个经常被忽略的收益：<strong>更低的 time to first token 延迟。</strong> 因为很多 if/while 判断不再需要等模型重新思考一轮，而是直接由执行环境完成。</p>
+<h3 id="64-状态可以落盘技能可以复用">6.4 状态可以落盘，技能可以复用</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> leads <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> salesforce.query({
+</span></span><span style="display:flex;"><span>  query<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;SELECT Id, Email FROM Lead LIMIT 1000&#39;</span>
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> csvData <span style="color:#ff79c6">=</span> leads.map(l <span style="color:#ff79c6">=&gt;</span> <span style="color:#f1fa8c">`</span><span style="color:#f1fa8c">${</span>l.Id<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">,</span><span style="color:#f1fa8c">${</span>l.Email<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">`</span>).join(<span style="color:#f1fa8c">&#39;\n&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">await</span> fs.writeFile(<span style="color:#f1fa8c">&#39;./workspace/leads.csv&#39;</span>, csvData);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> saved <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> fs.readFile(<span style="color:#f1fa8c">&#39;./workspace/leads.csv&#39;</span>, <span style="color:#f1fa8c">&#39;utf-8&#39;</span>);
+</span></span></code></pre></div><p>一旦执行环境带有工作目录，很多一次性操作就可以被积累成可复用资产。文章里还展示了把常见任务封装成 skill 的思路，例如把 Google Sheet 导出为 CSV：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">import</span> <span style="color:#ff79c6">*</span> <span style="color:#ff79c6">as</span> gdrive <span style="color:#ff79c6">from</span> <span style="color:#f1fa8c">&#39;./servers/google-drive&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> saveSheetAsCsv(sheetId: <span style="color:#8be9fd">string</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> data <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> gdrive.getSheet({ sheetId });
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> csv <span style="color:#ff79c6">=</span> data.map(row <span style="color:#ff79c6">=&gt;</span> row.join(<span style="color:#f1fa8c">&#39;,&#39;</span>)).join(<span style="color:#f1fa8c">&#39;\n&#39;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">await</span> fs.writeFile(<span style="color:#f1fa8c">`./workspace/sheet-</span><span style="color:#f1fa8c">${</span>sheetId<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">.csv`</span>, csv);
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">return</span> <span style="color:#f1fa8c">`./workspace/sheet-</span><span style="color:#f1fa8c">${</span>sheetId<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">.csv`</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这意味着 Agent 不只是&quot;临时写一段脚本&quot;，而是开始形成自己的可复用执行资产。</p>
+<p>Anthropic 原文进一步把这件事和 Skills 机制联系了起来：如果把这些可复用函数连同说明文档一起沉淀下来，例如补上一份 <code>SKILL.md</code>，它们就不再只是零散脚本，而会演化成 Agent 可长期复用的高阶能力模块。</p>
+<hr>
+<h2 id="七隐私保护真实数据在环境内流动模型只看脱敏视图">七、隐私保护：真实数据在环境内流动，模型只看脱敏视图</h2>
+<p>这是整篇文章里我认为最容易被低估的一点。</p>
+<p>传统工具调用模式下，只要模型要决定下一步，它通常就得先看到上一步的结果。于是敏感数据很容易进入上下文。代码执行模式则提供了另一种可能：<strong>让真实数据在执行环境内部完成读、写、转换，而模型只看到必要的日志和摘要。</strong></p>
+<p>例如下面这段代码，会把表格里的联系人数据直接写入 Salesforce：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> sheet <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> gdrive.getSheet({ sheetId<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;abc123&#39;</span> });
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> row <span style="color:#ff79c6">of</span> sheet.rows) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">await</span> salesforce.updateRecord({
+</span></span><span style="display:flex;"><span>    objectType<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;Lead&#39;</span>,
+</span></span><span style="display:flex;"><span>    recordId: <span style="color:#8be9fd">row.salesforceId</span>,
+</span></span><span style="display:flex;"><span>    data<span style="color:#ff79c6">:</span> {
+</span></span><span style="display:flex;"><span>      Email: <span style="color:#8be9fd">row.email</span>,
+</span></span><span style="display:flex;"><span>      Phone: <span style="color:#8be9fd">row.phone</span>,
+</span></span><span style="display:flex;"><span>      Name: <span style="color:#8be9fd">row.name</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>console.log(<span style="color:#f1fa8c">`Updated </span><span style="color:#f1fa8c">${</span>sheet.rows.length<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c"> leads`</span>);
+</span></span></code></pre></div><p>如果这时 Agent 尝试把原始数据打印出来，客户端可以在输出层做拦截和令牌化，让模型看到的不是原值，而是类似下面的占位视图：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span>[
+</span></span><span style="display:flex;"><span>  { salesforceId<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;00Q...&#39;</span>, email<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;[EMAIL_1]&#39;</span>, phone<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;[PHONE_1]&#39;</span>, name<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;[NAME_1]&#39;</span> },
+</span></span><span style="display:flex;"><span>  { salesforceId<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;00Q...&#39;</span>, email<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;[EMAIL_2]&#39;</span>, phone<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;[PHONE_2]&#39;</span>, name<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;[NAME_2]&#39;</span> }
+</span></span><span style="display:flex;"><span>]
+</span></span></code></pre></div><p>也就是说：</p>
+<ul>
+<li><strong>真实 PII 数据</strong>：在执行环境和目标系统之间流动</li>
+<li><strong>模型可见内容</strong>：是经过脱敏处理的日志或摘要</li>
+</ul>
+<p>下面这张图把这层关系画得更直观：</p>
+<p>
+  <img src="/img/mcp-code-execution/A_clean_and_professional_techn_2026-04-13T23-42-58.png" alt="隐私保护数据流">
+
+</p>
+<p>这并不意味着&quot;模型绝不可能接触敏感数据&quot;，而是意味着系统终于有机会通过<strong>确定性的输出控制</strong>，把敏感信息默认拦在上下文之外。对于企业场景，这一点非常关键。</p>
+<hr>
+<h2 id="八安全沙箱代码执行带来效率也带来新的基础设施义务">八、安全沙箱：代码执行带来效率，也带来新的基础设施义务</h2>
+<p>Anthropic 在文章结尾明确提醒：运行 Agent 生成的代码，会引入新的复杂度。原文点名了三类基础要求：</p>
+<ul>
+<li><strong>Sandboxing</strong></li>
+<li><strong>Resource limits</strong></li>
+<li><strong>Monitoring</strong></li>
+</ul>
+<p>这三个词很短，但背后的工程含义并不轻。下图展示了一个安全沙箱从外到内的多层防护结构：</p>
+<p>
+  <img src="/img/mcp-code-execution/A_security_architecture_diagra_2026-04-14T08-33-49.png" alt="安全沙箱分层架构">
+
+</p>
+<p>一个真正可用的代码执行系统，至少要补齐下面这些控制面：</p>
+<table>
+<thead>
+<tr>
+<th>安全维度</th>
+<th>工程做法</th>
+<th>主要目的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>执行隔离</strong></td>
+<td>使用受限运行时或容器化沙箱</td>
+<td>防止代码逃逸影响宿主系统</td>
+</tr>
+<tr>
+<td><strong>资源限制</strong></td>
+<td>CPU、内存、磁盘、执行时长配额</td>
+<td>防止资源耗尽或死循环拖垮系统</td>
+</tr>
+<tr>
+<td><strong>行为监控</strong></td>
+<td>执行日志、异常检测、审计记录</td>
+<td>及时发现异常模式</td>
+</tr>
+<tr>
+<td><strong>网络控制</strong></td>
+<td>仅允许通过受控出口访问指定能力</td>
+<td>防止任意对外访问</td>
+</tr>
+<tr>
+<td><strong>输出控制</strong></td>
+<td>对日志、返回值、错误信息做脱敏或裁剪</td>
+<td>防止敏感数据进入模型上下文</td>
+</tr>
+</tbody>
+</table>
+<p>从这里也能看出，代码执行并不是&quot;白拿性能红利&quot;。它的代价是：<strong>把复杂度从上下文管理，转移到了运行时治理。</strong></p>
+<h3 id="81-为什么直接工具调用依然有存在价值">8.1 为什么直接工具调用依然有存在价值</h3>
+<p>这也是这篇文章非常诚实的地方。它没有说&quot;代码执行一定全面替代工具调用&quot;，而是明确承认：直接工具调用规避了运行时代码的很多安全和运维负担。</p>
+<p>所以两者更像是一个权衡：</p>
+<ul>
+<li><strong>直接工具调用</strong>：简单、直接、实现成本低，但上下文成本高</li>
+<li><strong>代码执行模式</strong>：令牌和延迟表现更好，但需要更强的基础设施兜底</li>
+</ul>
+<p>如果任务只是一步查询、一步提交，那么直接工具调用依然很合理；但如果任务本质上是一个多步程序，那么让 Agent 写代码，往往更符合问题本身的结构。</p>
+<hr>
+<h2 id="九量化视角哪些数据来自原文哪些是工程上的延伸估算">九、量化视角：哪些数据来自原文，哪些是工程上的延伸估算</h2>
+<p>这里需要把口径分清楚。</p>
+<h3 id="91-原文明确给出的数据">9.1 原文明确给出的数据</h3>
+<p>Anthropic 原文明确给出的关键数字，是渐进式工具发现带来的上下文节省：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>数值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>工具定义相关上下文开销（传统方式）</td>
+<td><strong>150,000 tokens</strong></td>
+</tr>
+<tr>
+<td>工具定义相关上下文开销（代码执行模式）</td>
+<td><strong>2,000 tokens</strong></td>
+</tr>
+<tr>
+<td>节省比例</td>
+<td><strong>98.7%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>这组数据对应的是：Agent 不再一次性读取全部工具定义，而是只按需读取当前任务需要的函数接口。</p>
+<h3 id="92-工程上的延伸估算">9.2 工程上的延伸估算</h3>
+<p>如果把数据搬运、轮询控制流、日志摘要等因素也纳入考虑，在复杂多步任务里，整体收益通常还会继续扩大。为了帮助理解，可以用一个典型场景做<strong>示例性估算</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>传统工具调用</th>
+<th>代码执行</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>工具定义加载</td>
+<td>~150,000 tokens</td>
+<td>~2,000 tokens</td>
+<td>直接对应原文结论</td>
+</tr>
+<tr>
+<td>中间结果传递</td>
+<td>高</td>
+<td>低</td>
+<td>数据可留在执行环境内</td>
+</tr>
+<tr>
+<td>轮询 / 重试</td>
+<td>多轮推理</td>
+<td>单次代码执行</td>
+<td>控制流在运行时完成</td>
+</tr>
+<tr>
+<td>长链路编排</td>
+<td>逐步决策</td>
+<td>程序化执行</td>
+<td>更适合多步工作流</td>
+</tr>
+</tbody>
+</table>
+<p>这部分表格不是原文逐项给出的 benchmark，而是基于文章机制做的工程推演。把这层区分说清楚，文章会更严谨。</p>
+<hr>
+<h2 id="十实现启示为什么说这是一种更像软件工程的-agent-架构">十、实现启示：为什么说这是一种更像&quot;软件工程&quot;的 Agent 架构</h2>
+<p>MCP 代码执行模式真正有意思的地方，不只是它更快，而是它让 Agent 的工作方式更接近开发者本身。</p>
+<p>传统模式下，Agent 像一个不断口头指挥的调度员：</p>
+<ul>
+<li>看工具说明</li>
+<li>决定下一步调哪个</li>
+<li>读结果</li>
+<li>再决定下一步</li>
+</ul>
+<p>而代码执行模式下，Agent 更像一个真正写程序的工程师：</p>
+<ul>
+<li>先发现可用接口</li>
+<li>再写出一个小程序</li>
+<li>把过滤、循环、聚合、错误处理写在代码里</li>
+<li>最后只把结果摘要拿回来</li>
+</ul>
+<p>下图把两种工作模式并排放在一起，可以直观看到从&quot;调度员&quot;到&quot;工程师&quot;的角色转变：</p>
+<p>
+  <img src="/img/mcp-code-execution/A_split_comparison_illustratio_2026-04-14T08-33-59.png" alt="传统调度员模式 vs 代码执行工程师模式">
+
+</p>
+<p>这种变化的意义在于：<strong>Agent 的&quot;思考对象&quot;从单步工具调用，变成了更高层的程序结构。</strong> 这正是复杂任务所需要的抽象层级。</p>
+<p>从落地角度看，这种架构尤其适合下面几类任务：</p>
+<ul>
+<li>需要跨多个系统搬运和转换数据</li>
+<li>需要过滤大结果集，只回传摘要</li>
+<li>需要轮询、等待、重试等控制流</li>
+<li>需要在多次执行之间保存中间状态</li>
+<li>对隐私隔离和上下文成本都较敏感</li>
+</ul>
+<hr>
+<h2 id="十一与-cloudflare-code-mode-的呼应">十一、与 Cloudflare &ldquo;Code Mode&rdquo; 的呼应</h2>
+<p>Anthropic 在文中还专门提到，Cloudflare 也发布了类似结论，并把这类&quot;让 LLM 通过写代码来使用 MCP&quot;的模式称为 <strong>Code Mode</strong>。</p>
+<p>这个呼应很重要，因为它说明这不是某一篇文章里的孤例，而是行业正在逐步收敛出的共同认知：</p>
+<ol>
+<li><strong>LLM 很擅长写小段程序</strong></li>
+<li><strong>程序比逐轮工具调用更适合表达多步任务</strong></li>
+<li><strong>文件系统和代码 API 是比大工具列表更自然的 Agent 交互界面</strong></li>
+</ol>
+<p>换句话说，代码执行并不是 MCP 体系里的偶发技巧，而是在 Agent 工程化过程中越来越自然的一条路线。</p>
+<hr>
+<h2 id="十二总结代码执行不是替代-mcp而是在-mcp-之上增加一个更高效的编排层">十二、总结：代码执行不是替代 MCP，而是在 MCP 之上增加一个更高效的编排层</h2>
+<p>如果要用一句话概括 Anthropic 这篇文章的价值，我会这样说：</p>
+<blockquote>
+<p><strong>它不是在教我们如何&quot;多接几个工具&quot;，而是在提醒我们：当任务本质上是一个程序时，就应该让 Agent 以程序的方式完成它。</strong></p>
+</blockquote>
+<p>最后把全文收束成几个结论：</p>
+<ul>
+<li><strong>代码执行不是 MCP 协议改造，而是客户端实现升级</strong></li>
+<li><strong>真正带来大幅节省的关键，是工具定义的渐进式披露</strong></li>
+<li><strong>数据处理、控制流和状态管理被搬到了执行环境中</strong></li>
+<li><strong>隐私保护因此有了&quot;默认不进上下文&quot;的可能性</strong></li>
+<li><strong>与此同时，系统必须承担沙箱、资源限制和监控的基础设施成本</strong></li>
+</ul>
+<p>所以，代码执行模式并不是对所有场景都更好。对于简单的一步式操作，直接工具调用仍然高效而实用；但对于复杂的、多阶段的、跨系统的数据编排任务，它通常更贴近问题本身的真实结构。</p>
+<p>从这个意义上说，Agent 不再只是&quot;工具调用者&quot;，而是在逐步成为一个能写程序、能复用技能、能在受控环境中执行任务的<strong>软件型执行体</strong>。</p>
+<hr>
+<h2 id="参考资料">参考资料</h2>
+<ol>
+<li><a href="https://www.anthropic.com/engineering/code-execution-with-mcp">Code execution with MCP: Building more efficient agents - Anthropic Engineering</a></li>
+<li><a href="https://modelcontextprotocol.io/">Model Context Protocol - Official Documentation</a></li>
+<li><a href="https://blog.cloudflare.com/code-mode/">Cloudflare Code Mode</a></li>
+</ol>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/04/12/contextual-retrieval/" data-toggle="tooltip" data-placement="top" title="Contextual Retrieval 深度技术解析：把难检索的 Chunk 变成可检索的知识单元">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2026-04-14-multi-agent-coordination-patterns/" data-toggle="tooltip" data-placement="top" title="多智能体协调模式深度解析：五种架构模式的原理、选型与最佳实践">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ascend" title="ascend">
+                            ascend
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubernetes" title="kubernetes">
+                            kubernetes
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/multi-agent" title="multi-agent">
+                            multi-agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

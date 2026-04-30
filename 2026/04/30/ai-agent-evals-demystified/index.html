@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="揭秘 AI 智能体评估：从任务、轨迹到生产级 Eval 体系" />
+    <meta property="og:title" content="揭秘 AI 智能体评估：从任务、轨迹到生产级 Eval 体系" />
+    <meta property="twitter:title" content="揭秘 AI 智能体评估：从任务、轨迹到生产级 Eval 体系" />
+    
+
+    
+    <meta name="description" content="本文基于 Anthropic Engineering 的《Demystifying evals for AI agents》，面向开发者系统讲解 AI 智能体评估方法论：为什么传统单轮 LLM eval 不够，Agent eval 的 task、trial、transcript、outcome、grader、harness 如何协作，如何组合确定性评分器、LLM judge 与人工评审，以及如何处理非确定性、创造性解法、grader 脆弱、环境污染和 eval 饱和等挑战。文章配套架构图、对比图、指标趋势图和路线图，帮助团队从真实失败案例出发构建可维护的 Agent 评估体系。">
+    <meta property="og:description" content="本文基于 Anthropic Engineering 的《Demystifying evals for AI agents》，面向开发者系统讲解 AI 智能体评估方法论：为什么传统单轮 LLM eval 不够，Agent eval 的 task、trial、transcript、outcome、grader、harness 如何协作，如何组合确定性评分器、LLM judge 与人工评审，以及如何处理非确定性、创造性解法、grader 脆弱、环境污染和 eval 饱和等挑战。文章配套架构图、对比图、指标趋势图和路线图，帮助团队从真实失败案例出发构建可维护的 Agent 评估体系。" />
+    <meta property="twitter:description" content="本文基于 Anthropic Engineering 的《Demystifying evals for AI agents》，面向开发者系统讲解 AI 智能体评估方法论：为什么传统单轮 LLM eval 不够，Agent eval 的 task、trial、transcript、outcome、grader、harness 如何协作，如何组合确定性评分器、LLM judge 与人工评审，以及如何处理非确定性、创造性解法、grader 脆弱、环境污染和 eval 饱和等挑战。文章配套架构图、对比图、指标趋势图和路线图，帮助团队从真实失败案例出发构建可维护的 Agent 评估体系。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>揭秘 AI 智能体评估：从任务、轨迹到生产级 Eval 体系 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/04/30/ai-agent-evals-demystified/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/evals" title="Evals">
+                            Evals
+                        </a>
+                        
+                        <a class="tag" href="/tags/anthropic" title="Anthropic">
+                            Anthropic
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                    </div>
+                    <h1>揭秘 AI 智能体评估：从任务、轨迹到生产级 Eval 体系</h1>
+                    <h2 class="subheading">基于 Anthropic Engineering《Demystifying evals for AI agents》，系统拆解 AI Agent 评估的对象、方法、难题与工程化最佳实践</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Thursday, April 30, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一为什么-agent-越强评估越难">一、为什么 Agent 越强，评估越难</h2>
+<p>Anthropic Engineering 在 <a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals for AI agents</a> 中提出了一个很重要的判断：<strong>AI Agent 的价值来自自治性、工具使用和多步规划，但这些能力也让评估从“判断一句回答”升级为“判断一个系统是否真正完成任务”。</strong></p>
+<p>传统 LLM eval 多数围绕 <code>prompt → response → grader</code> 展开：给模型一个输入，看输出是否匹配参考答案。但现代 Agent 往往会：</p>
+<ul>
+<li>在多轮对话中不断澄清、计划和修正；</li>
+<li>调用搜索、代码执行、浏览器、数据库、工单系统等工具；</li>
+<li>修改外部环境状态，例如文件、UI、数据库、配置、订单或工单；</li>
+<li>在执行过程中根据中间结果调整策略；</li>
+<li>给出评估者没有预料到、但对用户更有价值的解决路径。</li>
+</ul>
+<p>这意味着，<strong>Agent 的最终回复不等于最终结果</strong>。一个代码 Agent 可能回复“已修复”，但仓库测试没有通过；一个客服 Agent 可能语气很好，但退款状态没有更新；一个研究 Agent 可能写出漂亮报告，但关键结论没有来源支撑。</p>
+<p>因此，Agent eval 的核心问题不是“模型说得对不对”，而是：</p>
+<blockquote>
+<p>在给定任务、工具和环境约束下，Agent 是否以可接受的过程，把真实世界状态推进到了期望状态？</p>
+</blockquote>
+<p>
+  <img src="/img/ai-agent-evals/eval-system-overview.svg" alt="Agent Eval 系统全景">
+
+</p>
+<p>这篇文章尝试把 Anthropic 的方法论转写成面向工程团队的实践指南：如何定义评估对象，如何选择评分器，如何处理不确定性与主观质量，以及如何从 20–50 个真实失败案例起步，构建一套可长期维护的 Agent 评估基础设施。</p>
+<hr>
+<h2 id="二agent-eval-到底在评估什么">二、Agent eval 到底在评估什么</h2>
+<p>Anthropic 特别强调：<strong>评估 Agent 时，评估的不是单独模型，而是“模型 + Agent harness + 工具 + 环境”的完整系统。</strong> 这点非常关键，因为 Agent 的表现往往取决于多个组件的交互：</p>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>含义</th>
+<th>工程关注点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Task</code> / <code>Problem</code> / <code>Test case</code></td>
+<td>一个具体测试任务，包含输入、约束和成功标准</td>
+<td>任务是否真实、清晰、无歧义</td>
+</tr>
+<tr>
+<td><code>Trial</code></td>
+<td>对某个任务的一次运行尝试</td>
+<td>需要多次运行以观察随机性</td>
+</tr>
+<tr>
+<td><code>Agent harness</code> / <code>Scaffold</code></td>
+<td>让模型作为 Agent 行动的运行框架</td>
+<td>工具编排、上下文管理、权限控制</td>
+</tr>
+<tr>
+<td><code>Evaluation harness</code></td>
+<td>运行评估的基础设施</td>
+<td>分发任务、隔离环境、记录日志、聚合指标</td>
+</tr>
+<tr>
+<td><code>Transcript</code> / <code>Trace</code> / <code>Trajectory</code></td>
+<td>一次 trial 的完整执行轨迹</td>
+<td>对话、工具调用、token、延迟、中间状态</td>
+</tr>
+<tr>
+<td><code>Outcome</code></td>
+<td>trial 结束后的真实环境状态</td>
+<td>文件、数据库、页面、工单、配置是否符合预期</td>
+</tr>
+<tr>
+<td><code>Grader</code></td>
+<td>评分逻辑，可以是代码、模型或人工</td>
+<td>是否客观、稳定、能覆盖关键质量</td>
+</tr>
+<tr>
+<td><code>Evaluation suite</code></td>
+<td>一组任务集合</td>
+<td>可用于能力评估或回归评估</td>
+</tr>
+</tbody>
+</table>
+<p>对于单轮问答，<code>response</code> 往往就是主要评估对象；对于 Agent，<code>response</code> 只是 transcript 的一部分。更可靠的方式是同时检查三类证据：</p>
+<ol>
+<li><strong>结果证据</strong>：最终环境状态是否正确，例如测试通过、订单完成、文件生成、页面状态符合预期；</li>
+<li><strong>过程证据</strong>：工具调用是否合理，是否绕过流程，是否出现危险行为，是否消耗异常多的轮次和 token；</li>
+<li><strong>体验证据</strong>：语言是否清楚，是否解释了风险，是否对用户友好，是否符合产品 tone 和合规要求。</li>
+</ol>
+<p>如果只看最终文本，Agent 可能“说对了但没做成”；如果只看工具调用路径，又可能误伤那些没有走预设路径但真实解决了问题的创造性解法。一个成熟的 eval 体系必须把 <code>outcome</code> 和 <code>transcript</code> 放在同等重要的位置。</p>
+<hr>
+<h2 id="三为什么-eval-是-agent-工程化的基础设施">三、为什么 eval 是 Agent 工程化的基础设施</h2>
+<p>早期做 Agent 原型时，团队通常依赖手工测试：开发者跑几个 demo，产品同学试一试，用户反馈坏例子后再修。这个阶段手工验证是必要的，因为团队还在摸索什么叫“成功”。</p>
+<p>但一旦 Agent 进入生产环境，只靠手工测试会迅速失效：</p>
+<table>
+<thead>
+<tr>
+<th>没有系统化 eval</th>
+<th>有系统化 eval</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>用户反馈变差后才知道</td>
+<td>上线前就能跑关键场景</td>
+</tr>
+<tr>
+<td>修一个 bug 可能引入另一个回归</td>
+<td>回归集能守住已有能力</td>
+</tr>
+<tr>
+<td>分不清真实提升和随机波动</td>
+<td>多 trial 与统计指标能降低噪声</td>
+</tr>
+<tr>
+<td>模型升级靠直觉判断</td>
+<td>可在同一任务集上横向比较模型、prompt、工具策略</td>
+</tr>
+<tr>
+<td>产品、工程、研究各看各的现象</td>
+<td>团队围绕同一组任务、指标和 transcript 对齐</td>
+</tr>
+</tbody>
+</table>
+<p>Anthropic 在原文中提到多个案例：Claude Code 后来加入了关于简洁性、文件编辑和避免过度工程化的 eval；Descript 为视频编辑 Agent 将成功拆成“不要破坏内容、完成用户要求、完成得好”；Bolt 在 Agent 已经被大量使用后补建 eval 系统，结合静态分析、浏览器 Agent 和 LLM judge 来评估应用行为。</p>
+<p>这些案例说明：<strong>eval 不是学术 benchmark 的同义词，而是 Agent 产品快速迭代的质量控制面。</strong> 它既服务于研发期的能力爬坡，也服务于上线后的回归保护、模型升级决策和生产监控。</p>
+<p>
+  <img src="/img/ai-agent-evals/eval-feedback-flywheel.svg" alt="Agent Eval 反馈飞轮">
+
+</p>
+<hr>
+<h2 id="四三类评分器确定性语义判断与人工校准">四、三类评分器：确定性、语义判断与人工校准</h2>
+<p>Agent eval 最容易踩的坑之一，是试图用一种 grader 解决所有问题。实际上，评分器应该按任务性质分层组合。</p>
+<p>
+  <img src="/img/ai-agent-evals/grader-types-matrix.svg" alt="三类 Grader 对比">
+
+</p>
+<h3 id="41-code-based-grader能确定就不要猜">4.1 Code-based grader：能确定就不要猜</h3>
+<p>代码型评分器适合有客观成功标准的任务，例如：</p>
+<ul>
+<li>字符串、正则、JSON schema 或 fuzzy match；</li>
+<li>单元测试、集成测试、端到端测试；</li>
+<li>静态分析、类型检查、安全扫描；</li>
+<li>文件系统、数据库、页面 URL、工单状态检查；</li>
+<li>transcript 统计，例如工具调用次数、turn 数、token 用量、延迟。</li>
+</ul>
+<p>它的优势是快、便宜、客观、可复现，适合作为 eval 的第一道防线。例如代码 Agent 的任务可以通过测试套件判断是否修复问题；浏览器 Agent 的任务可以检查最终 URL、页面 DOM、后端状态；客服 Agent 的任务可以检查退款状态是否从 <code>pending</code> 变成 <code>processed</code>。</p>
+<p>但它也有明显局限：<strong>过度刚性的 grader 会惩罚合理变体。</strong> 原文提到 CORE-Bench 的例子：模型初始得分很低，但后来发现部分评分逻辑过于严格，例如期望一个高精度浮点值，却拒绝了合理四舍五入的答案；修正任务和 grader 后，分数大幅提升。</p>
+<h3 id="42-model-based-grader评估开放式质量">4.2 Model-based grader：评估开放式质量</h3>
+<p>模型型评分器使用 LLM 作为 judge，适合主观或开放式任务：</p>
+<ul>
+<li>回答是否完整、清晰、连贯；</li>
+<li>是否遵循产品语气和交互规范；</li>
+<li>研究报告是否覆盖关键事实；</li>
+<li>代码是否可维护、是否过度工程化；</li>
+<li>多个候选答案之间哪个更好。</li>
+</ul>
+<p>工程上应尽量避免让 LLM judge “自由发挥”，而要给它结构化 rubric。例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">rubric</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">task_completion</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">description</span>: <span style="color:#f1fa8c">&#34;是否完成用户的核心请求&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">score</span>: <span style="color:#f1fa8c">&#34;0-3&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">groundedness</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">description</span>: <span style="color:#f1fa8c">&#34;关键结论是否被来源或环境状态支持&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">score</span>: <span style="color:#f1fa8c">&#34;0-3&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">safety_and_policy</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">description</span>: <span style="color:#f1fa8c">&#34;是否遵守工具、权限和业务流程约束&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">score</span>: <span style="color:#f1fa8c">&#34;0-3&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">communication</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">description</span>: <span style="color:#f1fa8c">&#34;是否清楚解释结果、限制与下一步&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">score</span>: <span style="color:#f1fa8c">&#34;0-3&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">allow_unknown</span>: <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">require_evidence</span>: <span style="color:#ff79c6">true</span>
+</span></span></code></pre></div><p>这里有两个实践要点：</p>
+<ol>
+<li><strong>给 judge <code>Unknown</code> 选项</strong>：如果证据不足，允许模型说不知道，减少它为了打分而编造理由；</li>
+<li><strong>要求引用证据</strong>：让 judge 指出依据来自哪段 transcript、哪个 outcome 或哪个工具结果。</li>
+</ol>
+<h3 id="43-human-grader用于高风险和校准">4.3 Human grader：用于高风险和校准</h3>
+<p>人工评分最慢、最贵，但在高价值、高风险或高度主观的场景仍然不可替代。典型用法不是让人类评审所有样本，而是：</p>
+<ul>
+<li>对 LLM judge 的样本进行抽样校准；</li>
+<li>对模型和 grader 分歧的 case 做仲裁；</li>
+<li>为新任务、新 rubric 和边界样本提供专家标注；</li>
+<li>检查用户体验、业务价值、合规风险等复杂维度。</li>
+</ul>
+<p>成熟团队通常会把三者组合起来：<strong>确定性 grader 承担可客观验证的部分，LLM judge 覆盖语义和体验，人类专家负责校准与仲裁。</strong></p>
+<hr>
+<h2 id="五能力评估与回归评估一个负责爬坡一个负责守门">五、能力评估与回归评估：一个负责爬坡，一个负责守门</h2>
+<p>Anthropic 将 eval 区分为两类：</p>
+<h3 id="51-capability-eval回答现在能做好什么">5.1 Capability eval：回答“现在能做好什么”</h3>
+<p>能力评估用于探索 Agent 的能力边界。它通常不会一开始就有很高通过率，因为它的目标正是暴露 Agent 还做不好的地方。</p>
+<p>适合放入 capability suite 的任务包括：</p>
+<ul>
+<li>用户真实失败案例；</li>
+<li>团队希望新版本具备的复杂能力；</li>
+<li>长链路、多工具、多轮交互任务；</li>
+<li>当前模型和 harness 容易不稳定的边界场景。</li>
+</ul>
+<p>这类 eval 的价值不是“分数好看”，而是告诉团队下一步应该优化哪里。</p>
+<h3 id="52-regression-eval回答以前会的是否还会">5.2 Regression eval：回答“以前会的是否还会”</h3>
+<p>回归评估用于防止倒退。它的通过率应该接近 100%，并且适合接入 CI/CD、发布门禁和模型升级流程。</p>
+<p>一个常见演进路径是：</p>
+<ol>
+<li>某类任务先进入 capability suite；</li>
+<li>团队持续修复失败模式；</li>
+<li>当通过率稳定提升并接近饱和；</li>
+<li>将其“毕业”为 regression suite；</li>
+<li>再构建更难的新 capability suite。</li>
+</ol>
+<p>这类似软件工程中的单元测试演进：新 bug 先被复现为测试，修复后测试长期留在回归集中。</p>
+<hr>
+<h2 id="六不同类型-agent-的评估策略">六、不同类型 Agent 的评估策略</h2>
+<p>Agent 的任务形态不同，评估证据也不同。不要拿代码 Agent 的测试通过率去评估客服 Agent，也不要只用客服对话体验去评估研究 Agent。</p>
+<p>
+  <img src="/img/ai-agent-evals/agent-type-eval-map.svg" alt="不同类型 Agent 的评估重点">
+
+</p>
+<h3 id="61-coding-agent最终仓库状态优先">6.1 Coding Agent：最终仓库状态优先</h3>
+<p>代码 Agent 的任务通常包括读代码、修改文件、运行测试、修 bug、实现功能。评估时应优先看：</p>
+<ul>
+<li>单元测试、集成测试和端到端测试是否通过；</li>
+<li>修改是否限定在合理范围内；</li>
+<li>静态分析、类型检查、安全扫描是否通过；</li>
+<li>是否引入不必要抽象或过度工程化；</li>
+<li>transcript 中是否合理读取文件、编辑代码、运行验证命令。</li>
+</ul>
+<p>SWE-bench Verified、Terminal-Bench 等 benchmark 都体现了这个思路：让 Agent 在相对真实的工程环境中完成任务，并用最终状态而非口头解释判断成败。</p>
+<h3 id="62-conversational-agent任务完成--交互质量">6.2 Conversational Agent：任务完成 + 交互质量</h3>
+<p>客服、销售、教练、内部助手等对话 Agent 的难点在于：它们既要完成业务任务，也要让用户感到过程可信、清楚、友好。</p>
+<p>评估维度通常包括：</p>
+<ul>
+<li>业务状态是否完成，例如工单 resolved、退款 processed；</li>
+<li>是否调用了必要工具，例如身份验证、政策查询、退款处理；</li>
+<li>是否在合理轮数内完成；</li>
+<li>是否表达共情、解释清楚、避免误导；</li>
+<li>是否遵守合规和产品流程。</li>
+</ul>
+<p>这类任务往往需要 transcript 级别的评估。最终状态正确但对话体验糟糕，或者语气很好但业务没完成，都不应算作高质量成功。</p>
+<h3 id="63-research-agentgroundednesscoverage-与-source-quality">6.3 Research Agent：groundedness、coverage 与 source quality</h3>
+<p>研究 Agent 没有单一标准答案，评估更像审稿：</p>
+<ul>
+<li>结论是否被可靠来源支持；</li>
+<li>是否覆盖了任务要求中的关键维度；</li>
+<li>是否遗漏重要反例或限制条件；</li>
+<li>引用是否真实、准确、可追溯；</li>
+<li>来源是否权威、时效性是否足够；</li>
+<li>长报告是否结构清楚、没有幻觉。</li>
+</ul>
+<p>这类 eval 通常需要 LLM judge 与人工专家结合。确定性检查可以验证引用是否存在、链接是否可访问、结构是否完整；LLM judge 可评估覆盖率和连贯性；专家抽样用于校准事实性与专业判断。</p>
+<h3 id="64-computer-use-agent检查真实或沙盒环境">6.4 Computer Use Agent：检查真实或沙盒环境</h3>
+<p>Computer Use Agent 会操作浏览器、桌面软件或远程系统。它的输出不是一段文字，而是一系列 GUI 行为和最终环境状态。</p>
+<p>评估重点包括：</p>
+<ul>
+<li>最终页面 URL、DOM、截图或应用状态；</li>
+<li>文件是否被创建、移动、修改；</li>
+<li>配置、数据库、后端状态是否正确；</li>
+<li>是否选择了合适工具，例如 DOM 文本提取还是截图理解；</li>
+<li>点击、输入、滚动轨迹是否合理；</li>
+<li>是否在预算内完成。</li>
+</ul>
+<p>原文提到浏览器 Agent 在 DOM 与截图之间存在 token、延迟和可靠性权衡：总结 Wikipedia 页面时提取 DOM 文本更高效，而在电商网站找特定商品时，截图可能更接近人类视觉判断。eval 不仅要看任务是否完成，还要帮助团队判断 Agent 是否学会了正确的工具选择策略。</p>
+<hr>
+<h2 id="七agent-eval-的五个核心难题">七、Agent eval 的五个核心难题</h2>
+<h3 id="71-非确定性一次成功不代表稳定">7.1 非确定性：一次成功不代表稳定</h3>
+<p>Agent 每次运行都可能因为采样、工具返回、环境状态或中间决策不同而产生差异。因此，单次 trial 的 pass/fail 往往不足以代表真实性能。</p>
+<p>Anthropic 文章中特别区分了两个指标：</p>
+<ul>
+<li><code>pass@k</code>：运行 k 次，至少成功一次的概率；</li>
+<li><code>pass^k</code>：运行 k 次，每次都成功的概率。</li>
+</ul>
+<p>
+  <img src="/img/ai-agent-evals/pass-k-vs-pass-power-k.svg" alt="pass@k 与 pass^k 的差异">
+
+</p>
+<p>如果单次成功率是 (p)，直观上可以理解为：</p>
+<p>[
+pass@k = 1 - (1 - p)^k
+]</p>
+<p>[
+pass^k = p^k
+]</p>
+<p>当 (p = 0.75) 时，<code>pass@3</code> 已经接近 98%，看起来 Agent 很有潜力；但 <code>pass^3</code> 只有约 42%，说明它还远没有达到“每次都可靠”的生产标准。</p>
+<p>这两个指标服务于不同问题：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>回答的问题</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pass@k</code></td>
+<td>多次尝试中是否至少有一次可行</td>
+<td>代码生成、多方案探索、离线辅助</td>
+</tr>
+<tr>
+<td><code>pass^k</code></td>
+<td>是否每次都稳定成功</td>
+<td>客服、交易、生产自动化、高风险任务</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72-创造性解法静态标准可能误伤强模型">7.2 创造性解法：静态标准可能误伤强模型</h3>
+<p>越强的 Agent 越可能找到评估者没有预料到的路径。原文提到 Opus 4.5 在一个订机票任务中发现了政策漏洞，为用户提供了更好的解决方案，却因为偏离静态 eval 的预设路径而被判失败。</p>
+<p>这类 case 的启示是：<strong>不要因为 Agent 没有走设计者想象中的路径就惩罚它；应优先评估它是否真正解决了用户问题，并且是否符合约束。</strong></p>
+<p>因此 grader 设计要尽量评估 outcome，而不是强制 path。只有在路径本身代表安全、合规或成本约束时，才应将路径纳入硬性判断。</p>
+<h3 id="73-grader-脆弱低分不一定说明-agent-差">7.3 Grader 脆弱：低分不一定说明 Agent 差</h3>
+<p>Agent 得分低可能来自三类问题：</p>
+<ol>
+<li>Agent 真的失败了；</li>
+<li>task 描述有歧义，成功标准没有写清；</li>
+<li>grader 或 harness 有 bug，拒绝了合理答案。</li>
+</ol>
+<p>因此团队必须阅读失败 case 的 transcript，而不是只看聚合分数。一个好的诊断流程通常是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>失败样本 → 读 transcript → 检查 outcome → 判断失败归因
+</span></span><span style="display:flex;"><span>        → Agent 问题：修 prompt / tool / harness / model
+</span></span><span style="display:flex;"><span>        → Task 问题：重写任务和成功标准
+</span></span><span style="display:flex;"><span>        → Grader 问题：修评分逻辑并回放历史样本
+</span></span></code></pre></div><p>
+  <img src="/img/ai-agent-evals/failure-triage-map.svg" alt="失败样本归因地图">
+
+</p>
+<h3 id="74-环境污染共享状态会让分数失真">7.4 环境污染：共享状态会让分数失真</h3>
+<p>Agent eval 比普通模型 eval 更依赖环境。trial 之间如果没有隔离，就可能出现：</p>
+<ul>
+<li>上一次运行留下的文件影响下一次测试；</li>
+<li>缓存、数据库或浏览器 session 泄露状态；</li>
+<li>git history、临时目录或环境变量暴露答案；</li>
+<li>并发任务争用资源导致随机失败；</li>
+<li>Agent 因为残留状态获得不公平优势。</li>
+</ul>
+<p>因此 evaluation harness 必须保证：每个 trial 从干净环境开始，关键状态可重置，资源隔离明确，日志完整记录，失败可以复现。</p>
+<h3 id="75-eval-饱和满分不等于继续变强">7.5 Eval 饱和：满分不等于继续变强</h3>
+<p>当某个 eval suite 的通过率接近 100%，它就不再能衡量能力提升，只能说明 Agent 没有在这些已知任务上倒退。此时它应该转为 regression suite，而团队需要构建更难、更长、更接近真实生产的新 capability suite。</p>
+<p>这也是为什么 eval 是“活资产”而不是一次性 benchmark。模型、工具、用户场景和产品目标都会变化，eval suite 也必须持续更新。</p>
+<hr>
+<h2 id="八从-0-到-1-构建-agent-eval-的实践路线">八、从 0 到 1 构建 Agent eval 的实践路线</h2>
+<p>Anthropic 的建议可以概括为一条工程化闭环：<strong>从真实失败开始，小规模自动化，持续读轨迹，再把稳定能力沉淀为回归集。</strong></p>
+<p>
+  <img src="/img/ai-agent-evals/eval-lifecycle.svg" alt="Agent Eval 从 0 到 1 路线图">
+
+</p>
+<h3 id="step-0尽早开始不必等到大而全">Step 0：尽早开始，不必等到“大而全”</h3>
+<p>不要等到有几百个任务才开始建设 eval。早期 20–50 个来自真实用户、bug tracker、support queue 或手工测试的失败案例，就足以提供很高价值。</p>
+<h3 id="step-1把手工测试转成自动化任务">Step 1：把手工测试转成自动化任务</h3>
+<p>每次发布前开发者都会手动验证的行为，通常就是最该自动化的 eval。例如：</p>
+<ul>
+<li>“搜索功能在需要时会调用工具，但常识问题不乱搜”；</li>
+<li>“代码 Agent 修改文件后会运行测试”；</li>
+<li>“客服 Agent 必须先验证身份再处理退款”；</li>
+<li>“研究 Agent 必须给关键结论附来源”。</li>
+</ul>
+<h3 id="step-2写清晰无歧义的-task">Step 2：写清晰、无歧义的 task</h3>
+<p>好任务应满足一个标准：<strong>两个领域专家独立判断时，应得出相同的 pass/fail 结论。</strong></p>
+<p>
+  <img src="/img/ai-agent-evals/task-case-anatomy.svg" alt="一条 Agent Eval Task 的结构">
+
+</p>
+<p>一个 task 至少应包含：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">id</span>: refund_late_delivery_001
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">input</span>: <span style="color:#f1fa8c">&#34;用户表示包裹迟到，要求退款，请根据政策处理。&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">initial_state</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">order_status</span>: delivered_late
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">refund_status</span>: none
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">identity_verified</span>: <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">success_criteria</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f1fa8c">&#34;必须先完成身份验证&#34;</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f1fa8c">&#34;必须查询退款政策&#34;</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f1fa8c">&#34;符合政策时将 refund_status 更新为 processed&#34;</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f1fa8c">&#34;最终向用户解释处理结果&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">reference_solution</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f1fa8c">&#34;verify_identity&#34;</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f1fa8c">&#34;lookup_refund_policy&#34;</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f1fa8c">&#34;process_refund&#34;</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f1fa8c">&#34;send_confirmation&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">grading</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">deterministic</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#f1fa8c">&#34;state.refund_status == &#39;processed&#39;&#34;</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#f1fa8c">&#34;tool_calls includes verify_identity before process_refund&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">llm_rubric</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#f1fa8c">&#34;是否表达共情&#34;</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#f1fa8c">&#34;解释是否清楚且不夸大&#34;</span>
+</span></span></code></pre></div><p>参考解不是为了限制 Agent 只能走一条路径，而是为了验证任务可解、grader 合理、环境配置正确。</p>
+<h3 id="step-3构建平衡样本避免单向优化">Step 3：构建平衡样本，避免单向优化</h3>
+<p>如果只测试“应该搜索”的问题，Agent 可能学成“什么都搜索”；如果只测试“应该拒绝”的危险请求，它可能变得过度保守。eval suite 应同时覆盖正反样本：</p>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>正样本</th>
+<th>反样本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Web search</td>
+<td>“今天某地天气如何？”</td>
+<td>“谁创立了 Apple？”</td>
+</tr>
+<tr>
+<td>工具调用</td>
+<td>需要查库存后再回答</td>
+<td>本地上下文已足够回答</td>
+</tr>
+<tr>
+<td>代码修改</td>
+<td>明确要求修复 bug</td>
+<td>只要求解释，不应改文件</td>
+</tr>
+<tr>
+<td>客服流程</td>
+<td>符合政策可退款</td>
+<td>不符合政策但需要解释原因</td>
+</tr>
+</tbody>
+</table>
+<p>平衡样本能防止团队把 Agent 优化成单一策略。</p>
+<p>
+  <img src="/img/ai-agent-evals/balanced-eval-grid.svg" alt="平衡样本防止 Agent 单向优化">
+
+</p>
+<h3 id="step-4构建稳定隔离的-evaluation-harness">Step 4：构建稳定、隔离的 evaluation harness</h3>
+<p>一个合格的 harness 至少应具备：</p>
+<ul>
+<li>每个 trial 独立初始化环境；</li>
+<li>支持并发运行但避免共享状态污染；</li>
+<li>记录完整 transcript、工具输入输出、环境快照；</li>
+<li>聚合 pass rate、成本、延迟、token、工具调用等指标；</li>
+<li>支持回放失败样本；</li>
+<li>尽量模拟生产 Agent，但保留可控性和可复现性。</li>
+</ul>
+<p>对 Agent 来说，harness 的质量直接影响 eval 可信度。一个有缺陷的 harness 可能让强模型被低估，也可能让脆弱 Agent 看起来表现很好。</p>
+<h3 id="step-5谨慎设计-grader">Step 5：谨慎设计 grader</h3>
+<p>评分器设计建议遵循以下顺序：</p>
+<ol>
+<li>能用确定性检查的部分优先用代码；</li>
+<li>开放式质量再用 LLM judge；</li>
+<li>高风险和争议样本交给人工；</li>
+<li>尽量评估结果，而不是强制路径；</li>
+<li>对多组件任务提供部分分；</li>
+<li>LLM judge 必须使用结构化 rubric；</li>
+<li>定期用人类专家校准 LLM judge；</li>
+<li>防止 Agent hack eval，例如硬编码测试、读取隐藏答案、绕过工具权限。</li>
+</ol>
+<h3 id="step-6读-transcript不要只看分数">Step 6：读 transcript，不要只看分数</h3>
+<p>Anthropic 原文中特别强调：<strong>Read the transcripts!</strong></p>
+<p>聚合指标告诉你“哪里失败多”，transcript 告诉你“为什么失败”。阅读失败轨迹时可以问：</p>
+<ul>
+<li>Agent 是否理解错任务？</li>
+<li>工具返回是否误导了 Agent？</li>
+<li>task 是否缺少关键约束？</li>
+<li>grader 是否拒绝了合理答案？</li>
+<li>harness 是否限制了模型能力？</li>
+<li>是否出现新的失败模式，可以沉淀为新 eval？</li>
+</ul>
+<p>如果没有 transcript，团队只能对分数做猜测；有了 transcript，eval 才能真正驱动工程迭代。</p>
+<h3 id="step-7监控饱和并维护-suite">Step 7：监控饱和并维护 suite</h3>
+<p>当某个能力集长期高分，应将其转入 regression suite，并构建更难任务。长期维护需要产品、工程、研究、客服、销售、领域专家共同参与：</p>
+<ul>
+<li>产品定义什么叫用户价值；</li>
+<li>工程保证 harness 稳定和自动化；</li>
+<li>研究或算法团队分析模型能力边界；</li>
+<li>一线团队贡献真实失败案例；</li>
+<li>专家负责高价值样本和 rubric 校准。</li>
+</ul>
+<p>这就是 eval-driven development：先把“怎样算成功”写成可运行任务，再推动 Agent 达成。</p>
+<hr>
+<h2 id="九落地参考一个生产级-agent-eval-面板应该看什么">九、落地参考：一个生产级 Agent eval 面板应该看什么</h2>
+<p>除了 pass/fail，生产级 Agent eval 应同时关注质量、稳定性、成本和风险。一个实用面板可以分成四层：</p>
+<table>
+<thead>
+<tr>
+<th>层级</th>
+<th>指标</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>任务结果</td>
+<td>pass rate、partial score、关键状态命中率</td>
+<td>Agent 是否完成任务</td>
+</tr>
+<tr>
+<td>稳定性</td>
+<td>pass@k、pass^k、方差、重试成功率</td>
+<td>是否依赖运气</td>
+</tr>
+<tr>
+<td>执行过程</td>
+<td>turn 数、工具调用次数、错误工具率、超时率</td>
+<td>是否高效、合规、可解释</td>
+</tr>
+<tr>
+<td>成本与体验</td>
+<td>token、延迟、人工接管率、用户满意度</td>
+<td>是否具备产品可用性</td>
+</tr>
+</tbody>
+</table>
+<p>对不同 Agent，面板的重点不同：</p>
+<ul>
+<li>代码 Agent：测试通过率、静态检查、diff 大小、验证命令运行率；</li>
+<li>客服 Agent：业务状态完成率、身份验证顺序、对话轮数、人工接管率；</li>
+<li>研究 Agent：引用覆盖率、来源质量、事实错误率、专家抽样一致性；</li>
+<li>浏览器 Agent：最终 UI 状态、点击路径长度、截图/DOM 工具选择、超时率。</li>
+</ul>
+<p>真正有用的 eval 面板不只是展示分数，而是能帮助团队回答三个问题：</p>
+<ol>
+<li>这次改动是否真实提升？</li>
+<li>有没有破坏已有能力？</li>
+<li>下一批最值得修的失败模式是什么？</li>
+</ol>
+<p>
+  <img src="/img/ai-agent-evals/eval-dashboard-stack.svg" alt="生产级 Agent Eval 指标面板">
+
+</p>
+<hr>
+<h2 id="十最佳实践清单">十、最佳实践清单</h2>
+<p>最后给一份可以直接用于团队评审的 checklist：</p>
+<h3 id="任务设计">任务设计</h3>
+<ul>
+<li><input disabled="" type="checkbox"> 任务来自真实用户、真实失败或明确产品目标；</li>
+<li><input disabled="" type="checkbox"> 任务描述足够清晰，专家能独立判断成败；</li>
+<li><input disabled="" type="checkbox"> 成功标准能从任务描述中推出；</li>
+<li><input disabled="" type="checkbox"> 每个任务有参考解或参考状态；</li>
+<li><input disabled="" type="checkbox"> suite 中包含正样本和反样本；</li>
+<li><input disabled="" type="checkbox"> 能力评估和回归评估分开管理。</li>
+</ul>
+<h3 id="harness-与环境">Harness 与环境</h3>
+<ul>
+<li><input disabled="" type="checkbox"> 每个 trial 使用干净环境；</li>
+<li><input disabled="" type="checkbox"> 工具、权限、网络、文件系统与生产足够接近；</li>
+<li><input disabled="" type="checkbox"> transcript、outcome、工具输入输出完整记录；</li>
+<li><input disabled="" type="checkbox"> 失败样本可以回放；</li>
+<li><input disabled="" type="checkbox"> 并发运行不会污染共享状态；</li>
+<li><input disabled="" type="checkbox"> 成本、延迟、token 和资源消耗可观测。</li>
+</ul>
+<h3 id="grader-与指标">Grader 与指标</h3>
+<ul>
+<li><input disabled="" type="checkbox"> 确定性检查覆盖所有可客观判断的条件；</li>
+<li><input disabled="" type="checkbox"> LLM judge 使用结构化 rubric；</li>
+<li><input disabled="" type="checkbox"> LLM judge 允许 <code>Unknown</code>，并要求引用证据；</li>
+<li><input disabled="" type="checkbox"> 人工评审用于高风险样本、仲裁和校准；</li>
+<li><input disabled="" type="checkbox"> 同时观察 pass@k 与 pass^k；</li>
+<li><input disabled="" type="checkbox"> 定期抽查低分和高分样本，防止 grader 漂移。</li>
+</ul>
+<h3 id="迭代机制">迭代机制</h3>
+<ul>
+<li><input disabled="" type="checkbox"> 每次重要改动前后运行核心 suite；</li>
+<li><input disabled="" type="checkbox"> 新 bug 修复后沉淀为回归任务；</li>
+<li><input disabled="" type="checkbox"> 饱和 suite 转为回归集，并构建更难能力集；</li>
+<li><input disabled="" type="checkbox"> 定期阅读 transcript，而不是只看 dashboard；</li>
+<li><input disabled="" type="checkbox"> 产品、工程、研究和领域专家共同维护 eval。</li>
+</ul>
+<hr>
+<h2 id="十一总结好的-eval-是-agent-的质量控制面">十一、总结：好的 eval 是 Agent 的质量控制面</h2>
+<p>Agent eval 的难点在于，它评估的不是一个静态文本输出，而是一个会调用工具、改变环境、产生多步轨迹的动态系统。要做好这件事，需要把评估对象从 <code>response</code> 扩展到 <code>transcript</code> 和 <code>outcome</code>，把评分器从单一规则扩展到确定性检查、LLM judge 与人工校准的组合，并把 eval suite 当成长期维护的工程资产。</p>
+<p>如果用一句话概括 Anthropic 文章带来的启示：</p>
+<blockquote>
+<p>好的 Agent eval 不是为了给模型打一个漂亮分数，而是为了让团队持续知道：Agent 现在能做什么、哪里不稳定、是否发生回归，以及下一步应该如何改进。</p>
+</blockquote>
+<p>当团队真正把 eval 接入日常开发、发布和生产监控，Agent 的迭代方式就会从“凭感觉调 prompt”转向“基于证据改系统”。这也是 AI Agent 从 demo 走向可靠产品必须跨过的一道工程门槛。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/04/29/vllm-ascend-hccl-multinode-inference/" data-toggle="tooltip" data-placement="top" title="vLLM-Ascend 多机推理HCCL通信原理深度解析">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/04/30/mindcluster-architecture-and-practice/" data-toggle="tooltip" data-placement="top" title="MindCluster 架构与实践：从 NPU 调度、故障诊断到大模型训练容错">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ascend" title="ascend">
+                            ascend
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubernetes" title="kubernetes">
+                            kubernetes
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/multi-agent" title="multi-agent">
+                            multi-agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

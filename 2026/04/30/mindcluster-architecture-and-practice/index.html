@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="MindCluster 架构与实践：从 NPU 调度、故障诊断到大模型训练容错" />
+    <meta property="og:title" content="MindCluster 架构与实践：从 NPU 调度、故障诊断到大模型训练容错" />
+    <meta property="twitter:title" content="MindCluster 架构与实践：从 NPU 调度、故障诊断到大模型训练容错" />
+    
+
+    
+    <meta name="description" content="本文遍历本地 mind-cluster 代码库，并结合昇腾社区 MindCluster 7.1.RC1 官方文档，系统梳理 MindCluster 的产品定位、组件架构、NPU 调度闭环、故障诊断、资源监测、Checkpoint 加速和训练容错能力。文章包含架构图、调度流程图、源码入口、YAML 示例和实践步骤，帮助读者理解如何用 MindCluster 构建可调度、可观测、可恢复的昇腾 AI 集群。">
+    <meta property="og:description" content="本文遍历本地 mind-cluster 代码库，并结合昇腾社区 MindCluster 7.1.RC1 官方文档，系统梳理 MindCluster 的产品定位、组件架构、NPU 调度闭环、故障诊断、资源监测、Checkpoint 加速和训练容错能力。文章包含架构图、调度流程图、源码入口、YAML 示例和实践步骤，帮助读者理解如何用 MindCluster 构建可调度、可观测、可恢复的昇腾 AI 集群。" />
+    <meta property="twitter:description" content="本文遍历本地 mind-cluster 代码库，并结合昇腾社区 MindCluster 7.1.RC1 官方文档，系统梳理 MindCluster 的产品定位、组件架构、NPU 调度闭环、故障诊断、资源监测、Checkpoint 加速和训练容错能力。文章包含架构图、调度流程图、源码入口、YAML 示例和实践步骤，帮助读者理解如何用 MindCluster 构建可调度、可观测、可恢复的昇腾 AI 集群。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>MindCluster 架构与实践：从 NPU 调度、故障诊断到大模型训练容错 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/04/30/mindcluster-architecture-and-practice/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/mindcluster" title="MindCluster">
+                            MindCluster
+                        </a>
+                        
+                        <a class="tag" href="/tags/ascend" title="Ascend">
+                            Ascend
+                        </a>
+                        
+                        <a class="tag" href="/tags/kubernetes" title="Kubernetes">
+                            Kubernetes
+                        </a>
+                        
+                    </div>
+                    <h1>MindCluster 架构与实践：从 NPU 调度、故障诊断到大模型训练容错</h1>
+                    <h2 class="subheading">从本地 mind-cluster 源码和 MindCluster 7.1.RC1 官方文档出发，拆解昇腾 NPU 集群的软件栈、调度闭环、故障诊断与训练容错机制</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Thursday, April 30, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一为什么需要-mindclusternpu-集群不是多装几个驱动">一、为什么需要 MindCluster：NPU 集群不是“多装几个驱动”</h2>
+<p>在单机单卡时代，AI 基础设施的复杂度通常集中在驱动、框架和模型代码上；到了多机多卡训练与服务化推理阶段，真正棘手的问题会变成：</p>
+<ul>
+<li>Kubernetes 如何识别并分配昇腾 NPU？</li>
+<li>调度器是否知道 NPU 之间的 HCCS、PCIe、交换机和超节点拓扑？</li>
+<li>作业启动时，谁来生成 HCCL/RankTable 等集合通信配置？</li>
+<li>芯片、节点、网络或容器故障发生后，谁来判定影响范围并触发恢复？</li>
+<li>运维侧如何收集指标、定位根因、做性能验收和软件包安全校验？</li>
+</ul>
+<p><strong>MindCluster 的价值就在于把这些能力从“平台开发者自己拼装”变成一套面向昇腾训练和推理集群的软件栈。</strong> 官方 7.1.RC1 文档将 MindCluster 能力划分为安装部署、性能测试、集群调度、故障诊断、日志收集、安全校验和参考信息等方向；本地 <code>mind-cluster</code> 代码库则进一步展示了这些能力在源码层如何拆分成多个组件。</p>
+<blockquote>
+<p>说明：本文以本地 <code>mind-cluster</code> 开源代码库为实现视角，并结合昇腾社区 MindCluster 7.1.RC1 文档导读和关键页面做架构解读。具体部署参数和兼容性以实际版本的官方文档为准。</p>
+</blockquote>
+<p>
+  <img src="/img/mindcluster/mindcluster-stack.png" alt="MindCluster 官方堆栈图">
+
+</p>
+<p>如果用一句话概括：<strong>MindCluster 是围绕昇腾 NPU 构建的 AI 集群控制面，它把底层设备、Kubernetes 调度、分布式训练通信、故障恢复和运维诊断连接成闭环。</strong></p>
+<p>
+  <img src="/img/mindcluster/architecture-control-plane.svg" alt="MindCluster 控制面全景">
+
+</p>
+<hr>
+<h2 id="二从代码库看组件版图">二、从代码库看组件版图</h2>
+<p>本地仓库的顶层结构比较清晰：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>mind-cluster/
+</span></span><span style="display:flex;"><span>├── build/          # 全组件统一构建脚本与版本配置
+</span></span><span style="display:flex;"><span>├── component/      # 核心组件源码
+</span></span><span style="display:flex;"><span>├── docker/         # 官方镜像 Dockerfile 与镜像说明
+</span></span><span style="display:flex;"><span>├── docs/           # 中文用户文档、RFC、架构图和 API 参考
+</span></span><span style="display:flex;"><span>└── tests/          # 系统测试和冒烟用例
+</span></span></code></pre></div><p>真正的主体在 <code>component/</code> 下。可以按职责把组件分成五类：</p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>组件</th>
+<th>主要职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>公共基础</td>
+<td><code>ascend-common</code></td>
+<td>公共 API、日志、文件校验、DCMI/HCCN 设备管理封装</td>
+</tr>
+<tr>
+<td>容器与资源接入</td>
+<td><code>ascend-docker-runtime</code>、<code>ascend-device-plugin</code></td>
+<td>容器内挂载 NPU 与驱动依赖；向 Kubernetes 上报 NPU 资源、健康状态与设备分配结果</td>
+</tr>
+<tr>
+<td>集群调度控制面</td>
+<td><code>ascend-for-volcano</code>、<code>ascend-operator</code>、<code>clusterd</code>、<code>infer-operator</code></td>
+<td>NPU/网络拓扑感知调度、训练任务生命周期、集群资源/故障汇总、推理服务管理</td>
+</tr>
+<tr>
+<td>观测与诊断</td>
+<td><code>npu-exporter</code>、<code>noded</code>、<code>ascend-faultdiag</code>、<code>ascend-faultdiag-online</code></td>
+<td>NPU 指标采集、节点故障检测、离线/在线故障诊断</td>
+</tr>
+<tr>
+<td>容错与恢复</td>
+<td><code>taskd</code>、<code>mindio/acp</code>、<code>mindio/tft</code>、<code>container-manager</code></td>
+<td>任务状态管理、Checkpoint 加速、TTP/UCE/ARF 训练容错、一体机容器恢复</td>
+</tr>
+</tbody>
+</table>
+<p>这套拆分非常符合“控制面 + 节点代理 + 任务侧 SDK”的云原生思路：</p>
+<ul>
+<li><strong>管理节点</strong>运行调度器、Operator、ClusterD 等全局控制面；</li>
+<li><strong>计算节点</strong>运行 Device Plugin、NodeD、NPU Exporter、Ascend Docker Runtime 等节点代理；</li>
+<li><strong>任务容器内</strong>通过环境变量、RankTable、TaskD、MindIO 等能力完成训练/推理运行时协同。</li>
+</ul>
+<hr>
+<h2 id="三安装部署层先把昇腾软件栈交付成可重复环境">三、安装部署层：先把昇腾软件栈交付成“可重复环境”</h2>
+<p>官方文档中的 <strong>Ascend Deployer</strong> 是安装部署入口。它面向昇腾训练和推理环境，支持 OS 依赖、Docker、驱动、固件、CANN、MindCluster 组件、AI 框架和 MindIE 镜像的在线/离线下载、安装和升级，并支持单机与批量部署。</p>
+<p>本地仓库则提供了源码构建链路。<code>build/build_all.sh</code> 会把各组件复制到 <code>GOPATH</code>，准备 Volcano 开源代码和 <code>ascend-docker-runtime</code> 构建依赖，然后逐个构建：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">mind_cluster</span><span style="color:#ff79c6">=(</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;ascend-device-plugin&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;ascend-docker-runtime&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;ascend-for-volcano&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;ascend-operator&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;ascend-faultdiag&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;clusterd&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;container-manager&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;infer-operator&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;mindio&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;noded&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;npu-exporter&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;taskd&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">for</span> component in <span style="color:#f1fa8c">&#34;</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">mind_cluster</span>[@]<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&#34;</span>; <span style="color:#ff79c6">do</span>
+</span></span><span style="display:flex;"><span>    ./build_each.sh <span style="color:#8be9fd;font-style:italic">$GOPATH</span> service_config.ini <span style="color:#8be9fd;font-style:italic">$component</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">done</span>
+</span></span></code></pre></div><p>对平台工程师来说，部署层的重点不是“能不能把二进制编出来”，而是要保证：</p>
+<ol>
+<li><strong>固件、驱动、CANN 与 MindCluster 组件版本匹配</strong>；</li>
+<li><strong>Kubernetes、Docker/containerd、Volcano 版本匹配</strong>；</li>
+<li><strong>管理节点和计算节点组件安装角色清晰</strong>；</li>
+<li><strong>软件包在交付前经过签名与 CRL 校验</strong>。</li>
+</ol>
+<p>官方 ToolBox 中的 <strong>Ascend Cert</strong> 正是用于软件包数字签名校验和 CRL 证书吊销列表比较更新；<strong>Ascend DMI</strong> 则面向 Atlas 标卡、板卡和模组类产品，提供带宽、算力、功耗等测试能力，可用于上线前验收和性能基线建立。</p>
+<hr>
+<h2 id="四资源接入层让-kubernetes-看见-npu">四、资源接入层：让 Kubernetes “看见” NPU</h2>
+<p>Kubernetes 原生只理解 CPU、内存、普通设备插件上报的扩展资源。昇腾 NPU 要进入调度体系，至少要经过三步：</p>
+<ol>
+<li>节点侧发现 NPU 设备和健康状态；</li>
+<li>将 NPU 注册成 Kubernetes 扩展资源；</li>
+<li>在容器启动时挂载真实设备、驱动和运行库。</li>
+</ol>
+<h3 id="41-ascend-device-plugin设备发现健康检查与分配">4.1 Ascend Device Plugin：设备发现、健康检查与分配</h3>
+<p><code>component/ascend-device-plugin/main.go</code> 是 Device Plugin 的启动入口。它解析 <code>volcanoType</code>、<code>listWatchPeriod</code>、<code>hotReset</code>、<code>presetVirtualDevice</code>、<code>shareDevCount</code>、<code>enableSlowNode</code> 等参数，初始化设备管理器后开始监听设备与 DPU 状态：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>hdm, err <span style="color:#ff79c6">:=</span> devicefactory.<span style="color:#50fa7b">InitFunction</span>()
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>hdm.<span style="color:#50fa7b">DoSetMultiDiePolicyForA3</span>()
+</span></span><span style="display:flex;"><span><span style="color:#50fa7b">setUseAscendDocker</span>()
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">go</span> hdm.<span style="color:#50fa7b">ListenDevice</span>(ctx)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">go</span> hdm.<span style="color:#50fa7b">ListenDpu</span>(ctx)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">go</span> topology.<span style="color:#50fa7b">RasTopoWriteTask</span>(ctx, hdm)
+</span></span><span style="display:flex;"><span>duplicatedetector.<span style="color:#50fa7b">CheckDuplicateDevices</span>(ctx, <span style="color:#ff79c6">&amp;</span>types.DetectorConfig{
+</span></span><span style="display:flex;"><span>    CriEndpoint: <span style="color:#f1fa8c">&#34;&#34;</span>,
+</span></span><span style="display:flex;"><span>    RuntimeType: hdm.ContainerRuntime,
+</span></span><span style="display:flex;"><span>})
+</span></span></code></pre></div><p>它承担的关键职责包括：</p>
+<ul>
+<li>从驱动/DCMI 获取设备类型、数量和健康状态；</li>
+<li>将 NPU 资源上报给 kubelet；</li>
+<li>将芯片状态、故障信息、拓扑信息上报给 ClusterD 或调度器；</li>
+<li>在资源挂载阶段，把调度器选中的芯片编号写入 Pod 注解/环境变量；</li>
+<li>支持 vNPU、软切分、热复位、故障升级等高级能力。</li>
+</ul>
+<h3 id="42-ascend-docker-runtime容器运行时适配">4.2 Ascend Docker Runtime：容器运行时适配</h3>
+<p><code>component/ascend-docker-runtime</code> 基于 OCI hook 思路工作。官方 README 中说明，它不修改 Docker 引擎，而是在 <code>runc</code> 启动容器的 <code>prestart-hook</code> 阶段完成：</p>
+<ul>
+<li>根据 <code>ASCEND_VISIBLE_DEVICES</code> 挂载指定 NPU 设备；</li>
+<li>配置 device cgroup，限制容器只能访问指定设备；</li>
+<li>挂载 Host 上的 CANN Runtime Library。</li>
+</ul>
+<p>
+  <img src="/img/mindcluster/ascend-docker-runtime-hook.png" alt="Ascend Docker Runtime 适配原理">
+
+</p>
+<p>从云原生角度看，Device Plugin 负责“资源分配”，Docker Runtime 负责“运行时兑现”。前者告诉 Kubernetes 这个 Pod 应该拿哪张卡，后者把对应设备真正放进容器 namespace。</p>
+<hr>
+<h2 id="五调度控制面npu-亲和性不是简单的数量匹配">五、调度控制面：NPU 亲和性不是简单的数量匹配</h2>
+<p>MindCluster 调度能力的核心在 <code>component/ascend-for-volcano</code>。官方文档说明，集群调度组件基于 Kubernetes，增加了昇腾 NPU 的资源管理、优化调度和分布式训练集合通信配置能力；本地代码则显示其通过 Volcano 插件机制实现 NPU 亲和性调度、交换机亲和性调度、多级调度和故障重调度。</p>
+<p>
+  <img src="/img/mindcluster/ascend-910-topology.png" alt="Ascend 910 AI Processor 互联拓扑">
+
+</p>
+<p>以 Ascend 910 为例，单节点 8 颗处理器之间并不是“任意几张卡都等价”。<code>ascend-for-volcano/README.md</code> 中说明：每台物理设备具备 8 颗处理器、两个 HCCS；同一 HCCS 内可通信，不同 HCCS 内不能直接通信。因此，一个 Pod 申请 1/2/4/8 张 NPU 时，调度器需要考虑：</p>
+<ul>
+<li>小于等于 4 张时尽量放入同一个 HCCS；</li>
+<li>优先占满已有分配，减少资源碎片；</li>
+<li>剩余资源尽量保持偶数，便于后续任务继续成组分配。</li>
+</ul>
+<h3 id="51-volcano-插件如何接入调度周期">5.1 Volcano 插件如何接入调度周期</h3>
+<p><code>component/ascend-for-volcano/npu.go</code> 是插件入口。<code>OnSessionOpen</code> 中注册了多个 Volcano 回调：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> (tp <span style="color:#ff79c6">*</span>huaweiNPUPlugin) <span style="color:#50fa7b">OnSessionOpen</span>(ssn <span style="color:#ff79c6">*</span>framework.Session) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">:=</span> tp.Scheduler.<span style="color:#50fa7b">InitNPUSession</span>(ssn); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    ssn.<span style="color:#50fa7b">AddJobValidFn</span>(tp.<span style="color:#50fa7b">Name</span>(), <span style="color:#8be9fd;font-style:italic">func</span>(obj <span style="color:#8be9fd;font-style:italic">interface</span>{}) <span style="color:#ff79c6">*</span>api.ValidateResult {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> tp.Scheduler.<span style="color:#50fa7b">JobValid</span>(obj)
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">addPredicateFn</span>(ssn, tp)
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">addBatchNodeOrderFn</span>(ssn, tp)
+</span></span><span style="display:flex;"><span>    ssn.<span style="color:#50fa7b">AddJobReadyFn</span>(tp.<span style="color:#50fa7b">Name</span>(), <span style="color:#8be9fd;font-style:italic">func</span>(obj <span style="color:#8be9fd;font-style:italic">interface</span>{}) <span style="color:#8be9fd">bool</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">jobReady</span>(obj, tp)
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>    ssn.<span style="color:#50fa7b">AddJobEnqueueableFn</span>(tp.<span style="color:#50fa7b">Name</span>(), <span style="color:#8be9fd;font-style:italic">func</span>(job <span style="color:#8be9fd;font-style:italic">interface</span>{}) <span style="color:#8be9fd">int</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">jobEnqueueable</span>(job, ssn, tp)
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">addEventHandler</span>(ssn, tp)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这段代码可以拆成五个阶段理解：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>Volcano 回调</th>
+<th>MindCluster 做什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>作业校验</td>
+<td><code>AddJobValidFn</code></td>
+<td>校验 NPU 请求、调度策略、Gang 调度等作业级约束</td>
+</tr>
+<tr>
+<td>节点过滤</td>
+<td><code>AddPredicateFn</code></td>
+<td>排除数量够但拓扑不满足的节点</td>
+</tr>
+<tr>
+<td>节点打分</td>
+<td><code>AddBatchNodeOrderFn</code></td>
+<td>根据 HCCS、交换机、多级拓扑等策略选择最优节点和芯片</td>
+</tr>
+<tr>
+<td>资源落盘</td>
+<td><code>AddEventHandler</code></td>
+<td>在 Allocate/Deallocate 时维护节点芯片占用，避免并发重复分配</td>
+</tr>
+<tr>
+<td>作业状态</td>
+<td><code>AddJobReadyFn</code>、<code>AddJobEnqueueableFn</code></td>
+<td>控制作业是否可入队、是否达到最小可用副本</td>
+</tr>
+</tbody>
+</table>
+<p>
+  <img src="/img/mindcluster/scheduling-flow.svg" alt="Ascend for Volcano 调度闭环">
+
+</p>
+<h3 id="52-策略工厂从-schedule-policy-到具体调度器">5.2 策略工厂：从 <code>schedule-policy</code> 到具体调度器</h3>
+<p><code>component/ascend-for-volcano/internal/npu/factory.go</code> 是策略分发中心。它根据作业的 NPU 类型、节点标签、<code>accelerator-type</code> 和调度策略注解，选择不同的处理器：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">var</span> policy910HandlerMap = <span style="color:#8be9fd;font-style:italic">map</span>[<span style="color:#8be9fd">string</span>]<span style="color:#8be9fd">string</span>{
+</span></span><span style="display:flex;"><span>    util.Chip8Node8:       module910bx8Name,
+</span></span><span style="display:flex;"><span>    util.Chip8Node16:      module910bx16.SchedulerName,
+</span></span><span style="display:flex;"><span>    util.Chip2Node16Sp:    superpod.A3x16SchedulerName,
+</span></span><span style="display:flex;"><span>    util.Chip8Node8Sp:     chip8node8sp.SchedulePolicy8Px8Sp,
+</span></span><span style="display:flex;"><span>    util.Chip8Node8Ra64Sp: chip8node8ra64sp.SchedulePolicy8Px8Ra64Sp,
+</span></span><span style="display:flex;"><span>    util.MultiLevel:       multilevelscheduling.MultiLevelHandlerName,
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这种设计有两个好处：</p>
+<ol>
+<li><strong>硬件形态解耦</strong>：310、310P、910、910B、910A3、超节点、vNPU 等策略可分别实现；</li>
+<li><strong>调度策略可扩展</strong>：新增多级网络亲和性、软切分或超节点策略时，不必重写 Volcano 插件主流程。</li>
+</ol>
+<p><code>internal/controller.go</code> 进一步把 NPU 策略和 NSLB（网络/交换机亲和性）策略组合起来：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> (c <span style="color:#ff79c6">*</span>Controller) <span style="color:#50fa7b">SetPolicyHandler</span>(attr util.SchedulerJobAttr, env plugin.ScheduleEnv) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> handler, ok <span style="color:#ff79c6">:=</span> npu.<span style="color:#50fa7b">InitPolicyHandler</span>(attr, env); ok {
+</span></span><span style="display:flex;"><span>        c.PolicyHandler = <span style="color:#8be9fd;font-style:italic">append</span>(c.PolicyHandler, handler)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> handler, ok <span style="color:#ff79c6">:=</span> nslb.<span style="color:#50fa7b">InitPolicyHandler</span>(attr, env); ok {
+</span></span><span style="display:flex;"><span>        c.PolicyHandler = <span style="color:#8be9fd;font-style:italic">append</span>(c.PolicyHandler, handler)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>因此，一次调度决策既可以考虑 NPU 芯片内部拓扑，也可以考虑节点间交换机拓扑和多级网络结构。</p>
+<p>
+  <img src="/img/mindcluster/volcano-affinity-flow.png" alt="NPU 亲和性算法流程">
+
+</p>
+<hr>
+<h2 id="六clusterd集群故障与资源信息的汇聚层">六、ClusterD：集群故障与资源信息的“汇聚层”</h2>
+<p>如果 Device Plugin 是每个节点的“设备眼睛”，ClusterD 就是管理节点上的“集群大脑”。官方文档和 <code>docker/clusterd/OVERVIEW.zh.md</code> 都强调：ClusterD 收集集群任务、资源、故障信息及影响范围，从任务、芯片和故障维度统计分析，统一判定故障处理级别和策略。</p>
+<p><code>component/clusterd/main.go</code> 展示了它启动后的几类工作：</p>
+<ul>
+<li>初始化 Kubernetes 客户端与 informers；</li>
+<li>注册 Pod、PodGroup、VCJob、ACJob、ConfigMap、节点、公共故障等处理函数；</li>
+<li>启动 gRPC Server，向上层和任务侧提供资源/故障/恢复接口；</li>
+<li>启动故障处理中心、任务统计、调度异常检查、公共故障处理。</li>
+</ul>
+<p>关键初始化逻辑可以概括为：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">startInformer</span>(ctx context.Context) {
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">addResourceFunc</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">addJobFunc</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">addEpRankTableFunc</span>()
+</span></span><span style="display:flex;"><span>    kube.<span style="color:#50fa7b">InitCMInformer</span>()
+</span></span><span style="display:flex;"><span>    kube.<span style="color:#50fa7b">InitPubFaultCMInformer</span>()
+</span></span><span style="display:flex;"><span>    kube.<span style="color:#50fa7b">InitPodAndNodeInformer</span>()
+</span></span><span style="display:flex;"><span>    kube.<span style="color:#50fa7b">InitPodGroupInformer</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">go</span> kube.<span style="color:#50fa7b">InitACJobInformer</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">go</span> kube.<span style="color:#50fa7b">InitVCJobInformer</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">go</span> jobv2.<span style="color:#50fa7b">Handler</span>(ctx)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">go</span> jobv2.<span style="color:#50fa7b">Checker</span>(ctx)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">go</span> resource.<span style="color:#50fa7b">Report</span>(ctx)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>ClusterD 的价值在故障场景中最明显：单个节点只知道“我这里有芯片故障或节点故障”，但分布式训练需要知道“这个故障影响哪些 rank、哪些 Pod、是否需要单 Pod 重调度、整作业重调度、进程级恢复还是仅隔离故障资源”。这类全局判断必须由集群侧组件完成。</p>
+<hr>
+<h2 id="七ascend-operator把训练任务变成可运行的分布式作业">七、Ascend Operator：把训练任务变成可运行的分布式作业</h2>
+<p><code>component/ascend-operator</code> 负责训练任务生命周期管理。README 中说明它支持 MindSpore、PyTorch、TensorFlow 等框架在 Kubernetes 上进行分布式训练，通过 <code>AscendJob</code> CRD 定义任务。</p>
+<p><code>main.go</code> 中注册了 Kubernetes、Volcano、MindCluster CRD scheme，并启动 Reconciler：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>mgr, err <span style="color:#ff79c6">:=</span> ctrl.<span style="color:#50fa7b">NewManager</span>(<span style="color:#50fa7b">initKubeConfig</span>(), ctrl.Options{
+</span></span><span style="display:flex;"><span>    Scheme:             runtimeScheme,
+</span></span><span style="display:flex;"><span>    MetricsBindAddress: <span style="color:#f1fa8c">&#34;0&#34;</span>,
+</span></span><span style="display:flex;"><span>})
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> err = v1.<span style="color:#50fa7b">NewReconciler</span>(mgr, enableGangScheduling).<span style="color:#50fa7b">SetupWithManager</span>(mgr); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>mgr.<span style="color:#50fa7b">Start</span>(ctrl.<span style="color:#50fa7b">SetupSignalHandler</span>())
+</span></span></code></pre></div><p>一个简化的 <code>AscendJob</code> 训练样例如下，来自本地 <code>tests/st/testcases/basic_schedule/training_910b/resources_0001/job_llama-1x8.yaml</code> 的核心字段：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">apiVersion</span>: mindxdl.gitee.com/v1
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">kind</span>: AscendJob
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">metadata</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">name</span>: default-test-1x8
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">namespace</span>: trjob
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">labels</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">framework</span>: pytorch
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">fault-scheduling</span>: <span style="color:#f1fa8c">&#34;force&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">pod-rescheduling</span>: <span style="color:#f1fa8c">&#34;on&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">spec</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">schedulerName</span>: volcano
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">runPolicy</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">schedulingPolicy</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">minAvailable</span>: <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">queue</span>: default
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">replicaSpecs</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">Master</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">replicas</span>: <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">template</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">spec</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">hostNetwork</span>: <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">containers</span>:
+</span></span><span style="display:flex;"><span>          - <span style="color:#ff79c6">name</span>: ascend
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">image</span>: ubuntu:22.04
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">env</span>:
+</span></span><span style="display:flex;"><span>            - <span style="color:#ff79c6">name</span>: ASCEND_VISIBLE_DEVICES
+</span></span><span style="display:flex;"><span>              <span style="color:#ff79c6">valueFrom</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">fieldRef</span>:
+</span></span><span style="display:flex;"><span>                  <span style="color:#ff79c6">fieldPath</span>: metadata.annotations[&#39;huawei.com/Ascend910&#39;]
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">resources</span>:
+</span></span><span style="display:flex;"><span>              <span style="color:#ff79c6">limits</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">huawei.com/Ascend910</span>: <span style="color:#bd93f9">8</span>
+</span></span><span style="display:flex;"><span>              <span style="color:#ff79c6">requests</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">huawei.com/Ascend910</span>: <span style="color:#bd93f9">8</span>
+</span></span></code></pre></div><p>这里有几个关键点：</p>
+<ul>
+<li><code>schedulerName: volcano</code> 让任务进入 Volcano 调度器；</li>
+<li><code>huawei.com/Ascend910: 8</code> 表示请求 8 张 Ascend 910 NPU；</li>
+<li><code>ASCEND_VISIBLE_DEVICES</code> 从 Pod annotation 中取值，这正是调度器和 Device Plugin 传递芯片选择结果的关键通道；</li>
+<li><code>fault-scheduling</code>、<code>pod-rescheduling</code>、<code>fault-retry-times</code> 等标签参与故障重调度策略。</li>
+</ul>
+<p>换句话说，Ascend Operator 负责把“训练任务”转化为 Kubernetes 资源对象，并注入集合通信所需的环境变量和 RankTable；Volcano 插件负责把这些 Pod 放到最合适的 NPU 上；Device Plugin 和 Runtime 负责最终挂载设备。</p>
+<hr>
+<h2 id="八资源监测npu-exporter-与-noded">八、资源监测：NPU Exporter 与 NodeD</h2>
+<h3 id="81-npu-exporter把设备指标暴露给-prometheustelegraf">8.1 NPU Exporter：把设备指标暴露给 Prometheus/Telegraf</h3>
+<p>官方文档将 NPU Exporter 定位为实时监测昇腾 AI 处理器资源指标的组件。本地 <code>component/npu-exporter/cmd/npu-exporter/main.go</code> 显示，它启动后会：</p>
+<ol>
+<li>初始化 DCMI 设备管理器；</li>
+<li>初始化容器运行时解析器，从 CRI 获取容器与设备关系；</li>
+<li>创建 NPU 指标采集器；</li>
+<li>注册插件指标；</li>
+<li>根据 <code>platform</code> 参数以 Prometheus 或 Telegraf 方式输出。</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>dmgr, err <span style="color:#ff79c6">:=</span> devmanager.<span style="color:#50fa7b">AutoInit</span>(<span style="color:#f1fa8c">&#34;&#34;</span>, deviceResetTimeout)
+</span></span><span style="display:flex;"><span>deviceParser <span style="color:#ff79c6">:=</span> container.<span style="color:#50fa7b">MakeDevicesParser</span>(<span style="color:#50fa7b">readCntMonitoringFlags</span>())
+</span></span><span style="display:flex;"><span>colcommon.Collector = colcommon.<span style="color:#50fa7b">NewNpuCollector</span>(
+</span></span><span style="display:flex;"><span>    cacheTime,
+</span></span><span style="display:flex;"><span>    time.<span style="color:#50fa7b">Duration</span>(updateTime)<span style="color:#ff79c6">*</span>time.Second,
+</span></span><span style="display:flex;"><span>    deviceParser,
+</span></span><span style="display:flex;"><span>    dmgr,
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>plugins.<span style="color:#50fa7b">RegisterPlugin</span>()
+</span></span><span style="display:flex;"><span>config.<span style="color:#50fa7b">Register</span>(colcommon.Collector)
+</span></span><span style="display:flex;"><span>colcommon.<span style="color:#50fa7b">StartCollect</span>(wg, ctx, colcommon.Collector)
+</span></span></code></pre></div><p><code>component/npu-exporter/plugins/README.md</code> 还提供了自定义插件机制。用户实现 <code>MetricCollector</code> 的 <code>Describe</code>、<code>CollectToCache</code>、<code>UpdatePrometheus</code>、<code>UpdateTelegraf</code> 等接口后，就可以把自定义 NPU 指标接入采集链路。</p>
+<h3 id="82-noded节点健康状态与慢节点检测">8.2 NodeD：节点健康状态与慢节点检测</h3>
+<p>NodeD 负责节点状态上报。README 中说明它从 IPMI 获取 CPU、内存、硬盘故障信息并上报给 ClusterD。<code>main.go</code> 还显示它会启动监控、ConfigMap watcher、PingMesh，并集成在线故障诊断：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">go</span> monitorManager.<span style="color:#50fa7b">Run</span>(ctx)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">go</span> configmap.<span style="color:#50fa7b">GetCmWatcher</span>().<span style="color:#50fa7b">Watch</span>(ctx.<span style="color:#50fa7b">Done</span>())
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> pingmeshManager <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">go</span> pingmeshManager.<span style="color:#50fa7b">Run</span>(ctx)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>fdol.<span style="color:#50fa7b">StartFDOnline</span>(fdConfigPath, []<span style="color:#8be9fd">string</span>{<span style="color:#f1fa8c">&#34;slowNode&#34;</span>}, <span style="color:#f1fa8c">&#34;node&#34;</span>)
+</span></span></code></pre></div><p>这使 NodeD 不只是“节点心跳”，还承担了网络探测、慢节点识别和故障信息回流的职责。</p>
+<hr>
+<h2 id="九故障诊断与恢复从日志证据到自动重调度">九、故障诊断与恢复：从日志证据到自动重调度</h2>
+<p>MindCluster 的故障能力可以分成两条链路：</p>
+<ol>
+<li><strong>在线故障处理链路</strong>：Device Plugin / NodeD / ClusterD / Volcano / TaskD 共同完成故障感知和恢复；</li>
+<li><strong>离线诊断链路</strong>：FaultDiag 对日志和指标做清洗、汇总、根因分析与报告输出。</li>
+</ol>
+<h3 id="91-在线重调度rescheduler-如何接入-volcano">9.1 在线重调度：Rescheduler 如何接入 Volcano</h3>
+<p><code>component/ascend-for-volcano/internal/rescheduling/frame.go</code> 中，<code>ReScheduler.Execute</code> 会在调度 session 中同步故障缓存、故障节点、故障作业和剩余重试次数，然后决定是否重启或重调度作业：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> (reScheduler <span style="color:#ff79c6">*</span>ReScheduler) <span style="color:#50fa7b">Execute</span>(env <span style="color:#ff79c6">*</span>plugin.ScheduleEnv, ssn <span style="color:#ff79c6">*</span>framework.Session) <span style="color:#8be9fd">error</span> {
+</span></span><span style="display:flex;"><span>    reScheduler.<span style="color:#50fa7b">initialize</span>(env)
+</span></span><span style="display:flex;"><span>    reScheduler.<span style="color:#50fa7b">AddFaultNodeWithSession</span>()
+</span></span><span style="display:flex;"><span>    reScheduler.<span style="color:#50fa7b">synCacheFaultJobWithSession</span>(ssn)
+</span></span><span style="display:flex;"><span>    reScheduler.<span style="color:#50fa7b">SyncJobRemainRetryTimes</span>(ssn)
+</span></span><span style="display:flex;"><span>    reScheduler.<span style="color:#50fa7b">SyncJobRecentRescheduleReason</span>(ssn)
+</span></span><span style="display:flex;"><span>    reScheduler.<span style="color:#50fa7b">RestartNeedForceDeleteJobs</span>(ssn, <span style="color:#ff79c6">*</span>env)
+</span></span><span style="display:flex;"><span>    runningJobs <span style="color:#ff79c6">:=</span> reScheduler.<span style="color:#50fa7b">GetRunningJobs</span>(ssn)
+</span></span><span style="display:flex;"><span>    reScheduler.<span style="color:#50fa7b">AddFaultJobWithSession</span>(runningJobs, <span style="color:#ff79c6">*</span>env)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> reScheduler.<span style="color:#50fa7b">RestartFaultJobs</span>(ssn, <span style="color:#ff79c6">*</span>env)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这说明 MindCluster 的重调度并非简单删除 Pod，而是维护了故障节点、故障作业、重试次数、近期重调度原因、故障 rank 等状态。对于长时间运行的大模型训练来说，这些状态是避免“盲目重启”和“重复震荡”的基础。</p>
+<h3 id="92-faultdiag日志清洗根因节点和故障事件分析">9.2 FaultDiag：日志清洗、根因节点和故障事件分析</h3>
+<p>官方 FaultDiag 文档强调，该工具会读取并处理用户采集的原日志和监测指标文件，用户需要确保输入目录不包含敏感信息和个人数据。本地 <code>component/ascend-faultdiag</code> 代码展示了更完整的实现：</p>
+<ul>
+<li><code>src/ascend_fd/cli.py</code>：提供 <code>parse</code>、<code>diag</code>、<code>single-diag</code>、<code>entity</code>、<code>blacklist</code>、<code>config</code> 等命令；</li>
+<li><code>controller/controller.py</code>：<code>ParseController</code> 和 <code>DiagController</code> 分别负责日志清洗和诊断任务编排；</li>
+<li><code>pkg/parse/knowledge_graph/parser/</code>：CANN、MindIE、MindIO、Device Plugin、NodeD、Volcano、训练日志等解析器；</li>
+<li><code>pkg/diag/knowledge_graph/</code>、<code>root_cluster/</code>、<code>network_congestion/</code>、<code>node_anomaly/</code>：故障事件、根因节点、网络拥塞和节点异常诊断。</li>
+</ul>
+<p>
+  <img src="/img/mindcluster/faultdiag-pipeline.svg" alt="FaultDiag 诊断流水线">
+
+</p>
+<p>基础使用流程可以简化为：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 1. 日志清洗：从原始日志中提取有效信息</span>
+</span></span><span style="display:flex;"><span>ascend-fd parse -i /data/raw_logs -o /data/parsed_logs
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 2. 多节点清洗结果汇总后做故障诊断</span>
+</span></span><span style="display:flex;"><span>ascend-fd diag -i /data/cluster_parsed_logs -o /data/diag_result
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 3. 如需性能劣化诊断，启用 performance 模式</span>
+</span></span><span style="display:flex;"><span>ascend-fd diag -i /data/cluster_parsed_logs -o /data/diag_result -p
+</span></span></code></pre></div><p>
+  <img src="/img/mindcluster/faultdiag-basic-scenario.png" alt="FaultDiag 基础应用场景">
+
+</p>
+<h3 id="93-faultdiag-toolkit轻量链路诊断">9.3 FaultDiag Toolkit：轻量链路诊断</h3>
+<p><code>component/ascend-faultdiag/toolkit_src</code> 是链路故障诊断工具。README 明确说明它提供从 PC 或单台服务器远程访问集群设备采集数据诊断的能力，支持交互式和非交互式模式。</p>
+<p>典型场景包括：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>在线故障诊断：
+</span></span><span style="display:flex;"><span>1. 准备 conn.ini
+</span></span><span style="display:flex;"><span>2. set_conn_config conn.ini
+</span></span><span style="display:flex;"><span>3. auto_collect_diag
+</span></span><span style="display:flex;"><span>4. 查看诊断报告
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>离线日志分析：
+</span></span><span style="display:flex;"><span>1. 设置 host / bmc / switch 日志目录
+</span></span><span style="display:flex;"><span>2. auto_collect_diag
+</span></span><span style="display:flex;"><span>3. 查看诊断报告
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>跨网络平面采集：
+</span></span><span style="display:flex;"><span>1. 多个网络平面分别 auto_collect
+</span></span><span style="display:flex;"><span>2. 汇总后 auto_diag
+</span></span></code></pre></div><p>其 CLI 入口在 <code>ascend_fd_tk/cli.py</code>，命令模型在 <code>core/cli_module/cli_model.py</code>；<code>examples/auto_diag/auto_collect.py</code> 展示了并发采集 Host、BMC、交换机、L1 HCCS 信息的编排方式。</p>
+<hr>
+<h2 id="十训练容错taskdmindio-acp-与-mindio-tft">十、训练容错：TaskD、MindIO ACP 与 MindIO TFT</h2>
+<p>对于大模型训练，最昂贵的不是单次失败，而是失败后的恢复时间和已消耗算力损失。MindCluster 在这部分提供了三类能力。</p>
+<h3 id="101-taskd任务状态管理与任务侧控制">10.1 TaskD：任务状态管理与任务侧控制</h3>
+<p><code>component/taskd</code> 是一个 Python + Go/cgo 组合组件。README 中说明它负责训练和推理任务的状态管理，包括进程生命周期管理和状态采集。</p>
+<p>源码中可以看到两条线：</p>
+<ul>
+<li>Python 侧：<code>taskd/python/framework/manager/controller.py</code>、<code>worker/worker.py</code> 面向训练框架暴露 manager/worker 能力；</li>
+<li>Go 侧：<code>taskd/go/backend_api.go</code> 通过 <code>//export</code> 暴露 C ABI，例如 <code>InitWorker</code>、<code>RegisterSwitchCallback</code>、<code>RegisterStressTestCallback</code>。</li>
+</ul>
+<p>它与 MindIO TFT 结合后，可以把训练进程状态、故障 rank、恢复策略等信息传给任务侧。</p>
+<h3 id="102-mindio-acpcheckpoint-保存加载加速">10.2 MindIO ACP：Checkpoint 保存/加载加速</h3>
+<p><code>component/mindio/acp/README.md</code> 将 ACP 定位为 <strong>Async CheckPoint Persistence</strong>：Checkpoint 数据先写入训练服务器内存系统，再异步写入后端可靠存储，从而降低训练主流程等待 I/O 的时间。</p>
+<p>
+  <img src="/img/mindcluster/mindio-acp.png" alt="MindIO ACP 架构">
+
+</p>
+<p>它的核心适用场景是大模型训练中的 Checkpoint 保存和加载加速，构建产物以 Python wheel 形式提供：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">cd</span> mind-cluster/component/mindio/acp/build
+</span></span><span style="display:flex;"><span>bash build.sh
+</span></span><span style="display:flex;"><span>pip3 install mindio_acp-<span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">version</span><span style="color:#f1fa8c">}</span>-py3-none-linux_<span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">arch</span><span style="color:#f1fa8c">}</span>.whl --force-reinstall
+</span></span></code></pre></div><h3 id="103-mindio-tftttpucearf-训练容错">10.3 MindIO TFT：TTP、UCE、ARF 训练容错</h3>
+<p><code>component/mindio/tft/README.md</code> 对 TFT 的定位更偏运行时容错。它包括：</p>
+<ul>
+<li><strong>TTP（Try To Persist）</strong>：故障发生后生成临终 Checkpoint，减少迭代损失；</li>
+<li><strong>UCE</strong>：片上内存不可纠错错误的 Step 级重计算和在线修复；</li>
+<li><strong>ARF（Air Refuelling）</strong>：异常故障时以节点或进程为单位快速恢复，而非停止整个集群；</li>
+<li>网络故障快速恢复、亚健康热切、在线压测/借轨回切等能力。</li>
+</ul>
+<p>
+  <img src="/img/mindcluster/mindio-tft.png" alt="MindIO TFT 架构">
+
+</p>
+<p>源码层看，TaskD 会调用 <code>mindio_ttp.controller_ttp</code> 中的 <code>tft_init_controller</code>、<code>tft_start_controller</code>、<code>tft_notify_controller_dump</code>、<code>tft_notify_controller_change_strategy</code> 等接口，将控制面的恢复决策和训练框架侧的恢复动作连接起来。</p>
+<hr>
+<h2 id="十一推理服务与一体机场景">十一、推理服务与一体机场景</h2>
+<p>除了训练任务，MindCluster 也覆盖推理服务和一体机场景。</p>
+<h3 id="111-infer-operator">11.1 Infer Operator</h3>
+<p><code>component/infer-operator</code> 是 Kubernetes Operator，README 中说明它定义了 <code>InferServiceSet</code>、<code>InferService</code>、<code>InstanceSet</code> 三类 CRD，用于部署和管理多角色协作的推理任务。<code>main.go</code> 中启动多个 Reconciler，面向 Deployment、StatefulSet、Service、PodGroup 等资源做生命周期管理。</p>
+<p>这类能力适合 vLLM、SGLang、MindIE Motor 等推理服务场景：平台侧提交一个推理服务声明，Operator 负责把多角色实例、服务发现、扩缩容和故障恢复落到 Kubernetes 资源上。</p>
+<h3 id="112-container-manager">11.2 Container Manager</h3>
+<p><code>component/container-manager</code> 面向无 Kubernetes 的一体机场景。README 中说明它支持故障管理、故障芯片和故障容器自动恢复，提供 <code>run</code> 与 <code>status</code> 两个命令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>./container-manager run -ctrStrategy<span style="color:#ff79c6">=</span>&lt;ctrStrategy&gt; -sockPath<span style="color:#ff79c6">=</span>&lt;sockPath&gt;
+</span></span><span style="display:flex;"><span>./container-manager status
+</span></span></code></pre></div><p>这说明 MindCluster 并不只服务标准 K8s 集群，也给边缘、一体机、弱控制面环境预留了轻量恢复路径。</p>
+<hr>
+<h2 id="十二实践路线如何把这些组件串起来">十二、实践路线：如何把这些组件串起来</h2>
+<p>如果要在一套昇腾训练集群上落地 MindCluster，可以按以下路径推进。</p>
+<h3 id="121-准备环境与基础软件">12.1 准备环境与基础软件</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 查询 Kubernetes 节点</span>
+</span></span><span style="display:flex;"><span>kubectl get node
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 给计算节点打标签，供调度器识别硬件形态</span>
+</span></span><span style="display:flex;"><span>kubectl label nodes worker01 node-role.kubernetes.io/worker<span style="color:#ff79c6">=</span>worker --overwrite
+</span></span><span style="display:flex;"><span>kubectl label nodes worker01 <span style="color:#8be9fd;font-style:italic">workerselector</span><span style="color:#ff79c6">=</span>dls-worker-node --overwrite
+</span></span><span style="display:flex;"><span>kubectl label nodes worker01 host-arch<span style="color:#ff79c6">=</span>huawei-arm --overwrite
+</span></span><span style="display:flex;"><span>kubectl label nodes worker01 <span style="color:#8be9fd;font-style:italic">accelerator</span><span style="color:#ff79c6">=</span>huawei-Ascend910 --overwrite
+</span></span><span style="display:flex;"><span>kubectl label nodes worker01 accelerator-type<span style="color:#ff79c6">=</span>module-910b-8 --overwrite
+</span></span><span style="display:flex;"><span>kubectl label nodes worker01 <span style="color:#8be9fd;font-style:italic">nodeDEnable</span><span style="color:#ff79c6">=</span>on --overwrite
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 创建 MindCluster 命名空间</span>
+</span></span><span style="display:flex;"><span>kubectl create ns mindx-dl
+</span></span></code></pre></div><h3 id="122-安装节点侧组件">12.2 安装节点侧组件</h3>
+<p>计算节点通常需要：</p>
+<ul>
+<li><code>Ascend Docker Runtime</code>：容器内挂载 NPU 与 CANN 依赖；</li>
+<li><code>Ascend Device Plugin</code>：NPU 发现、健康检查与分配；</li>
+<li><code>NodeD</code>：节点故障检测；</li>
+<li><code>NPU Exporter</code>：NPU 指标暴露。</li>
+</ul>
+<p>管理节点通常需要：</p>
+<ul>
+<li><code>Volcano + Ascend for Volcano</code>；</li>
+<li><code>ClusterD</code>；</li>
+<li><code>Ascend Operator</code>；</li>
+<li>按需安装 <code>Infer Operator</code>、FaultDiag 或 ToolBox 工具。</li>
+</ul>
+<h3 id="123-提交训练任务">12.3 提交训练任务</h3>
+<p>提交作业时重点检查三类字段：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">spec</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">schedulerName</span>: volcano
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">runPolicy</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">schedulingPolicy</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">minAvailable</span>: <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">queue</span>: default
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">replicaSpecs</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">Master</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">template</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">spec</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">containers</span>:
+</span></span><span style="display:flex;"><span>          - <span style="color:#ff79c6">name</span>: ascend
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">env</span>:
+</span></span><span style="display:flex;"><span>            - <span style="color:#ff79c6">name</span>: ASCEND_VISIBLE_DEVICES
+</span></span><span style="display:flex;"><span>              <span style="color:#ff79c6">valueFrom</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">fieldRef</span>:
+</span></span><span style="display:flex;"><span>                  <span style="color:#ff79c6">fieldPath</span>: metadata.annotations[&#39;huawei.com/Ascend910&#39;]
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">resources</span>:
+</span></span><span style="display:flex;"><span>              <span style="color:#ff79c6">limits</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">huawei.com/Ascend910</span>: <span style="color:#bd93f9">8</span>
+</span></span><span style="display:flex;"><span>              <span style="color:#ff79c6">requests</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">huawei.com/Ascend910</span>: <span style="color:#bd93f9">8</span>
+</span></span></code></pre></div><ul>
+<li><code>schedulerName</code> 决定是否进入 Volcano；</li>
+<li><code>resources</code> 决定申请多少 NPU；</li>
+<li><code>ASCEND_VISIBLE_DEVICES</code> 决定容器内使用哪些调度器选中的芯片。</li>
+</ul>
+<h3 id="124-观测与诊断">12.4 观测与诊断</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># Prometheus 模式采集 NPU 指标，常见暴露端口为 npu-exporter 启动参数配置</span>
+</span></span><span style="display:flex;"><span>kubectl -n mindx-dl get pods -o wide
+</span></span><span style="display:flex;"><span>kubectl -n mindx-dl logs &lt;npu-exporter-pod&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 作业失败后，收集日志并使用 FaultDiag 分析</span>
+</span></span><span style="display:flex;"><span>ascend-fd parse -i /data/raw_logs -o /data/parsed_logs
+</span></span><span style="display:flex;"><span>ascend-fd diag -i /data/cluster_parsed_logs -o /data/diag_result
+</span></span></code></pre></div><p>如果是链路类问题，还可以用 FaultDiag Toolkit：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>set_conn_config conn.ini
+</span></span><span style="display:flex;"><span>auto_collect_diag
+</span></span></code></pre></div><hr>
+<h2 id="十三源码阅读建议按控制闭环而不是按目录读">十三、源码阅读建议：按控制闭环而不是按目录读</h2>
+<p><code>mind-cluster</code> 代码量较大，建议按“控制闭环”阅读：</p>
+<table>
+<thead>
+<tr>
+<th>阅读目标</th>
+<th>推荐入口</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>全局组件与文档</td>
+<td><code>README.md</code>、<code>docs/zh/overview.md</code></td>
+</tr>
+<tr>
+<td>集群调度概念</td>
+<td><code>docs/zh/scheduling/introduction.md</code></td>
+</tr>
+<tr>
+<td>Device Plugin 启动</td>
+<td><code>component/ascend-device-plugin/main.go</code></td>
+</tr>
+<tr>
+<td>Volcano 插件入口</td>
+<td><code>component/ascend-for-volcano/npu.go</code></td>
+</tr>
+<tr>
+<td>调度策略接口</td>
+<td><code>component/ascend-for-volcano/plugin/plugin.go</code></td>
+</tr>
+<tr>
+<td>NPU 策略工厂</td>
+<td><code>component/ascend-for-volcano/internal/npu/factory.go</code></td>
+</tr>
+<tr>
+<td>多级网络亲和性</td>
+<td><code>component/ascend-for-volcano/internal/npu/policy/multilevelscheduling/</code>、<code>docs/rfc/26.0.0/features-multilevel-scheduling-npu-affinity.md</code></td>
+</tr>
+<tr>
+<td>故障重调度</td>
+<td><code>component/ascend-for-volcano/internal/rescheduling/</code></td>
+</tr>
+<tr>
+<td>ClusterD</td>
+<td><code>component/clusterd/main.go</code>、<code>component/clusterd/pkg/</code></td>
+</tr>
+<tr>
+<td>Ascend Operator</td>
+<td><code>component/ascend-operator/main.go</code>、<code>pkg/controllers/</code>、<code>pkg/ranktable/</code></td>
+</tr>
+<tr>
+<td>NPU Exporter</td>
+<td><code>component/npu-exporter/cmd/npu-exporter/main.go</code>、<code>collector/metrics/</code></td>
+</tr>
+<tr>
+<td>FaultDiag</td>
+<td><code>component/ascend-faultdiag/src/ascend_fd/cli.py</code>、<code>controller/</code>、<code>pkg/parse/</code>、<code>pkg/diag/</code></td>
+</tr>
+<tr>
+<td>TaskD / MindIO</td>
+<td><code>component/taskd/</code>、<code>component/mindio/acp/</code>、<code>component/mindio/tft/</code></td>
+</tr>
+</tbody>
+</table>
+<p>阅读时可以围绕一个问题往下追：<strong>一次 <code>AscendJob</code> 从提交到运行、故障、恢复，分别经过哪些组件？</strong> 这比单独读某个目录更容易建立系统图景。</p>
+<hr>
+<h2 id="十四安全与工程化注意点">十四、安全与工程化注意点</h2>
+<p>本地 README 和官方文档多处提到安全与合规注意事项，实践中尤其要关注：</p>
+<ol>
+<li>
+<p><strong>ServiceAccount Token 与特权容器风险</strong><br>
+多个组件以容器方式部署，部分组件需要较高权限访问设备、主机日志或容器运行时。生产环境需要结合集群安全策略做加固。</p>
+</li>
+<li>
+<p><strong>日志与诊断数据敏感信息</strong><br>
+FaultDiag 会处理用户采集的原始日志和监测指标。官方文档明确提醒用户确保输入目录中不包含敏感信息和个人数据。</p>
+</li>
+<li>
+<p><strong>软件包可信校验</strong><br>
+使用 Ascend Cert 做软件包签名校验和 CRL 更新，避免在集群交付链路中引入不可信包。</p>
+</li>
+<li>
+<p><strong>版本配套</strong><br>
+MindCluster 涉及驱动、固件、CANN、Kubernetes、Volcano、Docker/containerd、AI 框架等多层版本组合。上线前必须按官方版本配套表验证。</p>
+</li>
+<li>
+<p><strong>故障恢复策略不要一刀切</strong><br>
+芯片故障、节点故障、网络慢节点、公共故障、训练进程异常的处理方式不同。应按业务 RTO/RPO、Checkpoint 周期、作业规模和模型并行策略配置恢复策略。</p>
+</li>
+</ol>
+<hr>
+<h2 id="十五总结">十五、总结</h2>
+<p>MindCluster 并不是一个单独的调度器，也不是一个单纯的故障诊断工具。它更像一套面向昇腾 AI 集群的系统软件栈：</p>
+<ul>
+<li><strong>向下</strong>接入 NPU、驱动、CANN、容器运行时和硬件拓扑；</li>
+<li><strong>向中间</strong>扩展 Kubernetes/Volcano，完成 NPU 亲和性、多级网络亲和性和故障重调度；</li>
+<li><strong>向上</strong>服务训练/推理任务，注入集合通信配置、管理推理服务实例；</li>
+<li><strong>向运维</strong>输出指标、日志清洗、根因诊断、性能测试和安全校验能力；</li>
+<li><strong>向容错</strong>提供 Checkpoint 加速、进程级恢复、TTP/UCE/ARF 和一体机恢复路径。</li>
+</ul>
+<p>对于平台开发者来说，理解 MindCluster 的最佳方式不是记住每个组件的名字，而是理解这条闭环：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>部署交付 → 设备发现 → 资源上报 → 拓扑感知调度 → 容器挂载 → 任务运行
+</span></span><span style="display:flex;"><span>        ↑                                                         ↓
+</span></span><span style="display:flex;"><span>        └──────────── 指标采集 ← 故障诊断 ← 故障汇总 ← 任务恢复 ───┘
+</span></span></code></pre></div><p>一旦掌握了这条闭环，再回到源码中看 <code>Device Plugin</code>、<code>ClusterD</code>、<code>Ascend for Volcano</code>、<code>Ascend Operator</code>、<code>FaultDiag</code>、<code>TaskD</code> 和 <code>MindIO</code>，就能清楚地知道每个组件为什么存在、在什么时候发挥作用，以及如何把它们组合成稳定可用的昇腾 AI 集群平台。</p>
+<hr>
+<h2 id="参考资料">参考资料</h2>
+<ul>
+<li><a href="https://www.hiascend.com/document/detail/zh/mindcluster/71RC1/index/index.html">MindCluster 7.1.RC1 使用导读</a></li>
+<li><a href="https://www.hiascend.com/document/detail/zh/mindcluster/71RC1/deployer/deployerug/deployer_0001.html">Ascend Deployer 安装部署工具</a></li>
+<li><a href="https://www.hiascend.com/document/detail/zh/mindcluster/71rc1/clustersched/dlug/mxdlug_201.html">MindCluster 集群调度组件</a></li>
+<li><a href="https://www.hiascend.com/document/detail/zh/mindcluster/71rc1/faultdiag/faultdiagug/mindxdlFDUG003.html">Ascend FaultDiag 故障诊断工具</a></li>
+<li>本地代码库：<code>mind-cluster/README.md</code>、<code>mind-cluster/docs/zh/overview.md</code>、<code>mind-cluster/docs/zh/scheduling/introduction.md</code>、<code>mind-cluster/docs/zh/faultdiag/introduction.md</code></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/04/30/ai-agent-evals-demystified/" data-toggle="tooltip" data-placement="top" title="揭秘 AI 智能体评估：从任务、轨迹到生产级 Eval 体系">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/04/30/deepseek-v32-vllm-tione-multinode-inference/" data-toggle="tooltip" data-placement="top" title="DeepSeek-V3.2 多机推理部署指南：vLLM-Ascend 与 TIONE 在线服务">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ascend" title="ascend">
+                            ascend
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubernetes" title="kubernetes">
+                            kubernetes
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/multi-agent" title="multi-agent">
+                            multi-agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

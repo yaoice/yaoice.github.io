@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="900" viewBox="0 0 1280 900">
+  <defs><linearGradient id="bgGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#062c43"/><stop offset="100%" stop-color="#0e7490"/></linearGradient>
+    <style>
+      .bg{fill:url(#bgGradient)}.title{font:700 28px Arial,"Microsoft YaHei",sans-serif;fill:#ecfeff}.lane{fill:#f8fafc;stroke:#67e8f9;stroke-width:2;rx:18}.step{fill:#dbeafe;stroke:#2563eb;stroke-width:2;rx:12}.npu{fill:#cffafe;stroke:#06b6d4;stroke-width:2;rx:12}.net{fill:#ccfbf1;stroke:#0d9488;stroke-width:2;rx:12}.alg{fill:#fed7aa;stroke:#f97316;stroke-width:2;rx:12}.h2{font:700 18px Arial,"Microsoft YaHei",sans-serif;fill:#0f172a}.txt{font:14px Arial,"Microsoft YaHei",sans-serif;fill:#334155}.small{font:12px Arial,"Microsoft YaHei",sans-serif;fill:#475569}.mono{font:12px Menlo,Consolas,monospace;fill:#334155}.arrow{stroke:#475569;stroke-width:2.4;fill:none;marker-end:url(#arrow)}.dash{stroke:#06b6d4;stroke-width:2;stroke-dasharray:7 5;fill:none;marker-end:url(#arrow)}.green{stroke:#0d9488}.orange{stroke:#f97316}.blue{stroke:#2563eb}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker>
+  </defs>
+  <rect class="bg" width="1280" height="900"/>
+  <text x="640" y="48" text-anchor="middle" class="title">跨节点张量传输流程：从算子触发到 HCCL 集合通信完成</text>
+
+  <rect x="64" y="90" width="1152" height="124" class="lane"/>
+  <text x="92" y="122" class="h2">1. 模型算子产生分片张量</text>
+  <rect x="104" y="146" width="220" height="44" class="step"/><text x="214" y="173" text-anchor="middle" class="txt">Column / Row Parallel Linear</text>
+  <rect x="374" y="146" width="220" height="44" class="step"/><text x="484" y="173" text-anchor="middle" class="txt">Attention / MLP / MoE Expert</text>
+  <rect x="644" y="146" width="220" height="44" class="step"/><text x="754" y="173" text-anchor="middle" class="txt">产生本地 partial tensor</text>
+  <rect x="914" y="146" width="220" height="44" class="step"/><text x="1024" y="173" text-anchor="middle" class="txt">选择 collective primitive</text>
+  <path d="M324 168 L374 168" class="arrow"/><path d="M594 168 L644 168" class="arrow"/><path d="M864 168 L914 168" class="arrow"/>
+
+  <rect x="64" y="250" width="1152" height="168" class="lane"/>
+  <text x="92" y="282" class="h2">2. HCCL 将张量切块并生成通信计划</text>
+  <rect x="104" y="314" width="230" height="62" class="alg"/><text x="219" y="339" text-anchor="middle" class="txt">Op Descriptor</text><text x="219" y="360" text-anchor="middle" class="small">dtype、count、root、reduce op</text>
+  <rect x="384" y="314" width="230" height="62" class="alg"/><text x="499" y="339" text-anchor="middle" class="txt">Chunk / Slice</text><text x="499" y="360" text-anchor="middle" class="small">受 HCCL_BUFFSIZE 与数据量影响</text>
+  <rect x="664" y="314" width="230" height="62" class="alg"/><text x="779" y="339" text-anchor="middle" class="txt">Algorithm Plan</text><text x="779" y="360" text-anchor="middle" class="small">Ring / RHD / Pairwise / Pipeline</text>
+  <rect x="944" y="314" width="230" height="62" class="alg"/><text x="1059" y="339" text-anchor="middle" class="txt">Stream Task</text><text x="1059" y="360" text-anchor="middle" class="small">下发到 NPU runtime 执行</text>
+  <path d="M334 345 L384 345" class="arrow"/><path d="M614 345 L664 345" class="arrow"/><path d="M894 345 L944 345" class="arrow"/>
+
+  <rect x="64" y="454" width="530" height="272" class="lane"/>
+  <text x="329" y="486" text-anchor="middle" class="h2">Node0 NPU / HBM</text>
+  <rect x="106" y="524" width="180" height="54" class="npu"/><text x="196" y="546" text-anchor="middle" class="mono">rank0 tensor shard</text><text x="196" y="566" text-anchor="middle" class="small">send buffer</text>
+  <rect x="372" y="524" width="180" height="54" class="npu"/><text x="462" y="546" text-anchor="middle" class="mono">rank1 tensor shard</text><text x="462" y="566" text-anchor="middle" class="small">recv / reduce buffer</text>
+  <rect x="188" y="632" width="280" height="58" class="net"/><text x="328" y="656" text-anchor="middle" class="txt">NPU NIC / DMA Engine</text><text x="328" y="676" text-anchor="middle" class="small">从 HBM 读取并注入通信网络</text>
+  <path d="M196 578 L270 632" class="arrow blue"/><path d="M462 578 L386 632" class="arrow blue"/>
+
+  <rect x="686" y="454" width="530" height="272" class="lane"/>
+  <text x="951" y="486" text-anchor="middle" class="h2">Node1 NPU / HBM</text>
+  <rect x="728" y="524" width="180" height="54" class="npu"/><text x="818" y="546" text-anchor="middle" class="mono">rank4 tensor shard</text><text x="818" y="566" text-anchor="middle" class="small">send buffer</text>
+  <rect x="994" y="524" width="180" height="54" class="npu"/><text x="1084" y="546" text-anchor="middle" class="mono">rank5 tensor shard</text><text x="1084" y="566" text-anchor="middle" class="small">recv / reduce buffer</text>
+  <rect x="810" y="632" width="280" height="58" class="net"/><text x="950" y="656" text-anchor="middle" class="txt">NPU NIC / DMA Engine</text><text x="950" y="676" text-anchor="middle" class="small">接收远端分片并写回 HBM</text>
+  <path d="M818 578 L890 632" class="arrow blue"/><path d="M1084 578 L1008 632" class="arrow blue"/>
+
+  <rect x="462" y="760" width="356" height="72" class="net"/>
+  <text x="640" y="788" text-anchor="middle" class="h2">跨节点 NPU 通信网络</text>
+  <text x="640" y="812" text-anchor="middle" class="small">按 communicator 拓扑转发 chunk，完成拷贝、规约、聚合或专家路由</text>
+  <path d="M468 661 C540 728, 570 748, 600 760" class="arrow green"/>
+  <path d="M810 661 C738 728, 710 748, 680 760" class="arrow green"/>
+  <path d="M594 596 C640 536, 682 536, 728 596" class="dash orange"/>
+  <text x="640" y="548" text-anchor="middle" class="small">跨节点 collective：AllReduce / AllGather / ReduceScatter / AlltoAll</text>
+
+  <rect x="112" y="802" width="240" height="54" class="lane"/><text x="232" y="824" text-anchor="middle" class="txt">完成事件同步</text><text x="232" y="844" text-anchor="middle" class="small">stream wait / barrier</text>
+  <rect x="928" y="802" width="240" height="54" class="lane"/><text x="1048" y="824" text-anchor="middle" class="txt">返回完整或规约结果</text><text x="1048" y="844" text-anchor="middle" class="small">供后续算子继续计算</text>
+  <path d="M462 796 L352 829" class="arrow"/><path d="M818 796 L928 829" class="arrow"/>
+</svg>

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="860" viewBox="0 0 1280 860">
+  <defs><linearGradient id="bgGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#eff6ff"/><stop offset="100%" stop-color="#f8fafc"/></linearGradient>
+    <style>
+      .bg{fill:url(#bgGradient)}.title{font:700 28px Arial,"Microsoft YaHei",sans-serif;fill:#172554}.phase{fill:#ffffff;stroke:#60a5fa;stroke-width:2;rx:18}.box{fill:#dbeafe;stroke:#1d4ed8;stroke-width:2;rx:12}.green{fill:#dcfce7;stroke:#15803d;stroke-width:2;rx:12}.orange{fill:#ffedd5;stroke:#c2410c;stroke-width:2;rx:12}.purple{fill:#ede9fe;stroke:#6d28d9;stroke-width:2;rx:12}.h2{font:700 18px Arial,"Microsoft YaHei",sans-serif;fill:#1e293b}.txt{font:14px Arial,"Microsoft YaHei",sans-serif;fill:#334155}.small{font:12px Arial,"Microsoft YaHei",sans-serif;fill:#475569}.mono{font:12px Menlo,Consolas,monospace;fill:#334155}.arrow{stroke:#475569;stroke-width:2.4;fill:none;marker-end:url(#arrow)}.dash{stroke:#2563eb;stroke-width:2;stroke-dasharray:7 5;fill:none;marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker>
+  </defs>
+  <rect class="bg" width="1280" height="860"/>
+  <text x="640" y="46" text-anchor="middle" class="title">HCCL 初始化流程：从 vLLM 启动参数到 NPU 集合通信域</text>
+
+  <rect x="60" y="86" width="1160" height="116" class="phase"/>
+  <text x="90" y="118" class="h2">阶段 1：容器与运行时准备</text>
+  <rect x="90" y="136" width="226" height="42" class="box"/><text x="203" y="162" text-anchor="middle" class="txt">挂载 /dev/davinci*</text>
+  <rect x="342" y="136" width="226" height="42" class="box"/><text x="455" y="162" text-anchor="middle" class="txt">挂载 driver / tools</text>
+  <rect x="594" y="136" width="226" height="42" class="box"/><text x="707" y="162" text-anchor="middle" class="txt">检查 hccn_tool 链路</text>
+  <rect x="846" y="136" width="226" height="42" class="box"/><text x="959" y="162" text-anchor="middle" class="txt">统一模型路径</text>
+  <path d="M316 157 L342 157" class="arrow"/><path d="M568 157 L594 157" class="arrow"/><path d="M820 157 L846 157" class="arrow"/>
+
+  <rect x="60" y="236" width="1160" height="128" class="phase"/>
+  <text x="90" y="268" class="h2">阶段 2：通信环境绑定</text>
+  <rect x="90" y="288" width="250" height="48" class="green"/><text x="215" y="308" text-anchor="middle" class="mono">HCCL_IF_IP=local_ip</text><text x="215" y="326" text-anchor="middle" class="small">当前节点 HCCL 通信 IP</text>
+  <rect x="370" y="288" width="250" height="48" class="green"/><text x="495" y="308" text-anchor="middle" class="mono">HCCL_SOCKET_IFNAME=nic</text><text x="495" y="326" text-anchor="middle" class="small">HCCL socket 网卡</text>
+  <rect x="650" y="288" width="250" height="48" class="green"/><text x="775" y="308" text-anchor="middle" class="mono">TP_SOCKET_IFNAME=nic</text><text x="775" y="326" text-anchor="middle" class="small">TP 通信网卡</text>
+  <rect x="930" y="288" width="250" height="48" class="green"/><text x="1055" y="308" text-anchor="middle" class="mono">GLOO_SOCKET_IFNAME=nic</text><text x="1055" y="326" text-anchor="middle" class="small">控制面 rendezvous 网卡</text>
+
+  <rect x="60" y="398" width="1160" height="154" class="phase"/>
+  <text x="90" y="430" class="h2">阶段 3：vLLM-Ascend 进程与 Rank 拓扑构建</text>
+  <rect x="90" y="454" width="230" height="58" class="orange"/><text x="205" y="477" text-anchor="middle" class="txt">Node0 vllm serve</text><text x="205" y="498" text-anchor="middle" class="small">DP master / start rank 0</text>
+  <rect x="360" y="454" width="230" height="58" class="orange"/><text x="475" y="477" text-anchor="middle" class="txt">Node1 --headless</text><text x="475" y="498" text-anchor="middle" class="small">data-parallel-start-rank</text>
+  <rect x="630" y="454" width="230" height="58" class="orange"/><text x="745" y="477" text-anchor="middle" class="txt">本地 DP engine</text><text x="745" y="498" text-anchor="middle" class="small">按 data-parallel-size-local 启动</text>
+  <rect x="900" y="454" width="230" height="58" class="orange"/><text x="1015" y="477" text-anchor="middle" class="txt">NPU 可见设备划分</text><text x="1015" y="498" text-anchor="middle" class="small">每个 DP rank 占用 TP 张卡</text>
+  <path d="M320 483 L360 483" class="arrow"/><path d="M590 483 L630 483" class="arrow"/><path d="M860 483 L900 483" class="arrow"/>
+
+  <rect x="60" y="586" width="1160" height="180" class="phase"/>
+  <text x="90" y="618" class="h2">阶段 4：PyTorch NPU / HCCL 后端初始化通信域</text>
+  <rect x="90" y="644" width="210" height="70" class="purple"/><text x="195" y="668" text-anchor="middle" class="txt">构造 rank map</text><text x="195" y="690" text-anchor="middle" class="small">global rank、local rank、device id</text>
+  <rect x="330" y="644" width="210" height="70" class="purple"/><text x="435" y="668" text-anchor="middle" class="txt">rendezvous</text><text x="435" y="690" text-anchor="middle" class="small">交换地址、world size、group 信息</text>
+  <rect x="570" y="644" width="210" height="70" class="purple"/><text x="675" y="668" text-anchor="middle" class="txt">创建 communicator</text><text x="675" y="690" text-anchor="middle" class="small">TP / DP / EP 子通信域</text>
+  <rect x="810" y="644" width="210" height="70" class="purple"/><text x="915" y="668" text-anchor="middle" class="txt">申请通信资源</text><text x="915" y="690" text-anchor="middle" class="small">buffer、stream、算法计划</text>
+  <rect x="1050" y="644" width="130" height="70" class="purple"/><text x="1115" y="668" text-anchor="middle" class="txt">Ready</text><text x="1115" y="690" text-anchor="middle" class="small">等待 collective</text>
+  <path d="M300 679 L330 679" class="arrow"/><path d="M540 679 L570 679" class="arrow"/><path d="M780 679 L810 679" class="arrow"/><path d="M1020 679 L1050 679" class="arrow"/>
+
+  <rect x="274" y="790" width="732" height="42" class="phase"/>
+  <text x="640" y="816" text-anchor="middle" class="small">RankTable / hccl.json 是 HCCL 的典型拓扑输入；vLLM-Ascend server 模式更多依赖启动参数、环境变量和进程可见设备形成等价的 Rank 到 Device 到 IP 映射。</text>
+  <path d="M640 202 L640 236" class="dash"/><path d="M640 364 L640 398" class="dash"/><path d="M640 552 L640 586" class="dash"/>
+</svg>
