@@ -1,0 +1,75 @@
+<svg width="1200" height="660" viewBox="0 0 1200 660" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Claude Code Hooks 故障排查流程</title>
+  <desc id="desc">展示 Hook 不触发、误触发、阻断无效、运行慢和敏感日志等问题的排查路径。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8fbff"/><stop offset="1" stop-color="#fefce8"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.12"/></filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#2563eb"/></marker>
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#dbeafe" stroke-width="1" opacity="0.55"/></pattern>
+    <style>.font{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif}.title{font-size:30px;font-weight:800;fill:#0f172a}.sub{font-size:15px;fill:#475569}.box{fill:#fff;stroke:#e2e8f0;filter:url(#shadow)}.decision{fill:#eff6ff;stroke:#93c5fd;filter:url(#shadow)}.fix{fill:#f0fdf4;stroke:#86efac;filter:url(#shadow)}.warn{fill:#fff7ed;stroke:#fdba74;filter:url(#shadow)}.h{font-size:17px;font-weight:900;fill:#0f172a}.b{font-size:13px;fill:#475569}.tag{font-size:12px;font-weight:900;fill:#fff}</style>
+  </defs>
+  <rect width="1200" height="660" fill="url(#bg)"/><rect width="1200" height="660" fill="url(#grid)" opacity="0.65"/>
+  <text x="60" y="58" class="font title">排查 Hooks 问题：先确认是否触发，再看匹配、退出码、输出与性能</text>
+  <text x="60" y="88" class="font sub">不要反复猜测；用 transcript、轻量日志和最小 matcher 快速缩小问题范围</text>
+
+  <rect x="500" y="125" width="200" height="70" rx="22" fill="#2563eb" filter="url(#shadow)"/>
+  <text x="548" y="154" class="font" font-size="18" font-weight="900" fill="#fff">Hook 异常</text>
+  <text x="536" y="178" class="font" font-size="13" fill="#dbeafe">从现象进入分支</text>
+
+  <g transform="translate(80 255)">
+    <rect width="225" height="108" rx="22" class="decision"/>
+    <text x="25" y="38" class="font h">完全不触发？</text>
+    <text x="25" y="67" class="font b">检查事件名、matcher 大小写</text>
+    <text x="25" y="88" class="font b">确认 `/hooks` 已审核生效</text>
+  </g>
+  <g transform="translate(355 255)">
+    <rect width="225" height="108" rx="22" class="warn"/>
+    <text x="25" y="38" class="font h">触发太频繁？</text>
+    <text x="25" y="67" class="font b">matcher 可能过宽</text>
+    <text x="25" y="88" class="font b">从 `*` 收窄到具体工具</text>
+  </g>
+  <g transform="translate(630 255)">
+    <rect width="225" height="108" rx="22" class="decision"/>
+    <text x="25" y="38" class="font h">阻断没生效？</text>
+    <text x="25" y="67" class="font b">确认是否使用 exit 2</text>
+    <text x="25" y="88" class="font b">检查 JSON decision 字段</text>
+  </g>
+  <g transform="translate(905 255)">
+    <rect width="225" height="108" rx="22" class="warn"/>
+    <text x="25" y="38" class="font h">运行很慢？</text>
+    <text x="25" y="67" class="font b">避免全仓库扫描和网络请求</text>
+    <text x="25" y="88" class="font b">设置 timeout，缩小范围</text>
+  </g>
+
+  <g transform="translate(135 455)">
+    <rect width="270" height="105" rx="22" class="fix"/>
+    <text x="30" y="38" class="font h">最小验证</text>
+    <text x="30" y="66" class="font b">临时用轻量 Hook 输出事件摘要</text>
+    <text x="30" y="87" class="font b">确认路径：事件 → matcher → 脚本</text>
+  </g>
+  <g transform="translate(465 455)">
+    <rect width="270" height="105" rx="22" class="fix"/>
+    <text x="30" y="38" class="font h">查看 transcript</text>
+    <text x="30" y="66" class="font b">记录 transcript_path，不复制敏感内容</text>
+    <text x="30" y="87" class="font b">对照工具输入与 Hook 决策</text>
+  </g>
+  <g transform="translate(795 455)">
+    <rect width="270" height="105" rx="22" class="fix"/>
+    <text x="30" y="38" class="font h">加摘要日志</text>
+    <text x="30" y="66" class="font b">记录时间、事件、工具、退出码</text>
+    <text x="30" y="87" class="font b">不要记录完整 tool_input.content</text>
+  </g>
+
+  <path d="M600 195 V232" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)" fill="none"/>
+  <path d="M600 232 C250 232 192 245 192 255" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow)" fill="none"/>
+  <path d="M600 232 C470 232 468 245 468 255" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow)" fill="none"/>
+  <path d="M600 232 C735 232 742 245 742 255" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow)" fill="none"/>
+  <path d="M600 232 C1010 232 1018 245 1018 255" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow)" fill="none"/>
+  <path d="M192 363 C230 410 265 430 270 455" stroke="#2563eb" stroke-width="2.3" marker-end="url(#arrow)" fill="none"/>
+  <path d="M468 363 C510 410 570 430 600 455" stroke="#2563eb" stroke-width="2.3" marker-end="url(#arrow)" fill="none"/>
+  <path d="M742 363 C735 410 680 430 600 455" stroke="#2563eb" stroke-width="2.3" marker-end="url(#arrow)" fill="none"/>
+  <path d="M1018 363 C990 410 965 430 930 455" stroke="#2563eb" stroke-width="2.3" marker-end="url(#arrow)" fill="none"/>
+
+  <rect x="86" y="595" width="1028" height="42" rx="16" fill="#0f172a" opacity="0.92"/>
+  <text x="122" y="622" class="font" font-size="16" font-weight="800" fill="#fff">排查顺序：配置是否生效 → matcher 是否命中 → stdin 是否符合预期 → exit code/JSON 是否正确 → 日志与超时。</text>
+</svg>

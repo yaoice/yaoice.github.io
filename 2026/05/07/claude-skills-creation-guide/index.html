@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Claude Skills 创建指南：关键步骤、局限性与实战示例" />
+    <meta property="og:title" content="Claude Skills 创建指南：关键步骤、局限性与实战示例" />
+    <meta property="twitter:title" content="Claude Skills 创建指南：关键步骤、局限性与实战示例" />
+    
+
+    
+    <meta name="description" content="基于 Anthropic 官方博客 How to create Skills for Claude: steps and examples 的中文技术解读。文章系统梳理 Claude Skills 的核心价值、创建步骤、SKILL.md 结构、description 触发机制、测试验证方法、局限性分析，并结合 PDF、DOCX、品牌规范和前端设计等示例总结可落地实践。">
+    <meta property="og:description" content="基于 Anthropic 官方博客 How to create Skills for Claude: steps and examples 的中文技术解读。文章系统梳理 Claude Skills 的核心价值、创建步骤、SKILL.md 结构、description 触发机制、测试验证方法、局限性分析，并结合 PDF、DOCX、品牌规范和前端设计等示例总结可落地实践。" />
+    <meta property="twitter:description" content="基于 Anthropic 官方博客 How to create Skills for Claude: steps and examples 的中文技术解读。文章系统梳理 Claude Skills 的核心价值、创建步骤、SKILL.md 结构、description 触发机制、测试验证方法、局限性分析，并结合 PDF、DOCX、品牌规范和前端设计等示例总结可落地实践。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Claude Skills 创建指南：关键步骤、局限性与实战示例 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/07/claude-skills-creation-guide/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/skills" title="Skills">
+                            Skills
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                    </div>
+                    <h1>Claude Skills 创建指南：关键步骤、局限性与实战示例</h1>
+                    <h2 class="subheading">从 SKILL.md、触发描述到测试矩阵，系统拆解 Claude Skills 的创建方法</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Thursday, May 7, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言skill-不是更长的-prompt而是可复用的能力包">一、引言：Skill 不是更长的 Prompt，而是可复用的能力包</h2>
+<blockquote>
+<p>原文链接：<a href="https://claude.com/blog/how-to-create-skills-key-steps-limitations-and-examples">How to create Skills for Claude: steps and examples</a><br>
+来源：Claude Blog / Anthropic<br>
+发布时间：2025 年 11 月 19 日</p>
+</blockquote>
+<p>当团队开始高频使用 Claude 处理文档、代码、数据分析、审查流程或企业知识时，一个很快会出现的问题是：<strong>同一套背景、规则和输出要求，需要反复解释给模型听</strong>。</p>
+<p>例如，法务团队每次都要说明 NDA 审查标准；市场团队每次都要说明品牌色、字体和语气；工程团队每次都要说明代码生成规范；运营团队每次都要说明报告模板和字段口径。短期看，这些都可以靠 prompt 解决；长期看，它们会变成重复劳动、上下文噪音和质量不稳定的来源。</p>
+<p>Claude Skills 的价值就在这里：它把某类重复任务所需的说明、流程、示例、资源和边界条件封装成一个可复用能力模块。用户提出相关需求时，Claude 可以根据 Skill 的描述判断是否加载它，并在执行时遵循其中的操作手册。</p>
+<p>用一句话概括：<strong>Skill 不是“更长的提示词”，而是面向 Agent 的专业能力包</strong>。</p>
+<p>
+  <img src="/img/claude-skills-creation-guide/skill-authoring-workflow.svg" alt="Claude Skill 创建流程">
+
+</p>
+<p><strong>图注</strong>：创建 Skill 的核心链路可以拆成五步：明确任务、命名、编写触发描述、编写执行说明、上传并测试。真正影响长期效果的不是某一句提示词，而是任务边界、触发质量和持续迭代。</p>
+<p>
+  <img src="/img/claude-skills-creation-guide/prompt-vs-skill.svg" alt="Prompt、项目文档与 Skill 的差异">
+
+</p>
+<p><strong>图注</strong>：这张图用三层结构说明 Skill 的定位：Prompt 更像一次性沟通，项目文档负责沉淀背景，而 Skill 把触发条件、执行流程、示例和资源组合成 Agent 可复用的能力包。</p>
+<hr>
+<h2 id="二claude-skills-解决的核心问题">二、Claude Skills 解决的核心问题</h2>
+<p>官方文章对 Skills 的定义很直接：Skills 是一种自定义指令，用来扩展 Claude 在特定任务或领域中的能力。它们可以编码组织知识、标准化输出，并处理复杂的多步骤工作流。</p>
+<p>这一定义里有三个关键词。</p>
+<h3 id="21-编码组织知识">2.1 编码组织知识</h3>
+<p>很多高价值知识并不在通用模型参数里，而存在于团队内部：</p>
+<ul>
+<li>某家公司品牌色的精确色值；</li>
+<li>某类合同条款的风险判断标准；</li>
+<li>某个业务指标的计算口径；</li>
+<li>某种报告的固定结构；</li>
+<li>某个代码仓库的工程约定。</li>
+</ul>
+<p>这些知识如果每次靠用户手工输入，不仅低效，还容易遗漏。Skill 适合把它们从“隐性经验”变成“显性说明”。</p>
+<h3 id="22-标准化输出">2.2 标准化输出</h3>
+<p>模型默认会根据上下文自由组织回答。但很多业务场景恰恰需要稳定格式：表格列名不能乱、报告章节不能缺、审查结论要有风险级别、生成代码要符合项目规范。</p>
+<p>Skill 可以把输出结构、判断标准和验证方式写清楚，让 Claude 不只是“回答得像”，而是按约定交付。</p>
+<h3 id="23-承载多步骤工作流">2.3 承载多步骤工作流</h3>
+<p>有些任务不是一步问答，而是一套流程。例如处理 DOCX：先识别需求，再读取文档结构，必要时解包 OOXML，修改内容，保留格式，最后验证生成文件是否可打开。把这种流程全部塞进用户 prompt 会很脆弱；写成 Skill，才更像一个稳定的操作手册。</p>
+<hr>
+<h2 id="三创建-skill-的五个关键步骤">三、创建 Skill 的五个关键步骤</h2>
+<p>官方文章把创建 Skill 拆成一组非常务实的步骤。它们看似简单，但每一步都决定了 Skill 后续是否好用。</p>
+<h3 id="31-第一步明确核心需求">3.1 第一步：明确核心需求</h3>
+<p>在写 <code>SKILL.md</code> 之前，先回答四个问题：</p>
+<ol>
+<li>这个 Skill 要完成什么具体任务？</li>
+<li>哪些用户请求应该触发它？</li>
+<li>成功结果长什么样？</li>
+<li>有哪些输入、场景或任务不属于它？</li>
+</ol>
+<p>一个弱目标是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Help with my finance stuff.
+</span></span></code></pre></div><p>它太泛，既不知道输入是什么，也不知道输出是什么，更不知道 Claude 应该采取什么流程。</p>
+<p>一个强目标是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Extract financial data from PDFs and format as CSV.
+</span></span></code></pre></div><p>这个目标明确了输入、动作和输出：输入是 PDF，动作是提取财务数据，输出是 CSV。这类目标更适合被 Skill 化。</p>
+<h3 id="32-第二步编写清晰的名称">3.2 第二步：编写清晰的名称</h3>
+<p>Skill 通常包含三个核心部分：<code>name</code>、<code>description</code> 和 <code>instructions</code>。其中，官方文章特别强调：<strong>真正影响 Skill 是否被触发的只有 <code>name</code> 和 <code>description</code></strong>。</p>
+<p>命名建议很简单：</p>
+<ul>
+<li>使用小写；</li>
+<li>使用短横线；</li>
+<li>简短、具体、可读；</li>
+<li>直接表达用途。</li>
+</ul>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>pdf-editor
+</span></span><span style="display:flex;"><span>brand-guidelines
+</span></span><span style="display:flex;"><span>frontend-design
+</span></span><span style="display:flex;"><span>nda-review
+</span></span></code></pre></div><p>不要把名称写得像一句口号。名称的作用是让人和模型都能快速知道这个 Skill 管什么。</p>
+<h3 id="33-第三步写好-description">3.3 第三步：写好 description</h3>
+<p><code>description</code> 是整个 Skill 中最关键的字段。官方文章的表述是：<code>description</code> 决定 Skill 何时激活，因此是最关键的组成部分。</p>
+<p>它不是单纯的关键词列表，而是一段帮助 Claude 判断“什么时候应该用这个 Skill”的语义说明。</p>
+<p>一个过弱的描述是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>This skill helps with PDFs and documents.
+</span></span></code></pre></div><p>问题在于太宽。它没有说明是读取、生成、合并、拆分、表单填写还是批处理，也没有说明不适合什么场景。</p>
+<p>一个更好的描述应该包含：</p>
+<ul>
+<li>具体能力：提取文本、创建 PDF、合并拆分、处理表单；</li>
+<li>触发场景：需要程序化处理、生成或分析 PDF；</li>
+<li>使用范围：文档工作流和批量操作；</li>
+<li>排除边界：不用于简单查看或基础转换。</li>
+</ul>
+<p>
+  <img src="/img/claude-skills-creation-guide/description-trigger-boundary.svg" alt="Skill description 触发边界">
+
+</p>
+<p><strong>图注</strong>：Skill 的触发不是关键词匹配，而是语义判断。<code>description</code> 过宽会误触发，过窄会漏触发。一个实用写法是：动作 + 输入对象 + 输出结果 + 使用场景 + 不适用边界。</p>
+<h3 id="34-第四步编写可执行的-instructions">3.4 第四步：编写可执行的 instructions</h3>
+<p>如果说 <code>description</code> 决定“是否加载”，那么 <code>instructions</code> 决定“加载后怎么做”。</p>
+<p>好的 <code>instructions</code> 应该像 SOP，而不是愿望清单。推荐包含：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="font-weight:bold"># Overview
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Prerequisites
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Execution Steps
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Decision Rules
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Examples
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Error Handling
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Limitations
+</span></span></span></code></pre></div><p>具体来说，它应该回答：</p>
+<ul>
+<li>第一步做什么，第二步做什么；</li>
+<li>遇到不同输入时如何分支；</li>
+<li>输出格式是什么；</li>
+<li>什么情况要向用户澄清；</li>
+<li>什么情况应该拒绝或说明超出范围；</li>
+<li>任务完成后如何自检。</li>
+</ul>
+<p>如果 Skill 很复杂，不要把所有内容都塞进 <code>SKILL.md</code>。官方文章建议采用类似“菜单”的方式：主文件只说明有哪些能力和路径，详细流程拆到独立文件中，让 Claude 按需读取。</p>
+<p>
+  <img src="/img/claude-skills-creation-guide/skill-anatomy.svg" alt="Claude Skill 结构剖面">
+
+</p>
+<p><strong>图注</strong>：一个复杂 Skill 往往不只有 <code>SKILL.md</code>，还包括示例、脚本、参考资料和模板资产。主文件负责触发和导航，细节文件负责承载复杂流程，避免上下文窗口被不必要内容占满。</p>
+<h3 id="35-第五步上传测试与迭代">3.5 第五步：上传、测试与迭代</h3>
+<p>官方文章列出了不同使用环境中的 Skill 使用方式：</p>
+<ul>
+<li>在 Claude.ai / Claude apps 中，可以通过设置上传自定义 Skill；</li>
+<li>在 Claude Code 中，可以在项目或插件中放置 <code>skills/</code> 目录；</li>
+<li>在 Claude Developer Platform 中，可以通过 Skills API 管理。</li>
+</ul>
+<p>但上传不是结束。一个 Skill 是否可靠，要靠测试验证，而不是靠作者感觉。</p>
+<p>
+  <img src="/img/claude-skills-creation-guide/skill-runtime-flow.svg" alt="Claude Skill 运行流程">
+
+</p>
+<p><strong>图注</strong>：运行时可以把 Skill 想象成按需装配线：Claude 先用 <code>name</code> 和 <code>description</code> 做语义匹配，再加载 <code>SKILL.md</code>，必要时读取示例、模板或脚本，最后按照流程执行并验证输出。</p>
+<hr>
+<h2 id="四测试方法至少覆盖三类请求">四、测试方法：至少覆盖三类请求</h2>
+<p>官方文章建议为 Skill 建立测试矩阵。最低限度也应该覆盖三类请求：正常请求、边界请求和越界请求。</p>
+<p>
+  <img src="/img/claude-skills-creation-guide/testing-and-limitations.svg" alt="Skill 测试矩阵与限制">
+
+</p>
+<p><strong>图注</strong>：测试 Skill 时，不仅要验证“该触发时能做好”，还要验证“输入不完整时能处理”和“不该触发时不会误用”。后者往往决定 Skill 在真实团队环境中的可靠性。</p>
+<h3 id="41-正常请求验证主流程">4.1 正常请求：验证主流程</h3>
+<p>正常请求用于确认 Skill 的核心路径能跑通。</p>
+<p>例如金融分析 Skill 可以测试：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Analyze Microsoft&#39;s latest earnings and summarize the key financial trends.
+</span></span></code></pre></div><p>或者：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Build a datapack from this 10-K filing and export the extracted tables as CSV.
+</span></span></code></pre></div><p>这类测试的重点是：Claude 是否正确加载 Skill、是否遵循流程、输出是否符合格式、关键字段是否完整。</p>
+<h3 id="42-边界请求验证异常输入">4.2 边界请求：验证异常输入</h3>
+<p>边界请求用于测试不完整、模糊或异常场景。</p>
+<p>例如：</p>
+<ul>
+<li>用户上传的文件缺页；</li>
+<li>PDF 中表格无法直接提取；</li>
+<li>用户只说“帮我处理这个报告”，但没有说明目标；</li>
+<li>文档格式与 Skill 预期不完全一致。</li>
+</ul>
+<p>一个好的 Skill 不一定要强行完成所有边界任务，但应该能给出明确反馈：哪些信息缺失、哪些部分可以处理、哪些部分需要用户补充。</p>
+<h3 id="43-越界请求验证不误触发">4.3 越界请求：验证不误触发</h3>
+<p>越界请求用于测试 Skill 的边界是否清楚。</p>
+<p>例如一个 NDA 审查 Skill，应该处理保密协议，但不应该自动套用到雇佣合同、租赁合同或采购合同上。它们都属于法律文件，但风险点、条款结构和审查标准不同。</p>
+<p>很多 Skill 的失败不是因为它能力不够，而是因为它太积极：在相似但不适用的场景中被错误触发。</p>
+<hr>
+<h2 id="五局限性分析skill-不是万能封装">五、局限性分析：Skill 不是万能封装</h2>
+<p>Claude Skills 很有用，但它不是万能抽象。理解限制，反而能帮助我们更好地设计它。</p>
+<h3 id="51-触发质量高度依赖-description">5.1 触发质量高度依赖 description</h3>
+<p><code>description</code> 写得不好，Skill 就可能出现两类问题：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>表现</th>
+<th>常见原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>漏触发</td>
+<td>该用 Skill 时没有用</td>
+<td>描述过窄、缺少典型场景、输入输出不明确</td>
+</tr>
+<tr>
+<td>误触发</td>
+<td>不该用 Skill 时用了</td>
+<td>描述过宽、边界缺失、与其他 Skill 重叠</td>
+</tr>
+</tbody>
+</table>
+<p>因此，<code>description</code> 不是“简介”，而是触发策略。它需要持续根据真实使用情况调整。</p>
+<h3 id="52-主文件过大会污染上下文">5.2 主文件过大会污染上下文</h3>
+<p>Skill 的目标是提高效率，不是把所有知识一次性塞进模型上下文。过大的 <code>SKILL.md</code> 会带来几个问题：</p>
+<ul>
+<li>模型要阅读更多无关内容；</li>
+<li>关键信息被淹没；</li>
+<li>上下文成本上升；</li>
+<li>多个 Skill 同时加载时更容易互相干扰。</li>
+</ul>
+<p>更好的做法是：主文件写清楚能力菜单和选择规则，复杂细节放到独立文件中。只有任务需要时，才加载对应材料。</p>
+<h3 id="53-不适合一次性任务">5.3 不适合一次性任务</h3>
+<p>官方文章提醒，不要投机式创建 Skill。一个实用判断标准是：</p>
+<ul>
+<li>这个任务是否已经做过至少 5 次？</li>
+<li>未来是否还会再做至少 10 次？</li>
+</ul>
+<p>如果答案是否定的，直接写 prompt 可能更简单。Skill 的优势来自复用；没有复用，就只剩维护成本。</p>
+<h3 id="54-claudeai-中的自定义-skill-仍偏个人级">5.4 Claude.ai 中的自定义 Skill 仍偏个人级</h3>
+<p>官方文章提到，在 Claude.ai 中上传的自定义 Skill 当前主要是个人级能力，不是完整的组织级治理系统。这意味着团队使用时还需要自己补上：</p>
+<ul>
+<li>Skill 版本管理；</li>
+<li>所有者和维护责任；</li>
+<li>共享文档库；</li>
+<li>更新记录；</li>
+<li>废弃机制；</li>
+<li>安全和权限审查。</li>
+</ul>
+<p>对于企业团队来说，Skill 不只是“上传一个文件”，而是会逐渐变成知识资产管理问题。</p>
+<h3 id="55-粒度过宽或过窄都会影响效果">5.5 粒度过宽或过窄都会影响效果</h3>
+<p>Skill 的粒度需要适中。</p>
+<table>
+<thead>
+<tr>
+<th>粒度</th>
+<th>示例</th>
+<th>问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>太宽</td>
+<td><code>content-marketing-helper</code></td>
+<td>什么都管，触发边界模糊</td>
+</tr>
+<tr>
+<td>太窄</td>
+<td><code>add-meta-descriptions</code></td>
+<td>复用面太小，维护收益有限</td>
+</tr>
+<tr>
+<td>合适</td>
+<td><code>seo-optimization-for-blog-posts</code></td>
+<td>目标明确，同时有稳定复用价值</td>
+</tr>
+</tbody>
+</table>
+<p>一个好的 Skill 应该围绕单一目标展开，但这个目标要足够常见，值得被沉淀。</p>
+<hr>
+<h2 id="六具体示例从文档处理到品牌规范">六、具体示例：从文档处理到品牌规范</h2>
+<p>官方文章给了几个典型 Skill 示例。它们的共同点是：都不是单纯让 Claude “更聪明”，而是把某类任务中的专业知识、流程和输出标准显式写出来。</p>
+<p>
+  <img src="/img/claude-skills-creation-guide/skill-use-case-map.svg" alt="Claude Skill 场景地图">
+
+</p>
+<p><strong>图注</strong>：不同 Skill 封装的对象并不相同：PDF 和 DOCX 更偏文件格式与工具流程，品牌规范和前端设计更偏组织知识与质量偏好。只要任务足够重复、规则足够稳定，就可以被 Skill 化。</p>
+<h3 id="61-pdf-处理-skill把文档工作流变成工具箱">6.1 PDF 处理 Skill：把文档工作流变成工具箱</h3>
+<p>PDF 处理 Skill 的重点不是“能看 PDF”，而是面向程序化文档工作流：</p>
+<ul>
+<li>提取文本和表格；</li>
+<li>创建新的 PDF；</li>
+<li>合并或拆分文档；</li>
+<li>填写 PDF 表单；</li>
+<li>批量分析文档内容。</li>
+</ul>
+<p>一个可用的 <code>description</code> 可以写成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Comprehensive PDF manipulation toolkit for extracting text and tables, creating new PDFs, merging or splitting documents, and handling PDF forms. Use when Claude needs to programmatically process, generate, or analyze PDF documents in document workflows or batch operations. Not for simple PDF viewing or basic format conversion.
+</span></span></code></pre></div><p>这段描述之所以有效，是因为它同时说明了能力、场景和排除边界。</p>
+<h3 id="62-docx-skill复杂任务需要决策树">6.2 DOCX Skill：复杂任务需要决策树</h3>
+<p>DOCX 处理看似只是“改 Word 文档”，实际很复杂：读取纯文本、保留格式、插入批注、处理修订痕迹、修改 OOXML、重新打包验证，每一步都可能出错。</p>
+<p>因此，一个好的 DOCX Skill 不应该只写：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Help edit Word documents.
+</span></span></code></pre></div><p>而应该包含决策树：</p>
+<ul>
+<li>如果只是阅读或摘要，优先提取文本；</li>
+<li>如果要创建新文档，使用模板和结构化生成流程；</li>
+<li>如果要编辑已有文档，先备份再定位内容；</li>
+<li>如果涉及 tracked changes，只标注真正变化的片段；</li>
+<li>最后验证文档是否能被正常打开。</li>
+</ul>
+<p>这类 Skill 的本质是把“文件格式经验”写成 Claude 可执行的流程。</p>
+<h3 id="63-brand-guidelines-skill封装模型不知道的精确信息">6.3 Brand Guidelines Skill：封装模型不知道的精确信息</h3>
+<p>品牌规范 Skill 很适合说明 Skills 的另一个价值：它可以补充模型本身不知道、但组织内部非常重要的精确信息。</p>
+<p>例如：</p>
+<ul>
+<li>品牌主色和辅助色的 hex code；</li>
+<li>标题字体、正文字体和 fallback 字体；</li>
+<li>不同场景下的字号和间距；</li>
+<li>哪些颜色组合不能使用；</li>
+<li>图形、按钮、背景和图标的视觉风格。</li>
+</ul>
+<p>这类信息不是推理能力问题，而是事实和规范问题。Skill 可以让 Claude 在生成海报、网页、幻灯片或品牌文案时遵循统一标准。</p>
+<h3 id="64-frontend-design-skill把审美判断写进流程">6.4 Frontend Design Skill：把审美判断写进流程</h3>
+<p>前端设计 Skill 的价值不只是“生成 React 组件”，而是把设计判断显式写出来，例如：</p>
+<ul>
+<li>必须先选择明确的视觉方向；</li>
+<li>避免通用、模板化的 AI 生成界面；</li>
+<li>关注排版、色彩、动效、空间布局和背景细节；</li>
+<li>产出应接近生产级界面，而不是 demo。</li>
+</ul>
+<p>这说明 Skill 不只适合结构化任务，也适合封装“风格偏好”和“质量门槛”。只要这些偏好足够稳定，就可以从口头要求变成可复用能力。</p>
+<hr>
+<h2 id="七一个可落地的-skillmd-模板">七、一个可落地的 SKILL.md 模板</h2>
+<p>下面是一个简化模板，适合创建初版 Skill 时参考：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>name: seo-blog-optimizer
+</span></span><span style="display:flex;"><span>description: Optimize technical blog posts for SEO, readability, metadata completeness, and internal linking. Use when asked to improve a draft blog post before publication. Not for writing unrelated marketing copy or generating social media posts.
+</span></span><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold"># SEO Blog Optimizer
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Overview
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span>Use this skill to review and improve technical blog drafts before publication.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## When to Use
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> The user provides a draft blog post.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> The task is to improve title, subtitle, description, headings, readability, or internal links.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> The expected output is an edited post or a structured review checklist.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Workflow
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> Identify the target keyword and reader intent.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> Check title, subtitle, description, and URL slug.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> Review heading hierarchy and section transitions.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> Improve readability without changing technical meaning.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">5.</span> Suggest internal links and image opportunities.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">6.</span> Return a concise change summary.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Output Requirements
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Preserve the author&#39;s technical claims.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Do not invent facts or references.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Keep the tone professional and easy to understand.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Highlight any uncertain claims that require source verification.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">## Limitations
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span>Do not use this skill for non-blog marketing copy, legal review, or fact checking that requires external authoritative sources.
+</span></span></code></pre></div><p>这个模板有几个值得注意的点：</p>
+<ol>
+<li><code>description</code> 写清楚了适用场景和排除边界；</li>
+<li><code>Workflow</code> 是可执行步骤，而不是抽象原则；</li>
+<li><code>Output Requirements</code> 定义了质量标准；</li>
+<li><code>Limitations</code> 防止 Skill 被错误外推。</li>
+</ol>
+<hr>
+<h2 id="八最佳实践清单">八、最佳实践清单</h2>
+<p>结合官方文章和实际工程经验，可以把创建 Skill 的原则总结为七条。</p>
+<h3 id="81-从真实重复任务开始">8.1 从真实重复任务开始</h3>
+<p>不要为了“有 Skill”而创建 Skill。先观察哪些任务反复出现，哪些规则每次都要解释，哪些输出经常不稳定。</p>
+<h3 id="82-让-description-负责触发而不是宣传">8.2 让 description 负责触发，而不是宣传</h3>
+<p><code>description</code> 不需要写得漂亮，需要写得准确。它应该帮助 Claude 判断：这个请求是否真的属于我？</p>
+<h3 id="83-instructions-写成-sop">8.3 instructions 写成 SOP</h3>
+<p>把隐性经验拆成步骤、分支、示例和检查点。不要只说“高质量”“专业”“准确”，要说明如何判断高质量、专业和准确。</p>
+<h3 id="84-用示例压住输出风格">8.4 用示例压住输出风格</h3>
+<p>示例比抽象要求更容易让模型对齐。尤其是格式、语气、风险判断和文件处理类任务，应该给出好例子和反例。</p>
+<h3 id="85-大-skill-使用菜单式结构">8.5 大 Skill 使用菜单式结构</h3>
+<p>主文件只保留导航和关键规则，复杂材料拆成独立文件。这样既节省上下文，也方便维护。</p>
+<h3 id="86-建立测试矩阵">8.6 建立测试矩阵</h3>
+<p>至少保留正常、边界、越界三类测试。每次修改 <code>description</code> 或核心流程后，都应该重新验证。</p>
+<h3 id="87-团队使用要有治理">8.7 团队使用要有治理</h3>
+<p>一旦 Skill 被多人使用，就需要所有者、版本号、变更记录、审查流程和退役机制。否则 Skill 会像失控的共享文档一样逐渐过时。</p>
+<p>
+  <img src="/img/claude-skills-creation-guide/skill-lifecycle-governance.svg" alt="Skill 生命周期与治理">
+
+</p>
+<p><strong>图注</strong>：团队里的 Skill 应该被当作知识资产管理：先从重复任务中发现需求，再创建、测试和发布；上线后持续观察触发质量与输出质量，必要时更新或退役。</p>
+<hr>
+<h2 id="九总结把经验产品化而不是把-prompt-写长">九、总结：把经验产品化，而不是把 Prompt 写长</h2>
+<p>Claude Skills 的核心价值，不在于让提示词变长，而在于让重复出现的专业流程变成可维护、可测试、可复用的能力资产。</p>
+<p>创建一个好 Skill，可以用三句话概括：</p>
+<ol>
+<li><strong>触发准确性靠 <code>description</code></strong>：写清楚适用场景、输入输出和排除边界。</li>
+<li><strong>执行稳定性靠 <code>instructions</code></strong>：把流程、示例、错误处理和验证标准写成可执行 SOP。</li>
+<li><strong>长期可用性靠测试和治理</strong>：通过正常、边界、越界测试持续迭代，避免 Skill 过宽、过窄或过时。</li>
+</ol>
+<p>如果说 prompt 是一次性沟通，Skill 就是把沟通沉淀成能力。对个人用户，它能减少重复解释；对团队，它更像一套轻量级的 Agent 知识工程机制。</p>
+<p>写完 Skill 之后，下一步问题是：如何证明它真的有效、如何持续改进它。这个方向可以继续参考：<a href="/2026/05/03/agent-skills-evals-skill-creator/">Agent Skills 工程化深度解析：用 skill-creator 测试、度量并持续改进技能</a>。</p>
+<hr>
+<h2 id="参考链接">参考链接</h2>
+<ul>
+<li><a href="https://claude.com/blog/how-to-create-skills-key-steps-limitations-and-examples">How to create Skills for Claude: steps and examples</a></li>
+<li><a href="https://claude.com/blog/improving-skill-creator-test-measure-and-refine-agent-skills">Improving skill-creator: Test, measure, and refine Agent Skills</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/06/claude-code-hooks-configuration-guide/" data-toggle="tooltip" data-placement="top" title="Claude Code Hooks 配置深度解析：把 Agent 工作流变成可治理的自动化系统">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

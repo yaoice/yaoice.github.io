@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="从 0 行代码到 App Store：非技术项目经理用 Claude Code 六周发布压力管理应用" />
+    <meta property="og:title" content="从 0 行代码到 App Store：非技术项目经理用 Claude Code 六周发布压力管理应用" />
+    <meta property="twitter:title" content="从 0 行代码到 App Store：非技术项目经理用 Claude Code 六周发布压力管理应用" />
+    
+
+    
+    <meta name="description" content="本文基于 Anthropic 官方博客，复盘乌克兰项目经理 Kostiantyn Vlasenko 如何在没有编程背景的情况下，借助 Claude Code 构建并上线 Respiro 压力管理 iOS 应用。文章覆盖产品构思、技术选型、AI Agent 开发流程、关键技术实现、发布上线与增长经验。">
+    <meta property="og:description" content="本文基于 Anthropic 官方博客，复盘乌克兰项目经理 Kostiantyn Vlasenko 如何在没有编程背景的情况下，借助 Claude Code 构建并上线 Respiro 压力管理 iOS 应用。文章覆盖产品构思、技术选型、AI Agent 开发流程、关键技术实现、发布上线与增长经验。" />
+    <meta property="twitter:description" content="本文基于 Anthropic 官方博客，复盘乌克兰项目经理 Kostiantyn Vlasenko 如何在没有编程背景的情况下，借助 Claude Code 构建并上线 Respiro 压力管理 iOS 应用。文章覆盖产品构思、技术选型、AI Agent 开发流程、关键技术实现、发布上线与增长经验。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>从 0 行代码到 App Store：非技术项目经理用 Claude Code 六周发布压力管理应用 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/02/non-technical-pm-claude-code-respiro/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                    </div>
+                    <h1>从 0 行代码到 App Store：非技术项目经理用 Claude Code 六周发布压力管理应用</h1>
+                    <h2 class="subheading">从一句提示词到 App Store：非技术项目经理如何用 Claude Code 在六周内发布 Respiro 压力管理应用</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Saturday, May 2, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="1-引言ai-编程工具正在改变谁能做产品">1. 引言：AI 编程工具正在改变“谁能做产品”</h2>
+<p>2026 年 5 月，Anthropic 官方博客发布了一篇很有代表性的案例：<a href="https://claude.com/blog/how-a-non-technical-project-manager-built-and-shipped-a-stress-management-app-with-claude-code-in-six-weeks">How a non-technical project manager built and shipped a stress management app with Claude Code in six weeks</a>。故事主角是来自乌克兰基辅的项目经理 <strong>Kostiantyn Vlasenko</strong>。他在 Mythical Games 拥有约十年项目管理经验，但在开始这个项目之前，几乎没有正式编程背景，甚至可以说“从未写过一行代码”。</p>
+<p>但他最终完成了一件过去通常需要一个小型工程团队才能完成的事情：</p>
+<ul>
+<li>构思一款压力管理应用 <code>Respiro</code>；</li>
+<li>用 <code>Claude Code</code> 快速做出可运行原型；</li>
+<li>将最初的 <code>React Native</code> MVP 重写为 <code>Swift</code> iOS 应用；</li>
+<li>集成 <code>Sentry</code>、<code>Amplitude</code> 等工程化与数据分析能力；</li>
+<li>在 Apple App Store 上线，并获得数百名真实用户。</li>
+</ul>
+<p>这不是一个“AI 替代工程师”的简单故事，更像是一个“非技术产品负责人如何用 AI Agent 组织一支虚拟研发团队”的实践样本。Vlasenko 成功的关键不在于他突然掌握了所有底层技术，而在于他把项目管理能力迁移到了 <code>Claude Code</code> 工作流中：拆解目标、补充上下文、分派任务、审查结果、持续迭代。</p>
+<blockquote>
+<p>说明：原文未提供可复用的截图 URL，App Store 页面也未能稳定抓取到目标应用截图。本文中的配图为基于公开信息整理的技术示意图，用于辅助理解，不冒充官方真实截图。</p>
+</blockquote>
+<hr>
+<h2 id="2-产品构思压力管理不应只依赖固定时间提醒">2. 产品构思：压力管理不应只依赖固定时间提醒</h2>
+<p><code>Respiro</code> 的出发点来自一个非常具体的生活痛点：很多压力管理、冥想、呼吸训练类 App 只会在用户设定的固定时间提醒，比如晚上十点弹出“该做一次深呼吸了”。这种方式的问题在于，压力并不总是按时出现。</p>
+<p>Vlasenko 自己长期面对项目交付、利益相关方沟通、会议和发布节奏带来的压力，也一直使用呼吸训练、正念等方式管理状态。他发现真正有价值的干预时机不是“预设时间”，而是“压力正在上升的当下”。</p>
+<p>原文开头给了一个很好的例子：在采访开始前十五分钟，Vlasenko 正处于紧张准备状态，自己甚至没有完全意识到焦虑，但 <code>Respiro</code> 检测到了他的压力信号，并提醒他可以做一次短暂的方块呼吸练习。提醒语大意是：</p>
+<blockquote>
+<p>你可以去做一次简短的 box breathing，之前方块呼吸曾经帮助你减压。</p>
+</blockquote>
+<p>这句话里其实包含了 <code>Respiro</code> 的三个核心产品判断：</p>
+<ol>
+<li><strong>实时性</strong>：不要只按固定时间提醒，而要捕捉用户真正需要帮助的时刻；</li>
+<li><strong>个性化</strong>：不是推荐所有人都一样的练习，而是基于用户过去有效的方式；</li>
+<li><strong>低摩擦</strong>：压力上升时，用户不需要打开复杂页面，只需要接受一次短时引导。</li>
+</ol>
+<p>
+  <img src="/img/respiro-claude-code/app-wireframe.svg" alt="Respiro 核心体验示意">
+
+</p>
+<p>从产品设计角度看，这比“做一个呼吸练习计时器”复杂得多。它需要感知、判断、提醒、引导和反馈闭环，也需要在“不打扰”和“及时帮助”之间找到平衡。</p>
+<hr>
+<h2 id="3-六周路线图从-hackathon-原型到-app-store-上线">3. 六周路线图：从 Hackathon 原型到 App Store 上线</h2>
+<p>根据原文信息，Vlasenko 的项目大致经历了五个阶段。</p>
+<p>
+  <img src="/img/respiro-claude-code/timeline.svg" alt="Respiro 六周交付路线图">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>关键动作</th>
+<th>产出</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第 0 周</td>
+<td>识别个人痛点，决定参加 Built With Opus 4.6 Claude Code Hackathon</td>
+<td>明确产品方向：实时压力管理</td>
+</tr>
+<tr>
+<td>72 小时原型</td>
+<td>用一句非常粗糙的提示词让 Claude Code 生成应用雏形</td>
+<td>首个能在手机上运行的 MVP</td>
+</tr>
+<tr>
+<td>第 2-3 周</td>
+<td>从 <code>React Native</code> 转向 <code>Swift</code>，研究 Apple APIs</td>
+<td>更适合 iOS 发布的原生版本</td>
+</tr>
+<tr>
+<td>第 4-5 周</td>
+<td>打磨体验，接入 <code>Sentry</code>、<code>Amplitude</code>，配置数据分析</td>
+<td>错误监控、漏斗、留存、DAU/MAU 追踪</td>
+</tr>
+<tr>
+<td>第 6 周</td>
+<td>在 Claude 指导下完成 Apple Developer 与 App Store 发布流程</td>
+<td>App Store 上线，获得数百名用户</td>
+</tr>
+</tbody>
+</table>
+<p>这里最值得注意的是，Vlasenko 一开始并没有写出严谨的技术需求文档。原文提到，他最初给 Claude 的提示非常朴素，接近于：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Hey Claude, just give me an application that will make me less stressed.
+</span></span></code></pre></div><p>这句话在传统软件开发中几乎不能算需求，但它足够触发一个原型。Claude Code 生成的首版应用能在手机上跑起来，让 Vlasenko 看到“这个想法真的可以落地”。之后，他才逐步把模糊想法拆成可执行的工程任务。</p>
+<p>这也反映出 AI 辅助开发的一个重要变化：<strong>早期产品探索的成本被显著降低了</strong>。过去你可能要先找开发者、写需求、搭环境、做 UI、跑真机；现在一个非技术人员也可以先拿到一个会动的版本，再围绕真实反馈收敛需求。</p>
+<p>
+  <img src="/img/respiro-claude-code/prompt-to-prototype.svg" alt="从一句模糊提示词到可运行原型">
+
+</p>
+<hr>
+<h2 id="4-技术选型先-react-native-快速验证再-swift-原生落地">4. 技术选型：先 React Native 快速验证，再 Swift 原生落地</h2>
+<p>原文披露的技术路线非常有代表性：</p>
+<p>
+  <img src="/img/respiro-claude-code/tech-migration.svg" alt="从 React Native MVP 到 Swift 原生应用">
+
+</p>
+<ol>
+<li><strong>最初使用 <code>React Native</code> 做 MVP</strong>；</li>
+<li>由于没有 Android 手机，不方便做跨平台测试；</li>
+<li>借助 <code>Claude Code</code> 将应用从零重写为 <code>Swift</code>；</li>
+<li>最终作为 iOS 应用提交 Apple App Store。</li>
+</ol>
+<p>这条路径看似“绕路”，但在 AI 辅助开发场景下反而合理。</p>
+<h3 id="41-react-native-适合快速验证">4.1 React Native 适合快速验证</h3>
+<p><code>React Native</code> 的优势是跨平台、生态成熟、原型速度快。对于 Hackathon 场景，先用它验证交互和产品假设很自然。Vlasenko 需要的不是一开始就构建最完美的架构，而是确认：</p>
+<ul>
+<li>用户是否需要实时压力提醒；</li>
+<li>呼吸练习是否能形成闭环；</li>
+<li>手机端体验是否成立；</li>
+<li>Claude Code 是否能持续帮助他推进开发。</li>
+</ul>
+<h3 id="42-swift-更适合-ios-深度集成与发布">4.2 Swift 更适合 iOS 深度集成与发布</h3>
+<p>当产品目标收敛到 iOS，并且需要研究 Apple APIs、发布到 App Store 时，<code>Swift</code> 原生实现更适合。原因包括：</p>
+<ul>
+<li>更直接地调用 Apple 生态能力；</li>
+<li>更容易与 Apple Developer、App Store 审核流程对齐；</li>
+<li>真机调试和权限处理更清晰；</li>
+<li>后续集成通知、传感器、健康相关数据、图形或动画能力时更自然。</li>
+</ul>
+<p>原文没有披露具体使用了哪些 Apple APIs，因此不能武断地写成“使用了某某 API”。更严谨的说法是：Claude 帮助 Vlasenko 研究了哪些 Apple APIs 可以为压力检测逻辑提供设备信号，并指导他完成相应实现。</p>
+<h3 id="43-ai-让技术路线切换的成本下降">4.3 AI 让“技术路线切换”的成本下降</h3>
+<p>传统团队中，从 <code>React Native</code> 重写为 <code>Swift</code> 是一个不小的决策，可能涉及人员技能、排期、测试和风险评估。但 Vlasenko 借助 Claude Code 在数小时内完成重写，这说明 AI 编程工具正在改变技术选型的成本结构：</p>
+<ul>
+<li>原型阶段可以更大胆地选择“最快验证”的方案；</li>
+<li>产品方向清晰后，再迁移到更合适的技术栈；</li>
+<li>非技术负责人也可以通过 AI 解释和执行重构计划。</li>
+</ul>
+<hr>
+<h2 id="5-开发组织方式把-claude-code-当作一支虚拟工程团队">5. 开发组织方式：把 Claude Code 当作一支虚拟工程团队</h2>
+<p>这篇案例最有价值的部分，不是“Claude 会写代码”，而是 Vlasenko 如何使用 Claude Code。他不是把 Claude 当成一个单次问答工具，而是像管理真实团队成员一样管理 IDE 中的 agents。</p>
+<p>
+  <img src="/img/respiro-claude-code/agent-workflow.svg" alt="Claude Code 多 Agent 协作模式">
+
+</p>
+<p>原文提到，他让 Claude 帮助设计并构建了一套包含 15+ 个专业 subagents 的开发体系，其中明确提到的角色包括：</p>
+<ul>
+<li><code>TCA architect agent</code>：负责架构设计，<code>TCA</code> 很可能指 The Composable Architecture；</li>
+<li><code>Swift developer agent</code>：负责 Swift 代码实现；</li>
+<li><code>Metal specialist</code>：负责 Apple Metal 相关底层或图形/性能问题；</li>
+<li><code>Code reviewer</code>：负责代码审查和质量把关。</li>
+</ul>
+<p>这套模式本质上是把传统项目管理流程映射到 AI Agent 协作流程：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>产品目标
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>需求拆解
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>分派给专业 Agent
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>代码生成与修改
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>人工验收与反馈
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>继续迭代
+</span></span></code></pre></div><p>Vlasenko 虽然不会从零手写复杂 iOS 代码，但他擅长项目管理：定义目标、拆任务、管理上下文、推动交付、审查结果。这些能力在 AI 辅助开发中反而被放大了。</p>
+<p>一个更工程化的提示词模板可以这样设计：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>你是 Respiro 项目的 Swift Developer Agent。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>背景：
+</span></span><span style="display:flex;"><span>- Respiro 是一款 iOS 压力管理应用。
+</span></span><span style="display:flex;"><span>- 当前目标是在检测到压力上升后，引导用户完成一次方块呼吸练习。
+</span></span><span style="display:flex;"><span>- 项目使用 Swift，并按功能模块组织代码。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>任务：
+</span></span><span style="display:flex;"><span>1. 实现 BreathingSession 状态模型。
+</span></span><span style="display:flex;"><span>2. 支持 inhale / hold / exhale / hold 四个阶段。
+</span></span><span style="display:flex;"><span>3. 每个阶段默认 4 秒，可配置。
+</span></span><span style="display:flex;"><span>4. 结束后返回练习完成事件，供分析系统记录。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>约束：
+</span></span><span style="display:flex;"><span>- 不要改动无关模块。
+</span></span><span style="display:flex;"><span>- 先给出实现计划，再修改代码。
+</span></span><span style="display:flex;"><span>- 完成后说明需要人工验证的交互路径。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>验收标准：
+</span></span><span style="display:flex;"><span>- 启动练习后可以按阶段推进。
+</span></span><span style="display:flex;"><span>- 用户可以中途取消。
+</span></span><span style="display:flex;"><span>- 完成后能触发 session_completed 事件。
+</span></span></code></pre></div><p>对非技术人员来说，关键不是一开始就懂所有代码细节，而是要学会给 AI 足够的上下文和可验收目标。</p>
+<hr>
+<h2 id="6-关键技术链路从设备信号到个性化干预">6. 关键技术链路：从设备信号到个性化干预</h2>
+<p><code>Respiro</code> 的核心体验可以抽象为一条闭环链路：采集信号、判断压力、触发提醒、完成练习、记录反馈、优化下一次推荐。</p>
+<p>
+  <img src="/img/respiro-claude-code/technical-flow.svg" alt="压力检测与干预链路">
+
+</p>
+<p>需要强调的是，原文没有披露压力检测算法和具体 Apple API 名称。下面的代码是<strong>基于公开描述抽象出的工程示意</strong>，目的是解释这类应用可能如何组织核心逻辑，而不是声称 Respiro 内部真实代码就是这样。</p>
+<h3 id="61-信号模型把复杂设备输入统一成可判断的特征">6.1 信号模型：把复杂设备输入统一成可判断的特征</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-swift" data-lang="swift"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">struct</span> <span style="color:#50fa7b">StressSignal</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">timestamp</span>: Date
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">source</span>: SignalSource
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">value</span>: <span style="color:#8be9fd;font-style:italic">Double</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">confidence</span>: <span style="color:#8be9fd;font-style:italic">Double</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">enum</span> <span style="color:#50fa7b">SignalSource</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> motion
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> usagePattern
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> calendarContext
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> userFeedback
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">struct</span> <span style="color:#50fa7b">StressWindow</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">startedAt</span>: Date
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">endedAt</span>: Date
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">signals</span>: [StressSignal]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">var</span> <span style="color:#8be9fd;font-style:italic">weightedScore</span>: <span style="color:#8be9fd;font-style:italic">Double</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">totalWeight</span> = signals.reduce(<span style="color:#bd93f9">0</span>) { <span style="color:#8be9fd;font-style:italic">$0</span> <span style="color:#ff79c6">+</span> <span style="color:#8be9fd;font-style:italic">$1</span>.confidence }
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">guard</span> totalWeight <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span> <span style="color:#ff79c6">else</span> { <span style="color:#ff79c6">return</span> <span style="color:#bd93f9">0</span> }
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> signals.reduce(<span style="color:#bd93f9">0</span>) { <span style="color:#8be9fd;font-style:italic">$0</span> <span style="color:#ff79c6">+</span> <span style="color:#8be9fd;font-style:italic">$1</span>.value <span style="color:#ff79c6">*</span> <span style="color:#8be9fd;font-style:italic">$1</span>.confidence } <span style="color:#ff79c6">/</span> totalWeight
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这个模型的重点不是某个具体算法，而是把不同来源的信号统一成 <code>StressSignal</code>，再按时间窗口聚合。这样后续压力判断逻辑就不需要关心信号来自运动、使用习惯还是用户反馈。</p>
+<h3 id="62-干预策略避免有压力就打扰">6.2 干预策略：避免“有压力就打扰”</h3>
+<p>真正的产品难点在于，压力检测不是越敏感越好。如果提醒太频繁，用户会关闭通知；如果提醒太迟，应用又失去了价值。因此干预策略至少要考虑：</p>
+<ul>
+<li>压力分数是否超过阈值；</li>
+<li>最近是否已经提醒过；</li>
+<li>当前场景是否适合打扰；</li>
+<li>用户过去对哪类练习反馈更好；</li>
+<li>用户是否正在形成长期使用习惯。</li>
+</ul>
+<p>示意代码如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-swift" data-lang="swift"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">struct</span> <span style="color:#50fa7b">InterventionPolicy</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">stressThreshold</span>: <span style="color:#8be9fd;font-style:italic">Double</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">minimumInterval</span>: TimeInterval
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">shouldIntervene</span>(
+</span></span><span style="display:flex;"><span>        currentWindow: StressWindow,
+</span></span><span style="display:flex;"><span>        lastInterventionAt: Date?,
+</span></span><span style="display:flex;"><span>        now: Date
+</span></span><span style="display:flex;"><span>    ) -&gt; <span style="color:#8be9fd;font-style:italic">Bool</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">guard</span> currentWindow.weightedScore <span style="color:#ff79c6">&gt;=</span> stressThreshold <span style="color:#ff79c6">else</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">lastInterventionAt</span>,
+</span></span><span style="display:flex;"><span>           now.timeIntervalSince(lastInterventionAt) <span style="color:#ff79c6">&lt;</span> minimumInterval {
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这类策略可以先从简单规则开始，再结合用户反馈逐步调优。对于早期产品来说，能解释、可调整、容易验证，往往比一开始追求复杂模型更重要。</p>
+<h3 id="63-个性化推荐优先选择曾经有效的练习">6.3 个性化推荐：优先选择曾经有效的练习</h3>
+<p>原文中 <code>Respiro</code> 的提醒会提到“方块呼吸之前帮助你减压过”。这意味着应用需要记录练习效果，并将其用于下一次推荐。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-swift" data-lang="swift"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">struct</span> <span style="color:#50fa7b">ExerciseEffectiveness</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">exercise</span>: BreathingExercise
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">completedCount</span>: <span style="color:#8be9fd;font-style:italic">Int</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">let</span> <span style="color:#8be9fd;font-style:italic">positiveFeedbackCount</span>: <span style="color:#8be9fd;font-style:italic">Int</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">var</span> <span style="color:#8be9fd;font-style:italic">score</span>: <span style="color:#8be9fd;font-style:italic">Double</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">guard</span> completedCount <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span> <span style="color:#ff79c6">else</span> { <span style="color:#ff79c6">return</span> <span style="color:#bd93f9">0</span> }
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">Double</span>(positiveFeedbackCount) <span style="color:#ff79c6">/</span> <span style="color:#8be9fd;font-style:italic">Double</span>(completedCount)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">enum</span> <span style="color:#50fa7b">BreathingExercise</span>: <span style="color:#8be9fd;font-style:italic">String</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> boxBreathing
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> deepBreathing
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> mindfulPause
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">recommendExercise</span>(from history: [ExerciseEffectiveness]) -&gt; BreathingExercise {
+</span></span><span style="display:flex;"><span>    history
+</span></span><span style="display:flex;"><span>        .sorted { <span style="color:#8be9fd;font-style:italic">$0</span>.score <span style="color:#ff79c6">&gt;</span> <span style="color:#8be9fd;font-style:italic">$1</span>.score }
+</span></span><span style="display:flex;"><span>        .first?
+</span></span><span style="display:flex;"><span>        .exercise ?? .boxBreathing
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这里的核心思路是“先做有效的小闭环”：记录用户是否完成、完成后是否觉得有帮助，再用这个反馈影响下一次推荐。它不一定需要复杂机器学习，也可以先用透明的规则系统支撑 MVP。</p>
+<hr>
+<h2 id="7-呼吸练习模块把体验拆成可测试的状态机">7. 呼吸练习模块：把体验拆成可测试的状态机</h2>
+<p>压力管理应用看起来是“内容型产品”，但好的呼吸训练体验背后往往是一个状态机。以方块呼吸为例，它通常包含四个阶段：吸气、屏息、呼气、屏息。每个阶段持续固定或可配置的秒数。</p>
+<p>
+  <img src="/img/respiro-claude-code/breathing-state-machine.svg" alt="方块呼吸状态机示意">
+
+</p>
+<p>如果用 <code>TCA</code> 一类架构思想来组织，可以把状态、动作和副作用拆开。下面仍然是示意代码：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-swift" data-lang="swift"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">enum</span> <span style="color:#50fa7b">BreathingPhase</span>: <span style="color:#8be9fd;font-style:italic">String</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> inhale
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> holdAfterInhale
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> exhale
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> holdAfterExhale
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">struct</span> <span style="color:#50fa7b">BreathingSessionState</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">var</span> <span style="color:#8be9fd;font-style:italic">phase</span>: BreathingPhase = .inhale
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">var</span> <span style="color:#8be9fd;font-style:italic">secondsRemaining</span>: <span style="color:#8be9fd;font-style:italic">Int</span> = <span style="color:#bd93f9">4</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">var</span> <span style="color:#8be9fd;font-style:italic">completedCycles</span>: <span style="color:#8be9fd;font-style:italic">Int</span> = <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">var</span> <span style="color:#8be9fd;font-style:italic">targetCycles</span>: <span style="color:#8be9fd;font-style:italic">Int</span> = <span style="color:#bd93f9">4</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">var</span> <span style="color:#8be9fd;font-style:italic">isRunning</span>: <span style="color:#8be9fd;font-style:italic">Bool</span> = <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">enum</span> <span style="color:#50fa7b">BreathingSessionAction</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> start
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> tick
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> pause
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> cancel
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">case</span> complete
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>状态机的好处是便于拆任务：</p>
+<ul>
+<li><code>TCA architect agent</code> 可以先设计状态流转；</li>
+<li><code>Swift developer agent</code> 实现视图和计时逻辑；</li>
+<li><code>Code reviewer</code> 检查边界条件，例如中途取消、后台切换、重复启动；</li>
+<li>产品负责人只需要围绕用户路径验收：开始、暂停、完成、反馈是否顺畅。</li>
+</ul>
+<p>这也是非技术人员与 AI 协作的一个技巧：不要只说“做一个好看的呼吸页面”，而要把体验拆成状态、动作和验收路径。</p>
+<hr>
+<h2 id="8-工程化监控分析和发布不是上线前才补的事情">8. 工程化：监控、分析和发布不是上线前才补的事情</h2>
+<p>很多 Hackathon 项目止步于 Demo，但 <code>Respiro</code> 的目标是 App Store 上线，因此必须补齐工程化能力。原文提到 Claude 协助 Vlasenko 集成了：</p>
+<ul>
+<li><code>Sentry</code>：日志与错误监控；</li>
+<li><code>Amplitude</code>：产品分析；</li>
+<li>用户漏斗；</li>
+<li>留存指标；</li>
+<li>日活跃用户、月活跃用户追踪；</li>
+<li>复杂后台配置，例如 Meta API token。</li>
+</ul>
+<p>这些工作对非技术人员通常很难，因为它不只是“写代码”，还包括后台注册、权限配置、API Key、SDK 初始化、事件命名、隐私合规、发布环境区分等一系列细节。</p>
+<p>
+  <img src="/img/respiro-claude-code/analytics-funnel.svg" alt="Respiro 监控与分析漏斗">
+
+</p>
+<p>一个压力管理应用的分析事件可以这样设计：</p>
+<table>
+<thead>
+<tr>
+<th>事件名</th>
+<th>触发时机</th>
+<th>关键属性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>stress_signal_detected</code></td>
+<td>检测到压力上升</td>
+<td><code>score</code>、<code>signal_source</code>、<code>confidence</code></td>
+</tr>
+<tr>
+<td><code>intervention_shown</code></td>
+<td>展示干预提醒</td>
+<td><code>exercise_type</code>、<code>reason</code></td>
+</tr>
+<tr>
+<td><code>breathing_session_started</code></td>
+<td>用户开始练习</td>
+<td><code>exercise_type</code>、<code>duration</code></td>
+</tr>
+<tr>
+<td><code>breathing_session_completed</code></td>
+<td>用户完成练习</td>
+<td><code>cycles</code>、<code>actual_duration</code></td>
+</tr>
+<tr>
+<td><code>feedback_submitted</code></td>
+<td>用户提交效果反馈</td>
+<td><code>rating</code>、<code>helpful</code></td>
+</tr>
+</tbody>
+</table>
+<p>相应的漏斗可以是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>压力信号检测
+</span></span><span style="display:flex;"><span>  → 展示干预提醒
+</span></span><span style="display:flex;"><span>  → 用户点击开始练习
+</span></span><span style="display:flex;"><span>  → 完成呼吸训练
+</span></span><span style="display:flex;"><span>  → 提交效果反馈
+</span></span><span style="display:flex;"><span>  → 下一次推荐更准确
+</span></span></code></pre></div><p>对早期产品来说，分析体系不一定要复杂，但必须回答几个基础问题：</p>
+<ol>
+<li>用户是否真的在压力时刻打开了应用？</li>
+<li>提醒是否被点击？</li>
+<li>呼吸练习是否完成？</li>
+<li>用户是否觉得有帮助？</li>
+<li>哪类练习更容易形成留存？</li>
+</ol>
+<p>这也是 Claude 的价值所在：它不只帮你写功能，还能帮你把产品验证指标一起搭起来。</p>
+<hr>
+<h2 id="9-claude-vision把看不懂后台变成可操作步骤">9. Claude Vision：把“看不懂后台”变成可操作步骤</h2>
+<p>原文中特别提到，Vlasenko 认为 Claude 的视觉能力被低估了。他的使用方式很朴素：当自己卡在 Apple Developer Program、第三方服务控制台、Meta API token 创建等复杂页面时，就把截图发给 Claude，问它“我应该点哪里”。</p>
+<p>这个能力对非技术人员很关键，因为产品上线过程中大量阻碍并不来自代码，而来自陌生后台：</p>
+<ul>
+<li>Apple Developer Program 的证书、标识符和发布配置；</li>
+<li>App Store Connect 的应用信息、隐私说明和提交流程；</li>
+<li>Sentry、Amplitude 的项目、环境、SDK 配置；</li>
+<li>Meta 等平台的 API token 创建与权限选择。</li>
+</ul>
+<p>如果没有 Claude Vision，非技术人员遇到这些页面时很容易陷入“我不知道这个按钮是什么意思”的状态。有了截图理解能力，Claude 可以把复杂 UI 转译成一步步操作说明。</p>
+<p>
+  <img src="/img/respiro-claude-code/vision-release-assistant.svg" alt="Claude Vision 将后台截图转译成发布步骤">
+
+</p>
+<p>一种有效的提问方式是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>我正在配置 Apple Developer Program，截图如上。
+</span></span><span style="display:flex;"><span>目标：为 Respiro 创建 iOS App 发布所需配置。
+</span></span><span style="display:flex;"><span>我不确定下一步应该点击哪里。
+</span></span><span style="display:flex;"><span>请你：
+</span></span><span style="display:flex;"><span>1. 识别当前页面处于哪个流程；
+</span></span><span style="display:flex;"><span>2. 告诉我下一步点击哪个按钮；
+</span></span><span style="display:flex;"><span>3. 说明每个字段应该填写什么；
+</span></span><span style="display:flex;"><span>4. 标出可能导致审核失败或配置错误的风险点。
+</span></span></code></pre></div><p>这种“截图 + 目标 + 风险点”的组合，能让 AI 从单纯解释页面升级为发布流程助手。</p>
+<hr>
+<h2 id="10-上线之后增长内容和真实用户反馈">10. 上线之后：增长、内容和真实用户反馈</h2>
+<p>构建产品只是开始。Vlasenko 后来意识到，如果能回到过去，他会更早认识到：<strong>产品构建相对容易，传达产品价值更难</strong>。</p>
+<p>这句话很重要。AI 工具降低了开发门槛，但没有自动解决定位、传播、信任和增长问题。<code>Respiro</code> 的营销同样借助 Claude 完成，包括：</p>
+<ul>
+<li>撰写博客文章；</li>
+<li>制作 TikTok 内容；</li>
+<li>制定增长策略；</li>
+<li>设计用户漏斗和留存指标；</li>
+<li>寻找心理学家、正念练习从业者合作，让他们向客户推荐应用。</li>
+</ul>
+<p>其中“联系心理学家和正念练习从业者”是 Claude 提出的策略之一。Vlasenko 执行后发现确实有效，有从业者开始推荐 <code>Respiro</code>。</p>
+<p>从这个角度看，Claude Code 并不是孤立的编码工具，而是完整创业工作流中的一环：</p>
+<p>
+  <img src="/img/respiro-claude-code/product-loop.svg" alt="Claude Code 参与的产品构建与增长循环">
+
+</p>
+<p>同时，产品上线后还需要围绕内容传播、专家推荐、数据分析和真实用户反馈持续迭代：</p>
+<p>
+  <img src="/img/respiro-claude-code/growth-loop.svg" alt="Respiro 上线后的增长与反馈闭环">
+
+</p>
+<hr>
+<h2 id="11-对本职工作的反哺项目经理开始直接交付代码">11. 对本职工作的反哺：项目经理开始直接交付代码</h2>
+<p>原文还提到，构建 <code>Respiro</code> 的经历反过来改变了 Vlasenko 在 Mythical Games 的工作方式。他现在能够直接提交代码发布，也会把自己在 <code>Respiro</code> 中形成的 Claude 工作流分享给工程团队。</p>
+<p>这背后有一个很有意思的现象：一些资深工程师反而不容易接受“不完全控制每一行代码”的工作方式，而 Vlasenko 因为没有深厚编程背景，反而更自然地把 Claude agents 当作协作对象。他不执着于每一行代码都由自己亲手写出，而是关注目标是否达成、结果是否可验收、产品是否能上线。</p>
+<p>这并不意味着工程能力不重要。相反，随着 AI 生成代码越来越多，下面这些能力会变得更重要：</p>
+<p>
+  <img src="/img/respiro-claude-code/pm-capability-map.svg" alt="非技术 PM 能力迁移地图">
+
+</p>
+<ul>
+<li>能否定义清晰的成功标准；</li>
+<li>能否识别不合理的实现或风险；</li>
+<li>能否建立测试与监控闭环；</li>
+<li>能否让 AI 在正确的上下文中工作；</li>
+<li>能否把功能开发、发布、运营串成完整系统。</li>
+</ul>
+<p>非技术人员可以借助 AI 进入产品开发，但要做出可靠产品，仍然需要学习基本的软件工程常识和质量意识。</p>
+<hr>
+<h2 id="12-非技术人员使用-claude-code-的实践清单">12. 非技术人员使用 Claude Code 的实践清单</h2>
+<p>结合这个案例，可以总结出一份可复用的实践清单。</p>
+<h3 id="121-从可运行原型开始而不是从完美架构开始">12.1 从可运行原型开始，而不是从完美架构开始</h3>
+<p>先让 Claude Code 帮你做一个能跑的版本，哪怕技术栈不是最终形态。原型的目标是验证“这个产品是否值得继续做”。</p>
+<h3 id="122-把模糊需求改写成可验收任务">12.2 把模糊需求改写成可验收任务</h3>
+<p>不要一直停留在“帮我做一个压力管理 App”。可以逐步改成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>当用户完成一次方块呼吸后，记录完成事件，并展示一个简单反馈弹窗。
+</span></span><span style="display:flex;"><span>验收标准：
+</span></span><span style="display:flex;"><span>- 点击完成按钮后弹窗出现；
+</span></span><span style="display:flex;"><span>- 用户可以选择有帮助或无帮助；
+</span></span><span style="display:flex;"><span>- 选择结果写入本地历史记录；
+</span></span><span style="display:flex;"><span>- 不影响下一次练习启动。
+</span></span></code></pre></div><h3 id="123-给-agent-明确角色">12.3 给 Agent 明确角色</h3>
+<p>同一个 Claude 会话既做架构、又写 UI、又做审查，容易上下文混乱。可以像 Vlasenko 一样拆成多个角色：</p>
+<table>
+<thead>
+<tr>
+<th>Agent 角色</th>
+<th>适合任务</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Product Agent</td>
+<td>用户故事、验收标准、路线图</td>
+</tr>
+<tr>
+<td>Architect Agent</td>
+<td>模块边界、状态流、技术选型</td>
+</tr>
+<tr>
+<td>Developer Agent</td>
+<td>具体代码实现</td>
+</tr>
+<tr>
+<td>Reviewer Agent</td>
+<td>风险检查、边界条件、代码质量</td>
+</tr>
+<tr>
+<td>Release Agent</td>
+<td>App Store、监控、分析、发布清单</td>
+</tr>
+</tbody>
+</table>
+<h3 id="124-不懂后台就截图问-claude">12.4 不懂后台就截图问 Claude</h3>
+<p>配置类问题不要只复制错误文案。截图、当前目标、卡住点一起给 Claude，效果通常更好。</p>
+<h3 id="125-早接入监控和分析">12.5 早接入监控和分析</h3>
+<p>即使是早期产品，也应该尽早知道：哪里崩了、用户走到哪一步、哪些功能真的被使用。否则上线只是“发布了一个 App”，不是“开始了一个可学习的产品系统”。</p>
+<h3 id="126-接受重构但保留人工验收">12.6 接受重构，但保留人工验收</h3>
+<p>AI 让从 <code>React Native</code> 到 <code>Swift</code> 这类重写变得更容易，但不意味着可以跳过验收。每次大改后都要验证核心路径：启动、权限、提醒、练习、反馈、分析事件、崩溃监控。</p>
+<hr>
+<h2 id="13-总结ai-降低门槛但没有降低对目标感的要求">13. 总结：AI 降低门槛，但没有降低对目标感的要求</h2>
+<p><code>Respiro</code> 的故事说明，AI 编程工具正在把产品开发能力从“会写代码的人”扩展到“能清晰定义问题并组织交付的人”。一个非技术项目经理能在六周内发布压力管理应用，不是因为软件工程突然变得不重要，而是因为 <code>Claude Code</code> 把大量编码、查文档、重构、后台配置、发布排障的工作变成了可对话、可迭代、可委派的任务。</p>
+<p>这类工作流给我们的启发是：</p>
+<ul>
+<li>非技术人员可以用 AI 快速跨过“从 0 到 1”的门槛；</li>
+<li>项目管理、产品判断和上下文组织能力会变得更有价值；</li>
+<li>多 Agent 协作会成为 AI 编程的重要模式；</li>
+<li>快速构建只是第一步，价值表达、真实反馈和持续运营同样关键；</li>
+<li>AI 可以帮你写代码，但不能替你决定产品为什么存在。</li>
+</ul>
+<p>如果说过去的创业起点是“找一个技术合伙人”，那么今天越来越多人的起点可能是：打开 Claude Code，先把想法变成第一个能运行的版本。</p>
+<h2 id="参考资料">参考资料</h2>
+<ul>
+<li><a href="https://claude.com/blog/how-a-non-technical-project-manager-built-and-shipped-a-stress-management-app-with-claude-code-in-six-weeks">How a non-technical project manager built and shipped a stress management app with Claude Code in six weeks</a></li>
+<li><a href="https://apps.apple.com/us/app/respiro-stress-relief/id6758023997">Respiro: Stress Relief on the App Store</a></li>
+<li><a href="https://platform.claude.com/docs/en/build-with-claude/vision">Claude Vision documentation</a></li>
+<li><a href="https://claude.com/blog/category/claude-code">Claude Code blog category</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/01/claude-code-prompt-caching-deep-dive/" data-toggle="tooltip" data-placement="top" title="Claude Code 开发经验深度解析：为什么提示词缓存是一切">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/03/agent-skills-evals-skill-creator/" data-toggle="tooltip" data-placement="top" title="Agent Skills 工程化深度解析：用 skill-creator 测试、度量并持续改进技能">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Claude Code 开发经验深度解析：为什么提示词缓存是一切" />
+    <meta property="og:title" content="Claude Code 开发经验深度解析：为什么提示词缓存是一切" />
+    <meta property="twitter:title" content="Claude Code 开发经验深度解析：为什么提示词缓存是一切" />
+    
+
+    
+    <meta name="description" content="基于 Anthropic 官方博客 Lessons from building Claude Code: Prompt caching is everything 的深度技术解读。文章系统分析 Claude Code 在长期运行 Agent 场景下如何围绕提示词缓存设计 prompt 布局、工具集合、Plan Mode、MCP 工具延迟加载和 compaction 机制，并总结可落地的工程实践清单。">
+    <meta property="og:description" content="基于 Anthropic 官方博客 Lessons from building Claude Code: Prompt caching is everything 的深度技术解读。文章系统分析 Claude Code 在长期运行 Agent 场景下如何围绕提示词缓存设计 prompt 布局、工具集合、Plan Mode、MCP 工具延迟加载和 compaction 机制，并总结可落地的工程实践清单。" />
+    <meta property="twitter:description" content="基于 Anthropic 官方博客 Lessons from building Claude Code: Prompt caching is everything 的深度技术解读。文章系统分析 Claude Code 在长期运行 Agent 场景下如何围绕提示词缓存设计 prompt 布局、工具集合、Plan Mode、MCP 工具延迟加载和 compaction 机制，并总结可落地的工程实践清单。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Claude Code 开发经验深度解析：为什么提示词缓存是一切 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/03/claude-code-prompt-caching-deep-dive/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/prompt-caching" title="Prompt Caching">
+                            Prompt Caching
+                        </a>
+                        
+                    </div>
+                    <h1>Claude Code 开发经验深度解析：为什么提示词缓存是一切</h1>
+                    <h2 class="subheading">从 prefix matching 到 cache-safe forking，系统拆解 Claude Code 背后的提示词缓存工程</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Sunday, May 3, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言长期运行-agent-的成本问题最后都会变成缓存问题">一、引言：长期运行 Agent 的成本问题，最后都会变成缓存问题</h2>
+<blockquote>
+<p>原文链接：<a href="https://claude.com/blog/lessons-from-building-claude-code-prompt-caching-is-everything">Lessons from building Claude Code: Prompt caching is everything</a><br>
+作者：Thariq Shihipar（Claude Code 团队 technical staff）<br>
+发布时间：2026 年 4 月 30 日</p>
+</blockquote>
+<p>Claude Code 这类编程 Agent 和普通聊天机器人最大的区别，不是它会调用工具，而是它会在一个会话里持续积累大量上下文：系统提示、工具定义、项目规则、<code>CLAUDE.md</code>、代码片段、终端输出、文件 diff、历史决策，以及用户一轮又一轮追加的新要求。</p>
+<p>如果每次模型调用都从头计算完整 prompt，那么会话越长，系统越不可用：输入 Token 成本持续上升，首 Token 延迟变长，用户订阅计划的 rate limit 也会被更快消耗。Anthropic 在这篇文章里给出的核心结论非常直接：<strong>长期运行的 Agent 产品之所以在经济上可行，很大程度上依赖 prompt caching。</strong></p>
+<p>这不是一个“后期优化项”，而是 Claude Code 从 agent harness 设计之初就必须纳入的基础设施。原文甚至提到，Claude Code 团队会像监控 uptime 一样监控 prompt cache hit rate；当命中率异常下降时，会触发告警，甚至按 SEV 级别处理。</p>
+<p>下面这张图概括了 Claude Code 中 prompt caching 所处的位置：</p>
+<p>
+  <img src="/img/claude-prompt-caching/architecture-overview.svg" alt="Claude Code Prompt Caching 架构总览">
+
+</p>
+<p><strong>图注</strong>：本文配图均为作者基于原文机制整理的概念示意，并非 Anthropic 官方架构图。</p>
+<hr>
+<h2 id="二技术背景为什么-agent-比普通-chat-更需要-prompt-caching">二、技术背景：为什么 Agent 比普通 Chat 更需要 prompt caching</h2>
+<p>普通 Chat 产品通常以“短对话 + 少量上下文”为主。即使没有缓存，每次请求的输入规模也相对可控。而 Claude Code 的典型使用方式完全不同：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>普通聊天助手</th>
+<th>Claude Code 这类编程 Agent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>会话长度</td>
+<td>较短，主题容易切换</td>
+<td>长时间围绕同一代码库推进</td>
+</tr>
+<tr>
+<td>上下文组成</td>
+<td>用户消息和回答为主</td>
+<td>系统提示、工具 schema、项目规则、文件内容、命令输出、diff 等</td>
+</tr>
+<tr>
+<td>上下文增长</td>
+<td>相对缓慢</td>
+<td>工具调用会快速堆积大量 Token</td>
+</tr>
+<tr>
+<td>成本结构</td>
+<td>单次请求成本较稳定</td>
+<td>越到后期，完整 prompt 越昂贵</td>
+</tr>
+<tr>
+<td>延迟风险</td>
+<td>主要来自模型推理</td>
+<td>输入处理和缓存未命中也会显著影响延迟</td>
+</tr>
+</tbody>
+</table>
+<p>对于 Agent 来说，很多上下文其实是稳定的：工具定义不会每轮都变，系统提示不会每轮都变，项目规则也不会每轮都变。真正动态增长的部分主要是 conversation messages 和工具输出。因此，prompt caching 的核心价值在于：<strong>把稳定前缀的计算结果复用起来，只为新增尾部内容付出完整处理成本。</strong></p>
+<p>可以把一次 Claude Code 请求想象成下面的结构：</p>
+<p>
+  <img src="/img/claude-prompt-caching/prompt-layout.svg" alt="Claude Code 请求的上下文分层与缓存友好顺序">
+
+</p>
+<p>这也是原文反复强调的布局原则：<strong>Static content first, dynamic content last.</strong> 稳定内容越靠前、越确定，多个请求之间可复用的前缀就越长，缓存收益也越大。</p>
+<hr>
+<h2 id="三实现原理prompt-caching-本质是-prefix-matching">三、实现原理：prompt caching 本质是 prefix matching</h2>
+<p>原文给出了一个非常关键的技术事实：Claude API 的 prompt caching 依赖 <strong>prefix matching</strong>。也就是说，API 会从请求开头开始匹配，直到每个 <code>cache_control</code> breakpoint；只有前缀完全一致的部分，才能命中缓存。</p>
+<p>这带来三个直接后果：</p>
+<ol>
+<li><strong>顺序比内容本身更重要</strong>：同样的工具定义，如果顺序随机变化，也会破坏前缀一致性。</li>
+<li><strong>前面的微小变化会放大为后面的大面积 miss</strong>：如果 system prompt 开头加入当前时间戳，后续所有内容都无法复用旧缓存。</li>
+<li><strong>稳定内容必须前置，动态内容必须后置</strong>：越动态的内容越应该放在 prompt 尾部。</li>
+</ol>
+<p>可以用下面的流程图理解缓存匹配过程：</p>
+<p>
+  <img src="/img/claude-prompt-caching/prefix-matching.svg" alt="Prompt Cache 前缀匹配流程">
+
+</p>
+<p>一个简化的概念模型如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 概念模型：真实 API 行为以官方文档为准</span>
+</span></span><span style="display:flex;"><span>request <span style="color:#ff79c6">=</span> [
+</span></span><span style="display:flex;"><span>    stable_system_prompt,
+</span></span><span style="display:flex;"><span>    stable_tool_definitions,
+</span></span><span style="display:flex;"><span>    project_context,
+</span></span><span style="display:flex;"><span>    session_context,
+</span></span><span style="display:flex;"><span>    conversation_messages,
+</span></span><span style="display:flex;"><span>]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>cacheable_prefix <span style="color:#ff79c6">=</span> request[:cache_control_breakpoint]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> cacheable_prefix <span style="color:#ff79c6">==</span> previous_cacheable_prefix:
+</span></span><span style="display:flex;"><span>    reuse_cached_computation()
+</span></span><span style="display:flex;"><span>    compute_only_new_suffix()
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">else</span>:
+</span></span><span style="display:flex;"><span>    recompute_from_first_changed_token()
+</span></span></code></pre></div><p>这也是为什么 prompt caching 不是“加一个缓存开关”这么简单。它要求整个 Agent 的上下文组织方式都围绕“前缀稳定”来设计。</p>
+<hr>
+<h2 id="四核心优势降低成本降低延迟扩大上下文可用性">四、核心优势：降低成本、降低延迟、扩大上下文可用性</h2>
+<p>Prompt caching 对 Claude Code 的价值可以概括为四类。</p>
+<h3 id="41-成本优势长会话不再每轮从零开始">4.1 成本优势：长会话不再每轮从零开始</h3>
+<p>在一个 100k tokens 的长会话中，如果每轮请求都重新处理完整输入，越到后期成本越高。缓存命中后，系统可以复用前面稳定内容的计算结果，只处理新增消息、工具输出和用户指令。</p>
+<table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>缓存命中率低</th>
+<th>缓存命中率高</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>长会话输入成本</td>
+<td>每轮接近重新处理完整上下文</td>
+<td>大量稳定前缀可复用</td>
+</tr>
+<tr>
+<td>订阅计划 rate limit</td>
+<td>更容易被长会话消耗</td>
+<td>可提供更宽松的使用额度</td>
+</tr>
+<tr>
+<td>会话越长的边际成本</td>
+<td>持续放大</td>
+<td>主要由新增尾部内容决定</td>
+</tr>
+<tr>
+<td>工程可预测性</td>
+<td>成本波动明显</td>
+<td>成本模型更稳定</td>
+</tr>
+</tbody>
+</table>
+<p>原文明确指出，高 prompt cache hit rate 能降低成本，并帮助 Claude Code 提供更宽松的订阅计划 rate limits。这说明缓存命中率不仅是后端指标，还会直接影响产品形态。</p>
+<p>
+  <img src="/img/claude-prompt-caching/cost-curve.svg" alt="Prompt Caching 对长会话成本曲线的影响">
+
+</p>
+<h3 id="42-延迟优势用户感知的是是否立刻开始思考">4.2 延迟优势：用户感知的是“是否立刻开始思考”</h3>
+<p>编程 Agent 的用户体验很大程度上取决于首 Token 延迟。如果每轮都重新吞入巨大上下文，用户会感觉 Agent “卡住了”。缓存命中可以减少重复前缀处理，让模型更快进入新增问题的推理阶段。</p>
+<p>
+  <img src="/img/claude-prompt-caching/latency-compare.svg" alt="缓存命中与未命中的延迟对比">
+
+</p>
+<h3 id="43-上下文优势让更长的-agent-会话变得可用">4.3 上下文优势：让更长的 Agent 会话变得可用</h3>
+<p>Claude Code 的价值来自持续上下文：它知道前面读过哪些文件、做过哪些修改、哪些方案被否决、哪些测试失败过。如果没有缓存，长上下文会在成本和延迟上变得不可接受；有了缓存，长会话才具备工程可行性。</p>
+<h3 id="44-可靠性优势缓存命中率成为生产指标">4.4 可靠性优势：缓存命中率成为生产指标</h3>
+<p>原文中最有启发的一点是：Claude Code 团队会监控 prompt cache hit rate，并在命中率下降时触发告警。这意味着缓存已经从“性能优化”升级为“可靠性指标”。</p>
+<p>对 Agent 平台来说，下面这些指标应当一起观察：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>代表含义</th>
+<th>异常时的常见原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cache hit rate</td>
+<td>稳定前缀是否被复用</td>
+<td>prompt 顺序变化、工具集合变化、动态信息放在前部</td>
+</tr>
+<tr>
+<td>Uncached input tokens</td>
+<td>未命中部分的输入规模</td>
+<td>compaction 方式错误、模型切换、system prompt 改动</td>
+</tr>
+<tr>
+<td>First token latency</td>
+<td>用户感知启动速度</td>
+<td>大量前缀重新计算、工具 schema 过重</td>
+</tr>
+<tr>
+<td>Cost per session</td>
+<td>单个会话总成本</td>
+<td>长会话 miss、fork 不复用父上下文</td>
+</tr>
+</tbody>
+</table>
+<p>
+  <img src="/img/claude-prompt-caching/observability-dashboard.svg" alt="Prompt Cache 生产可观测性面板">
+
+</p>
+<hr>
+<h2 id="五最容易破坏缓存的三个细节">五、最容易破坏缓存的三个细节</h2>
+<p>原文把 Claude Code 的缓存布局形容为“surprisingly fragile”。很多缓存事故并不来自大的架构调整，而来自看似无害的小改动。</p>
+<p>
+  <img src="/img/claude-prompt-caching/cache-breakers.svg" alt="三类最常见的 Prompt Cache Breakers">
+
+</p>
+<h3 id="51-在-system-prompt-中加入详细时间戳">5.1 在 system prompt 中加入详细时间戳</h3>
+<p>如果 system prompt 里直接写入当前时间，例如 <code>current_time: 2026-05-03 01:07:23</code>，那么每次请求的前缀都会变化。由于 system prompt 位于最前面，这个变化会导致后续工具定义、项目上下文、历史消息全部无法复用旧缓存。</p>
+<p>更好的做法是：<strong>保持 system prompt 稳定，把动态信息放到后续 message 或 tool result 中。</strong> Claude Code 使用类似 <code>&lt;system-reminder&gt;</code> 的消息机制传递临时状态，例如时间变化、文件被用户修改等。</p>
+<p>
+  <img src="/img/claude-prompt-caching/dynamic-state-injection.svg" alt="修改系统提示 vs 追加动态消息">
+
+</p>
+<h3 id="52-非确定性地排列工具定义">5.2 非确定性地排列工具定义</h3>
+<p>工具定义是缓存前缀的一部分。如果工具列表来自 map 遍历、插件扫描或 MCP server 聚合，而排序不稳定，那么即使工具内容完全一样，也可能因为顺序变化导致缓存 miss。</p>
+<p>工程上应当保证：</p>
+<ul>
+<li>工具按稳定 key 排序；</li>
+<li>tool schema 序列化结果确定；</li>
+<li>插件加载顺序不影响最终 prompt；</li>
+<li>新增工具时评估对 cache hit rate 的影响。</li>
+</ul>
+<h3 id="53-会话中途切换模型或工具集合">5.3 会话中途切换模型或工具集合</h3>
+<p>原文特别强调：<strong>prompt caches are unique to models</strong>。不同模型之间不共享 prompt cache。一个反直觉例子是：如果你已经在 Opus 中进行到 100k tokens 的长会话，此时切到 Haiku 回答一个简单问题，可能并不更便宜，因为 Haiku 需要重新构建完整缓存。</p>
+<p>同理，会话中途添加、删除或重排 tools，也是最常见的缓存破坏方式之一。直觉上，“只给模型当前需要的工具”似乎更省；但对长会话来说，动态裁剪工具集合会破坏前缀，反而更贵。</p>
+<hr>
+<h2 id="六claude-code-的关键设计模式">六、Claude Code 的关键设计模式</h2>
+<h3 id="61-用-messages-表达状态变化而不是修改-system-prompt">6.1 用 messages 表达状态变化，而不是修改 system prompt</h3>
+<p>Agent 运行过程中一定会遇到动态状态：当前时间变化、用户手动编辑了文件、某个命令刚刚失败、工作模式从执行切换到规划。Claude Code 的经验是，不要为了这些状态去改 system prompt，而是用消息把变化追加到上下文尾部。</p>
+<p>这种设计背后的原则是：<strong>状态是动态的，规则是稳定的；动态状态应当出现在 prompt 尾部，稳定规则才适合放在 prompt 前缀。</strong></p>
+<h3 id="62-plan-mode用工具建模状态迁移而不是改变工具集合">6.2 Plan Mode：用工具建模状态迁移，而不是改变工具集合</h3>
+<p>Plan Mode 是原文中非常典型的案例。直觉设计是：进入 Plan Mode 后，只给模型 read-only tools，禁用编辑工具。但这会改变 tool set，从而破坏缓存。</p>
+<p>Claude Code 的做法更缓存友好：</p>
+<ol>
+<li>请求中始终保留完整工具集合；</li>
+<li>把 <code>EnterPlanMode</code> 和 <code>ExitPlanMode</code> 设计成工具；</li>
+<li>进入 Plan Mode 时，通过消息告诉 Agent 当前处于规划模式，不要编辑文件；</li>
+<li>完成计划后由 Agent 调用 <code>ExitPlanMode</code>。</li>
+</ol>
+<p>
+  <img src="/img/claude-prompt-caching/plan-mode.svg" alt="Plan Mode 用工具表达状态迁移">
+
+</p>
+<p>这个模式可以抽象为一句话：<strong>Use tools to model state transitions rather than changing the tool set.</strong> 对任何复杂 Agent 系统，这都是非常重要的架构原则。</p>
+<h3 id="63-mcp-工具很多时用-defer_loading而不是动态移除工具">6.3 MCP 工具很多时，用 defer_loading，而不是动态移除工具</h3>
+<p>Claude Code 可能接入 dozens of MCP tools。如果每次请求都发送所有完整 tool schema，输入会很重；但如果按需增删工具，又会破坏缓存。</p>
+<p>原文提到的折中方案是 tool search 和 <code>defer_loading</code>：</p>
+<ul>
+<li>始终发送稳定、轻量的 tool stubs；</li>
+<li>stub 中保留 tool name 和必要元信息；</li>
+<li>标记 <code>defer_loading: true</code>；</li>
+<li>当模型通过 tool search 选中某个工具时，再加载完整 schema；</li>
+<li>所有 stub 始终按确定顺序出现。</li>
+</ul>
+<p>
+  <img src="/img/claude-prompt-caching/defer-loading.svg" alt="MCP 工具延迟加载与缓存稳定性">
+
+</p>
+<p>这解决的是一个典型矛盾：<strong>工具太多会增加 prompt 体积，工具动态裁剪会破坏缓存。</strong> 延迟加载让系统同时获得“工具列表稳定”和“完整 schema 按需加载”的好处。</p>
+<hr>
+<h2 id="七compaction最容易掉进的成本陷阱">七、Compaction：最容易掉进的成本陷阱</h2>
+<p>当上下文窗口接近上限时，Agent 通常需要 compaction：把历史对话总结成摘要，再用摘要替换原始消息，继续后续工作。</p>
+<p>一个看似自然的实现方式是：单独发起一次 summarization call，用一个新的 system prompt，例如“请总结下面的对话”，然后把完整历史塞进去。原文指出，这正是成本陷阱：这个请求从第一个 token 开始就和父会话不同，因此无法复用父会话缓存，需要为整段历史支付 uncached input cost。</p>
+<p>Claude Code 的解决方案是 <strong>cache-safe forking</strong>：</p>
+<ol>
+<li>fork 请求使用与父会话完全相同的 system prompt、user context、system context 和 tool definitions；</li>
+<li>先放入父会话已有 conversation messages；</li>
+<li>最后追加 compaction prompt，作为新的 user message；</li>
+<li>这样 API 看到的前缀几乎等同于父会话最后一次请求，可以复用已有缓存；</li>
+<li>同时预留 compaction buffer，确保有空间容纳压缩指令和摘要输出。</li>
+</ol>
+<p>
+  <img src="/img/claude-prompt-caching/cache-safe-forking.svg" alt="Cache-safe Forking 时序">
+
+</p>
+<p>这条经验可以推广到所有 fork 类操作：总结、子任务、技能执行、旁路分析、审查任务，只要希望复用父会话上下文，就必须尽量共享父会话 prefix。</p>
+<hr>
+<h2 id="八实际应用场景不只是-claude-code">八、实际应用场景：不只是 Claude Code</h2>
+<p>Prompt caching 的经验并不只适用于 Claude Code。任何长期运行、上下文密集、工具密集的 Agent 系统，都可以借鉴这些模式。</p>
+<p>
+  <img src="/img/claude-prompt-caching/application-scenarios.svg" alt="Prompt Caching 的典型迁移场景">
+
+</p>
+<h3 id="81-企业代码助手">8.1 企业代码助手</h3>
+<p>企业代码助手通常会注入大量稳定上下文：安全规范、代码风格、仓库结构、构建命令、内部 SDK 文档。如果这些内容每轮都变化或顺序不稳定，缓存命中率会很差。</p>
+<p>推荐做法：</p>
+<ul>
+<li>把组织级规范放在最前面，并保持版本稳定；</li>
+<li>项目级规则放在组织规则之后；</li>
+<li>用户本轮需求和工具输出放在最后；</li>
+<li>对规则文件变更建立版本号，而不是每轮注入时间戳。</li>
+</ul>
+<h3 id="82-多-agent-协作系统">8.2 多 Agent 协作系统</h3>
+<p>多 Agent 系统常见做法是让主 Agent 把完整上下文复制给子 Agent。但如果子 Agent 使用不同模型、不同工具集合、不同 system prompt，就会失去父会话缓存。</p>
+<p>更好的方式是：</p>
+<ul>
+<li>主会话保持稳定；</li>
+<li>子 Agent 通过 hand-off message 接收必要摘要；</li>
+<li>简单任务用轻量 hand-off，避免复制 100k tokens；</li>
+<li>需要完整上下文的 fork 操作尽量复用父会话 prefix。</li>
+</ul>
+<h3 id="83-mcp-工具平台">8.3 MCP 工具平台</h3>
+<p>MCP 生态的工具数量可能迅速膨胀。一个企业内部 Agent 可能同时接入 Git、CI、监控、文档、工单、数据库、云资源等几十类工具。</p>
+<p>此时不要在每轮按“猜测需要什么工具”动态裁剪 tool set，而应：</p>
+<ul>
+<li>保持工具 stub 列表稳定；</li>
+<li>使用 tool search 发现能力；</li>
+<li>对完整 schema 延迟加载；</li>
+<li>对工具定义排序和序列化做确定性约束。</li>
+</ul>
+<h3 id="84-长文档--长代码库分析">8.4 长文档 / 长代码库分析</h3>
+<p>对于长文档分析、代码库审查、迁移规划等任务，用户往往希望 Agent 保留上下文并持续推进。Prompt caching 可以让长上下文的使用成本更接近“增量更新”，而不是“每轮重读整本书”。</p>
+<hr>
+<h2 id="九工程落地清单">九、工程落地清单</h2>
+<p>如果要把 Claude Code 的经验迁移到自己的 Agent 产品，可以从下面这份清单开始。</p>
+<p>
+  <img src="/img/claude-prompt-caching/implementation-playbook.svg" alt="Prompt Caching 工程落地五步闭环">
+
+</p>
+<h3 id="91-prompt-布局清单">9.1 Prompt 布局清单</h3>
+<ul>
+<li><input disabled="" type="checkbox"> 稳定 system prompt 放在最前面。</li>
+<li><input disabled="" type="checkbox"> 工具定义放在动态消息之前。</li>
+<li><input disabled="" type="checkbox"> 工具列表顺序确定，schema 序列化确定。</li>
+<li><input disabled="" type="checkbox"> 项目级规则放在会话级动态状态之前。</li>
+<li><input disabled="" type="checkbox"> 用户消息、工具输出、临时提醒放在尾部。</li>
+<li><input disabled="" type="checkbox"> 不在 system prompt 中放当前时间、随机 ID、临时状态。</li>
+</ul>
+<h3 id="92-工具设计清单">9.2 工具设计清单</h3>
+<ul>
+<li><input disabled="" type="checkbox"> 不在会话中途添加、删除或重排 tools。</li>
+<li><input disabled="" type="checkbox"> 用工具调用表达状态迁移，例如进入 / 退出规划模式。</li>
+<li><input disabled="" type="checkbox"> 工具过多时使用稳定 stub + 延迟加载，而不是动态裁剪。</li>
+<li><input disabled="" type="checkbox"> 新增工具时观察 cache hit rate 和 uncached input tokens。</li>
+</ul>
+<h3 id="93-模型与子任务清单">9.3 模型与子任务清单</h3>
+<ul>
+<li><input disabled="" type="checkbox"> 不在长会话中途随意切换模型。</li>
+<li><input disabled="" type="checkbox"> 如需低成本模型处理子任务，优先使用 hand-off message。</li>
+<li><input disabled="" type="checkbox"> fork 类请求尽量共享父会话 prefix。</li>
+<li><input disabled="" type="checkbox"> compaction 预留 buffer，避免上下文满了才被动压缩。</li>
+</ul>
+<h3 id="94-可观测性清单">9.4 可观测性清单</h3>
+<table>
+<thead>
+<tr>
+<th>监控项</th>
+<th>建议告警方向</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prompt cache hit rate</td>
+<td>低于基线或短时间突降时告警</td>
+</tr>
+<tr>
+<td>Uncached input tokens</td>
+<td>单会话异常升高时排查 prompt 变化</td>
+</tr>
+<tr>
+<td>Tool schema token 占比</td>
+<td>工具膨胀时评估 defer loading</td>
+</tr>
+<tr>
+<td>Compaction cost</td>
+<td>压缩请求成本异常时检查是否 cache-safe fork</td>
+</tr>
+<tr>
+<td>Model switch rate</td>
+<td>长会话频繁切模型时评估是否破坏缓存</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="十总结把缓存当成-agent-架构约束而不是性能补丁">十、总结：把缓存当成 Agent 架构约束，而不是性能补丁</h2>
+<p>Claude Code 的 prompt caching 经验可以浓缩成五句话：</p>
+<ol>
+<li><strong>Prompt caching 是 prefix matching</strong>：任何前缀变化都会影响后续缓存。</li>
+<li><strong>稳定内容前置，动态内容后置</strong>：prompt 顺序决定缓存收益上限。</li>
+<li><strong>用 messages 表达动态状态</strong>：不要为了临时状态修改 system prompt。</li>
+<li><strong>不要中途改变 tools 或 models</strong>：工具集合和模型都是缓存边界的一部分。</li>
+<li><strong>fork 操作必须共享父会话 prefix</strong>：compaction、总结和子任务都要避免从零开始。</li>
+</ol>
+<p>这篇 Anthropic 官方博客最值得借鉴的地方，不是某个具体 API 参数，而是它展示了一种 Agent 工程观：<strong>当 Agent 会话变长、工具变多、上下文变复杂，缓存命中率就会从性能指标变成产品可用性的底层约束。</strong></p>
+<p>对开发者而言，真正的问题不再是“要不要开启 prompt caching”，而是“你的 Agent 架构是否从第一天起就尊重缓存的工作方式”。如果答案是否定的，那么随着会话长度和工具规模增长，成本、延迟和稳定性问题迟早会一起出现。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="http://localhost:1313/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/03/non-technical-pm-claude-code-respiro/" data-toggle="tooltip" data-placement="top" title="从 0 行代码到 App Store：非技术项目经理用 Claude Code 六周发布压力管理应用">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ascend" title="ascend">
+                            ascend
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/multi-agent" title="multi-agent">
+                            multi-agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

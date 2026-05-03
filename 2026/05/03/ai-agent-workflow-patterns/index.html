@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="http://localhost:1313//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="AI 智能体常见工作流模式深度解析：何时顺序、何时并行、何时迭代优化" />
+    <meta property="og:title" content="AI 智能体常见工作流模式深度解析：何时顺序、何时并行、何时迭代优化" />
+    <meta property="twitter:title" content="AI 智能体常见工作流模式深度解析：何时顺序、何时并行、何时迭代优化" />
+    
+
+    
+    <meta name="description" content="基于 Anthropic 官方博客 Common workflow patterns for AI agents—and when to use them 的深度技术解读。文章系统分析顺序工作流、并行工作流和评估器-优化器工作流的运行机制、工程收益、适用边界、失败模式与选型逻辑，并通过 SVG 架构图和决策图展示不同 Agent 工作流的执行路径。">
+    <meta property="og:description" content="基于 Anthropic 官方博客 Common workflow patterns for AI agents—and when to use them 的深度技术解读。文章系统分析顺序工作流、并行工作流和评估器-优化器工作流的运行机制、工程收益、适用边界、失败模式与选型逻辑，并通过 SVG 架构图和决策图展示不同 Agent 工作流的执行路径。" />
+    <meta property="twitter:description" content="基于 Anthropic 官方博客 Common workflow patterns for AI agents—and when to use them 的深度技术解读。文章系统分析顺序工作流、并行工作流和评估器-优化器工作流的运行机制、工程收益、适用边界、失败模式与选型逻辑，并通过 SVG 架构图和决策图展示不同 Agent 工作流的执行路径。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>AI 智能体常见工作流模式深度解析：何时顺序、何时并行、何时迭代优化 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/03/ai-agent-workflow-patterns/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                    </div>
+                    <h1>AI 智能体常见工作流模式深度解析：何时顺序、何时并行、何时迭代优化</h1>
+                    <h2 class="subheading">从顺序、并行到评估器-优化器，系统拆解 AI Agent 工作流的工程选型</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Sunday, May 3, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言agent-需要自主性也需要工程结构">一、引言：Agent 需要自主性，也需要工程结构</h2>
+<blockquote>
+<p>原文链接：<a href="https://claude.com/blog/common-workflow-patterns-for-ai-agents-and-when-to-use-them">Common workflow patterns for AI agents—and when to use them</a><br>
+来源：Claude Blog / Anthropic<br>
+发布时间：2026 年 3 月 5 日</p>
+</blockquote>
+<p>过去两年，开发者谈到 AI Agent 时，常常会把重点放在“自主性”上：模型能否自己决定下一步、能否选择工具、能否规划任务、能否在不确定环境中持续推进。这个方向没有错，但一旦进入生产系统，另一个问题会变得更关键：<strong>Agent 的执行过程是否可控、可调试、可复现、可度量。</strong></p>
+<p>Anthropic 这篇文章的核心观点可以概括为一句话：<strong>工作流不是为了削弱 Agent 的智能，而是为了给智能体系统提供可控的执行结构。</strong> 在每个步骤内部，Agent 仍然可以推理、调用工具、处理局部不确定性；但在步骤之间，工作流负责规定边界、依赖、并发、质量门槛和停止条件。</p>
+<p>换句话说，生产级 Agent 系统不是简单地让一个模型“随便想办法完成任务”，而是在自主性和确定性之间做工程折中：</p>
+<p>
+  <img src="/img/ai-agent-workflow-patterns/workflow-decision-map.svg" alt="AI Agent 工作流选型总览">
+
+</p>
+<p><strong>图注</strong>：本文配图均为作者基于 Anthropic 原文机制整理的概念示意，并非官方架构图。</p>
+<p>原文重点讨论三种常见工作流模式：</p>
+<ol>
+<li><strong>Sequential workflows：顺序工作流</strong>，解决步骤依赖问题；</li>
+<li><strong>Parallel workflows：并行工作流</strong>，解决独立子任务的延迟问题；</li>
+<li><strong>Evaluator-optimizer workflows：评估器-优化器工作流</strong>，解决高质量输出的迭代改进问题。</li>
+</ol>
+<p>这三种模式并不是越复杂越好。恰恰相反，原文反复强调：<strong>先从最简单的方案开始。</strong> 如果单个 Agent 调用已经能稳定完成任务，就不要急着引入多 Agent、多步骤或循环评估。工作流的价值必须通过质量、延迟、成本或可治理性来证明，而不是为了让架构图看起来更高级。</p>
+<hr>
+<h2 id="二工作流与自主-agent先划清系统边界">二、工作流与自主 Agent：先划清系统边界</h2>
+<p>在讨论具体模式之前，需要先区分两个概念：<strong>自主 Agent</strong> 和 <strong>工作流化 Agent 系统</strong>。</p>
+<p>自主 Agent 更像一个开放式执行器。它接收目标后，自行决定使用哪些工具、按什么顺序执行、什么时候停止、如何处理异常。这种方式在探索性任务中很有吸引力，例如研究资料、修复未知 bug、浏览代码库、调查生产事故等。</p>
+<p>工作流化 Agent 系统则更像一个有明确阶段边界的执行管线。系统提前规定任务如何拆分、哪些步骤必须先后执行、哪些步骤可以并行、什么结果需要评估、何时重试、何时降级、何时终止。每个阶段可以仍然由 LLM 或 Agent 完成，但阶段之间的控制权属于工作流。</p>
+<p>一个实用判断是：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>更偏向自主 Agent</th>
+<th>更偏向工作流</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>任务路径是否提前可知</td>
+<td>很难提前确定</td>
+<td>大体可枚举</td>
+</tr>
+<tr>
+<td>输出质量是否有明确标准</td>
+<td>标准模糊</td>
+<td>标准清晰</td>
+</tr>
+<tr>
+<td>是否需要审计和复现</td>
+<td>相对弱</td>
+<td>很强</td>
+</tr>
+<tr>
+<td>是否有固定阶段依赖</td>
+<td>不明显</td>
+<td>很明显</td>
+</tr>
+<tr>
+<td>失败处理是否可规则化</td>
+<td>难规则化</td>
+<td>可设计 retry、fallback、人工介入</td>
+</tr>
+</tbody>
+</table>
+<p>很多生产系统最终会采用混合形态：外层是工作流，内层步骤由 Agent 执行。外层保证系统不会失控，内层保留模型处理局部复杂性的能力。</p>
+<hr>
+<h2 id="三模式一顺序工作流把复杂任务拆成可验证的依赖链">三、模式一：顺序工作流——把复杂任务拆成可验证的依赖链</h2>
+<p>顺序工作流是最容易理解、也最常见的 Agent 工作流。它按照预定义顺序执行多个步骤，前一步的输出成为后一步的输入。</p>
+<p>
+  <img src="/img/ai-agent-workflow-patterns/sequential-workflow.svg" alt="顺序工作流运行机制">
+
+</p>
+<h3 id="31-运行机制">3.1 运行机制</h3>
+<p>顺序工作流的核心是 <strong>stage boundary</strong>：每个阶段都有清晰输入、输出和验收条件。典型流程如下：</p>
+<ol>
+<li>接收用户请求或外部事件；</li>
+<li>第一个 Agent/步骤完成局部任务；</li>
+<li>对中间结果做格式化、校验或压缩；</li>
+<li>将结果传给下一个步骤；</li>
+<li>重复直到最终输出。</li>
+</ol>
+<p>例如，一个文档入库系统可以拆成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>原始文档 → 信息抽取 → Schema 校验 → 去重合并 → 写入数据库 → 生成审计记录
+</span></span></code></pre></div><p>这里每一步都依赖前一步输出。信息抽取还没完成，就无法校验字段；字段没有校验，就不应该写入数据库。这类任务天然适合顺序工作流。</p>
+<p>从工程实现看，顺序工作流通常需要为每个步骤定义统一接口：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">type</span> Step&lt;<span style="color:#ff79c6">Input</span>, <span style="color:#50fa7b">Output</span>&gt; <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  name: <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>  run(input: <span style="color:#8be9fd">Input</span>, context: <span style="color:#8be9fd">RunContext</span>)<span style="color:#ff79c6">:</span> Promise&lt;<span style="color:#ff79c6">Output</span>&gt;
+</span></span><span style="display:flex;"><span>  validate<span style="color:#ff79c6">?</span>(output: <span style="color:#8be9fd">Output</span>)<span style="color:#ff79c6">:</span> Promise&lt;<span style="color:#ff79c6">void</span>&gt;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>重点不在于这个接口本身，而在于它迫使系统把“Agent 说了一段话”变成“某个步骤产出了可消费的结构化结果”。这会显著提升可调试性：当最终结果失败时，开发者能定位是抽取失败、校验失败，还是写入失败。</p>
+<h3 id="32-适用场景">3.2 适用场景</h3>
+<p>顺序工作流适合以下场景：</p>
+<ul>
+<li><strong>步骤之间有强依赖</strong>：A 的输出是 B 的输入；</li>
+<li><strong>任务可以拆成稳定阶段</strong>：每个阶段职责明确；</li>
+<li><strong>需要中间检查点</strong>：可以在每一步记录输入、输出、耗时、Token 和错误；</li>
+<li><strong>需要逐步降低不确定性</strong>：先提取事实，再基于事实做判断；</li>
+<li><strong>需要把复杂 prompt 拆小</strong>：一个大而全的 prompt 不稳定时，将任务拆成多个窄任务。</li>
+</ul>
+<p>典型例子包括：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>顺序拆分方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>营销内容本地化</td>
+<td>生成英文文案 → 术语审查 → 多语言翻译 → 本地化润色</td>
+</tr>
+<tr>
+<td>内容审核</td>
+<td>抽取内容 → 分类风险 → 应用规则 → 路由到处理队列</td>
+</tr>
+<tr>
+<td>数据处理</td>
+<td>文档解析 → 字段抽取 → Schema 校验 → 数据写入</td>
+</tr>
+<tr>
+<td>代码迁移</td>
+<td>扫描依赖 → 修改代码 → 运行测试 → 生成变更说明</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-工程收益">3.3 工程收益</h3>
+<p>顺序工作流的最大收益不是“更智能”，而是更可控：</p>
+<ul>
+<li><strong>可观测</strong>：每一步都可以记录日志和指标；</li>
+<li><strong>可回放</strong>：可以用同一中间输入重跑某个阶段；</li>
+<li><strong>可替换</strong>：某个 Agent 表现不好时，只替换该阶段；</li>
+<li><strong>可降级</strong>：某一步失败时，可以重试、跳过、转人工或返回部分结果；</li>
+<li><strong>可做单元测试</strong>：用固定输入测试单个阶段的输出约束。</li>
+</ul>
+<h3 id="34-不该使用的情况">3.4 不该使用的情况</h3>
+<p>顺序工作流也有明显代价：<strong>延迟会线性累加</strong>。如果每一步都需要一次模型调用，五步流程就至少有五次模型延迟。它也会增加数据传递和状态管理成本。</p>
+<p>因此，不应在以下场景强行使用顺序工作流：</p>
+<ul>
+<li>单个 Agent 调用已经能稳定完成任务；</li>
+<li>拆分后的每一步边界并不清晰；</li>
+<li>多个步骤只是复述同一件事，没有信息增益；</li>
+<li>用户期望实时响应，无法接受多次模型调用；</li>
+<li>为了“看起来像架构”而把简单任务拆成流水线。</li>
+</ul>
+<p>一个好的实践是：<strong>先建立单 Agent baseline，再根据失败点拆分。</strong> 如果发现单个 Agent 经常在“先抽取再判断”这类任务中混淆事实和结论，再把抽取和判断拆成两个顺序步骤。</p>
+<hr>
+<h2 id="四模式二并行工作流用-fan-outfan-in-降低延迟并分离视角">四、模式二：并行工作流——用 fan-out/fan-in 降低延迟并分离视角</h2>
+<p>并行工作流适用于多个子任务彼此独立、但顺序执行太慢的场景。它的结构类似分布式系统中的 <strong>fan-out / fan-in</strong>：先把任务分发给多个 Agent，再把结果聚合回来。</p>
+<p>
+  <img src="/img/ai-agent-workflow-patterns/parallel-fanout-fanin.svg" alt="并行工作流的 fan-out/fan-in 机制">
+
+</p>
+<h3 id="41-运行机制">4.1 运行机制</h3>
+<p>并行工作流通常包含三个阶段：</p>
+<ol>
+<li><strong>任务拆分</strong>：将原始请求拆成多个互不依赖的子任务；</li>
+<li><strong>并发执行</strong>：多个 Agent 或多个模型调用同时运行；</li>
+<li><strong>结果聚合</strong>：汇总多个结果，生成最终答案、评分或路由决策。</li>
+</ol>
+<p>并行可以有两种常见形态。</p>
+<p>第一种是 <strong>任务分片</strong>：每个 Agent 处理不同子任务。例如分析一篇长文时，一个 Agent 抽取主题，一个 Agent 做事实核查，一个 Agent 判断情绪倾向。</p>
+<p>第二种是 <strong>视角分离</strong>：多个 Agent 处理同一输入，但从不同角度审查。例如代码审查中，一个 Agent 看安全漏洞，一个看性能问题，一个看可维护性，一个看测试覆盖。</p>
+<h3 id="42-适用场景">4.2 适用场景</h3>
+<p>并行工作流适合以下情况：</p>
+<ul>
+<li>子任务之间没有数据依赖；</li>
+<li>总延迟比单次调用成本更重要；</li>
+<li>不同维度需要不同专家 prompt；</li>
+<li>需要多个独立判断降低漏检风险；</li>
+<li>可以设计清晰的结果聚合策略。</li>
+</ul>
+<p>典型应用包括：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>并行方式</th>
+<th>聚合方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>代码审查</td>
+<td>安全、性能、可读性、测试分别审查</td>
+<td>汇总问题并按严重度排序</td>
+</tr>
+<tr>
+<td>文档分析</td>
+<td>主题、事实、情绪、实体并行抽取</td>
+<td>合并成结构化报告</td>
+</tr>
+<tr>
+<td>用户请求处理</td>
+<td>主任务响应与安全筛查并行</td>
+<td>安全结果决定是否放行</td>
+</tr>
+<tr>
+<td>分类任务</td>
+<td>多个分类器独立判断</td>
+<td>多数投票或置信度加权</td>
+</tr>
+<tr>
+<td>RAG 问答</td>
+<td>多路检索、重排、答案生成并行探索</td>
+<td>汇总证据后生成答案</td>
+</tr>
+</tbody>
+</table>
+<h3 id="43-关键难点聚合比并发更难">4.3 关键难点：聚合比并发更难</h3>
+<p>并行工作流最容易被低估的地方，不是如何发起多个 API 请求，而是如何处理多个输出之间的冲突。</p>
+<p>如果三个 Agent 给出三个结论：一个认为代码安全，一个认为存在高危注入风险，一个认为证据不足，系统应该如何决策？这不能靠“再问一次模型”随意解决，而需要提前设计聚合策略：</p>
+<ul>
+<li><strong>多数投票</strong>：适合分类、判断、简单偏好选择；</li>
+<li><strong>置信度加权</strong>：适合每个 Agent 能给出可解释评分的场景；</li>
+<li><strong>专家优先</strong>：安全、合规等高风险领域优先采纳专业审查 Agent；</li>
+<li><strong>规则兜底</strong>：只要任一高优先级检查命中，就触发阻断或人工复核；</li>
+<li><strong>汇总 Agent</strong>：让一个专门的聚合 Agent 读取全部结果并生成最终报告。</li>
+</ul>
+<p>并行工作流的工程质量，取决于聚合层是否明确。否则你得到的只是更快、更贵、但更难解释的一组矛盾输出。</p>
+<h3 id="44-成本与限流问题">4.4 成本与限流问题</h3>
+<p>并行会降低墙钟时间，但不会降低总计算量。相反，它通常会增加：</p>
+<ul>
+<li>并发 API 调用数量；</li>
+<li>峰值速率限制压力；</li>
+<li>输出聚合 Token；</li>
+<li>日志、追踪和错误处理复杂度。</li>
+</ul>
+<p>因此，并行工作流的收益主要体现在 <strong>延迟优化</strong> 和 <strong>职责分离</strong>，而不是成本优化。只有当任务确实可独立拆分，并且延迟是瓶颈时，并行才值得引入。</p>
+<hr>
+<h2 id="五模式三评估器-优化器工作流把生成与质检拆成闭环">五、模式三：评估器-优化器工作流——把生成与质检拆成闭环</h2>
+<p>评估器-优化器工作流适用于“第一次生成通常不够好，但有明确标准可以迭代改进”的场景。它把系统拆成两个角色：</p>
+<ul>
+<li><strong>Optimizer / Generator</strong>：负责生成候选答案、代码、文档或方案；</li>
+<li><strong>Evaluator</strong>：根据标准检查候选结果，并给出可执行反馈。</li>
+</ul>
+<p>
+  <img src="/img/ai-agent-workflow-patterns/evaluator-optimizer-loop.svg" alt="评估器-优化器工作流闭环">
+
+</p>
+<h3 id="51-运行机制">5.1 运行机制</h3>
+<p>基本循环如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>生成候选结果 → 根据标准评估 → 若不达标则反馈修改 → 再次生成 → 达标或达到预算后停止
+</span></span></code></pre></div><p>这个模式的关键不是“让模型多想几次”，而是把两个认知任务拆开：<strong>生成</strong> 和 <strong>评价</strong>。</p>
+<p>生成器倾向于产出内容，评估器则专注于发现缺陷、应用标准、提出修正方向。两者可以使用不同 prompt、不同模型、不同工具，甚至不同温度参数。例如生成器使用更开放的采样策略，评估器使用更保守、更结构化的输出格式。</p>
+<h3 id="52-适用场景">5.2 适用场景</h3>
+<p>评估器-优化器适合高质量要求且评估标准清晰的任务：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>评估器检查什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>代码生成</td>
+<td>编译是否通过、测试是否通过、安全规则、边界条件</td>
+</tr>
+<tr>
+<td>SQL 生成</td>
+<td>是否可执行、是否使用参数化查询、是否有全表扫描风险</td>
+</tr>
+<tr>
+<td>技术文档</td>
+<td>是否完整、是否准确、是否遗漏前提、是否有矛盾</td>
+</tr>
+<tr>
+<td>客服回复</td>
+<td>语气、政策合规、是否解决用户问题</td>
+</tr>
+<tr>
+<td>数据分析报告</td>
+<td>指标解释是否正确、结论是否有证据支撑</td>
+</tr>
+</tbody>
+</table>
+<p>这类任务有一个共同点：初稿可以有瑕疵，但评估器能够指出具体改进方向，并且改进后的质量可以被验证。</p>
+<h3 id="53-停止条件比循环本身更重要">5.3 停止条件比循环本身更重要</h3>
+<p>评估器-优化器最大的风险是进入低收益循环：每轮都能发现一些小问题，但整体质量已经接近平台期，继续迭代只是在消耗 Token 和时间。</p>
+<p>因此必须预先设置停止条件：</p>
+<ul>
+<li>最大迭代次数，例如最多 3 轮；</li>
+<li>质量阈值，例如评分达到 0.9；</li>
+<li>阻断问题清零，例如没有高危安全问题；</li>
+<li>增益阈值，例如连续两轮评分提升小于 0.02；</li>
+<li>时间或成本预算，例如 15 秒内必须返回。</li>
+</ul>
+<p>一个可落地的控制逻辑如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">for</span> (<span style="color:#8be9fd;font-style:italic">let</span> i <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>; i <span style="color:#ff79c6">&lt;</span> maxIterations; i<span style="color:#ff79c6">++</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> candidate <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> optimizer.generate(input, feedback)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> report <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> evaluator.check(candidate, criteria)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (report.pass <span style="color:#ff79c6">||</span> report.score <span style="color:#ff79c6">&gt;=</span> threshold) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> candidate
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">!</span>report.actionableFeedback.length) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> candidate
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  feedback <span style="color:#ff79c6">=</span> report.actionableFeedback
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">return</span> bestCandidate
+</span></span></code></pre></div><p>在生产系统中，<code>bestCandidate</code> 不一定是最后一轮结果，而应该是历史迭代中评分最高、且没有阻断问题的结果。</p>
+<h3 id="54-不该使用的情况">5.4 不该使用的情况</h3>
+<p>不要把评估器-优化器当成默认增强器。以下情况通常不适合：</p>
+<ul>
+<li>第一次生成已经足够好；</li>
+<li>实时交互不允许多轮延迟；</li>
+<li>任务是简单分类或抽取，不需要迭代；</li>
+<li>评估标准非常主观，评估器无法稳定判断；</li>
+<li>已有确定性工具可以完成检查，例如 lint、typecheck、单元测试；</li>
+<li>成本预算无法承受多轮模型调用。</li>
+</ul>
+<p>更好的做法是：先用确定性工具做硬检查，再用评估器做语义检查。比如代码生成场景中，编译、测试、lint 应该由工具执行；评估器负责检查设计合理性、边界遗漏和安全风险。</p>
+<hr>
+<h2 id="六三种模式的使用场景对比">六、三种模式的使用场景对比</h2>
+<p>把三种模式放在一起看，选择逻辑其实很清晰：</p>
+<p>
+  <img src="/img/ai-agent-workflow-patterns/workflow-comparison-matrix.svg" alt="AI Agent 工作流模式对比矩阵">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>单 Agent</th>
+<th>顺序工作流</th>
+<th>并行工作流</th>
+<th>评估器-优化器</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主要目标</td>
+<td>最小复杂度</td>
+<td>处理依赖链</td>
+<td>降低总延迟 / 分离视角</td>
+<td>提升质量</td>
+</tr>
+<tr>
+<td>任务结构</td>
+<td>简单或开放</td>
+<td>阶段明确、前后依赖</td>
+<td>子任务独立</td>
+<td>可生成、可评估、可改进</td>
+</tr>
+<tr>
+<td>延迟</td>
+<td>最低</td>
+<td>随步骤数增加</td>
+<td>墙钟时间较低，峰值并发高</td>
+<td>多轮迭代，通常最高</td>
+</tr>
+<tr>
+<td>成本</td>
+<td>最低</td>
+<td>中等</td>
+<td>API 调用数增加</td>
+<td>Token 和调用数增加</td>
+</tr>
+<tr>
+<td>调试性</td>
+<td>取决于日志</td>
+<td>强</td>
+<td>中等，聚合层关键</td>
+<td>强，但需要记录每轮反馈</td>
+</tr>
+<tr>
+<td>典型风险</td>
+<td>单次输出不稳定</td>
+<td>过度拆分、延迟累加</td>
+<td>结果冲突、聚合困难</td>
+<td>无限打磨、收益递减</td>
+</tr>
+<tr>
+<td>最适合</td>
+<td>baseline、简单任务</td>
+<td>数据管道、审核流程、迁移流程</td>
+<td>多维审查、并发抽取、投票</td>
+<td>代码、文档、SQL、高标准输出</td>
+</tr>
+</tbody>
+</table>
+<p>可以把选型压缩成四个问题：</p>
+<ol>
+<li><strong>单个 Agent 是否已经足够好？</strong> 如果是，停止，不要引入工作流。</li>
+<li><strong>子任务是否存在强依赖？</strong> 如果是，优先顺序工作流。</li>
+<li><strong>子任务是否相互独立且延迟是瓶颈？</strong> 如果是，考虑并行工作流。</li>
+<li><strong>输出是否需要基于明确标准反复改进？</strong> 如果是，考虑评估器-优化器。</li>
+</ol>
+<p>这也是原文最重要的工程建议：<strong>不要从模式出发设计系统，而要从失败模式出发选择模式。</strong></p>
+<hr>
+<h2 id="七组合模式真实系统往往不是三选一">七、组合模式：真实系统往往不是三选一</h2>
+<p>在真实生产系统中，这三种模式经常组合使用。例如一个代码修复 Agent 可能是这样的：</p>
+<ol>
+<li>顺序阶段一：理解 issue、定位相关代码；</li>
+<li>并行阶段：安全 Agent、测试 Agent、架构 Agent 同时审查修复方案；</li>
+<li>顺序阶段二：生成 patch、运行测试；</li>
+<li>评估器-优化器：根据测试失败和审查意见迭代修改；</li>
+<li>顺序阶段三：生成变更说明并请求人工确认。</li>
+</ol>
+<p>组合模式要特别注意两个问题。</p>
+<p>第一，<strong>不要让状态传播变得不可控</strong>。每个阶段传递给下一阶段的内容应该是结构化摘要，而不是把所有中间对话原样塞进去。否则上下文会迅速膨胀，成本和错误传播都会失控。</p>
+<p>第二，<strong>每个复杂模式都要有明确收益假设</strong>。例如并行阶段的收益假设是“多角度审查能降低漏检率”；评估器-优化器的收益假设是“迭代能让测试通过率提升”。没有指标，就无法判断复杂度是否值得。</p>
+<hr>
+<h2 id="八落地建议从-baseline-到生产工作流">八、落地建议：从 baseline 到生产工作流</h2>
+<p>基于原文观点和工程实践，可以按以下路径落地 Agent 工作流：</p>
+<h3 id="81-先建立单-agent-baseline">8.1 先建立单 Agent baseline</h3>
+<p>先把任务完整交给单个 Agent，并记录：</p>
+<ul>
+<li>成功率；</li>
+<li>平均延迟；</li>
+<li>Token 成本；</li>
+<li>常见失败类型；</li>
+<li>用户是否需要人工修正。</li>
+</ul>
+<p>只有当 baseline 暴露出稳定失败模式时，再引入工作流。否则复杂度只会掩盖问题。</p>
+<h3 id="82-用失败模式决定拆分方式">8.2 用失败模式决定拆分方式</h3>
+<table>
+<thead>
+<tr>
+<th>失败模式</th>
+<th>推荐模式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>经常漏掉固定步骤</td>
+<td>顺序工作流</td>
+</tr>
+<tr>
+<td>某一步输出格式不稳定</td>
+<td>顺序工作流 + 校验</td>
+</tr>
+<tr>
+<td>多个独立检查耗时太长</td>
+<td>并行工作流</td>
+</tr>
+<tr>
+<td>单次生成质量波动大</td>
+<td>评估器-优化器</td>
+</tr>
+<tr>
+<td>安全/合规漏检风险高</td>
+<td>并行审查 + 高优先级阻断规则</td>
+</tr>
+<tr>
+<td>初稿可用但需要打磨</td>
+<td>评估器-优化器</td>
+</tr>
+</tbody>
+</table>
+<h3 id="83-每个步骤都要可观测">8.3 每个步骤都要可观测</h3>
+<p>不要只记录最终答案。生产系统至少应该记录：</p>
+<ul>
+<li>每个步骤的输入摘要；</li>
+<li>每个步骤的结构化输出；</li>
+<li>模型、参数、工具调用；</li>
+<li>Token、耗时、重试次数；</li>
+<li>校验错误和降级路径；</li>
+<li>聚合器如何处理冲突。</li>
+</ul>
+<p>这些日志既用于 debug，也用于评估工作流是否真的带来收益。</p>
+<h3 id="84-优先使用确定性检查">8.4 优先使用确定性检查</h3>
+<p>如果问题可以用确定性程序检查，就不要让 LLM 猜。例如：</p>
+<ul>
+<li>JSON Schema 校验；</li>
+<li>TypeScript 类型检查；</li>
+<li>单元测试；</li>
+<li>SQL explain；</li>
+<li>lint 和格式化；</li>
+<li>权限、配额、敏感操作确认。</li>
+</ul>
+<p>LLM 更适合处理语义、意图和模糊判断；确定性工具适合处理规则、格式和执行结果。好的 Agent 工作流会把两者结合起来。</p>
+<hr>
+<h2 id="九总结工作流是-agent-的工程化约束层">九、总结：工作流是 Agent 的工程化约束层</h2>
+<p>AI Agent 的价值来自模型的推理和工具使用能力，但生产级可靠性来自工程结构。Anthropic 这篇文章给出的三种模式，本质上对应三类问题：</p>
+<ul>
+<li><strong>顺序工作流</strong>解决“步骤之间有依赖”的问题；</li>
+<li><strong>并行工作流</strong>解决“独立任务顺序执行太慢”的问题；</li>
+<li><strong>评估器-优化器工作流</strong>解决“单次生成质量不够稳定”的问题。</li>
+</ul>
+<p>真正重要的不是记住这些模式名称，而是理解它们背后的取舍：顺序带来可控性但增加延迟；并行降低墙钟时间但增加聚合难度；评估器-优化器提升质量但放大成本和迭代时间。</p>
+<p>因此，设计 Agent 工作流时最稳妥的原则是：<strong>从单 Agent baseline 开始，用可观测的失败模式驱动架构演进。</strong> 当你能明确说出“为什么需要拆分、为什么需要并行、为什么需要迭代、如何验证收益”时，工作流才是在增强 Agent；否则，它只是把一个不稳定系统包装成了更复杂的不稳定系统。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="http://localhost:1313/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/02/non-technical-pm-claude-code-respiro/" data-toggle="tooltip" data-placement="top" title="从 0 行代码到 App Store：非技术项目经理用 Claude Code 六周发布压力管理应用">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/03/agent-skills-evals-skill-creator/" data-toggle="tooltip" data-placement="top" title="Agent Skills 工程化深度解析：用 skill-creator 测试、度量并持续改进技能">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ascend" title="ascend">
+                            ascend
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/multi-agent" title="multi-agent">
+                            multi-agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/tkestack" title="tkestack">
+                            tkestack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BB%83%E8%BD%A6" title="练车">
+                            练车
+                        </a>
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

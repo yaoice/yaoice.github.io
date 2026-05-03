@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="多智能体协调模式深度解析：五种架构、选型逻辑与生产实践" />
+    <meta property="og:title" content="多智能体协调模式深度解析：五种架构、选型逻辑与生产实践" />
+    <meta property="twitter:title" content="多智能体协调模式深度解析：五种架构、选型逻辑与生产实践" />
+    
+
+    
+    <meta name="description" content="基于 Anthropic Claude Blog《Multi-agent coordination patterns: Five approaches and when to use them》的深度技术解读。文章系统分析 Generator-Verifier、Orchestrator-Subagent、Agent Teams、Message Bus 与 Shared State 五种多智能体协调模式的核心概念、架构设计、应用场景、失败模式、选型逻辑和生产级最佳实践，并通过 SVG 架构图辅助理解复杂信息流。">
+    <meta property="og:description" content="基于 Anthropic Claude Blog《Multi-agent coordination patterns: Five approaches and when to use them》的深度技术解读。文章系统分析 Generator-Verifier、Orchestrator-Subagent、Agent Teams、Message Bus 与 Shared State 五种多智能体协调模式的核心概念、架构设计、应用场景、失败模式、选型逻辑和生产级最佳实践，并通过 SVG 架构图辅助理解复杂信息流。" />
+    <meta property="twitter:description" content="基于 Anthropic Claude Blog《Multi-agent coordination patterns: Five approaches and when to use them》的深度技术解读。文章系统分析 Generator-Verifier、Orchestrator-Subagent、Agent Teams、Message Bus 与 Shared State 五种多智能体协调模式的核心概念、架构设计、应用场景、失败模式、选型逻辑和生产级最佳实践，并通过 SVG 架构图辅助理解复杂信息流。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>多智能体协调模式深度解析：五种架构、选型逻辑与生产实践 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/04/14/multi-agent-coordination-patterns/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                    </div>
+                    <h1>多智能体协调模式深度解析：五种架构、选型逻辑与生产实践</h1>
+                    <h2 class="subheading">从生成-验证到共享状态，系统拆解多智能体系统的协调边界、信息流和终止条件</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Tuesday, April 14, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一先建立问题意识多智能体的关键不是更多-agent而是如何协调">一、先建立问题意识：多智能体的关键不是“更多 Agent”，而是“如何协调”</h2>
+<blockquote>
+<p>原文链接：<a href="https://claude.com/blog/multi-agent-coordination-patterns">Multi-agent coordination patterns: Five approaches and when to use them</a><br>
+来源：Claude Blog / Anthropic<br>
+发布时间：2026 年 4 月 10 日<br>
+作者：Cara Phillips</p>
+</blockquote>
+<p>当 AI Agent 从单轮问答走向复杂任务执行时，“多智能体”很容易成为一个诱人的架构标签：把问题拆给多个模型、让它们互相讨论、再汇总结果，听起来天然比单个 Agent 更强。但进入工程实践后会发现，<strong>多 Agent 并不会自动带来更高质量、更低延迟或更强可靠性</strong>。如果任务边界、上下文边界、通信路径和终止条件没有设计清楚，多个 Agent 反而会放大混乱：重复工作、信息丢失、循环不收敛、成本飙升、错误被层层摘要后变得更难追踪。</p>
+<p>Anthropic 这篇文章的价值在于，它没有把多智能体协调描述成一个抽象概念，而是拆成五种可落地的架构模式：<strong>Generator-Verifier、Orchestrator-Subagent、Agent Teams、Message Bus、Shared State</strong>。这些模式回答的不是“要不要使用多个 Agent”，而是更具体的问题：任务如何拆分？谁掌握全局目标？信息是否需要实时共享？中间结果是否可验证？工作流是否固定？系统何时停止？</p>
+<p>
+  <img src="/img/multi-agent-coordination/overview.svg" alt="多智能体协调模式总览">
+
+</p>
+<p><strong>图注</strong>：本文配图均为作者基于 Anthropic 原文机制整理的概念示意，并非官方架构图。</p>
+<p>为了让目录更像一条阅读路线，本文按下面顺序展开：</p>
+<ul>
+<li><strong>先建立设计坐标系</strong>：为什么多智能体拆解要从上下文边界开始；</li>
+<li><strong>再看五种模式</strong>：每种模式到底解决哪个工程瓶颈；</li>
+<li><strong>然后做横向对比</strong>：相似模式之间如何选型，什么时候不该升级复杂度；</li>
+<li><strong>最后落到生产实践</strong>：如何处理验证、并发、共享状态、可观测性和终止条件。</li>
+</ul>
+<p>我认为这篇文章最重要的隐含观点是：<strong>多智能体系统设计的本质不是“角色扮演”，而是上下文工程与控制流工程。</strong> 每个 Agent 只是执行单元，真正决定系统质量的是任务如何被分区、信息如何被压缩或传播、失败如何被发现，以及复杂度是否匹配问题本身。</p>
+<hr>
+<h2 id="二设计坐标系先划上下文边界再划-agent-边界">二、设计坐标系：先划上下文边界，再划 Agent 边界</h2>
+<p>讨论具体模式之前，需要先建立一个判断标准。很多多 Agent 架构失败，不是因为模型能力不足，而是因为拆解方式错了。</p>
+<p>一种常见但危险的拆法是按“职能角色”拆：一个搜索 Agent、一个写作 Agent、一个审查 Agent、一个总结 Agent。这种拆法看起来清晰，但它忽略了一个更关键的问题：<strong>哪些信息必须出现在同一个上下文窗口里，哪些信息可以被隔离，哪些信息需要在执行过程中持续传播？</strong></p>
+<p>原文强调的核心方法可以概括为 <strong>context-centric decomposition</strong>，即以上下文为中心拆解任务。它要求我们在设计多智能体系统时优先回答以下问题：</p>
+<p>
+  <img src="/img/multi-agent-coordination/context-decomposition-map.svg" alt="上下文中心拆解地图">
+
+</p>
+<blockquote>
+<p><strong>拆解任务前，先做六个判断：</strong></p>
+<ul>
+<li><strong>必须同窗的信息</strong>：如果两类信息必须同时出现，强行拆分会让 Agent 丢失判断依据。</li>
+<li><strong>可隔离的局部任务</strong>：如果子任务只依赖局部上下文，就适合交给 <code>Subagent</code> 或 <code>Worker</code>。</li>
+<li><strong>会改变方向的中间发现</strong>：如果一个 Agent 的发现会影响另一个 Agent 的路线，就需要消息机制或共享状态。</li>
+<li><strong>可独立验证的输出</strong>：如果结果能被规则、测试或 rubric 检查，就适合生成-验证闭环。</li>
+<li><strong>固定还是动态的工作流</strong>：如果路径固定，中心编排足够；如果路径由事件决定，就需要路由层。</li>
+<li><strong>是否存在循环风险</strong>：只要系统可能自我反馈，就必须把终止条件提前设计进去。</li>
+</ul>
+</blockquote>
+<p>这套坐标系可以避免两个极端。</p>
+<p>第一个极端是<strong>过早复杂化</strong>。如果一个单 Agent 加工具调用已经可以稳定完成任务，那么引入多 Agent 只会增加调度、上下文切换、结果合并和调试成本。多 Agent 应该是为了解决明确瓶颈：质量不可控、上下文过大、任务可并行、事件路由复杂、知识需要协同累积。</p>
+<p>第二个极端是<strong>把所有复杂性塞给一个 Agent</strong>。当任务需要同时处理大量资料、跨多个领域做独立判断，或者需要多条线并行推进时，单 Agent 的上下文窗口会变成瓶颈。它需要读太多无关细节，注意力被污染，最终输出既慢又不稳定。</p>
+<p>因此，选择协调模式时可以先看四个维度：</p>
+<ol>
+<li><strong>质量验证</strong>：输出是否有明确验收标准；</li>
+<li><strong>任务边界</strong>：子任务是否能清晰分离；</li>
+<li><strong>执行时长</strong>：worker 是否需要长期保留上下文；</li>
+<li><strong>信息流形态</strong>：信息是中心汇总、事件流转，还是共享累积。</li>
+</ol>
+<p>这四个维度会自然导向后面的五种模式。</p>
+<hr>
+<h2 id="三模式总览五种架构分别解决什么瓶颈">三、模式总览：五种架构分别解决什么瓶颈</h2>
+<p>原文给出的五种模式不是“复杂度排行榜”，而是五种不同的协作方式。为了避免混淆，可以先把它们压缩成下面五张“选型卡”：</p>
+<ul>
+<li>
+<p><strong>Generator-Verifier：质量门禁卡</strong><br>
+一个 Agent 负责生成，另一个 Agent 按明确标准检查。它解决的是“结果到底对不对”的问题。典型例子是生成客服回复后检查事实、语气和问题覆盖度；如果评价标准非常主观，Verifier 也判断不清，就不适合。</p>
+</li>
+<li>
+<p><strong>Orchestrator-Subagent：上下文隔离卡</strong><br>
+一个中心 Agent 负责拆解和合成，多个短生命周期 Subagent 各自调查局部问题。它解决的是“上下文太大、主 Agent 不该亲自读完所有细节”的问题。典型例子是代码审查中分别检查安全、测试、架构和文档；如果子任务强依赖、必须频繁共享中间结果，就不适合。</p>
+</li>
+<li>
+<p><strong>Agent Teams：长期并行卡</strong><br>
+多个持久 Worker 长时间推进各自分区，持续保留模块上下文。它解决的是“任务很多、可分区、每个分区都要多步执行”的问题。典型例子是多服务框架迁移；如果多个 Worker 会频繁修改同一资源且没有锁，就不适合。</p>
+</li>
+<li>
+<p><strong>Message Bus：动态路由卡</strong><br>
+Agent 通过 Topic 发布和订阅事件，系统按事件类型动态分发任务。它解决的是“流程路径不固定、新 Agent 会不断接入”的问题。典型例子是安全告警按类型路由给网络、身份、上下文 Agent；如果流程非常固定，用中心编排更简单。</p>
+</li>
+<li>
+<p><strong>Shared State：知识累积卡</strong><br>
+多个 Agent 共同读写一个结构化知识状态，用事实、假设、证据、置信度和冲突关系协作。它解决的是“中间发现会互相启发”的问题。典型例子是多源研究中论文、专利和新闻线索互相影响；如果只需要最终汇总，不需要共享中间发现，就不适合。</p>
+</li>
+</ul>
+<p>
+  <img src="/img/multi-agent-coordination/pattern-scorecard.svg" alt="五种模式工程评分卡">
+
+</p>
+<p>更简单的记法是：</p>
+<ul>
+<li><strong>要质量门禁</strong>：用 <code>Generator-Verifier</code>；</li>
+<li><strong>要拆解复杂任务</strong>：先用 <code>Orchestrator-Subagent</code>；</li>
+<li><strong>要长期并行执行</strong>：用 <code>Agent Teams</code>；</li>
+<li><strong>要动态事件路由</strong>：用 <code>Message Bus</code>；</li>
+<li><strong>要协作式知识累积</strong>：用 <code>Shared State</code>。</li>
+</ul>
+<p>一个实用经验是：<strong>大多数系统优先从 Orchestrator-Subagent 开始</strong>。它具备中心控制、拆解清晰、容易调试、成本可控等优点。只有当出现明确瓶颈时，再演化到更复杂的 Agent Teams、Message Bus 或 Shared State。</p>
+<p>接下来逐一拆解这五种模式。</p>
+<hr>
+<h2 id="四模式一generator-verifier生成-验证质量门禁">四、模式一：Generator-Verifier（生成-验证）——质量门禁</h2>
+<h3 id="41-核心概念">4.1 核心概念</h3>
+<p>Generator-Verifier 是最容易落地的多智能体模式。它把“生成结果”和“判断结果是否合格”拆成两个角色：Generator 负责产生初始输出，Verifier 负责按照明确标准检查输出。如果不通过，Verifier 返回具体反馈，Generator 根据反馈修正，直到通过或达到最大迭代次数。</p>
+<p>
+  <img src="/img/multi-agent-coordination/generator-verifier.svg" alt="Generator-Verifier 生成-验证闭环">
+
+</p>
+<p>这个模式的本质是把一次性生成改造成一个<strong>带质量门禁的迭代过程</strong>。它不要求 verifier 比 generator 更聪明，但要求 verifier 面对的是一个更窄、更明确的问题：不是“请完成任务”，而是“请判断这个输出是否满足这些标准”。</p>
+<p><strong>一句话判断</strong>：如果你能把“好结果”写成清晰检查项，并且错误输出代价较高，就优先考虑 <code>Generator-Verifier</code>。</p>
+<h3 id="42-典型架构">4.2 典型架构</h3>
+<p>一个生产级 Generator-Verifier 通常包含五个组件：</p>
+<ol>
+<li><strong>任务输入层</strong>：用户请求、业务上下文、知识库片段、约束条件；</li>
+<li><strong>生成器</strong>：负责生成候选答案、代码、邮件、报告或行动计划；</li>
+<li><strong>验证器</strong>：根据 rubric、测试、规则、事实库或策略要求检查输出；</li>
+<li><strong>反馈通道</strong>：把失败原因转化为可执行修改建议；</li>
+<li><strong>终止控制</strong>：最大迭代次数、时间预算、人工升级或降级策略。</li>
+</ol>
+<p>以客户支持邮件为例，Generator 根据工单和产品文档生成回复；Verifier 检查事实是否准确、是否回应所有问题、语气是否符合品牌规范、是否存在不当承诺。如果发现某个产品功能被错误归到高级套餐，Verifier 不应只说“不准确”，而要指出错误位置、正确事实和建议修改方式。</p>
+<h3 id="43-适用场景">4.3 适用场景</h3>
+<p>Generator-Verifier 适合“错误成本高、验证标准相对明确”的任务，例如：</p>
+<ul>
+<li>代码生成后运行测试或静态检查；</li>
+<li>客服回复的事实与语气审查；</li>
+<li>合规、法务或安全策略检查；</li>
+<li>数据报告中的数字一致性校验；</li>
+<li>需要引用来源的研究摘要；</li>
+<li>结构化输出格式检查。</li>
+</ul>
+<p>判断是否适合该模式，可以问一句话：<strong>错误输出的代价是否高于额外一次验证和重试的成本？</strong> 如果答案是肯定的，引入 verifier 通常值得。</p>
+<h3 id="44-失败模式">4.4 失败模式</h3>
+<p>这个模式最常见的失败是“橡皮图章 verifier”。如果提示只是“检查这个结果好不好”，模型很容易给出笼统评价，甚至默认通过。有效 verifier 必须拥有明确标准，例如：必须覆盖哪些事实、哪些字段不能为空、哪些测试必须通过、哪些语气不能出现、哪些引用必须能追溯。</p>
+<p>第二个风险是验证本身可能和生成一样困难。比如创意方案、产品战略、审美判断，评价标准高度主观，verifier 未必能可靠区分好坏。这类任务更适合多候选比较、人类评审或基于指标的后验评估，而不是简单二元通过/拒绝。</p>
+<p>第三个风险是循环不收敛。Generator 可能反复修复一个问题又引入另一个问题，或者无法理解 verifier 的反馈。因此必须设置最大迭代次数，并定义失败后的处理：返回最佳版本并标注 caveat、转人工、缩小任务范围，或切换到更强模型。</p>
+<hr>
+<h2 id="五模式二orchestrator-subagent编排器-子智能体上下文隔离">五、模式二：Orchestrator-Subagent（编排器-子智能体）——上下文隔离</h2>
+<h3 id="51-核心概念">5.1 核心概念</h3>
+<p>Orchestrator-Subagent 是最通用的多智能体模式。一个中心 Orchestrator 负责理解用户目标、制定计划、拆分子任务、派发给 subagents、收集结果并综合输出。Subagent 通常是短生命周期的：接收一个边界明确的任务，独立完成后返回压缩后的发现。</p>
+<p>
+  <img src="/img/multi-agent-coordination/orchestrator-subagent.svg" alt="Orchestrator-Subagent 编排架构">
+
+</p>
+<p>这个模式解决的是单 Agent 的上下文瓶颈。主 Agent 不必亲自阅读所有细节，而是把独立调查交给子 Agent。例如在大型代码库中查找认证逻辑、分析测试失败原因、梳理某个模块的数据流，都可以由 subagent 在自己的上下文窗口中完成，再把结论摘要给主 Agent。</p>
+<p><strong>一句话判断</strong>：如果任务能拆成几个边界清晰的调查问题，并且最终需要一个中心角色统一取舍，就优先考虑 <code>Orchestrator-Subagent</code>。</p>
+<h3 id="52-架构设计要点">5.2 架构设计要点</h3>
+<p>Orchestrator-Subagent 的关键不是“有一个主 Agent 和多个子 Agent”这么简单，而是要定义清楚四类边界。</p>
+<p>第一是<strong>任务边界</strong>。每个 subagent 应该拿到一个可完成、可汇报的具体问题，而不是模糊目标。例如“检查这个 PR 是否有安全风险”太宽泛；“检查认证和权限相关改动是否存在越权或未校验输入”更适合派发。</p>
+<p>第二是<strong>上下文边界</strong>。Orchestrator 应给 subagent 足够上下文，但不要把全部历史塞过去。好的任务描述通常包含目标、输入范围、排除项、输出格式和成功标准。</p>
+<p>第三是<strong>结果边界</strong>。Subagent 返回的不应是漫长过程日志，而应是可操作结论：发现了什么、证据在哪里、置信度如何、建议下一步是什么。</p>
+<p>第四是<strong>合成边界</strong>。Orchestrator 必须负责去重、冲突检测、优先级排序和最终叙事。多个 subagent 的结果不能简单拼接，否则容易出现重复、矛盾和遗漏。</p>
+<p>
+  <img src="/img/multi-agent-coordination/subagent-contract.svg" alt="Subagent 任务契约">
+
+</p>
+<h3 id="53-典型场景">5.3 典型场景</h3>
+<p>原文提到的典型案例是自动化代码审查。一个 PR 到来后，系统可以派发多个 subagent：安全检查、测试覆盖率检查、代码风格检查、架构一致性检查。每个检查项所需上下文不同、标准相对清晰、结果可以独立汇报，最后由 orchestrator 综合成一份 review。</p>
+<p>类似场景还包括：</p>
+<ul>
+<li>RFP 或招投标响应拆解；</li>
+<li>长文档的多维度审阅；</li>
+<li>风险评估中的安全、成本、合规、可运维性分析；</li>
+<li>数据报告中的多指标解释；</li>
+<li>代码库迁移前的影响面调查。</li>
+</ul>
+<h3 id="54-失败模式">5.4 失败模式</h3>
+<p>Orchestrator-Subagent 最大风险是中心编排器成为信息瓶颈。Subagent A 发现的信息可能对 Subagent B 很重要，但如果 orchestrator 没有识别这个依赖，信息就不会被转发。即使转发，经过摘要后也可能丢失关键证据。</p>
+<p>第二个风险是“伪并行”。有些系统虽然设计了多个 subagent，但实际上串行调用。这样会增加 token 成本和架构复杂度，却没有降低延迟。真正需要并行收益时，必须显式设计异步派发、超时控制、结果聚合和部分失败处理。</p>
+<p>第三个风险是任务拆得太碎。每次 subagent 调用都有上下文构造和结果合成成本。如果子任务过小，协调开销会超过收益。一个简单判断是：subagent 是否能显著减少主 Agent 的上下文负担，或是否能并行缩短关键路径。</p>
+<hr>
+<h2 id="六模式三agent-teams智能体团队长期并行执行">六、模式三：Agent Teams（智能体团队）——长期并行执行</h2>
+<h3 id="61-核心概念">6.1 核心概念</h3>
+<p>Agent Teams 和 Orchestrator-Subagent 很像，但有一个关键区别：<strong>subagent 是一次性调用，teammate 是长期存在的 worker</strong>。在 Agent Teams 中，多个 worker 会跨多个步骤持续工作，保留自己负责领域的上下文，并从共享任务队列或 coordinator 处领取任务。</p>
+<p>
+  <img src="/img/multi-agent-coordination/agent-teams.svg" alt="Agent Teams 持久工作队列">
+
+</p>
+<p>这个模式适合长时间、多步骤、可分区的任务。例如大型代码库框架迁移时，每个 worker 负责一个服务：更新依赖、修改代码、修复测试、调整配置、验证构建。它不只是回答一个问题，而是在较长时间内持续推进一个模块。</p>
+<p><strong>一句话判断</strong>：如果每个执行单元都需要在同一模块里连续工作、积累上下文并独立交付结果，就优先考虑 <code>Agent Teams</code>。</p>
+<h3 id="62-架构设计要点">6.2 架构设计要点</h3>
+<p>Agent Teams 通常包含：</p>
+<ul>
+<li><strong>Coordinator</strong>：创建任务、分配分区、监控进度、处理失败；</li>
+<li><strong>Task Queue</strong>：记录待处理、处理中、已完成、失败任务；</li>
+<li><strong>Persistent Workers</strong>：长期保留某个模块或领域上下文；</li>
+<li><strong>Artifact Store</strong>：保存代码改动、报告、日志、测试结果；</li>
+<li><strong>Merge/Review Gate</strong>：处理冲突、检查质量、合并结果。</li>
+</ul>
+<p>相比 Orchestrator-Subagent，Agent Teams 更像分布式任务系统。它需要考虑 task claiming、锁、超时、重试、幂等、状态机和资源隔离。这些工程机制看似传统，但在多 Agent 场景中更重要，因为 LLM worker 的执行路径更不确定。</p>
+<h3 id="63-典型场景">6.3 典型场景</h3>
+<p>适合 Agent Teams 的任务通常具有三个特征：任务数量多、分区相对独立、每个分区需要多步执行。</p>
+<p>典型场景包括：</p>
+<ul>
+<li>多服务框架迁移；</li>
+<li>大规模测试修复；</li>
+<li>多模块依赖升级；</li>
+<li>批量文档转换与校对；</li>
+<li>多区域市场调研；</li>
+<li>大规模 issue triage；</li>
+<li>数据清洗和标注流水线。</li>
+</ul>
+<p>这里的关键不是“多个 Agent 同时工作”，而是每个 worker 的上下文积累有价值。负责某个服务的 worker 在读过该服务结构、测试习惯和部署方式后，后续修改会更稳定。如果每个任务都重新创建一次短生命周期 subagent，前期理解成本会不断重复。</p>
+<h3 id="64-失败模式">6.4 失败模式</h3>
+<p>Agent Teams 最怕“独立性假设不成立”。如果两个 worker 修改同一个接口、同一个数据库 schema 或同一组配置，它们可能分别做出局部合理但全局冲突的决定。解决方式包括任务分区、文件锁、接口 owner、变更公告、集中 merge gate 和冲突检测。</p>
+<p>第二个风险是完成检测复杂。某个 worker 可能完成、失败、卡住、部分完成，或者生成了看似成功但未验证的结果。Coordinator 不能只等所有 worker 返回，而要能处理超时、重试、降级和人工介入。</p>
+<p>第三个风险是资源争用。多个 worker 同时运行测试、写文件、调用外部 API 或部署环境，可能导致互相干扰。生产系统应把 workspace、临时目录、凭证、环境变量和部署目标隔离开，避免“一个 Agent 的副作用污染另一个 Agent”。</p>
+<hr>
+<h2 id="七模式四message-bus消息总线动态事件路由">七、模式四：Message Bus（消息总线）——动态事件路由</h2>
+<h3 id="71-核心概念">7.1 核心概念</h3>
+<p>当 agent 数量增加、交互路径动态变化时，中心 orchestrator 会变得越来越复杂。每新增一种事件、一个 agent 或一条条件分支，都要修改 orchestrator 的路由逻辑。Message Bus 模式把通信抽象为 publish/subscribe：Agent 发布事件到 topic，订阅相关 topic 的 Agent 收到消息并处理，处理后可以继续发布新事件。</p>
+<p>
+  <img src="/img/multi-agent-coordination/message-bus.svg" alt="Message Bus 事件驱动协调">
+
+</p>
+<p>这不是简单的“把消息发来发去”，而是把多 Agent 系统从中心过程调用转变为<strong>事件驱动架构</strong>。每个 Agent 关注自己订阅的事件类型，系统通过 topic、router、filter 和 handler 组合成动态流水线。</p>
+<p><strong>一句话判断</strong>：如果系统的下一步取决于事件内容，并且新增 Agent 时不希望改中心流程，就优先考虑 <code>Message Bus</code>。</p>
+<h3 id="72-架构设计要点">7.2 架构设计要点</h3>
+<p>Message Bus 的核心设计点包括：</p>
+<ol>
+<li><strong>事件模型</strong>：事件类型、schema、版本、来源、时间、关联 ID；</li>
+<li><strong>路由规则</strong>：基于规则、分类模型或 LLM router 决定投递对象；</li>
+<li><strong>订阅机制</strong>：Agent 声明自己能处理哪些 topic；</li>
+<li><strong>投递语义</strong>：至少一次、至多一次、精确一次通常成本不同；</li>
+<li><strong>失败处理</strong>：重试、死信队列、降级、告警；</li>
+<li><strong>可观测性</strong>：事件 lineage、trace、处理耗时、分支路径。</li>
+</ol>
+<p>如果使用 LLM 做语义路由，需要特别谨慎。它的灵活性很强，可以处理自然语言事件和模糊分类，但失败模式也更隐蔽：路由到错误 Agent、漏投递、过度投递、边界案例不稳定。生产系统通常需要把 LLM router 的决策记录下来，并配合规则兜底、置信度阈值和回放测试。</p>
+<h3 id="73-典型场景">7.3 典型场景</h3>
+<p>原文给出的示例是安全运营自动化系统。不同来源产生安全告警后，triage agent 对告警分类；高危网络告警流向 network investigation agent，凭证相关告警流向 identity analysis agent；调查过程中还可能发布 enrichment request，由上下文收集 agent 补充资产、日志或威胁情报；最终 finding 流向 response coordination agent。</p>
+<p>类似场景包括：</p>
+<ul>
+<li>客服工单自动分派；</li>
+<li>DevOps 告警响应；</li>
+<li>金融风控事件处理；</li>
+<li>IoT 事件流分析；</li>
+<li>数据处理流水线；</li>
+<li>企业内部自动化机器人生态。</li>
+</ul>
+<p>Message Bus 适合“流程路径由事件内容决定”的系统。如果你发现 orchestrator 里的 <code>if/else</code> 分支越来越多，且新增 agent 时总要修改中心逻辑，就该考虑引入消息总线。</p>
+<h3 id="74-失败模式">7.4 失败模式</h3>
+<p>Message Bus 的调试难度明显高于中心编排。一个事件可能触发多个 Agent，多个 Agent 又发布新事件，最终形成级联。系统出问题时，不能只看某个 Agent 的日志，而要能追踪整个事件链。</p>
+<p>此外，消息总线系统容易“静默失败”：事件没有 crash，但被错误分类、投递到错误 topic，或者没有任何订阅者处理。用户看到的是任务没有完成，但系统表面没有异常。因此，未匹配事件、低置信度路由、死信队列和处理超时都应成为一等监控指标。</p>
+<hr>
+<h2 id="八模式五shared-state共享状态协作式知识累积">八、模式五：Shared State（共享状态）——协作式知识累积</h2>
+<h3 id="81-核心概念">8.1 核心概念</h3>
+<p>Shared State 模式取消了中心协调者，多个 Agent 直接读写一个共享持久化状态。这个状态可以是数据库、文件系统、知识库、向量库、文档、黑板系统或共享 workspace。Agent 之间不一定直接通信，而是通过状态变化互相影响。</p>
+<p>
+  <img src="/img/multi-agent-coordination/shared-state.svg" alt="Shared State 协作式知识累积">
+
+</p>
+<p>这个模式最像传统 AI 中的 blackboard architecture。每个 Agent 把自己的发现写到共享空间，其他 Agent 读取后继续扩展、修正或反驳。它适合答案需要逐步累积、研究路径无法提前固定、不同来源发现会互相启发的任务。</p>
+<p><strong>一句话判断</strong>：如果中间发现本身就是资产，并且会改变其他 Agent 的研究方向，就优先考虑 <code>Shared State</code>。</p>
+<h3 id="82-架构设计要点">8.2 架构设计要点</h3>
+<p>Shared State 的核心不是“大家都能写同一个数据库”，而是状态必须有可治理结构。至少需要包含：</p>
+<ul>
+<li><strong>事实与假设区分</strong>：哪些是已验证事实，哪些只是推测；</li>
+<li><strong>来源与证据</strong>：每条发现来自哪里，能否追溯；</li>
+<li><strong>置信度</strong>：Agent 对结论的确信程度；</li>
+<li><strong>版本与时间</strong>：发现何时写入，是否被更新；</li>
+<li><strong>所有权与状态</strong>：谁在处理某条线索，是否已完成；</li>
+<li><strong>冲突标记</strong>：不同 Agent 结论不一致时如何呈现；</li>
+<li><strong>终止信号</strong>：何时认为研究已经足够。</li>
+</ul>
+<p>
+  <img src="/img/multi-agent-coordination/shared-state-schema.svg" alt="共享状态最小数据模型">
+
+</p>
+<p>没有这些元数据，共享状态很快会变成“智能体涂鸦墙”：信息越来越多，但可信度、来源、时效和冲突关系都不清楚。</p>
+<h3 id="83-典型场景">8.3 典型场景</h3>
+<p>原文示例是研究综合系统。多个 Agent 分别研究学术文献、行业报告、专利文件和新闻动态。学术文献 Agent 发现某个关键研究者后，行业报告 Agent 可以继续研究该研究者所在公司；专利 Agent 发现相关申请后，新闻 Agent 可以查找近期融资或产品发布。</p>
+<p>这种任务中，中间发现不是最终汇总前才有价值，而是会实时改变其他 Agent 的探索方向。因此，Shared State 比 Agent Teams 更自然。</p>
+<p>类似场景包括：</p>
+<ul>
+<li>深度研究和竞争情报；</li>
+<li>投资分析与尽调；</li>
+<li>法务证据整理；</li>
+<li>科学文献综述；</li>
+<li>多源情报融合；</li>
+<li>知识图谱构建；</li>
+<li>复杂事故复盘。</li>
+</ul>
+<h3 id="84-失败模式">8.4 失败模式</h3>
+<p>Shared State 最大难点是 reactive loop。Agent A 写入一条发现，Agent B 读取后回应，Agent A 又读取 B 的回应继续补充，系统可能不断消耗 token，却没有新增有效信息。这不是传统并发控制能完全解决的问题，而是行为层面的收敛问题。</p>
+<p>因此，Shared State 必须把终止条件设计成一等公民。可选机制包括：时间预算、token 预算、最大轮次、N 轮无新高价值发现、覆盖率阈值、judge agent 判断、人工审批或研究问题收敛判定。</p>
+<p>另外，共享状态还会带来重复工作和冲突结论。解决重复工作需要 task claiming、锁和 ownership；解决冲突需要 provenance、confidence score、版本控制和显式冲突解决策略。</p>
+<hr>
+<h2 id="九横向对比相似模式之间怎么选">九、横向对比：相似模式之间怎么选</h2>
+<p>五种模式并不是互斥的，但选型时需要避免“看起来都适合”。下面按最容易混淆的几组关系分析。</p>
+<h3 id="91-orchestrator-subagent-vs-agent-teams">9.1 Orchestrator-Subagent vs Agent Teams</h3>
+<p>关键问题是：<strong>worker 是否需要长期保留上下文？</strong></p>
+<p>如果子任务短、边界明确、一次调用即可完成，Orchestrator-Subagent 更简单。例如代码审查中的安全检查、风格检查、测试覆盖率检查，subagent 只需要完成一次分析并返回结论。</p>
+<p>如果子任务是长期、多步骤、需要 worker 熟悉某个模块后持续推进，Agent Teams 更合适。例如迁移一个服务时，worker 需要理解依赖、配置、测试、部署脚本和历史问题，这些上下文会在多个步骤中持续复用。</p>
+<p>简化判断：<strong>一次性调查用 subagent，长期分区执行用 teammate。</strong></p>
+<h3 id="92-orchestrator-subagent-vs-message-bus">9.2 Orchestrator-Subagent vs Message Bus</h3>
+<p>关键问题是：<strong>工作流是否可预测？</strong></p>
+<p>如果步骤顺序大体固定，orchestrator 可以提前规划并控制流程。例如“收到 PR → 安全检查 → 测试检查 → 架构检查 → 汇总 review”，中心编排足够。</p>
+<p>如果流程路径由事件内容动态决定，且 agent 类型会不断增长，Message Bus 更合适。例如安全告警中，网络、身份、终端、云资源等不同告警会触发不同调查路径，还可能在调查中产生新的 enrichment request。</p>
+<p>简化判断：<strong>固定流程用 orchestrator，动态事件生态用 message bus。</strong></p>
+<h3 id="93-agent-teams-vs-shared-state">9.3 Agent Teams vs Shared State</h3>
+<p>关键问题是：<strong>Agent 是否需要彼此的中间发现？</strong></p>
+<p>如果各 worker 只需要处理独立分区，最终合并结果即可，Agent Teams 更合适。例如每个 worker 迁移一个服务，中间过程不必频繁影响其他 worker。</p>
+<p>如果某个 Agent 的发现会改变其他 Agent 的研究方向，Shared State 更自然。例如研究系统中，专利线索、学术作者、公司动态和新闻事件会互相启发。</p>
+<p>简化判断：<strong>独立分区用 teams，协作式知识累积用 shared state。</strong></p>
+<h3 id="94-message-bus-vs-shared-state">9.4 Message Bus vs Shared State</h3>
+<p>关键问题是：<strong>系统处理的是离散事件，还是累积知识？</strong></p>
+<p>Message Bus 中，消息通常代表“要处理的事”：告警、工单、请求、状态变化。Agent 处理事件后发布下一步动作。</p>
+<p>Shared State 中，状态通常代表“已经知道的事实或线索”：证据、假设、引用、结论、冲突。Agent 读取这些知识并继续扩展。</p>
+<p>如果你的 message bus 中大部分消息其实是在发布发现，而不是触发动作，就说明系统可能更适合共享状态。</p>
+<p>
+  <img src="/img/multi-agent-coordination/decision-flow.svg" alt="多智能体协调模式选型流程">
+
+</p>
+<hr>
+<h2 id="十组合架构生产系统往往不是单一模式">十、组合架构：生产系统往往不是单一模式</h2>
+<p>真实系统很少只使用一种模式。更常见的是外层采用一种控制结构，局部子流程采用另一种模式。</p>
+<p>例如，一个企业级安全运营 Agent 平台可能是这样的：</p>
+<ol>
+<li>外层使用 <strong>Message Bus</strong> 接收不同来源的告警；</li>
+<li>每类高危告警由 <strong>Orchestrator-Subagent</strong> 拆解调查任务；</li>
+<li>某些长期处置任务交给 <strong>Agent Teams</strong> 并行执行；</li>
+<li>威胁情报与调查证据写入 <strong>Shared State</strong>；</li>
+<li>每个处置建议内部再用 <strong>Generator-Verifier</strong> 做安全与合规检查。</li>
+</ol>
+<p>这种组合不是炫技，而是因为不同层次的问题不同：事件接入需要低耦合路由，调查需要中心拆解，长期修复需要持久 worker，知识沉淀需要共享状态，高风险输出需要验证闭环。</p>
+<p>设计组合架构时要注意一个原则：<strong>每增加一层协调机制，都必须对应一个明确瓶颈。</strong> 如果没有质量瓶颈，就不要加 verifier；如果没有动态路由，就不要加 message bus；如果中间发现不需要互相影响，就不要加 shared state。</p>
+<hr>
+<h2 id="十一生产级最佳实践">十一、生产级最佳实践</h2>
+<h3 id="111-从最简单可行模式开始">11.1 从最简单可行模式开始</h3>
+<p>多智能体系统最容易犯的错误是过度设计。推荐演化路径是：</p>
+<ol>
+<li>先验证单 Agent 是否足够；</li>
+<li>如果需要质量控制，引入 Generator-Verifier；</li>
+<li>如果上下文过大或任务可拆，引入 Orchestrator-Subagent；</li>
+<li>如果需要长期并行执行，演化为 Agent Teams；</li>
+<li>如果路由分支爆炸，演化为 Message Bus；</li>
+<li>如果中间发现需要协作累积，引入 Shared State。</li>
+</ol>
+<p>不要从最复杂的形态开始。复杂协调结构本身也需要测试、监控、调试和维护。</p>
+<h3 id="112-把终止条件设计成一等公民">11.2 把终止条件设计成一等公民</h3>
+<p>所有循环模式都必须有明确停止机制：Generator-Verifier 有重试循环，Message Bus 有事件级联，Shared State 有反应式循环，Agent Teams 有长期任务等待。终止条件不能依赖“模型自己觉得差不多了”。</p>
+<p>可操作的终止条件包括：</p>
+<ul>
+<li>最大迭代次数；</li>
+<li>最大 token 或成本预算；</li>
+<li>最大执行时间；</li>
+<li>N 轮无新增有效信息；</li>
+<li>覆盖率或测试通过率达到阈值；</li>
+<li>judge agent 判定足够；</li>
+<li>人工审批；</li>
+<li>返回最佳尝试并标注未解决问题。</li>
+</ul>
+<h3 id="113-明确上下文输入与输出契约">11.3 明确上下文输入与输出契约</h3>
+<p>每个 Agent 都应该有输入契约和输出契约。输入契约说明它能看到什么、不能看到什么、任务边界是什么；输出契约说明它必须返回什么字段、证据如何引用、置信度如何表达、失败如何报告。</p>
+<p>没有契约的多 Agent 系统很难调试，因为你无法判断问题出在任务分派、上下文不足、模型推理、工具调用还是结果合成。</p>
+<h3 id="114-为信息损耗设计补偿机制">11.4 为信息损耗设计补偿机制</h3>
+<p>Agent 之间传递信息时，摘要是必要的，但摘要会损耗细节。尤其在 Orchestrator-Subagent 中，subagent 的发现经过压缩后，证据链可能丢失。</p>
+<p>建议做法：</p>
+<ul>
+<li>摘要中保留关键证据链接或文件位置；</li>
+<li>对高风险结论保留原始片段；</li>
+<li>让 orchestrator 能按需追问 subagent 或重新检索；</li>
+<li>对冲突结论标注来源和置信度；</li>
+<li>最终输出区分事实、推断和建议。</li>
+</ul>
+<h3 id="115-并行不是自动获得的">11.5 并行不是自动获得的</h3>
+<p>多个 Agent 不等于并行。如果 orchestrator 逐个等待 subagent，系统可能只是更贵，而不是更快。需要明确哪些任务可以并行、哪些必须串行、哪些结果可以部分返回。</p>
+<p>生产实现中应考虑：</p>
+<ul>
+<li>异步任务派发；</li>
+<li>worker pool；</li>
+<li>超时和取消；</li>
+<li>部分失败容忍；</li>
+<li>最慢任务是否阻塞最终输出；</li>
+<li>结果到达顺序是否影响合成。</li>
+</ul>
+<h3 id="116-共享资源必须有冲突控制">11.6 共享资源必须有冲突控制</h3>
+<p>Agent Teams 和 Shared State 都可能让多个 Agent 操作同一资源。传统工程里的锁、版本、幂等、事务、分区、审计在这里同样适用。</p>
+<p>常见措施包括：</p>
+<ul>
+<li>文件或任务级 ownership；</li>
+<li>乐观锁与版本号；</li>
+<li>写入前读取最新状态；</li>
+<li>merge gate；</li>
+<li>幂等操作；</li>
+<li>变更审计；</li>
+<li>冲突自动检测与人工升级。</li>
+</ul>
+<h3 id="117-可观测性决定系统能否生产化">11.7 可观测性决定系统能否生产化</h3>
+<p>多 Agent 系统的错误往往不是单点 crash，而是“看似运行正常但结果错误”。因此可观测性必须覆盖控制流、信息流和状态变化。</p>
+<p>建议至少记录：</p>
+<p>建议至少记录六类信息：</p>
+<ul>
+<li><strong>Agent 调用</strong>：输入摘要、工具调用、输出、耗时、token 成本。</li>
+<li><strong>路由决策</strong>：事件类型、候选订阅者、置信度、最终投递对象。</li>
+<li><strong>状态写入</strong>：写入者、版本、来源、证据、覆盖关系。</li>
+<li><strong>验证结果</strong>：失败项、修复建议、迭代次数。</li>
+<li><strong>任务生命周期</strong>：<code>claimed</code>、<code>running</code>、<code>done</code>、<code>failed</code>、<code>timeout</code>。</li>
+<li><strong>最终合成</strong>：使用了哪些子结果，忽略了哪些冲突，为什么这样取舍。</li>
+</ul>
+<p>
+  <img src="/img/multi-agent-coordination/production-guardrails.svg" alt="生产级多智能体护栏">
+
+</p>
+<p>没有这些记录，系统一旦出错，只能靠猜。</p>
+<hr>
+<h2 id="十二结语把多智能体系统当作分布式系统来设计">十二、结语：把多智能体系统当作分布式系统来设计</h2>
+<p>多智能体协调模式的真正难点，不在于让多个模型同时说话，而在于像设计分布式系统一样设计它们的边界、协议和失败处理。</p>
+<p>Generator-Verifier 解决质量控制问题；Orchestrator-Subagent 解决结构化任务拆解问题；Agent Teams 解决长期并行执行问题；Message Bus 解决动态事件路由问题；Shared State 解决协作式知识累积问题。它们分别对应不同的信息流和控制流，没有哪一种天然更高级。</p>
+<p>如果只记住一条原则，我会选择这句：<strong>先从最简单的协调模式开始，用真实瓶颈驱动架构演化。</strong> 当质量不可控时加验证；当上下文过载时加子任务；当任务长期并行时加团队；当路由复杂时加消息总线；当发现需要互相启发时加共享状态。</p>
+<p>多 Agent 的价值不来自数量，而来自恰当地分配上下文、责任和反馈。协调模式设计得好，多个 Agent 会像一个有组织的系统；设计得不好，它们只是一群昂贵且难调试的并发聊天窗口。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/04/13/mcp-code-execution/" data-toggle="tooltip" data-placement="top" title="MCP 代码执行深度技术解析：让 Agent 写代码而非调工具">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/04/15/claude-parallel-agents-c-compiler/" data-toggle="tooltip" data-placement="top" title="用并行 Claude 代理团队构建 C 编译器：Anthropic 的自主编程极限实验深度解析">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

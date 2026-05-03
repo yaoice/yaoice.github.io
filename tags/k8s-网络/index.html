@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+    <link href="/tags/k8s-%E7%BD%91%E7%BB%9C/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" />
+    <link href="/tags/k8s-%E7%BD%91%E7%BB%9C/index.xml" rel="feed" type="application/rss+xml" title="爱折腾的工程师" />
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="" />
+    <meta property="og:title" content="" />
+    <meta property="twitter:title" content="" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>K8s 网络 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/tags/k8s-%E7%BD%91%E7%BB%9C/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+<header class="intro-header" style="background-image: url('/img/post-bg-unix-linux.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 ">
+                <div class="site-heading">
+                    <h1>爱折腾的工程师 </h1>
+                    
+		    <span class="subheading">未来的你会感谢现在努力的自己</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+  
+<div data-pagefind-ignore="all" class="container">
+    <div class="row">
+        
+        
+   	    <div class="
+            col-lg-8 col-lg-offset-1
+            col-md-8 col-md-offset-1
+            col-sm-12
+            col-xs-12
+            post-container
+        ">
+            
+<div data-pagefind-ignore="all">
+
+<div class="post-preview">
+    <a href="https://www.iceyao.com.cn/post/2020-12-15-calico_readnote/">
+        <h2 class="post-title">
+            calico源码阅读笔记
+        </h2>
+	
+        <div class="post-content-preview">
+	
+            1 calico简介 Calico是针对容器，虚拟机和裸机工作负载的开源网络和网络安全解决方案. Calico使用标准的Linux网络工具为Clo
+       
+        </div>
+    </a>
+    <p class="post-meta">
+    
+        Posted by 爱折腾的工程师 on Tuesday, December 15, 2020
+        
+        
+    
+    </p>
+
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="https://www.iceyao.com.cn/post/2020-11-28-k8s_dual_stack/">
+        <h2 class="post-title">
+            k8s ipv4/ipv6双栈实践
+        </h2>
+	
+        <div class="post-content-preview">
+	
+            1 k8s双栈 k8s从1.16版本支持ipv4/ipv6双协议栈，集群将支持同时分配IPv4和IPv6地址 2 ipv6 2.1 简介 IPv6具有比IPv4大得
+       
+        </div>
+    </a>
+    <p class="post-meta">
+    
+        Posted by 爱折腾的工程师 on Saturday, November 28, 2020
+        
+        
+    
+    </p>
+
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="https://www.iceyao.com.cn/post/2020-09-16-k8s_topology_aware_route_readnote/">
+        <h2 class="post-title">
+            K8s拓扑感知服务路由特性阅读笔记
+        </h2>
+	
+        <div class="post-content-preview">
+	
+            开启拓扑感知服务路由特性需同时启动ServiceTopology=true和EndpointSliceProxying=true的Featu
+       
+        </div>
+    </a>
+    <p class="post-meta">
+    
+        Posted by 爱折腾的工程师 on Wednesday, September 16, 2020
+        
+        
+    
+    </p>
+
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="https://www.iceyao.com.cn/post/2020-09-15-k8s_network_3/">
+        <h2 class="post-title">
+            TKEStack Galaxy NetworkPolicy Controller实现
+        </h2>
+	
+        <div class="post-content-preview">
+	
+            NetworkPolicy简介 如果要在IP地址或端口级别（OSI第3层或第4层）控制流量，则可以考虑对集群中的特定应用程序使用Kuberne
+       
+        </div>
+    </a>
+    <p class="post-meta">
+    
+        Posted by 爱折腾的工程师 on Tuesday, September 15, 2020
+        
+        
+    
+    </p>
+
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="https://www.iceyao.com.cn/post/2020-08-12-k8s-network-develop-flannel_readnote/">
+        <h2 class="post-title">
+            flannel源码阅读笔记
+        </h2>
+	
+        <div class="post-content-preview">
+	
+            环境 flannel版本: v0.12.0 外部网卡获取 外部网卡结构体 type ExternalInterface struct { // 网卡属性 Iface *net.Interface // 对应网卡的内部IP IfaceAddr net.IP // 对应网卡的外部IP(类似浮动IP) ExtAddr net.IP }
+       
+        </div>
+    </a>
+    <p class="post-meta">
+    
+        Posted by 爱折腾的工程师 on Wednesday, August 12, 2020
+        
+        
+    
+    </p>
+
+</div>
+<hr>
+
+</div>
+
+            
+
+
+<ul class="pager" data-pagefind-ignore="all">
+    
+    
+    <li class="next">
+        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C/page/2/">Older Posts &rarr;</a>
+    </li>
+    
+</ul>
+
+
+       	</div>
+        
+
+<div class="
+    col-lg-3 col-lg-offset-0
+    col-md-3 col-md-offset-0
+    col-sm-12
+    col-xs-12
+    sidebar-container
+">
+    
+	
+    <section class="visible-md visible-lg">
+	
+        <div class="short-about">
+            
+            <a href="/about">
+               <img src="/img/iceyao.jpeg" alt="avatar" style="cursor: pointer" />
+            </a>
+            
+            
+                <p>Software Developer, Open Source Enthusiast</p>
+            
+           
+           <ul class="list-inline">
+               
+               <li>
+                   <a href="mailto:yao3690093@gmail.com">
+                      <span class="fa-stack fa-lg">
+                          <i class="fa fa-circle fa-stack-2x"></i>
+                          <i class="fa fa-envelope fa-stack-1x fa-inverse"></i>
+                      </span>
+                   </a>
+               </li>
+               
+               
+               
+               
+               
+               
+               <li>
+                   <a target="_blank" href="/img/wechat.jpeg">
+                       <span class="fa-stack fa-lg">
+                           <i class="fas fa-circle fa-stack-2x"></i>
+                           <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                       </span>
+                   </a>
+               </li>
+               
+               
+               <li>
+                   <a target="_blank" href="https://github.com/yaoice">
+                       <span class="fa-stack fa-lg">
+                           <i class="fas fa-circle fa-stack-2x"></i>
+                           <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                       </span>
+                   </a>
+               </li>
+               
+               
+               
+               
+               
+               
+            
+            
+               
+               
+               
+               
+                </ul>
+            </div>
+    </section>
+	
+    
+    
+    
+    
+    <section>
+        <hr class="hidden-sm hidden-xs">
+        <h5>FEATURED TAGS</h5>
+        <div class="tags">
+            
+            
+               
+                    <a href="/tags/ai-agent" title="ai agent">
+                        ai agent
+                    </a>
+               
+            
+               
+                    <a href="/tags/ai-infra" title="ai infra">
+                        ai infra
+                    </a>
+               
+            
+               
+            
+               
+                    <a href="/tags/api" title="api">
+                        api
+                    </a>
+               
+            
+               
+            
+               
+            
+               
+                    <a href="/tags/claude" title="claude">
+                        claude
+                    </a>
+               
+            
+               
+                    <a href="/tags/claude-code" title="claude code">
+                        claude code
+                    </a>
+               
+            
+               
+                    <a href="/tags/devops" title="devops">
+                        devops
+                    </a>
+               
+            
+               
+            
+               
+            
+               
+            
+               
+                    <a href="/tags/go" title="go">
+                        go
+                    </a>
+               
+            
+               
+                    <a href="/tags/gpu/npu" title="gpu/npu">
+                        gpu/npu
+                    </a>
+               
+            
+               
+                    <a href="/tags/helm" title="helm">
+                        helm
+                    </a>
+               
+            
+               
+                    <a href="/tags/k8s" title="k8s">
+                        k8s
+                    </a>
+               
+            
+               
+                    <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                        k8s 存储
+                    </a>
+               
+            
+               
+                    <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                        k8s 网络
+                    </a>
+               
+            
+               
+                    <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                        k8s 调度
+                    </a>
+               
+            
+               
+                    <a href="/tags/kubelet" title="kubelet">
+                        kubelet
+                    </a>
+               
+            
+               
+                    <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                        linux/系统
+                    </a>
+               
+            
+               
+                    <a href="/tags/llm" title="llm">
+                        llm
+                    </a>
+               
+            
+               
+            
+               
+                    <a href="/tags/mcp" title="mcp">
+                        mcp
+                    </a>
+               
+            
+               
+                    <a href="/tags/openstack" title="openstack">
+                        openstack
+                    </a>
+               
+            
+               
+                    <a href="/tags/prompt-engineering" title="prompt engineering">
+                        prompt engineering
+                    </a>
+               
+            
+               
+            
+               
+                    <a href="/tags/rag" title="rag">
+                        rag
+                    </a>
+               
+            
+               
+            
+               
+                    <a href="/tags/skills" title="skills">
+                        skills
+                    </a>
+               
+            
+               
+                    <a href="/tags/subagent" title="subagent">
+                        subagent
+                    </a>
+               
+            
+               
+                    <a href="/tags/vllm" title="vllm">
+                        vllm
+                    </a>
+               
+            
+               
+            
+               
+                    <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                        上下文工程
+                    </a>
+               
+            
+               
+            
+               
+                    <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                        云原生平台
+                    </a>
+               
+            
+               
+                    <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                        云计算
+                    </a>
+               
+            
+               
+                    <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                        产品/随笔
+                    </a>
+               
+            
+               
+                    <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                        产品实践
+                    </a>
+               
+            
+               
+            
+               
+            
+               
+            
+               
+            
+               
+            
+               
+                    <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                        国产化
+                    </a>
+               
+            
+               
+                    <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                        多智能体
+                    </a>
+               
+            
+               
+            
+               
+                    <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                        容器
+                    </a>
+               
+            
+               
+                    <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                        工作流
+                    </a>
+               
+            
+               
+                    <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                        开发工具
+                    </a>
+               
+            
+               
+            
+               
+                    <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                        弹性伸缩
+                    </a>
+               
+            
+               
+            
+               
+            
+               
+            
+               
+                    <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                        控制器
+                    </a>
+               
+            
+               
+                    <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                        故障排查
+                    </a>
+               
+            
+               
+            
+               
+            
+               
+            
+               
+            
+               
+            
+               
+            
+               
+            
+               
+                    <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                        监控
+                    </a>
+               
+            
+               
+            
+               
+            
+               
+                    <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                        网关
+                    </a>
+               
+            
+               
+                    <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                        网络
+                    </a>
+               
+            
+               
+                    <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                        自动化
+                    </a>
+               
+            
+               
+            
+               
+                    <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                        设计模式
+                    </a>
+               
+            
+               
+                    <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                        评估
+                    </a>
+               
+            
+               
+                    <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                        部署实践
+                    </a>
+               
+            
+               
+            
+        </div>
+    </section>
+    
+
+    
+    
+    
+</div>
+
+	</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

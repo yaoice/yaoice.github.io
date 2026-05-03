@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="DeepSeek-V3.2 多机推理部署指南：vLLM-Ascend 与 TIONE 在线服务" />
+    <meta property="og:title" content="DeepSeek-V3.2 多机推理部署指南：vLLM-Ascend 与 TIONE 在线服务" />
+    <meta property="twitter:title" content="DeepSeek-V3.2 多机推理部署指南：vLLM-Ascend 与 TIONE 在线服务" />
+    
+
+    
+    <meta name="description" content="本文档基于 vLLM-Ascend DeepSeek-V3.2 官方教程与 TIONE 3.11 在线服务实践，规范化描述 DeepSeek-V3.2 在昇腾 Atlas 800 A2/A3 上的多机推理部署流程。内容覆盖硬件与版本基线、容器与网络配置、vLLM 原生多机命令、TIONE 在线服务数据源与启动脚本、Prefill-Decode 分离部署、功能与性能验证以及运维排障清单，适用于生产环境落地。">
+    <meta property="og:description" content="本文档基于 vLLM-Ascend DeepSeek-V3.2 官方教程与 TIONE 3.11 在线服务实践，规范化描述 DeepSeek-V3.2 在昇腾 Atlas 800 A2/A3 上的多机推理部署流程。内容覆盖硬件与版本基线、容器与网络配置、vLLM 原生多机命令、TIONE 在线服务数据源与启动脚本、Prefill-Decode 分离部署、功能与性能验证以及运维排障清单，适用于生产环境落地。" />
+    <meta property="twitter:description" content="本文档基于 vLLM-Ascend DeepSeek-V3.2 官方教程与 TIONE 3.11 在线服务实践，规范化描述 DeepSeek-V3.2 在昇腾 Atlas 800 A2/A3 上的多机推理部署流程。内容覆盖硬件与版本基线、容器与网络配置、vLLM 原生多机命令、TIONE 在线服务数据源与启动脚本、Prefill-Decode 分离部署、功能与性能验证以及运维排障清单，适用于生产环境落地。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>DeepSeek-V3.2 多机推理部署指南：vLLM-Ascend 与 TIONE 在线服务 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/04/28/deepseek-v32-vllm-tione-multinode-inference/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-infra" title="AI Infra">
+                            AI Infra
+                        </a>
+                        
+                        <a class="tag" href="/tags/vllm" title="vLLM">
+                            vLLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E6%A8%A1%E5%9E%8B%E6%8E%A8%E7%90%86" title="模型推理">
+                            模型推理
+                        </a>
+                        
+                    </div>
+                    <h1>DeepSeek-V3.2 多机推理部署指南：vLLM-Ascend 与 TIONE 在线服务</h1>
+                    <h2 class="subheading">面向昇腾 Atlas 800 A2/A3 的 DeepSeek-V3.2 多机推理部署规范：vLLM-Ascend 原生部署与 TIONE 在线服务部署</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Tuesday, April 28, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="1-文档说明">1. 文档说明</h2>
+<h3 id="11-编写目的">1.1 编写目的</h3>
+<p>规范 <code>DeepSeek-V3.2</code> 模型在昇腾 Atlas 800 A2/A3 服务器上的多机推理部署流程，覆盖两种落地形态：</p>
+<ol>
+<li>基于 <code>vllm-ascend</code> 的原生多机部署；</li>
+<li>基于 TIONE 在线服务的多机部署。</li>
+</ol>
+<p>文档面向大模型推理服务的部署工程师、平台工程师和运维人员，用于在生产环境中完成部署、验证和排障。</p>
+<h3 id="12-适用范围">1.2 适用范围</h3>
+<p>本文档适用于满足以下条件的部署场景：</p>
+<ul>
+<li>使用 <code>DeepSeek-V3.2-W8A8</code>、<code>DeepSeek-V3.2-w8a8</code> 或 <code>DeepSeek-V3.2-w8a8-mtp-QuaRot</code> 量化权重；</li>
+<li>硬件为 Atlas 800 A2（8 × 910B2 NPU）或 Atlas 800 A3（16 × NPU）；</li>
+<li>推理框架为 <code>vllm-ascend</code> <code>v0.18.0rc1</code> 或更新版本；</li>
+<li>运行环境已完成 Ascend 驱动、CANN、HCCL 网络配置。</li>
+</ul>
+<h3 id="13-参考资料">1.3 参考资料</h3>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>名称</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>官方教程</td>
+<td><a href="https://docs.vllm.ai/projects/ascend/en/latest/tutorials/models/DeepSeek-V3.2.html"><code>DeepSeek-V3.2 — vllm-ascend</code></a></td>
+</tr>
+<tr>
+<td>实践文档</td>
+<td><code>content/post/DeepSeek-v3.2多机推理.docx</code>（TIONE + vllm-ascend 实现 DeepSeek v3.2 多机推理）</td>
+</tr>
+<tr>
+<td>配套文章</td>
+<td><a href="/2026/04/29/vllm-ascend-hccl-multinode-inference/"><code>vLLM-Ascend 多机推理 HCCL 通信原理深度解析</code></a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="14-术语约定">1.4 术语约定</h3>
+<table>
+<thead>
+<tr>
+<th>术语</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DP</td>
+<td>Data Parallel，数据并行</td>
+</tr>
+<tr>
+<td>TP</td>
+<td>Tensor Parallel，张量并行</td>
+</tr>
+<tr>
+<td>EP</td>
+<td>Expert Parallel，专家并行，MoE 模型专用</td>
+</tr>
+<tr>
+<td>MTP</td>
+<td>Multi-Token Prediction，DeepSeek 投机解码方法</td>
+</tr>
+<tr>
+<td>P/D</td>
+<td>Prefill-Decode，预填充与解码阶段分离部署</td>
+</tr>
+<tr>
+<td>Headless 节点</td>
+<td>不对外提供 API，仅作为后端 engine 加入 DP 集群的工作节点</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="2-部署形态总览">2. 部署形态总览</h2>
+<h3 id="21-两种部署形态的职责边界">2.1 两种部署形态的职责边界</h3>
+<p>TIONE 多机推理并非独立的推理框架，其底层仍依赖 <code>vllm-ascend</code>、PyTorch NPU、HCCL 与 Gloo。两种形态的差异集中在资源编排层：</p>
+<p>
+  <img src="/img/deepseek-v32-multinode/architecture-comparison.svg" alt="vLLM 原生部署与 TIONE 在线服务对比">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>vLLM-Ascend 原生多机</th>
+<th>TIONE 在线服务多机</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>部署入口</td>
+<td>Docker 命令或自建编排</td>
+<td>TIONE 在线服务配置</td>
+</tr>
+<tr>
+<td>模型路径</td>
+<td>节点本地或共享目录，例如 <code>/root/.cache/...</code></td>
+<td>平台数据源挂载到 <code>/data/model</code></td>
+</tr>
+<tr>
+<td>节点角色识别</td>
+<td>人工区分 Node0 与 headless Node1</td>
+<td>由 <code>HOSTNAME</code> 字段或平台环境变量自动识别</td>
+</tr>
+<tr>
+<td>网络配置</td>
+<td>人工指定 <code>local_ip</code>、<code>node0_ip</code>、网卡名</td>
+<td>脚本从 <code>/etc/hosts</code> 与 <code>MASTER_ADDR</code> 推导</td>
+</tr>
+<tr>
+<td>服务入口</td>
+<td>Node0 对外暴露 OpenAI 兼容 API</td>
+<td>平台托管的在线服务入口</td>
+</tr>
+<tr>
+<td>日志与生命周期</td>
+<td>自行采集与守护</td>
+<td>平台托管启动、日志、重启与发布</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>研发验证、性能压测、定制化控制</td>
+<td>生产在线服务、团队协作、统一运维</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-推荐落地路径">2.2 推荐落地路径</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>1) vLLM 原生双节点部署 → 验证通信与基础功能
+</span></span><span style="display:flex;"><span>2) 固化 HCCL / DP / TP / EP 配置
+</span></span><span style="display:flex;"><span>3) TIONE 在线服务配置等效资源与数据源
+</span></span><span style="display:flex;"><span>4) 以 master/worker 脚本复刻原生命令
+</span></span><span style="display:flex;"><span>5) 功能与性能验证
+</span></span><span style="display:flex;"><span>6) 按长上下文场景调优或切换至 P/D 分离部署
+</span></span></code></pre></div><hr>
+<h2 id="3-硬件与版本基线">3. 硬件与版本基线</h2>
+<h3 id="31-硬件要求">3.1 硬件要求</h3>
+<table>
+<thead>
+<tr>
+<th>模型权重</th>
+<th>硬件配置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DeepSeek-V3.2-W8A8</code> / <code>DeepSeek-V3.2-w8a8</code></td>
+<td>1 台 Atlas 800 A3（16 × NPU，64 GB 显存/卡）或 2 台 Atlas 800 A2（8 × NPU，64 GB 显存/卡）</td>
+</tr>
+<tr>
+<td><code>DeepSeek-V3.2-w8a8-mtp-QuaRot</code>（P/D 分离示例）</td>
+<td>A3-752T，4 节点</td>
+</tr>
+<tr>
+<td><code>DeepSeek-v3.2-mtp</code>（TIONE 示例）</td>
+<td>2 台 Atlas 800 A2，每台 <code>8 × 910B2</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="32-软件版本">3.2 软件版本</h3>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>版本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>推理框架</td>
+<td><code>vllm-ascend</code> v0.18.0rc1 或更新版本</td>
+</tr>
+<tr>
+<td>容器镜像（A2）</td>
+<td><code>quay.io/ascend/vllm-ascend:v0.18.0rc1</code></td>
+</tr>
+<tr>
+<td>容器镜像（A3）</td>
+<td><code>quay.io/ascend/vllm-ascend:v0.18.0rc1-a3</code></td>
+</tr>
+<tr>
+<td>TIONE 平台</td>
+<td>3.11 或兼容版本</td>
+</tr>
+<tr>
+<td>依赖</td>
+<td>Ascend driver、CANN、HCCL、<code>hccn_tool</code>、<code>npu-smi</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-并行配置基线">3.3 并行配置基线</h3>
+<table>
+<thead>
+<tr>
+<th>部署形态</th>
+<th style="text-align:right">DP</th>
+<th style="text-align:right">Local DP</th>
+<th style="text-align:right">TP</th>
+<th>EP</th>
+<th style="text-align:right">RPC 端口</th>
+<th style="text-align:right">服务端口</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A2 双节点普通部署</td>
+<td style="text-align:right">2</td>
+<td style="text-align:right">1</td>
+<td style="text-align:right">8</td>
+<td>开启</td>
+<td style="text-align:right">13389</td>
+<td style="text-align:right">8077</td>
+</tr>
+<tr>
+<td>A3 双节点普通部署</td>
+<td style="text-align:right">2</td>
+<td style="text-align:right">1</td>
+<td style="text-align:right">16</td>
+<td>开启</td>
+<td style="text-align:right">12890</td>
+<td style="text-align:right">8077</td>
+</tr>
+<tr>
+<td>TIONE A2 双节点</td>
+<td style="text-align:right">2</td>
+<td style="text-align:right">1</td>
+<td style="text-align:right">8</td>
+<td>开启</td>
+<td style="text-align:right">13389</td>
+<td style="text-align:right">8000</td>
+</tr>
+<tr>
+<td>P/D Prefill 集群</td>
+<td style="text-align:right">2</td>
+<td style="text-align:right">1</td>
+<td style="text-align:right">16</td>
+<td>开启</td>
+<td style="text-align:right">12890</td>
+<td style="text-align:right">9100</td>
+</tr>
+<tr>
+<td>P/D Decode 集群</td>
+<td style="text-align:right">8</td>
+<td style="text-align:right">4</td>
+<td style="text-align:right">4</td>
+<td>开启</td>
+<td style="text-align:right">12777</td>
+<td style="text-align:right">9100</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>注</strong>：TP 规模需与每个 DP rank 可见的本节点 NPU 数保持一致，避免高频 TP 集合通信跨节点。</p>
+</blockquote>
+<hr>
+<h2 id="4-部署前置条件">4. 部署前置条件</h2>
+<h3 id="41-网络与通信验证">4.1 网络与通信验证</h3>
+<p>执行多机部署前，必须完成以下验证项，缺失任何一项都会导致 HCCL 初始化失败。</p>
+<table>
+<thead>
+<tr>
+<th>检查项</th>
+<th>验证方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NPU 网络链路状态</td>
+<td><code>hccn_tool -i &lt;device_id&gt; -link -g</code> 返回 <code>UP</code></td>
+</tr>
+<tr>
+<td>NPU 网络健康状态</td>
+<td><code>hccn_tool -i &lt;device_id&gt; -net_health -g</code> 返回 <code>success</code></td>
+</tr>
+<tr>
+<td>NPU IP 配置</td>
+<td><code>/etc/hccn.conf</code> 中的 IP、netmask、gateway 正确</td>
+</tr>
+<tr>
+<td>跨节点 NPU ping</td>
+<td>从本机 NPU IP ping 对端 NPU IP 成功</td>
+</tr>
+<tr>
+<td>主机网络连通性</td>
+<td>各节点间 <code>local_ip</code> 互通，且 DP RPC 端口未被占用</td>
+</tr>
+<tr>
+<td>管理网卡</td>
+<td><code>HCCL_SOCKET_IFNAME</code>、<code>GLOO_SOCKET_IFNAME</code>、<code>TP_SOCKET_IFNAME</code> 对应的网卡存在且 IP 正确</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-模型与存储">4.2 模型与存储</h3>
+<ul>
+<li>所有节点必须能访问同一份模型文件（权重、tokenizer、配置、自定义代码）；</li>
+<li>推荐方式：
+<ul>
+<li>vLLM 原生部署：共享目录挂载到 <code>/root/.cache/...</code>；</li>
+<li>TIONE 部署：通过平台数据源挂载到 <code>/data/model</code>；</li>
+</ul>
+</li>
+<li>模型代码涉及 <code>--trust-remote-code</code>，需在可信模型源下使用，并对远程代码进行审计。</li>
+</ul>
+<h3 id="43-容器运行时">4.3 容器运行时</h3>
+<p>所有推理容器必须具备以下能力：</p>
+<ul>
+<li><code>--net=host</code>：使用宿主机网络；</li>
+<li>挂载 NPU 设备文件：<code>/dev/davinci*</code>、<code>davinci_manager</code>、<code>devmm_svm</code>、<code>hisi_hdc</code>；</li>
+<li>挂载 Ascend driver 与工具链：<code>/usr/local/Ascend/driver</code>、<code>hccn_tool</code>、<code>npu-smi</code>；</li>
+<li>挂载模型目录。</li>
+</ul>
+<hr>
+<h2 id="5-vllm-ascend-原生多机部署">5. vLLM-Ascend 原生多机部署</h2>
+<h3 id="51-部署流程">5.1 部署流程</h3>
+<p>
+  <img src="/img/deepseek-v32-multinode/deployment-flow.svg" alt="vLLM-Ascend 双节点部署主流程">
+
+</p>
+<h3 id="52-启动容器">5.2 启动容器</h3>
+<p>以 Atlas 800 A2 为例，在每个节点上执行：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">IMAGE</span><span style="color:#ff79c6">=</span>quay.io/ascend/vllm-ascend:v0.18.0rc1
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>docker run --rm <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --name vllm-ascend <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --shm-size<span style="color:#ff79c6">=</span>1g <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --net<span style="color:#ff79c6">=</span>host <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --device /dev/davinci0 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --device /dev/davinci1 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --device /dev/davinci2 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --device /dev/davinci3 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --device /dev/davinci4 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --device /dev/davinci5 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --device /dev/davinci6 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --device /dev/davinci7 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --device /dev/davinci_manager <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --device /dev/devmm_svm <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --device /dev/hisi_hdc <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -v /usr/local/dcmi:/usr/local/dcmi <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -v /usr/local/Ascend/driver/tools/hccn_tool:/usr/local/Ascend/driver/tools/hccn_tool <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -v /usr/local/Ascend/driver/lib64/:/usr/local/Ascend/driver/lib64/ <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -v /usr/local/Ascend/driver/version.info:/usr/local/Ascend/driver/version.info <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -v /etc/ascend_install.info:/etc/ascend_install.info <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -v /root/.cache:/root/.cache <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -it <span style="color:#8be9fd;font-style:italic">$IMAGE</span> bash
+</span></span></code></pre></div><p>A3 镜像使用 <code>v0.18.0rc1-a3</code> 后缀，并挂载 <code>davinci0</code> 至 <code>davinci15</code> 共 16 个 NPU 设备。</p>
+<h3 id="53-配置通信环境变量">5.3 配置通信环境变量</h3>
+<p>各节点进入容器后，根据实际网卡与 IP 设置以下变量：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 节点本地参数，必须按实际环境修改</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">nic_name</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;eth0&#34;</span>                 <span style="color:#6272a4"># local_ip 对应的网卡名</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">local_ip</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;&lt;current_node_ip&gt;&#34;</span>    <span style="color:#6272a4"># 当前节点 IP</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">node0_ip</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;&lt;node0_ip&gt;&#34;</span>           <span style="color:#6272a4"># Node0 的 local_ip，所有节点保持一致</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 通用 HCCL / Gloo / TP 配置</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_OP_EXPANSION_MODE</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;AIV&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_IF_IP</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$local_ip</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">GLOO_SOCKET_IFNAME</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$nic_name</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">TP_SOCKET_IFNAME</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$nic_name</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_SOCKET_IFNAME</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$nic_name</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 运行时通用环境变量</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">OMP_PROC_BIND</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">false</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">VLLM_USE_V1</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_BUFFSIZE</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">200</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">VLLM_ASCEND_ENABLE_MLAPO</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">PYTORCH_NPU_ALLOC_CONF</span><span style="color:#ff79c6">=</span>expandable_segments:True
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">VLLM_ASCEND_ENABLE_FLASHCOMM1</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span></code></pre></div><p>A2 专属补充变量：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">OMP_NUM_THREADS</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">100</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_CONNECT_TIMEOUT</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">120</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_INTRA_PCIE_ENABLE</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_INTRA_ROCE_ENABLE</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>
+</span></span></code></pre></div><p>A3 使用：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">OMP_NUM_THREADS</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">10</span>
+</span></span></code></pre></div><h3 id="54-启动-node0master">5.4 启动 Node0（Master）</h3>
+<p>A2 双节点 Node0 启动命令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V3.2-W8A8 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --host 0.0.0.0 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --port <span style="color:#bd93f9">8077</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-size <span style="color:#bd93f9">2</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-size-local <span style="color:#bd93f9">1</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-address <span style="color:#8be9fd;font-style:italic">$node0_ip</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-rpc-port <span style="color:#bd93f9">13389</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --tensor-parallel-size <span style="color:#bd93f9">8</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --quantization ascend <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --seed <span style="color:#bd93f9">1024</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --served-model-name deepseek_v3_2 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --enable-expert-parallel <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-num-seqs <span style="color:#bd93f9">16</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-model-len <span style="color:#bd93f9">8192</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-num-batched-tokens <span style="color:#bd93f9">4096</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --trust-remote-code <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --no-enable-prefix-caching <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --gpu-memory-utilization 0.92 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --compilation-config <span style="color:#f1fa8c">&#39;{&#34;cudagraph_mode&#34;: &#34;FULL_DECODE_ONLY&#34;, &#34;cudagraph_capture_sizes&#34;:[8, 16, 24, 32, 40, 48]}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --additional-config <span style="color:#f1fa8c">&#39;{&#34;layer_sharding&#34;: [&#34;q_b_proj&#34;, &#34;o_proj&#34;]}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --speculative-config <span style="color:#f1fa8c">&#39;{&#34;num_speculative_tokens&#34;: 3, &#34;method&#34;: &#34;deepseek_mtp&#34;}&#39;</span>
+</span></span></code></pre></div><h3 id="55-启动参数详解">5.5 启动参数详解</h3>
+<p>本节对第 5.4 节 Node0 命令中出现的全部启动参数逐项说明。参数定义以 <a href="https://docs.vllm.ai/en/latest/cli/serve.html"><code>vllm serve</code> 官方 CLI 文档</a> 为准，取值建议参照 <a href="https://docs.vllm.ai/projects/ascend/en/latest/tutorials/models/DeepSeek-V3.2.html"><code>DeepSeek-V3.2 — vllm-ascend</code></a> 教程。</p>
+<h4 id="551-位置参数模型路径">5.5.1 位置参数：模型路径</h4>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>作用</th>
+<th>教程取值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;model&gt;</code></td>
+<td><code>vllm serve</code> 的位置参数，指向模型权重所在目录。支持本地路径或 HuggingFace/ModelScope 模型名。</td>
+<td><code>/root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V3.2-W8A8</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="552-服务端参数">5.5.2 服务端参数</h4>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>作用</th>
+<th>本文档取值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--host</code></td>
+<td>未指定（绑定所有接口）</td>
+<td>服务监听的主机地址。多机部署需设置为 <code>0.0.0.0</code> 以接受跨主机请求。</td>
+<td><code>0.0.0.0</code></td>
+</tr>
+<tr>
+<td><code>--port</code></td>
+<td><code>8000</code></td>
+<td>OpenAI 兼容 API 监听端口。</td>
+<td><code>8077</code></td>
+</tr>
+<tr>
+<td><code>--headless</code></td>
+<td><code>False</code></td>
+<td>以 headless 模式运行，节点仅作为后端 engine 加入 DP 集群，不对外暴露 API。仅辅助节点需设置。</td>
+<td>Node0 不设置；Node1 设置</td>
+</tr>
+</tbody>
+</table>
+<h4 id="553-数据并行参数">5.5.3 数据并行参数</h4>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>简写</th>
+<th>默认值</th>
+<th>作用</th>
+<th>本文档取值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--data-parallel-size</code></td>
+<td><code>-dp</code></td>
+<td><code>1</code></td>
+<td>数据并行组总数。MoE 层权重按 <code>tp_size × dp_size</code> 分片。</td>
+<td><code>2</code></td>
+</tr>
+<tr>
+<td><code>--data-parallel-size-local</code></td>
+<td><code>-dpl</code></td>
+<td>无</td>
+<td>当前节点上运行的 DP 副本数。需保证所有节点 local 之和 = <code>--data-parallel-size</code>。</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>--data-parallel-address</code></td>
+<td><code>-dpa</code></td>
+<td>无</td>
+<td>DP 集群 head node（Node0）的 IP，所有节点必须保持一致。</td>
+<td><code>$node0_ip</code></td>
+</tr>
+<tr>
+<td><code>--data-parallel-rpc-port</code></td>
+<td><code>-dpp</code></td>
+<td>无</td>
+<td>DP 控制面 RPC 端口，所有节点一致且未被占用。</td>
+<td><code>13389</code></td>
+</tr>
+<tr>
+<td><code>--data-parallel-start-rank</code></td>
+<td><code>-dpr</code></td>
+<td>无</td>
+<td>辅助节点的起始 DP rank。Node0 默认从 0 开始；Node1 须设置为已分配 rank 数之后的第一个编号。</td>
+<td>Node1 使用 <code>1</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="554-张量并行与专家并行参数">5.5.4 张量并行与专家并行参数</h4>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>简写</th>
+<th>默认值</th>
+<th>作用</th>
+<th>本文档取值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--tensor-parallel-size</code></td>
+<td><code>-tp</code></td>
+<td><code>1</code></td>
+<td>TP 组大小。每个 DP 副本内部使用的 NPU 数量，建议等于本节点可见 NPU 数。</td>
+<td>A2：<code>8</code>；A3：<code>16</code></td>
+</tr>
+<tr>
+<td><code>--enable-expert-parallel</code></td>
+<td><code>-ep</code></td>
+<td><code>False</code></td>
+<td>对 MoE 层启用专家并行。DeepSeek-V3.2 为 MoE 架构，必须启用。</td>
+<td>启用</td>
+</tr>
+</tbody>
+</table>
+<h4 id="555-模型与加载参数">5.5.5 模型与加载参数</h4>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>简写</th>
+<th>默认值</th>
+<th>作用</th>
+<th>本文档取值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--quantization</code></td>
+<td><code>-q</code></td>
+<td><code>None</code></td>
+<td>权重量化方案。未指定时优先读取模型配置，否则按 <code>dtype</code> 装载未量化权重。</td>
+<td><code>ascend</code>：启用 vLLM-Ascend 专用量化路径以加载 W8A8 权重</td>
+</tr>
+<tr>
+<td><code>--seed</code></td>
+<td>—</td>
+<td><code>0</code></td>
+<td>全局随机种子，用于保证各 TP worker 采样一致，避免 token 不同步。</td>
+<td><code>1024</code></td>
+</tr>
+<tr>
+<td><code>--served-model-name</code></td>
+<td>—</td>
+<td>使用 <code>--model</code> 的值</td>
+<td>API 响应与 Prometheus <code>model_name</code> 标签使用的模型名称。</td>
+<td><code>deepseek_v3_2</code></td>
+</tr>
+<tr>
+<td><code>--trust-remote-code</code></td>
+<td>—</td>
+<td><code>False</code></td>
+<td>允许加载模型仓库中的自定义 Python 代码（DeepSeek 架构代码在此路径中）。需仅对可信模型源使用。</td>
+<td>启用</td>
+</tr>
+</tbody>
+</table>
+<h4 id="556-调度器参数">5.5.6 调度器参数</h4>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>作用</th>
+<th>本文档取值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--max-num-seqs</code></td>
+<td>引擎内部默认</td>
+<td>单次 iteration 中允许并发的最大序列数。直接决定并发上限和 KV cache 占用。</td>
+<td><code>16</code></td>
+</tr>
+<tr>
+<td><code>--max-num-batched-tokens</code></td>
+<td>引擎内部默认</td>
+<td>单次 iteration 中允许处理的最大 token 数（合并所有序列）。支持 <code>1k</code>、<code>2M</code> 等人类可读单位。</td>
+<td><code>4096</code></td>
+</tr>
+<tr>
+<td><code>--max-model-len</code></td>
+<td>自动推断</td>
+<td>模型上下文长度上限（prompt + 生成）。未指定时从模型配置推断；<code>-1</code> 或 <code>auto</code> 表示按显存自动选择。</td>
+<td><code>8192</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="557-kv-cache-与前缀缓存">5.5.7 KV Cache 与前缀缓存</h4>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>作用</th>
+<th>本文档取值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--gpu-memory-utilization</code></td>
+<td><code>0.92</code></td>
+<td>当前实例允许占用的 NPU 显存比例，取值 0–1。不影响同设备其他 vLLM 实例。</td>
+<td><code>0.92</code></td>
+</tr>
+<tr>
+<td><code>--no-enable-prefix-caching</code></td>
+<td>—</td>
+<td>显式关闭前缀缓存。教程推荐在 DeepSeek-V3.2 部署中关闭，以避免与 MTP 投机解码及长上下文共存时的兼容问题。</td>
+<td>启用（即关闭前缀缓存）</td>
+</tr>
+</tbody>
+</table>
+<h4 id="558-高级-json-配置">5.5.8 高级 JSON 配置</h4>
+<p>高级配置支持两种等价写法，本文档统一使用完整 JSON 字符串格式。</p>
+<h5 id="--compilation-config---cc"><code>--compilation-config</code> / <code>-cc</code></h5>
+<p>用于配置 <code>torch.compile</code> 与 CUDA/ACL Graph 的捕获行为。</p>
+<table>
+<thead>
+<tr>
+<th>子字段</th>
+<th>作用</th>
+<th>本文档取值</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cudagraph_mode</code></td>
+<td>控制 Graph 捕获策略。</td>
+<td><code>FULL_DECODE_ONLY</code></td>
+<td>教程示例统一使用该值，仅在 decode 阶段捕获 graph，避免 prefill 阶段的动态 shape 问题。</td>
+</tr>
+<tr>
+<td><code>cudagraph_capture_sizes</code></td>
+<td>需要捕获的 batch size 列表；取值通常 ≤ <code>--max-num-seqs</code>。</td>
+<td><code>[8, 16, 24, 32, 40, 48]</code></td>
+<td>实际运行 batch 必须命中列表，否则会 fallback 到非 graph 执行并带来抖动。</td>
+</tr>
+</tbody>
+</table>
+<h5 id="--additional-config"><code>--additional-config</code></h5>
+<p>平台相关的附加配置，值必须可哈希。</p>
+<table>
+<thead>
+<tr>
+<th>子字段</th>
+<th>作用</th>
+<th>本文档取值</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>layer_sharding</code></td>
+<td>vLLM-Ascend 特有字段，指定需要进一步做层级切分的模块列表。</td>
+<td><code>[&quot;q_b_proj&quot;, &quot;o_proj&quot;]</code></td>
+<td>教程中多机与 P/D Prefill 场景使用该值；其他字段（如 <code>recompute_scheduler_enable</code>）仅在 P/D Decode 使用。</td>
+</tr>
+</tbody>
+</table>
+<h5 id="--speculative-config---sc"><code>--speculative-config</code> / <code>-sc</code></h5>
+<p>配置投机解码（speculative decoding）。</p>
+<table>
+<thead>
+<tr>
+<th>子字段</th>
+<th>作用</th>
+<th>本文档取值</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>method</code></td>
+<td>投机解码算法。</td>
+<td><code>deepseek_mtp</code></td>
+<td>教程固定取值，使用 DeepSeek 官方 MTP。</td>
+</tr>
+<tr>
+<td><code>num_speculative_tokens</code></td>
+<td>每步投机预测 token 数。</td>
+<td><code>3</code></td>
+<td>普通多机推荐 <code>3</code>，P/D 分离推荐 <code>2</code>。取值增大可提高吞吐，但会增加单步计算成本。</td>
+</tr>
+</tbody>
+</table>
+<h4 id="559-参数必要性与差异速查">5.5.9 参数必要性与差异速查</h4>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>Node0</th>
+<th>Node1</th>
+<th>必要性</th>
+<th>变更影响</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;model&gt;</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>必填</td>
+<td>各节点路径必须一致</td>
+</tr>
+<tr>
+<td><code>--host</code> / <code>--port</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>必填</td>
+<td>端口冲突会导致启动失败</td>
+</tr>
+<tr>
+<td><code>--headless</code></td>
+<td>—</td>
+<td>✓</td>
+<td>Node1 必填</td>
+<td>缺失则 Node1 会尝试独立对外提供服务</td>
+</tr>
+<tr>
+<td><code>--data-parallel-size</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>必填</td>
+<td>各节点值必须一致</td>
+</tr>
+<tr>
+<td><code>--data-parallel-size-local</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>必填</td>
+<td>所有节点之和 = <code>--data-parallel-size</code></td>
+</tr>
+<tr>
+<td><code>--data-parallel-start-rank</code></td>
+<td>—</td>
+<td>✓</td>
+<td>Node1 必填</td>
+<td>缺失或冲突将导致 rank 编排错误</td>
+</tr>
+<tr>
+<td><code>--data-parallel-address</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>必填</td>
+<td>必须等于 Node0 的 <code>local_ip</code></td>
+</tr>
+<tr>
+<td><code>--data-parallel-rpc-port</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>必填</td>
+<td>各节点值必须一致，且端口未被占用</td>
+</tr>
+<tr>
+<td><code>--tensor-parallel-size</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>必填</td>
+<td>须与本节点可见 NPU 数匹配</td>
+</tr>
+<tr>
+<td><code>--quantization</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>W8A8 权重必填</td>
+<td>BF16 权重可不设</td>
+</tr>
+<tr>
+<td><code>--enable-expert-parallel</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>MoE 必填</td>
+<td>DeepSeek-V3.2 必须启用</td>
+</tr>
+<tr>
+<td><code>--trust-remote-code</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>必填</td>
+<td>加载 DeepSeek 自定义代码所需</td>
+</tr>
+<tr>
+<td><code>--seed</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>推荐</td>
+<td>保证各 TP worker 采样一致</td>
+</tr>
+<tr>
+<td><code>--served-model-name</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>推荐</td>
+<td>必须与客户端请求的 <code>model</code> 一致</td>
+</tr>
+<tr>
+<td><code>--max-num-seqs</code> / <code>--max-num-batched-tokens</code> / <code>--max-model-len</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>按业务</td>
+<td>取值过大易 OOM，过小影响吞吐</td>
+</tr>
+<tr>
+<td><code>--gpu-memory-utilization</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>推荐</td>
+<td>超过 0.95 需验证显存余量</td>
+</tr>
+<tr>
+<td><code>--no-enable-prefix-caching</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>推荐</td>
+<td>教程建议在 DeepSeek-V3.2 场景下关闭</td>
+</tr>
+<tr>
+<td><code>--compilation-config</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>推荐</td>
+<td><code>cudagraph_capture_sizes</code> 需覆盖实际 batch</td>
+</tr>
+<tr>
+<td><code>--additional-config</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>多机推荐</td>
+<td><code>layer_sharding</code> 为 vLLM-Ascend 特有字段</td>
+</tr>
+<tr>
+<td><code>--speculative-config</code></td>
+<td>✓</td>
+<td>✓</td>
+<td>可选</td>
+<td>开启可提升吞吐，代价是单步计算成本</td>
+</tr>
+</tbody>
+</table>
+<h3 id="56-启动-node1headless-worker">5.6 启动 Node1（Headless Worker）</h3>
+<p>Node1 在 Node0 命令基础上增加 <code>--headless</code> 与 <code>--data-parallel-start-rank 1</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V3.2-W8A8 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --host 0.0.0.0 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --port <span style="color:#bd93f9">8077</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --headless <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-size <span style="color:#bd93f9">2</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-size-local <span style="color:#bd93f9">1</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-start-rank <span style="color:#bd93f9">1</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-address <span style="color:#8be9fd;font-style:italic">$node0_ip</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-rpc-port <span style="color:#bd93f9">13389</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --tensor-parallel-size <span style="color:#bd93f9">8</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --quantization ascend <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --seed <span style="color:#bd93f9">1024</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --served-model-name deepseek_v3_2 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --enable-expert-parallel <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-num-seqs <span style="color:#bd93f9">16</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-model-len <span style="color:#bd93f9">8192</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-num-batched-tokens <span style="color:#bd93f9">4096</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --trust-remote-code <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --no-enable-prefix-caching <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --gpu-memory-utilization 0.92 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --compilation-config <span style="color:#f1fa8c">&#39;{&#34;cudagraph_mode&#34;: &#34;FULL_DECODE_ONLY&#34;, &#34;cudagraph_capture_sizes&#34;:[8, 16, 24, 32, 40, 48]}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --additional-config <span style="color:#f1fa8c">&#39;{&#34;layer_sharding&#34;: [&#34;q_b_proj&#34;, &#34;o_proj&#34;]}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --speculative-config <span style="color:#f1fa8c">&#39;{&#34;num_speculative_tokens&#34;: 3, &#34;method&#34;: &#34;deepseek_mtp&#34;}&#39;</span>
+</span></span></code></pre></div><p><code>--headless</code> 表示该节点不对外提供 API，仅作为后端 engine；<code>--data-parallel-start-rank 1</code> 确保 Node1 从全局 DP rank 1 开始，避免与 Node0 的 rank 0 冲突。两个参数的详细定义参见 <a href="#552-%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%8F%82%E6%95%B0">5.5.2 服务端参数</a> 与 <a href="#553-%E6%95%B0%E6%8D%AE%E5%B9%B6%E8%A1%8C%E5%8F%82%E6%95%B0">5.5.3 数据并行参数</a>。</p>
+<h3 id="57-a2-与-a3-配置差异">5.7 A2 与 A3 配置差异</h3>
+<table>
+<thead>
+<tr>
+<th>配置项</th>
+<th style="text-align:right">A2 双节点</th>
+<th style="text-align:right">A3 双节点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>每节点 NPU</td>
+<td style="text-align:right">8</td>
+<td style="text-align:right">16</td>
+</tr>
+<tr>
+<td>全局 DP</td>
+<td style="text-align:right">2</td>
+<td style="text-align:right">2</td>
+</tr>
+<tr>
+<td>本地 DP</td>
+<td style="text-align:right">1</td>
+<td style="text-align:right">1</td>
+</tr>
+<tr>
+<td>TP size</td>
+<td style="text-align:right">8</td>
+<td style="text-align:right">16</td>
+</tr>
+<tr>
+<td>DP RPC 端口</td>
+<td style="text-align:right">13389</td>
+<td style="text-align:right">12890</td>
+</tr>
+<tr>
+<td>OMP_NUM_THREADS</td>
+<td style="text-align:right">100</td>
+<td style="text-align:right">10</td>
+</tr>
+<tr>
+<td>额外 HCCL 变量</td>
+<td style="text-align:right"><code>HCCL_CONNECT_TIMEOUT</code> / <code>HCCL_INTRA_PCIE_ENABLE</code> / <code>HCCL_INTRA_ROCE_ENABLE</code></td>
+<td style="text-align:right">无额外</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="6-tione-在线服务多机部署">6. TIONE 在线服务多机部署</h2>
+<h3 id="61-部署架构">6.1 部署架构</h3>
+<p>
+  <img src="/img/deepseek-v32-multinode/tione-online-service.svg" alt="TIONE 在线服务中的 DeepSeek-V3.2 多机推理">
+
+</p>
+<p>本节参考 TIONE 3.11 + <code>vllm-ascend-v018:v0.18.0rc1</code> + <code>DeepSeek-v3.2-mtp</code> 的生产实践配置，硬件为 2 台 Atlas 800 A2（8 × 910B2）。</p>
+<h3 id="62-数据源配置">6.2 数据源配置</h3>
+<p>模型文件通过 TIONE 平台的共享存储（也可选用 NAS）挂载到推理实例的 <code>/data/model</code> 目录。</p>
+<p>
+  <img src="/img/deepseek-v32-multinode/tione-datasource-screenshot.png" alt="TIONE 平台数据源配置示例">
+
+</p>
+<p><strong>配置要点：</strong></p>
+<ul>
+<li>数据源类型：平台共享存储或 NAS；</li>
+<li>挂载路径：固定为 <code>/data/model</code>；</li>
+<li>权限：容器内用户需具备读权限，日志目录 <code>/data/model/logs</code> 需具备写权限；</li>
+<li>一致性：所有实例使用同一份数据源，确保权重、tokenizer、配置和自定义代码版本一致。</li>
+</ul>
+<h3 id="63-在线服务配置">6.3 在线服务配置</h3>
+<p>
+  <img src="/img/deepseek-v32-multinode/tione-online-service-screenshot.png" alt="TIONE 在线服务配置示例">
+
+</p>
+<p><strong>服务启动命令：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/bin/bash /data/model/start_<span style="color:#ff79c6">$(</span><span style="color:#8be9fd;font-style:italic">echo</span> <span style="color:#8be9fd;font-style:italic">$HOSTNAME</span> | awk -F<span style="color:#f1fa8c">&#39;-&#39;</span> <span style="color:#f1fa8c">&#39;{print $5}&#39;</span><span style="color:#ff79c6">)</span>.sh <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  &gt;&gt; /data/model/logs/DeepSeekV32-mtp_<span style="color:#ff79c6">$(</span><span style="color:#8be9fd;font-style:italic">echo</span> <span style="color:#8be9fd;font-style:italic">$HOSTNAME</span> | awk -F<span style="color:#f1fa8c">&#39;-&#39;</span> <span style="color:#f1fa8c">&#39;{print $5}&#39;</span><span style="color:#ff79c6">)</span>.log 2&gt;&amp;<span style="color:#bd93f9">1</span>
+</span></span></code></pre></div><p><strong>角色识别机制：</strong></p>
+<ul>
+<li>实例 <code>HOSTNAME</code> 的第 5 个字段（以 <code>-</code> 分隔）标识角色，例如 <code>master</code> 或 <code>worker</code>；</li>
+<li>对应脚本：<code>/data/model/start_master.sh</code>、<code>/data/model/start_worker.sh</code>；</li>
+<li>日志独立写入 <code>/data/model/logs/DeepSeekV32-mtp_&lt;role&gt;.log</code>。</li>
+</ul>
+<p>前置NPU通信检查：</p>
+<ul>
+<li>多机推理的前置检验步骤，校验NPU卡是否配了IP，跨节点之间是否能互通</li>
+<li>步骤执行参考：https://docs.vllm.ai/projects/ascend/en/latest/installation.html#verify-multi-node-communication</li>
+</ul>
+<h3 id="64-start_mastersh">6.4 start_master.sh</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">#!/bin/bash
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6"></span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 推理和函数调用相关的附加参数</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">EXTRA_PARAMS</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">EXTRA_PARAMS</span><span style="color:#ff79c6">:-</span><span style="color:#f1fa8c">&#34;--reasoning-parser deepseek_v3 --enable-auto-tool-choice --tool-call-parser deepseek_v32 --tokenizer-mode deepseek_v32&#34;</span><span style="color:#f1fa8c">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># nic_name 为当前节点 local_ip 对应的网卡名</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">nic_name</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">NIC_NAME</span><span style="color:#ff79c6">:-</span><span style="color:#f1fa8c">&#34;eth0&#34;</span><span style="color:#f1fa8c">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">local_ip</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>grep <span style="color:#8be9fd;font-style:italic">$HOSTNAME</span> /etc/hosts | awk <span style="color:#f1fa8c">&#39;{print $1}&#39;</span><span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># node0_ip 必须与 master 节点的 local_ip 一致</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">node0_ip</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">MASTER_ADDR</span><span style="color:#ff79c6">:-</span><span style="color:#8be9fd;font-style:italic">$local_ip</span><span style="color:#f1fa8c">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># HCCL / Gloo / TP 通信配置</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_OP_EXPANSION_MODE</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;AIV&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_IF_IP</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$local_ip</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">GLOO_SOCKET_IFNAME</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$nic_name</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">TP_SOCKET_IFNAME</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$nic_name</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_SOCKET_IFNAME</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$nic_name</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 运行时环境变量</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">OMP_PROC_BIND</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">false</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">OMP_NUM_THREADS</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">100</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">VLLM_USE_V1</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_BUFFSIZE</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">200</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">VLLM_ASCEND_ENABLE_MLAPO</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">PYTORCH_NPU_ALLOC_CONF</span><span style="color:#ff79c6">=</span>expandable_segments:True
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">VLLM_ASCEND_ENABLE_FLASHCOMM1</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_CONNECT_TIMEOUT</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">120</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_INTRA_PCIE_ENABLE</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_INTRA_ROCE_ENABLE</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>vllm serve /data/model <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --host 0.0.0.0 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --port <span style="color:#bd93f9">8000</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-size <span style="color:#bd93f9">2</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-size-local <span style="color:#bd93f9">1</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-address <span style="color:#8be9fd;font-style:italic">$node0_ip</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-rpc-port <span style="color:#bd93f9">13389</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --tensor-parallel-size <span style="color:#bd93f9">8</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --quantization ascend <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --seed <span style="color:#bd93f9">1024</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --served-model-name DeepSeek-V3_2-mtp <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --enable-expert-parallel <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-num-seqs <span style="color:#bd93f9">8</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-model-len <span style="color:#bd93f9">60000</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-num-batched-tokens <span style="color:#bd93f9">4096</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --trust-remote-code <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --gpu-memory-utilization 0.95 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --compilation-config <span style="color:#f1fa8c">&#39;{&#34;cudagraph_mode&#34;: &#34;FULL_DECODE_ONLY&#34;, &#34;cudagraph_capture_sizes&#34;:[8, 16, 24]}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --additional-config <span style="color:#f1fa8c">&#39;{&#34;layer_sharding&#34;: [&#34;q_b_proj&#34;, &#34;o_proj&#34;]}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --speculative-config <span style="color:#f1fa8c">&#39;{&#34;num_speculative_tokens&#34;: 3, &#34;method&#34;: &#34;deepseek_mtp&#34;}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  <span style="color:#8be9fd;font-style:italic">$EXTRA_PARAMS</span>
+</span></span></code></pre></div><h3 id="65-start_workersh">6.5 start_worker.sh</h3>
+<p>Worker 脚本在 master 脚本基础上增加 <code>--headless</code> 与 <code>--data-parallel-start-rank 1</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#ff79c6">#!/bin/bash
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6"></span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">EXTRA_PARAMS</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">EXTRA_PARAMS</span><span style="color:#ff79c6">:-</span><span style="color:#f1fa8c">&#34;--reasoning-parser deepseek_v3 --enable-auto-tool-choice --tool-call-parser deepseek_v32 --tokenizer-mode deepseek_v32&#34;</span><span style="color:#f1fa8c">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">nic_name</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">NIC_NAME</span><span style="color:#ff79c6">:-</span><span style="color:#f1fa8c">&#34;eth0&#34;</span><span style="color:#f1fa8c">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">local_ip</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>grep <span style="color:#8be9fd;font-style:italic">$HOSTNAME</span> /etc/hosts | awk <span style="color:#f1fa8c">&#39;{print $1}&#39;</span><span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">node0_ip</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">MASTER_ADDR</span><span style="color:#ff79c6">:-</span><span style="color:#8be9fd;font-style:italic">$local_ip</span><span style="color:#f1fa8c">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_OP_EXPANSION_MODE</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;AIV&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_IF_IP</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$local_ip</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">GLOO_SOCKET_IFNAME</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$nic_name</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">TP_SOCKET_IFNAME</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$nic_name</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_SOCKET_IFNAME</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">$nic_name</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">OMP_PROC_BIND</span><span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">false</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">OMP_NUM_THREADS</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">100</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">VLLM_USE_V1</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_BUFFSIZE</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">200</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">VLLM_ASCEND_ENABLE_MLAPO</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">PYTORCH_NPU_ALLOC_CONF</span><span style="color:#ff79c6">=</span>expandable_segments:True
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">VLLM_ASCEND_ENABLE_FLASHCOMM1</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_CONNECT_TIMEOUT</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">120</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_INTRA_PCIE_ENABLE</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">HCCL_INTRA_ROCE_ENABLE</span><span style="color:#ff79c6">=</span><span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>vllm serve /data/model <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --host 0.0.0.0 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --port <span style="color:#bd93f9">8000</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --headless <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-size <span style="color:#bd93f9">2</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-size-local <span style="color:#bd93f9">1</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-start-rank <span style="color:#bd93f9">1</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-address <span style="color:#8be9fd;font-style:italic">$node0_ip</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --data-parallel-rpc-port <span style="color:#bd93f9">13389</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --tensor-parallel-size <span style="color:#bd93f9">8</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --quantization ascend <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --seed <span style="color:#bd93f9">1024</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --served-model-name DeepSeek-V3_2-mtp <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --enable-expert-parallel <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-num-seqs <span style="color:#bd93f9">8</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-model-len <span style="color:#bd93f9">60000</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-num-batched-tokens <span style="color:#bd93f9">4096</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --trust-remote-code <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --gpu-memory-utilization 0.95 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --compilation-config <span style="color:#f1fa8c">&#39;{&#34;cudagraph_mode&#34;: &#34;FULL_DECODE_ONLY&#34;, &#34;cudagraph_capture_sizes&#34;:[8, 16, 24]}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --additional-config <span style="color:#f1fa8c">&#39;{&#34;layer_sharding&#34;: [&#34;q_b_proj&#34;, &#34;o_proj&#34;]}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --speculative-config <span style="color:#f1fa8c">&#39;{&#34;num_speculative_tokens&#34;: 3, &#34;method&#34;: &#34;deepseek_mtp&#34;}&#39;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  <span style="color:#8be9fd;font-style:italic">$EXTRA_PARAMS</span>
+</span></span></code></pre></div><h3 id="66-tione-实践配置与官方示例的差异">6.6 TIONE 实践配置与官方示例的差异</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>TIONE 实践值</th>
+<th>官方 A2 示例值</th>
+<th>差异原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--port</code></td>
+<td>8000</td>
+<td>8077</td>
+<td>对齐平台在线服务默认端口</td>
+</tr>
+<tr>
+<td><code>--served-model-name</code></td>
+<td><code>DeepSeek-V3_2-mtp</code></td>
+<td><code>deepseek_v3_2</code></td>
+<td>显式标识 MTP 投机解码能力</td>
+</tr>
+<tr>
+<td><code>--max-num-seqs</code></td>
+<td>8</td>
+<td>16</td>
+<td>长上下文场景下控制并发，降低显存压力</td>
+</tr>
+<tr>
+<td><code>--max-model-len</code></td>
+<td>60000</td>
+<td>8192</td>
+<td>面向长上下文应用</td>
+</tr>
+<tr>
+<td><code>--gpu-memory-utilization</code></td>
+<td>0.95</td>
+<td>0.92</td>
+<td>更激进利用 NPU 显存</td>
+</tr>
+<tr>
+<td><code>cudagraph_capture_sizes</code></td>
+<td><code>[8, 16, 24]</code></td>
+<td><code>[8, 16, 24, 32, 40, 48]</code></td>
+<td>与 <code>max-num-seqs=8</code> 匹配</td>
+</tr>
+<tr>
+<td><code>EXTRA_PARAMS</code></td>
+<td>开启 reasoning parser、tool choice、<code>deepseek_v32</code> tokenizer mode</td>
+<td>无</td>
+<td>支持 Agent 与工具调用场景</td>
+</tr>
+<tr>
+<td><code>--no-enable-prefix-caching</code></td>
+<td>未显式设置</td>
+<td>显式关闭</td>
+<td>TIONE 侧保留默认行为</td>
+</tr>
+</tbody>
+</table>
+<h3 id="67-tione-部署关键约束">6.7 TIONE 部署关键约束</h3>
+<ol>
+<li><strong><code>HOSTNAME</code> 命名约束</strong>：平台实例命名规则必须保证第 5 个字段正确区分 <code>master</code> 与 <code>worker</code>，否则启动命令会选到错误脚本。</li>
+<li><strong><code>MASTER_ADDR</code> 注入</strong>：Worker 实例必须能从环境变量中读到 master IP。若未注入，脚本中 <code>node0_ip=${MASTER_ADDR:-$local_ip}</code> 会退化为 worker 自身 IP，导致 DP 集群无法汇合。</li>
+<li><strong><code>/etc/hosts</code> 解析</strong>：脚本通过 <code>grep $HOSTNAME /etc/hosts</code> 获取 <code>local_ip</code>，需确保平台在实例启动时写入了正确的主机名解析。</li>
+<li><strong>日志目录可写</strong>：<code>/data/model/logs</code> 目录必须具备写权限，且容量足够承载长时间运行日志，避免撑满模型盘。</li>
+</ol>
+<hr>
+<h2 id="7-prefill-decode-分离部署">7. Prefill-Decode 分离部署</h2>
+<h3 id="71-适用场景">7.1 适用场景</h3>
+<p>P/D 分离适用于以下场景：</p>
+<ul>
+<li>输入上下文长度 ≥ 32k，Prefill 阶段耗时显著；</li>
+<li>对 TPOT 有严格要求的在线服务；</li>
+<li>Prefill 与 Decode 吞吐瓶颈差异明显；</li>
+<li>可提供 ≥ 4 节点的 A3-752T 或同等硬件资源。</li>
+</ul>
+<p>普通双节点 serving 已能满足需求时，不建议引入 P/D 分离，避免增加运维复杂度。</p>
+<h3 id="72-部署架构">7.2 部署架构</h3>
+<p>
+  <img src="/img/deepseek-v32-multinode/pd-disaggregation.svg" alt="Prefill-Decode 分离架构">
+
+</p>
+<p>官方性能基线：</p>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>硬件</td>
+<td>A3-752T，4 节点</td>
+</tr>
+<tr>
+<td>部署形态</td>
+<td>1P1D</td>
+</tr>
+<tr>
+<td>Prefill 配置</td>
+<td>DP2 + TP16</td>
+</tr>
+<tr>
+<td>Decode 配置</td>
+<td>DP8 + TP4</td>
+</tr>
+<tr>
+<td>输入 / 输出长度</td>
+<td>64k / 3k</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>533 tps</td>
+</tr>
+<tr>
+<td>TPOT</td>
+<td>32 ms</td>
+</tr>
+</tbody>
+</table>
+<h3 id="73-kv-传输配置">7.3 KV 传输配置</h3>
+<p>Prefill 与 Decode 之间通过 <code>MooncakeLayerwiseConnector</code> 按层传输 KV cache。</p>
+<p><strong>Prefill 侧（<code>kv_producer</code>）：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;kv_connector&#34;</span>: <span style="color:#f1fa8c">&#34;MooncakeLayerwiseConnector&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;kv_role&#34;</span>: <span style="color:#f1fa8c">&#34;kv_producer&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;kv_port&#34;</span>: <span style="color:#f1fa8c">&#34;30000&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;engine_id&#34;</span>: <span style="color:#f1fa8c">&#34;0&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;kv_connector_extra_config&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;prefill&#34;</span>: {<span style="color:#ff79c6">&#34;dp_size&#34;</span>: <span style="color:#bd93f9">2</span>, <span style="color:#ff79c6">&#34;tp_size&#34;</span>: <span style="color:#bd93f9">16</span>},
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;decode&#34;</span>:  {<span style="color:#ff79c6">&#34;dp_size&#34;</span>: <span style="color:#bd93f9">8</span>, <span style="color:#ff79c6">&#34;tp_size&#34;</span>: <span style="color:#bd93f9">4</span>}
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>Decode 侧（<code>kv_consumer</code>）：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;kv_connector&#34;</span>: <span style="color:#f1fa8c">&#34;MooncakeLayerwiseConnector&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;kv_role&#34;</span>: <span style="color:#f1fa8c">&#34;kv_consumer&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;kv_port&#34;</span>: <span style="color:#f1fa8c">&#34;30100&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;engine_id&#34;</span>: <span style="color:#f1fa8c">&#34;1&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;kv_connector_extra_config&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;prefill&#34;</span>: {<span style="color:#ff79c6">&#34;dp_size&#34;</span>: <span style="color:#bd93f9">2</span>, <span style="color:#ff79c6">&#34;tp_size&#34;</span>: <span style="color:#bd93f9">16</span>},
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;decode&#34;</span>:  {<span style="color:#ff79c6">&#34;dp_size&#34;</span>: <span style="color:#bd93f9">8</span>, <span style="color:#ff79c6">&#34;tp_size&#34;</span>: <span style="color:#bd93f9">4</span>}
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>KV 传输链路独立于 HCCL 集合通信，不应与 TP/EP 内部 AllReduce、AllGather 混为一谈。</p>
+<h3 id="74-启动命令">7.4 启动命令</h3>
+<p>使用 <code>launch_online_dp.py</code> 统一拉起各节点 DP 实例：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># Prefill Node0</span>
+</span></span><span style="display:flex;"><span>python launch_online_dp.py <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-size <span style="color:#bd93f9">2</span> --tp-size <span style="color:#bd93f9">16</span> --dp-size-local <span style="color:#bd93f9">1</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-rank-start <span style="color:#bd93f9">0</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-address &lt;prefill_node0_ip&gt; --dp-rpc-port <span style="color:#bd93f9">12890</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --vllm-start-port <span style="color:#bd93f9">9100</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># Prefill Node1</span>
+</span></span><span style="display:flex;"><span>python launch_online_dp.py <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-size <span style="color:#bd93f9">2</span> --tp-size <span style="color:#bd93f9">16</span> --dp-size-local <span style="color:#bd93f9">1</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-rank-start <span style="color:#bd93f9">1</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-address &lt;prefill_node0_ip&gt; --dp-rpc-port <span style="color:#bd93f9">12890</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --vllm-start-port <span style="color:#bd93f9">9100</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># Decode Node0</span>
+</span></span><span style="display:flex;"><span>python launch_online_dp.py <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-size <span style="color:#bd93f9">8</span> --tp-size <span style="color:#bd93f9">4</span> --dp-size-local <span style="color:#bd93f9">4</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-rank-start <span style="color:#bd93f9">0</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-address &lt;decode_node0_ip&gt; --dp-rpc-port <span style="color:#bd93f9">12777</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --vllm-start-port <span style="color:#bd93f9">9100</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># Decode Node1</span>
+</span></span><span style="display:flex;"><span>python launch_online_dp.py <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-size <span style="color:#bd93f9">8</span> --tp-size <span style="color:#bd93f9">4</span> --dp-size-local <span style="color:#bd93f9">4</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-rank-start <span style="color:#bd93f9">4</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dp-address &lt;decode_node0_ip&gt; --dp-rpc-port <span style="color:#bd93f9">12777</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --vllm-start-port <span style="color:#bd93f9">9100</span>
+</span></span></code></pre></div><p>请求由 <code>load_balance_proxy_layerwise_server_example.py</code> 代理，统一分发至 Prefill 与 Decode 集群。</p>
+<hr>
+<h2 id="8-验证与测试">8. 验证与测试</h2>
+<h3 id="81-功能验证">8.1 功能验证</h3>
+<p>服务启动后执行以下请求，注意 <code>model</code> 字段必须与 <code>--served-model-name</code> 严格一致。</p>
+<p><strong>vLLM 官方示例：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>curl http://&lt;node0_ip&gt;:8077/v1/completions <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -H <span style="color:#f1fa8c">&#34;Content-Type: application/json&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -d <span style="color:#f1fa8c">&#39;{
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;model&#34;: &#34;deepseek_v3_2&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;prompt&#34;: &#34;The future of AI is&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;max_completion_tokens&#34;: 50,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;temperature&#34;: 0
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">  }&#39;</span>
+</span></span></code></pre></div><p><strong>TIONE 实践示例：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>curl http://&lt;master_ip&gt;:8000/v1/completions <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -H <span style="color:#f1fa8c">&#34;Content-Type: application/json&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  -d <span style="color:#f1fa8c">&#39;{
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;model&#34;: &#34;DeepSeek-V3_2-mtp&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;prompt&#34;: &#34;请用三句话解释 vLLM 多机推理中的 DP 和 TP。&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;max_completion_tokens&#34;: 128,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">    &#34;temperature&#34;: 0
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">  }&#39;</span>
+</span></span></code></pre></div><h3 id="82-性能测试">8.2 性能测试</h3>
+<p>使用 <code>vllm bench serve</code> 进行在线服务吞吐测试：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">VLLM_USE_MODELSCOPE</span><span style="color:#ff79c6">=</span>True
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>vllm bench serve <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --model /root/.cache/Eco-Tech/DeepSeek-V3.2-w8a8-mtp-QuaRot <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --dataset-name random <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --random-input <span style="color:#bd93f9">200</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --num-prompts <span style="color:#bd93f9">200</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --request-rate <span style="color:#bd93f9">1</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --save-result <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --result-dir ./
+</span></span></code></pre></div><h3 id="83-验收指标">8.3 验收指标</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>验收要求</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>首 token 延迟（TTFT）</td>
+<td>与基线配置偏差 ≤ 10%</td>
+</tr>
+<tr>
+<td>输出 token 间延迟（TPOT）</td>
+<td>与基线配置偏差 ≤ 10%</td>
+</tr>
+<tr>
+<td>吞吐（tokens/s）</td>
+<td>随 DP 扩展呈接近线性增长</td>
+</tr>
+<tr>
+<td>错误率</td>
+<td>≤ 0.1%</td>
+</tr>
+<tr>
+<td>NPU 利用率</td>
+<td>无长时间单 rank 空转</td>
+</tr>
+<tr>
+<td>HBM 占用</td>
+<td>峰值 ≤ <code>--gpu-memory-utilization</code> 设定值</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="9-运维与排障">9. 运维与排障</h2>
+<h3 id="91-部署检查清单">9.1 部署检查清单</h3>
+<table>
+<thead>
+<tr>
+<th>分类</th>
+<th>检查项</th>
+<th>期望状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>网络</td>
+<td><code>HCCL_IF_IP = $local_ip</code></td>
+<td>一致</td>
+</tr>
+<tr>
+<td>网络</td>
+<td><code>HCCL_SOCKET_IFNAME</code> 等 = 实际网卡</td>
+<td>一致</td>
+</tr>
+<tr>
+<td>网络</td>
+<td>跨节点 NPU ping</td>
+<td>成功</td>
+</tr>
+<tr>
+<td>网络</td>
+<td>DP RPC 端口未占用</td>
+<td>可用</td>
+</tr>
+<tr>
+<td>Rank</td>
+<td>Node0 无 <code>--headless</code>，Node1 含 <code>--headless</code></td>
+<td>正确</td>
+</tr>
+<tr>
+<td>Rank</td>
+<td><code>--data-parallel-start-rank</code> Node0=默认，Node1=1</td>
+<td>正确</td>
+</tr>
+<tr>
+<td>Rank</td>
+<td><code>--data-parallel-size</code> 各节点一致</td>
+<td>一致</td>
+</tr>
+<tr>
+<td>模型</td>
+<td>各节点模型路径一致</td>
+<td>一致</td>
+</tr>
+<tr>
+<td>模型</td>
+<td><code>--served-model-name</code> 与请求 <code>model</code> 一致</td>
+<td>一致</td>
+</tr>
+<tr>
+<td>容器</td>
+<td><code>--net=host</code></td>
+<td>已启用</td>
+</tr>
+<tr>
+<td>容器</td>
+<td>NPU 设备与驱动挂载完整</td>
+<td>完整</td>
+</tr>
+</tbody>
+</table>
+<h3 id="92-常见故障定位">9.2 常见故障定位</h3>
+<table>
+<thead>
+<tr>
+<th>故障现象</th>
+<th>可能原因</th>
+<th>排查步骤</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Worker 无法加入集群</td>
+<td><code>MASTER_ADDR</code> 未注入，<code>node0_ip</code> 退化为自身 IP</td>
+<td>在 worker 中 <code>echo $MASTER_ADDR</code>、<code>grep $HOSTNAME /etc/hosts</code></td>
+</tr>
+<tr>
+<td>启动后请求卡住</td>
+<td>HCCL 通信初始化未完成</td>
+<td>检查 <code>HCCL_IF_IP</code>、<code>HCCL_SOCKET_IFNAME</code>、NPU 链路状态</td>
+</tr>
+<tr>
+<td><code>model not found</code></td>
+<td>请求 <code>model</code> 与 <code>served-model-name</code> 不一致</td>
+<td>核对请求体与启动参数</td>
+</tr>
+<tr>
+<td>大 batch 超时或 OOM</td>
+<td><code>max-model-len</code> / <code>max-num-seqs</code> / <code>gpu-memory-utilization</code> 过激</td>
+<td>逐项下调并重试</td>
+</tr>
+<tr>
+<td>EP 场景部分 rank 空转</td>
+<td>DP coordinator 未调度空 rank dummy forward</td>
+<td>检查 <code>--enable-expert-parallel</code> 是否在所有节点一致</td>
+</tr>
+<tr>
+<td>TPOT 抖动</td>
+<td>CUDAGraph capture sizes 未覆盖实际 batch</td>
+<td>将实际运行 batch 加入 <code>cudagraph_capture_sizes</code></td>
+</tr>
+<tr>
+<td>HCCL 连接超时</td>
+<td>网络抖动或 <code>HCCL_CONNECT_TIMEOUT</code> 过小</td>
+<td>增大 <code>HCCL_CONNECT_TIMEOUT</code>，或检查跨节点网络</td>
+</tr>
+</tbody>
+</table>
+<h3 id="93-部署方式选择矩阵">9.3 部署方式选择矩阵</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>首次验证多机通信</td>
+<td>vLLM 原生</td>
+<td>便于直接定位 HCCL/rank/网络问题</td>
+</tr>
+<tr>
+<td>性能压测与参数探索</td>
+<td>vLLM 原生</td>
+<td>参数调整灵活，日志直接</td>
+</tr>
+<tr>
+<td>团队共享在线服务</td>
+<td>TIONE 在线服务</td>
+<td>平台化入口、实例管理与日志</td>
+</tr>
+<tr>
+<td>生产稳定发布</td>
+<td>TIONE 在线服务</td>
+<td>支持平台运维与版本管理</td>
+</tr>
+<tr>
+<td>长上下文高吞吐</td>
+<td>vLLM P/D 分离</td>
+<td>Prefill 与 Decode 独立扩展</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="10-总结">10. 总结</h2>
+<ol>
+<li>DeepSeek-V3.2 多机推理的核心复杂度在于通信拓扑与 rank 编排，而非模型本身的启动。</li>
+<li>vLLM-Ascend 原生部署显式暴露 HCCL、DP、TP、EP 的全部配置，是验证多机通信与性能调优的首选形态。</li>
+<li>TIONE 在线服务在同一套 <code>vllm-ascend</code> 运行时之上提供平台化封装，将模型交付、实例编排、日志与入口沉淀为可复用配置，适合生产环境稳定交付。</li>
+<li>长上下文高吞吐场景可进一步引入 Prefill-Decode 分离部署，通过 <code>MooncakeLayerwiseConnector</code> 解耦两个阶段的资源画像。</li>
+<li>无论选择哪种形态，必须先完成网络、NPU 拓扑与 rank 编排的验证，再进入功能与性能测试阶段。</li>
+</ol>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/04/27/cl4r1t4s-ai-transparency-project-analysis/" data-toggle="tooltip" data-placement="top" title="CL4R1T4S 项目深度解析：AI 系统透明度与系统提示词工程">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/04/29/llm-wiki-technical-design/" data-toggle="tooltip" data-placement="top" title="从 RAG 到 LLM Wiki：一种可持续演化的个人知识库技术方案">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

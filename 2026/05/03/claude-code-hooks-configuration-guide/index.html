@@ -1,0 +1,472 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><meta property="og:site_name" content="爱折腾的工程师"><meta property="og:type" content="article"><meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg"><meta name=title content="Claude Code Hooks 配置深度解析：把 Agent 工作流变成可治理的自动化系统"><meta property="og:title" content="Claude Code Hooks 配置深度解析：把 Agent 工作流变成可治理的自动化系统"><meta property="twitter:title" content="Claude Code Hooks 配置深度解析：把 Agent 工作流变成可治理的自动化系统"><meta name=description content="基于 Anthropic 官方博客 Claude Code power user customization: How to configure hooks 的深度技术解读。文章系统分析 Claude Code Hooks 的核心概念、8 类事件、settings 配置格式、matcher 语法、输入输出协议、安全边界、调试方法和工程最佳实践，并通过 SVG 架构图与可落地代码示例展示如何把 Hooks 用于自动格式化、权限治理、上下文注入和故障排查。"><meta property="og:description" content="基于 Anthropic 官方博客 Claude Code power user customization: How to configure hooks 的深度技术解读。文章系统分析 Claude Code Hooks 的核心概念、8 类事件、settings 配置格式、matcher 语法、输入输出协议、安全边界、调试方法和工程最佳实践，并通过 SVG 架构图与可落地代码示例展示如何把 Hooks 用于自动格式化、权限治理、上下文注入和故障排查。"><meta property="twitter:description" content="基于 Anthropic 官方博客 Claude Code power user customization: How to configure hooks 的深度技术解读。文章系统分析 Claude Code Hooks 的核心概念、8 类事件、settings 配置格式、matcher 语法、输入输出协议、安全边界、调试方法和工程最佳实践，并通过 SVG 架构图与可落地代码示例展示如何把 Hooks 用于自动格式化、权限治理、上下文注入和故障排查。"><meta property="twitter:card" content="summary"><meta name=keyword content="iceyao, IceYao's Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice"><link rel="shortcut icon" href=/img/favicon.ico><title>Claude Code Hooks 配置深度解析：把 Agent 工作流变成可治理的自动化系统 | 爱折腾的工程师 | IceYao's Blog</title>
+<link rel=canonical href=/2026/05/03/claude-code-hooks-configuration-guide/><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css><link rel=stylesheet href=/css/hugo-theme-cleanwhite.min.css><link rel=stylesheet href=/css/zanshang.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css><script src=https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js></script><script src=https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js></script><script src=/js/hux-blog.min.js></script><script src=https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js></script></head><script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-9J7CKFVPPM")}</script><nav class="navbar navbar-default navbar-custom navbar-fixed-top"><div class=container-fluid><div class="navbar-header page-scroll"><button type=button class=navbar-toggle>
+<span class=sr-only>Toggle navigation</span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+<span class=icon-bar></span>
+</button>
+<a class=navbar-brand href=/>爱折腾的工程师</a></div><div id=huxblog_navbar><div class=navbar-collapse><ul class="nav navbar-nav navbar-right"><li><a href=/>All Posts</a></li><li><a href=/archive//>ARCHIVE</a></li><li><a href=/notes//>NOTES</a></li><li><a href=/about//>ABOUT</a></li><li><a href=/search><i class="fa fa-search"></i></a></li></ul></div></div></div></nav><script>var $body=document.body,$toggle=document.querySelector(".navbar-toggle"),$navbar=document.querySelector("#huxblog_navbar"),$collapse=document.querySelector(".navbar-collapse");$toggle.addEventListener("click",handleMagic);function handleMagic(){$navbar.className.indexOf("in")>0?($navbar.className=" ",setTimeout(function(){$navbar.className.indexOf("in")<0&&($collapse.style.height="0px")},400)):($collapse.style.height="auto",$navbar.className+=" in")}</script><style type=text/css>header.intro-header{background-image:url(/img/post-bg-unix-linux.jpg)}</style><header class=intro-header><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><div class=post-heading><div class=tags><a class=tag href=/tags/ai title=AI>AI
+</a><a class=tag href=/tags/agent title=Agent>Agent
+</a><a class=tag href=/tags/llm title=LLM>LLM
+</a><a class=tag href=/tags/claude title=Claude>Claude
+</a><a class=tag href=/tags/hooks title=Hooks>Hooks</a></div><h1>Claude Code Hooks 配置深度解析：把 Agent 工作流变成可治理的自动化系统</h1><h2 class=subheading>从事件生命周期、配置层级到安全治理，系统拆解 Claude Code Hooks 的工程化用法</h2><span class=meta>Posted by
+iceyao
+on
+Sunday, May 3, 2026</span></div></div></div></div></header><article><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+post-container"><h2 id=一引言hooks-让-claude-code-从会调用工具变成可治理的工作流>一、引言：Hooks 让 Claude Code 从“会调用工具”变成“可治理的工作流”</h2><blockquote><p>原文链接：<a href=https://claude.com/blog/how-to-configure-hooks>Claude Code power user customization: How to configure hooks</a><br>来源：Claude Blog / Anthropic<br>发布时间：2025 年 12 月 11 日</p></blockquote><p>Claude Code 的核心能力是让模型在代码仓库里调用工具：读文件、写文件、运行命令、搜索代码、启动子代理、根据反馈继续修改。但如果只有“模型决定何时调用工具”，团队很快会遇到三个现实问题：</p><ol><li><strong>重复动作太多</strong>：每次改完文件都要格式化、lint、记录变更，靠人提醒很容易漏。</li><li><strong>安全边界太软</strong>：模型可能提出删除文件、访问敏感配置、运行高风险命令，单靠权限弹窗很难形成团队规范。</li><li><strong>上下文注入太手工</strong>：每次会话都要告诉 Claude 当前分支、TODO、Sprint 背景、最近失败的测试，非常低效。</li></ol><p>Hooks 的价值就在这里：它把 Claude Code 生命周期中的关键节点暴露出来，让开发者可以在这些节点上自动运行本地命令或让 Claude 执行一段检查 prompt。换句话说，Hooks 不是“给 Claude 增加一个工具”，而是<strong>给整个 Agent 工作流增加可编排、可拦截、可审计的控制面</strong>。</p><p>先看一张总览图：</p><p><img src=/img/claude-code-hooks/architecture-overview.svg alt="Claude Code Hooks 架构总览"></p><p><strong>图注</strong>：本文配图均为作者基于 Anthropic 原文机制整理的概念示意，并非官方架构图。</p><p>本文会围绕六个问题展开：</p><ul><li>Hooks 到底是什么，它和工具调用、权限系统是什么关系？</li><li>8 类 Hook 事件分别适合解决什么问题？</li><li><code>.claude/settings.json</code> 应该怎样配置？</li><li><code>matcher</code>、stdin JSON、exit code、结构化 JSON 响应如何协同工作？</li><li>如何把 Hooks 用于格式化、权限治理、上下文注入和任务完成检查？</li><li>团队落地时如何避免把 Hooks 变成新的安全风险？</li></ul><hr><h2 id=二核心概念hook-是-claude-code-生命周期上的自动触发器>二、核心概念：Hook 是 Claude Code 生命周期上的自动触发器</h2><p>可以把 Claude Code 的一次工作流拆成三层：</p><table><thead><tr><th>层次</th><th>作用</th><th>典型例子</th></tr></thead><tbody><tr><td>模型推理层</td><td>Claude 根据上下文决定下一步做什么</td><td>计划修改文件、决定运行测试</td></tr><tr><td>工具执行层</td><td>Claude Code 执行具体工具</td><td><code>Read</code>、<code>Write</code>、<code>Edit</code>、<code>Bash</code>、MCP 工具</td></tr><tr><td>Hook 控制层</td><td>在关键事件前后自动运行规则</td><td>写文件后格式化、执行命令前校验、会话开始注入上下文</td></tr></tbody></table><p>Hook 是一段由用户配置的本地命令或 prompt。它通常具备这些特征：</p><ul><li>写在 Claude Code 的 settings JSON 文件里；</li><li>挂载到某个事件，如 <code>PreToolUse</code>、<code>PostToolUse</code>、<code>SessionStart</code>；</li><li>可通过 <code>matcher</code> 过滤具体工具或命令；</li><li>通过 stdin 接收事件相关 JSON；</li><li>通过 stdout、stderr、exit code 或结构化 JSON 返回结果；</li><li>在本地环境中执行，拥有当前用户权限。</li></ul><p>一句话概括：<strong>工具是 Claude 想做的事，Hook 是你在 Claude 做事前后加上的规则、自动化和护栏。</strong></p><h3 id=21-三类典型收益>2.1 三类典型收益</h3><p>原文把 Hooks 的价值归纳为三类，工程上也基本可以按这三类来设计。</p><table><thead><tr><th>目标</th><th>典型 Hook</th><th>示例</th></tr></thead><tbody><tr><td>自动化重复任务</td><td><code>PostToolUse</code></td><td>Claude 写完文件后自动运行 Prettier、Black、gofmt</td></tr><tr><td>强制项目规则</td><td><code>PreToolUse</code>、<code>PermissionRequest</code></td><td>阻止修改 <code>.env</code>、拒绝 <code>git push --force</code>、限制写入目录</td></tr><tr><td>动态注入上下文</td><td><code>SessionStart</code>、<code>UserPromptSubmit</code></td><td>会话开始时注入 git 状态、TODO、Sprint 背景</td></tr></tbody></table><p>这三类收益背后是同一个原则：<strong>不要只依赖模型“记得做正确的事”，而要把确定性规则沉到 Hook 层。</strong></p><h3 id=22-hooks-与权限弹窗的关系>2.2 Hooks 与权限弹窗的关系</h3><p>Claude Code 原本就有权限确认机制，例如运行某些 Bash 命令前会询问用户。<code>PermissionRequest</code> Hook 的意义不是绕过安全，而是把“每次手工点确认”改造成“可审计的策略判断”。</p><p>例如：</p><ul><li><code>npm test</code>、<code>go test ./...</code> 这类低风险测试命令可以自动批准；</li><li><code>rm -rf</code>、<code>git push --force</code>、读取 secrets 的命令必须自动拒绝；</li><li>介于两者之间的操作仍然交给用户确认。</li></ul><p>这比单纯依赖弹窗更工程化，因为策略可以进入版本控制、代码评审和团队规范。</p><hr><h2 id=三事件生命周期8-类-hook-分别卡在哪个位置>三、事件生命周期：8 类 Hook 分别卡在哪个位置</h2><p>Claude Code Hooks 的事件不是随机设计的，而是覆盖了 Agent 工作流的几个关键阶段：会话开始、用户提交、工具执行前、权限请求、工具执行后、上下文压缩前、Claude 停止前、子代理停止前。</p><p><img src=/img/claude-code-hooks/event-lifecycle.svg alt="Claude Code Hook 事件生命周期"></p><h3 id=31-事件总览表>3.1 事件总览表</h3><table><thead><tr><th>Hook 类型</th><th>触发时机</th><th>最适合做什么</th></tr></thead><tbody><tr><td><code>SessionStart</code></td><td>新会话开始或恢复已有会话时</td><td>注入 git 状态、TODO、环境说明</td></tr><tr><td><code>UserPromptSubmit</code></td><td>用户提交 prompt 后、Claude 处理前</td><td>追加 Sprint 上下文、最近错误、请求校验</td></tr><tr><td><code>PreToolUse</code></td><td>Claude 决定调用工具后、工具实际执行前</td><td>拦截危险操作、校验路径、修改工具输入</td></tr><tr><td><code>PermissionRequest</code></td><td>权限确认弹窗出现前</td><td>自动批准低风险命令、拒绝高风险命令</td></tr><tr><td><code>PostToolUse</code></td><td>工具成功执行后</td><td>自动格式化、lint、记录变更、通知</td></tr><tr><td><code>PreCompact</code></td><td>上下文压缩前</td><td>备份 transcript、保存关键决策</td></tr><tr><td><code>Stop</code></td><td>Claude 完成响应、准备等待用户输入时</td><td>自检任务是否完成、要求继续处理遗漏项</td></tr><tr><td><code>SubagentStop</code></td><td>子代理完成任务时</td><td>校验子代理输出、触发后续处理</td></tr></tbody></table><h3 id=32-pretooluse在工具真正执行前加一道闸门>3.2 <code>PreToolUse</code>：在工具真正执行前加一道闸门</h3><p><code>PreToolUse</code> 是最像“安全网关”的事件。它发生在 Claude 已经决定使用某个工具之后，但工具还没有执行之前。</p><p>适合场景：</p><ul><li>阻止写入敏感文件；</li><li>限制只能修改某些目录；</li><li>拦截危险 Bash 命令；</li><li>检查 MCP 工具参数是否符合团队规范。</li></ul><p>配置骨架如下：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PreToolUse&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;Write|Edit&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/validate-file-path.sh&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这个 Hook 的直觉是：<strong>文件还没被改，命令还没被跑，此时阻止成本最低。</strong></p><h3 id=33-permissionrequest把重复授权变成策略判断>3.3 <code>PermissionRequest</code>：把重复授权变成策略判断</h3><p><code>PermissionRequest</code> 在 Claude Code 准备弹出权限确认框之前触发。它特别适合处理“每次都问很烦，但完全放开又不安全”的中间地带。</p><p>例如团队可以规定：</p><ul><li>自动批准 <code>npm test</code>、<code>npm run lint</code>、<code>go test ./...</code>；</li><li>自动拒绝包含 <code>--force</code>、访问 <code>.env</code>、修改生产配置的命令；</li><li>其他命令继续走默认权限确认。</li></ul><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PermissionRequest&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;Bash(npm test*)&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/approve-safe-test.sh&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>注意：自动批准不是为了省掉安全，而是为了让安全策略更精确。最危险的配置不是“严格拦截”，而是为了少点几次确认就把权限边界整体放宽。</p><h3 id=34-posttooluse在变更发生后立即收尾>3.4 <code>PostToolUse</code>：在变更发生后立即收尾</h3><p><code>PostToolUse</code> 在工具成功执行后触发，是最适合入门的 Hook。常见用法是写文件后自动格式化：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PostToolUse&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;Write|Edit&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/format-touched-file.sh&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>为什么推荐从它开始？因为反馈非常直观：Claude 改了文件，Hook 立刻运行格式化器，diff 变干净，失败也容易定位。</p><h3 id=35-sessionstart-与-userpromptsubmit自动注入动态上下文>3.5 <code>SessionStart</code> 与 <code>UserPromptSubmit</code>：自动注入动态上下文</h3><p>Claude Code 会话经常需要项目状态。例如当前分支、未提交变更、最近失败的测试、团队 TODO。如果每次都靠用户手工粘贴，既浪费时间，也容易遗漏。</p><p><code>SessionStart</code> 适合注入“会话级背景”：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;SessionStart&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/session-context.sh&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><code>UserPromptSubmit</code> 适合注入“每轮 prompt 前都可能变化的信息”：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;UserPromptSubmit&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;cat ./current-sprint-context.md 2&gt;/dev/null || true&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>两者的关键差异是频率：<code>SessionStart</code> 更低频，<code>UserPromptSubmit</code> 每轮都会触发，因此后者必须控制输出长度，避免把上下文窗口塞满。</p><h3 id=36-precompact在上下文压缩前留档>3.6 <code>PreCompact</code>：在上下文压缩前留档</h3><p>长会话会触发 compaction。压缩能让会话继续运行，但也可能丢失细节。<code>PreCompact</code> 的价值是：在压缩前把关键状态保存下来。</p><p>适合保存：</p><ul><li>当前任务目标；</li><li>已做决策；</li><li>未解决问题；</li><li>transcript 路径；</li><li>关键 diff 或测试结果摘要。</li></ul><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PreCompact&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;auto&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/backup-before-compact.sh&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=37-stop-与-subagentstop把完成变成可检查状态>3.7 <code>Stop</code> 与 <code>SubagentStop</code>：把“完成”变成可检查状态</h3><p><code>Stop</code> 在 Claude 准备结束本轮响应时触发。它可以是 command，也可以是 prompt。一个很实用的模式是让 Claude 在停止前自检：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;Stop&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;prompt&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;prompt&#34;</span>: <span style=color:#f1fa8c>&#34;Review the user&#39;s original request and the work completed in this turn. If all requirements are met, respond with complete. If work remains, respond with continue and list the missing items.&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><code>SubagentStop</code> 类似，但作用对象是子代理。它适合用于多代理工作流，例如让主代理在接收子代理结果前检查：子代理是否真的读了目标文件、是否给出了可验证证据、是否遗漏边界情况。</p><hr><h2 id=四配置文件与优先级团队规则个人偏好本地实验要分层>四、配置文件与优先级：团队规则、个人偏好、本地实验要分层</h2><p>Hooks 配在 Claude Code 的 settings JSON 文件里。常见位置有三类：</p><p><img src=/img/claude-code-hooks/config-layers.svg alt="Claude Code Hooks 配置层级"></p><table><thead><tr><th>配置位置</th><th>适用范围</th><th>是否适合提交</th><th>推荐用途</th></tr></thead><tbody><tr><td><code>.claude/settings.json</code></td><td>当前项目</td><td>是</td><td>团队共享规则、安全护栏、项目固定自动化</td></tr><tr><td><code>.claude/settings.local.json</code></td><td>当前项目的本地配置</td><td>否</td><td>个人实验、机器相关路径、临时 Hook</td></tr><tr><td><code>~/.claude/settings.json</code></td><td>当前用户所有项目</td><td>否</td><td>个人通用偏好、跨项目脚本</td></tr></tbody></table><p>原文提到项目级设置优先于用户级设置，组织还可能通过企业托管策略做更高层级控制。工程实践上建议遵循一个简单原则：</p><blockquote><p><strong>团队必须一致的规则放项目级；个人效率偏好放用户级；不想进入版本控制的本机路径放 local。</strong></p></blockquote><h3 id=41-最小可运行配置>4.1 最小可运行配置</h3><p>一个 Hook 配置的基本结构如下：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;事件名&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;匹配规则&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;要执行的命令&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>例如，写文件或编辑文件后自动格式化：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PostToolUse&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;Write|Edit&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/format-touched-file.sh&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;timeout&#34;</span>: <span style=color:#bd93f9>30</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>字段解释：</p><table><thead><tr><th>字段</th><th>说明</th></tr></thead><tbody><tr><td><code>hooks</code></td><td>顶层 Hooks 配置对象</td></tr><tr><td><code>PostToolUse</code></td><td>事件名，也可以是其他 7 类事件</td></tr><tr><td><code>matcher</code></td><td>只对工具相关事件生效，用于过滤工具或命令</td></tr><tr><td><code>type</code></td><td><code>command</code> 表示运行本地命令，<code>prompt</code> 表示让 Claude 执行检查提示</td></tr><tr><td><code>command</code></td><td>要执行的 shell 命令或脚本路径</td></tr><tr><td><code>prompt</code></td><td><code>type: prompt</code> 时使用的检查提示</td></tr><tr><td><code>timeout</code></td><td>单个 Hook 超时时间；默认超时为 60 秒</td></tr></tbody></table><h3 id=42-建议的项目目录结构>4.2 建议的项目目录结构</h3><p>为了让 Hooks 可维护，不建议把复杂 shell 逻辑全部塞进 JSON 字符串。更推荐这样组织：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-text data-lang=text><span style=display:flex><span>.claude/
+</span></span><span style=display:flex><span>  settings.json
+</span></span><span style=display:flex><span>  hooks/
+</span></span><span style=display:flex><span>    format-touched-file.sh
+</span></span><span style=display:flex><span>    validate-file-path.sh
+</span></span><span style=display:flex><span>    approve-safe-test.sh
+</span></span><span style=display:flex><span>    session-context.sh
+</span></span></code></pre></div><p>这样做有三个好处：</p><ol><li>settings 文件只描述“什么时候触发什么脚本”；</li><li>脚本可以单独测试、审查和复用；</li><li>shell quoting、日志、错误处理不会把 JSON 配置搅乱。</li></ol><hr><h2 id=五matcher-语法hook-是否触发先看匹配范围>五、Matcher 语法：Hook 是否触发，先看匹配范围</h2><p><code>matcher</code> 只适用于三类工具相关事件：</p><ul><li><code>PreToolUse</code></li><li><code>PostToolUse</code></li><li><code>PermissionRequest</code></li></ul><p>它决定某个 Hook 是否应该被触发。</p><table><thead><tr><th>写法</th><th>含义</th><th>示例用途</th></tr></thead><tbody><tr><td><code>"Write"</code></td><td>精确匹配 <code>Write</code> 工具</td><td>只拦截新文件写入</td></tr><tr><td>`&ldquo;Write</td><td>Edit&rdquo;`</td><td>匹配多个工具</td></tr><tr><td><code>"*"</code></td><td>匹配所有工具</td><td>全量记录审计日志</td></tr><tr><td><code>""</code></td><td>空字符串也可表示匹配全部</td><td>简单全量 Hook</td></tr><tr><td><code>"Bash(npm test*)"</code></td><td>匹配 Bash 命令参数</td><td>自动批准测试命令</td></tr><tr><td><code>"mcp__memory__.*"</code></td><td>匹配 MCP 工具</td><td>约束某类 MCP server 的调用</td></tr></tbody></table><h3 id=51-匹配工具名>5.1 匹配工具名</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PostToolUse&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;Write|Edit&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/format-touched-file.sh&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这个配置只会在 Claude 使用 <code>Write</code> 或 <code>Edit</code> 后触发，不会因为 <code>Read</code>、<code>Grep</code>、<code>Task</code> 等工具触发。</p><h3 id=52-匹配-bash-命令>5.2 匹配 Bash 命令</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PermissionRequest&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;Bash(npm test*)&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/approve-safe-test.sh&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这个配置匹配以 <code>npm test</code> 开头的 Bash 命令。适合自动批准低风险测试命令，但不应该扩展成 <code>Bash(*)</code> 后无差别批准。</p><h3 id=53-matcher-的两个坑>5.3 Matcher 的两个坑</h3><p>第一，matcher 区分大小写。<code>"bash"</code> 不会匹配 <code>"Bash"</code>。</p><p>第二，matcher 越宽，Hook 越容易频繁触发。全量 Hook 不是不能用，但最好只用于轻量审计或只读上下文注入；涉及写文件、网络请求、耗时检查的 Hook 应尽量收窄范围。</p><hr><h2 id=六输入与输出协议stdin-jsonexit-code-和结构化响应>六、输入与输出协议：stdin JSON、exit code 和结构化响应</h2><p>Hook 不是盲目运行脚本。Claude Code 会通过 stdin 把事件上下文传给 Hook，Hook 再通过退出码、stdout/stderr 或 JSON 告诉 Claude Code 下一步怎么处理。</p><h3 id=61-hook-会收到什么输入>6.1 Hook 会收到什么输入</h3><p>一个工具相关 Hook 的输入大致类似这样：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;session_id&#34;</span>: <span style=color:#f1fa8c>&#34;session_xxx&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;transcript_path&#34;</span>: <span style=color:#f1fa8c>&#34;/Users/me/.claude/projects/demo/session.jsonl&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;cwd&#34;</span>: <span style=color:#f1fa8c>&#34;/Users/me/project&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;permission_mode&#34;</span>: <span style=color:#f1fa8c>&#34;default&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hook_event_name&#34;</span>: <span style=color:#f1fa8c>&#34;PreToolUse&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;tool_name&#34;</span>: <span style=color:#f1fa8c>&#34;Write&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;tool_input&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;file_path&#34;</span>: <span style=color:#f1fa8c>&#34;/Users/me/project/src/app.ts&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;content&#34;</span>: <span style=color:#f1fa8c>&#34;...&#34;</span>
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>常见字段可以分两类：</p><table><thead><tr><th>字段</th><th>说明</th></tr></thead><tbody><tr><td><code>session_id</code></td><td>当前 Claude Code 会话 ID</td></tr><tr><td><code>transcript_path</code></td><td>会话 transcript 文件路径</td></tr><tr><td><code>cwd</code></td><td>当前工作目录</td></tr><tr><td><code>permission_mode</code></td><td>当前权限模式</td></tr><tr><td><code>hook_event_name</code></td><td>当前 Hook 事件名</td></tr><tr><td><code>tool_name</code></td><td>工具名称，工具相关事件才有</td></tr><tr><td><code>tool_input</code></td><td>工具输入参数，工具相关事件才有</td></tr></tbody></table><p>脚本里应该把 stdin 当成不可信输入解析。即使这个 JSON 来自本地 Claude Code，也不要把其中字段直接拼接进 shell 命令。</p><h3 id=62-exit-code-的语义>6.2 Exit code 的语义</h3><table><thead><tr><th>Exit code</th><th>语义</th><th>典型用途</th></tr></thead><tbody><tr><td><code>0</code></td><td>成功</td><td>Hook 通过，stdout 被处理或加入上下文</td></tr><tr><td><code>2</code></td><td>阻塞错误</td><td>阻止当前操作，stderr 作为错误信息</td></tr><tr><td>其他</td><td>非阻塞错误</td><td>通常只在 verbose 模式显示，用于记录 Hook 自身失败</td></tr></tbody></table><p>例如，阻止写入敏感文件可以这样写：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#ff79c6>#!/usr/bin/env bash
+</span></span></span><span style=display:flex><span><span style=color:#ff79c6></span><span style=color:#8be9fd;font-style:italic>set</span> -euo pipefail
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>INPUT</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span>cat<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>FILE_PATH</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$INPUT</span><span style=color:#f1fa8c>&#34;</span> | jq -r <span style=color:#f1fa8c>&#39;.tool_input.file_path // .tool_input.path // empty&#39;</span><span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>if</span> <span style=color:#ff79c6>[</span> -z <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$FILE_PATH</span><span style=color:#f1fa8c>&#34;</span> <span style=color:#ff79c6>]</span>; <span style=color:#ff79c6>then</span>
+</span></span><span style=display:flex><span>  <span style=color:#8be9fd;font-style:italic>exit</span> <span style=color:#bd93f9>0</span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>fi</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>case</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$FILE_PATH</span><span style=color:#f1fa8c>&#34;</span> in
+</span></span><span style=display:flex><span>  *.env|*.env.*|*secrets*|*.pem|*.key|*production*.yaml|*production*.yml<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;Blocked: sensitive file path is not allowed for Claude Code Hooks policy: %s\n&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$FILE_PATH</span><span style=color:#f1fa8c>&#34;</span> &gt;&amp;<span style=color:#bd93f9>2</span>
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>exit</span> <span style=color:#bd93f9>2</span>
+</span></span><span style=display:flex><span>    ;;
+</span></span><span style=display:flex><span>  *<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>exit</span> <span style=color:#bd93f9>0</span>
+</span></span><span style=display:flex><span>    ;;
+</span></span><span style=display:flex><span><span style=color:#ff79c6>esac</span>
+</span></span></code></pre></div><p>这个脚本的关键点不是“识别所有危险文件”，而是展示 Hook 的阻断模型：发现违反策略时向 stderr 写清原因，并以 <code>2</code> 退出。</p><h3 id=63-结构化-json-响应>6.3 结构化 JSON 响应</h3><p>除了 exit code，Hook 还可以输出结构化 JSON，表达更细的决策。以权限请求为例：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#ff79c6>#!/usr/bin/env bash
+</span></span></span><span style=display:flex><span><span style=color:#ff79c6></span><span style=color:#8be9fd;font-style:italic>set</span> -euo pipefail
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>INPUT</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span>cat<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>COMMAND</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$INPUT</span><span style=color:#f1fa8c>&#34;</span> | jq -r <span style=color:#f1fa8c>&#39;.tool_input.command // empty&#39;</span><span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>case</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$COMMAND</span><span style=color:#f1fa8c>&#34;</span> in
+</span></span><span style=display:flex><span>  <span style=color:#f1fa8c>&#34;npm test&#34;</span>|<span style=color:#f1fa8c>&#34;npm test &#34;</span>*|<span style=color:#f1fa8c>&#34;npm run test&#34;</span>|<span style=color:#f1fa8c>&#34;npm run test &#34;</span>*<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;{&#34;decision&#34;:&#34;approve&#34;,&#34;reason&#34;:&#34;Project policy allows npm test commands.&#34;}\n&#39;</span>
+</span></span><span style=display:flex><span>    ;;
+</span></span><span style=display:flex><span>  *<span style=color:#f1fa8c>&#34;--force&#34;</span>*|*<span style=color:#f1fa8c>&#34;.env&#34;</span>*|*<span style=color:#f1fa8c>&#34;secrets&#34;</span>*<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;{&#34;decision&#34;:&#34;deny&#34;,&#34;reason&#34;:&#34;Command touches high-risk flags or sensitive files.&#34;}\n&#39;</span>
+</span></span><span style=display:flex><span>    ;;
+</span></span><span style=display:flex><span>  *<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;{&#34;decision&#34;:&#34;allow&#34;,&#34;reason&#34;:&#34;No automatic decision; continue with default permission flow.&#34;}\n&#39;</span>
+</span></span><span style=display:flex><span>    ;;
+</span></span><span style=display:flex><span><span style=color:#ff79c6>esac</span>
+</span></span></code></pre></div><p>这里有一个重要区别：</p><ul><li><code>approve</code> 更像“直接批准”；</li><li><code>deny</code> 更像“直接拒绝”；</li><li><code>allow</code> 可以理解为“不由 Hook 阻止，继续默认流程”。</li></ul><p>实际可用字段和行为应以 Claude Code 当前版本文档为准，但工程思想很稳定：<strong>把策略结果显式化，而不是只靠脚本成功或失败。</strong></p><hr><h2 id=七配置步骤从一个自动格式化-hook-开始>七、配置步骤：从一个自动格式化 Hook 开始</h2><p>如果团队第一次使用 Hooks，不建议一上来就做复杂权限系统。最稳妥的路径是：先用 <code>PostToolUse</code> 做一个低风险、反馈明确的自动格式化 Hook。</p><h3 id=71-第一步创建项目级-settings>7.1 第一步：创建项目级 settings</h3><p>在项目根目录创建 <code>.claude/settings.json</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PostToolUse&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;Write|Edit&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/format-touched-file.sh&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;timeout&#34;</span>: <span style=color:#bd93f9>30</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>如果这是团队共享规则，可以提交到版本控制。如果只是个人实验，放在 <code>.claude/settings.local.json</code> 更合适。</p><h3 id=72-第二步编写格式化脚本>7.2 第二步：编写格式化脚本</h3><p><code>.claude/hooks/format-touched-file.sh</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#ff79c6>#!/usr/bin/env bash
+</span></span></span><span style=display:flex><span><span style=color:#ff79c6></span><span style=color:#8be9fd;font-style:italic>set</span> -euo pipefail
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>INPUT</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span>cat<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>FILE_PATH</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$INPUT</span><span style=color:#f1fa8c>&#34;</span> | jq -r <span style=color:#f1fa8c>&#39;.tool_input.file_path // .tool_input.path // empty&#39;</span><span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>if</span> <span style=color:#ff79c6>[</span> -z <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$FILE_PATH</span><span style=color:#f1fa8c>&#34;</span> <span style=color:#ff79c6>]</span> <span style=color:#ff79c6>||</span> <span style=color:#ff79c6>[</span> ! -f <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$FILE_PATH</span><span style=color:#f1fa8c>&#34;</span> <span style=color:#ff79c6>]</span>; <span style=color:#ff79c6>then</span>
+</span></span><span style=display:flex><span>  <span style=color:#8be9fd;font-style:italic>exit</span> <span style=color:#bd93f9>0</span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>fi</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>case</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$FILE_PATH</span><span style=color:#f1fa8c>&#34;</span> in
+</span></span><span style=display:flex><span>  *.js|*.jsx|*.ts|*.tsx|*.json|*.css|*.md<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>    npx prettier --write <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$FILE_PATH</span><span style=color:#f1fa8c>&#34;</span>
+</span></span><span style=display:flex><span>    ;;
+</span></span><span style=display:flex><span>  *.py<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>    python -m black <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$FILE_PATH</span><span style=color:#f1fa8c>&#34;</span>
+</span></span><span style=display:flex><span>    ;;
+</span></span><span style=display:flex><span>  *.go<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>    gofmt -w <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$FILE_PATH</span><span style=color:#f1fa8c>&#34;</span>
+</span></span><span style=display:flex><span>    ;;
+</span></span><span style=display:flex><span>  *<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>exit</span> <span style=color:#bd93f9>0</span>
+</span></span><span style=display:flex><span>    ;;
+</span></span><span style=display:flex><span><span style=color:#ff79c6>esac</span>
+</span></span></code></pre></div><p>这个脚本有几个细节值得注意：</p><ul><li>文件路径从 stdin JSON 中读取；</li><li>所有变量都用双引号包裹；</li><li>只对明确支持的文件类型运行格式化器；</li><li>不把 <code>content</code> 之类的大字段写入日志；</li><li>不对未知文件类型做任何事。</li></ul><h3 id=73-第三步在-hooks-中审核配置>7.3 第三步：在 <code>/hooks</code> 中审核配置</h3><p>原文提到，Claude Code 对 Hook 配置文件的直接编辑有保护机制：需要在 <code>/hooks</code> 菜单中审核后才会生效。这一点很重要，因为 Hooks 本质上能执行任意本地命令。如果恶意代码可以静默写入 Hook 配置，就等于获得了隐蔽执行入口。</p><p>所以，团队流程建议是：</p><ol><li>Hook 配置进入代码评审；</li><li>Hook 脚本必须可读、短小、职责单一；</li><li>本地启用前通过 <code>/hooks</code> 审核；</li><li>首次启用时打开 verbose 或脚本日志观察行为；</li><li>确认无误后再推广到团队。</li></ol><h3 id=74-第四步逐步增加策略-hook>7.4 第四步：逐步增加策略 Hook</h3><p>自动格式化稳定后，再增加安全类 Hook：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PreToolUse&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;Write|Edit&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/validate-file-path.sh&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ],
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PermissionRequest&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;Bash(npm test*)&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/approve-safe-test.sh&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ],
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PostToolUse&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;Write|Edit&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/format-touched-file.sh&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;timeout&#34;</span>: <span style=color:#bd93f9>30</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>从这里开始，Hooks 就不只是“自动化小工具”，而是一套轻量治理框架了。</p><hr><h2 id=八四个典型应用场景>八、四个典型应用场景</h2><h3 id=81-场景一写文件后自动格式化>8.1 场景一：写文件后自动格式化</h3><p>这是最推荐的入门场景。它的链路很短：</p><ol><li>Claude 使用 <code>Write</code> 或 <code>Edit</code>；</li><li><code>PostToolUse</code> 触发；</li><li>Hook 从 stdin 读取目标文件路径；</li><li>根据扩展名运行对应格式化器；</li><li>格式化结果进入工作区 diff。</li></ol><p>适用项目：</p><ul><li>前端项目：Prettier；</li><li>Python 项目：Black、Ruff；</li><li>Go 项目：gofmt；</li><li>Rust 项目：rustfmt。</li></ul><p>实践建议：</p><ul><li>只格式化被 Claude 触碰的文件，不要全仓库格式化；</li><li>formatter 必须是项目已有工具，不要让 Hook 临时引入新依赖；</li><li>格式化失败时不要阻断所有工作，先记录日志，再决定是否升级为强制策略。</li></ul><h3 id=82-场景二阻止修改敏感文件>8.2 场景二：阻止修改敏感文件</h3><p>敏感文件保护适合放在 <code>PreToolUse</code>，因为此时文件还没被修改。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;PreToolUse&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;matcher&#34;</span>: <span style=color:#f1fa8c>&#34;Write|Edit&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/block-sensitive-files.sh&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>策略脚本可以从简单黑名单开始：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#ff79c6>#!/usr/bin/env bash
+</span></span></span><span style=display:flex><span><span style=color:#ff79c6></span><span style=color:#8be9fd;font-style:italic>set</span> -euo pipefail
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>INPUT</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span>cat<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>FILE_PATH</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$INPUT</span><span style=color:#f1fa8c>&#34;</span> | jq -r <span style=color:#f1fa8c>&#39;.tool_input.file_path // .tool_input.path // empty&#39;</span><span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>case</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$FILE_PATH</span><span style=color:#f1fa8c>&#34;</span> in
+</span></span><span style=display:flex><span>  *.env|*.env.*|*credentials*|*secrets*|*.pem|*.key|*production*<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;Claude Code is not allowed to modify sensitive file: %s\n&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$FILE_PATH</span><span style=color:#f1fa8c>&#34;</span> &gt;&amp;<span style=color:#bd93f9>2</span>
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>exit</span> <span style=color:#bd93f9>2</span>
+</span></span><span style=display:flex><span>    ;;
+</span></span><span style=display:flex><span>  *<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#8be9fd;font-style:italic>exit</span> <span style=color:#bd93f9>0</span>
+</span></span><span style=display:flex><span>    ;;
+</span></span><span style=display:flex><span><span style=color:#ff79c6>esac</span>
+</span></span></code></pre></div><p>更成熟的团队可以把策略升级成白名单：只允许 Claude 修改 <code>src/</code>、<code>tests/</code>、<code>docs/</code>，禁止修改部署、证书、生产配置和 IaC 目录。</p><h3 id=83-场景三会话开始时注入项目状态>8.3 场景三：会话开始时注入项目状态</h3><p><code>SessionStart</code> 很适合解决“Claude 刚进入项目时不知道当前状态”的问题。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#ff79c6>#!/usr/bin/env bash
+</span></span></span><span style=display:flex><span><span style=color:#ff79c6></span><span style=color:#8be9fd;font-style:italic>set</span> -euo pipefail
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>echo</span> <span style=color:#f1fa8c>&#34;## Current repository state&#34;</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>echo</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>echo</span> <span style=color:#f1fa8c>&#34;### Git branch&#34;</span>
+</span></span><span style=display:flex><span>git branch --show-current 2&gt;/dev/null <span style=color:#ff79c6>||</span> <span style=color:#8be9fd;font-style:italic>true</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>echo</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>echo</span> <span style=color:#f1fa8c>&#34;### Git status&#34;</span>
+</span></span><span style=display:flex><span>git status --short 2&gt;/dev/null <span style=color:#ff79c6>||</span> <span style=color:#8be9fd;font-style:italic>true</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>echo</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>echo</span> <span style=color:#f1fa8c>&#34;### Project TODO&#34;</span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>if</span> <span style=color:#ff79c6>[</span> -f TODO.md <span style=color:#ff79c6>]</span>; <span style=color:#ff79c6>then</span>
+</span></span><span style=display:flex><span>  sed -n <span style=color:#f1fa8c>&#39;1,80p&#39;</span> TODO.md
+</span></span><span style=display:flex><span><span style=color:#ff79c6>else</span>
+</span></span><span style=display:flex><span>  <span style=color:#8be9fd;font-style:italic>echo</span> <span style=color:#f1fa8c>&#34;No TODO.md found.&#34;</span>
+</span></span><span style=display:flex><span><span style=color:#ff79c6>fi</span>
+</span></span></code></pre></div><p>这类 Hook 的目标不是把整个项目文档塞给 Claude，而是提供一段短而有用的启动上下文。建议限制输出长度，避免污染上下文窗口。</p><h3 id=84-场景四停止前检查任务是否真正完成>8.4 场景四：停止前检查任务是否真正完成</h3><p><code>Stop</code> 的 prompt Hook 可以把“完成标准”前置到 Claude 的停止动作之前。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;Stop&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;prompt&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;prompt&#34;</span>: <span style=color:#f1fa8c>&#34;Before stopping, verify whether the user&#39;s request is fully satisfied. Check for unfinished todos, missing verification, and unresolved errors. If work remains, continue and explain the next concrete step.&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这个模式尤其适合长任务，例如：</p><ul><li>多文件重构；</li><li>修复测试失败；</li><li>生成文档并配套图表；</li><li>多代理协作后汇总结果。</li></ul><p>它不能替代真实测试，但能减少“Claude 过早宣布完成”的概率。</p><hr><h2 id=九安全边界hooks-的能力越强越需要工程化护栏>九、安全边界：Hooks 的能力越强，越需要工程化护栏</h2><p>Hooks 最大的价值是可以运行本地命令；最大风险也正是可以运行本地命令。它们以当前用户权限执行，理论上可以读取、修改、删除用户有权限访问的文件，也可以访问环境变量和网络。</p><p><img src=/img/claude-code-hooks/security-guardrails.svg alt="Claude Code Hooks 安全护栏"></p><h3 id=91-不要把-hook-当成普通配置>9.1 不要把 Hook 当成普通配置</h3><p>普通配置写错，最多功能不生效。Hook 写错，可能导致：</p><ul><li>每次 Claude 写文件都运行错误脚本；</li><li>敏感文件路径被写入日志；</li><li>误删临时目录或构建产物；</li><li>自动批准了本应人工确认的命令；</li><li>把本地环境变量暴露给不该看到的流程。</li></ul><p>因此，Hook 配置应该像 CI/CD 脚本、部署脚本一样被审查。</p><h3 id=92-处理-stdin-时按不可信输入对待>9.2 处理 stdin 时按“不可信输入”对待</h3><p>反例是这样：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>COMMAND</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span>cat | jq -r <span style=color:#f1fa8c>&#39;.tool_input.command&#39;</span><span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>eval</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$COMMAND</span><span style=color:#f1fa8c>&#34;</span>
+</span></span></code></pre></div><p>这等于把工具输入重新执行了一遍，风险极高。更安全的做法是：</p><ul><li>只读取必要字段；</li><li>用白名单判断允许动作；</li><li>永远引用变量；</li><li>不使用 <code>eval</code>；</li><li>不把大段输入直接写入日志；</li><li>对路径做敏感模式检查。</li></ul><h3 id=93-使用绝对路径或项目内固定路径>9.3 使用绝对路径或项目内固定路径</h3><p>Hook 命令最好指向明确脚本，而不是依赖复杂 shell 解析：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/validate-file-path.sh&#34;</span>
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>如果是用户级 Hook，建议使用绝对路径，例如：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;/Users/me/.claude/hooks/global-audit-log.sh&#34;</span>
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这样可以减少 <code>PATH</code>、当前目录、同名脚本带来的不确定性。</p><h3 id=94-自动批准必须保守>9.4 自动批准必须保守</h3><p>适合自动批准的命令：</p><ul><li>只读命令，如 <code>git status</code>、<code>git diff</code>；</li><li>测试命令，如 <code>npm test</code>、<code>go test ./...</code>；</li><li>明确范围内的 lint/format 命令。</li></ul><p>不适合自动批准的命令：</p><ul><li>删除文件或目录；</li><li>修改权限；</li><li>访问 secrets；</li><li>生产部署；</li><li>force push；</li><li>修改全局系统配置；</li><li>下载并执行远程脚本。</li></ul><p>一个好策略是：<strong>自动批准低风险、自动拒绝高风险，中间地带继续询问用户。</strong></p><h3 id=95-团队共享-hook-必须可解释>9.5 团队共享 Hook 必须可解释</h3><p>每个共享 Hook 至少应该回答四个问题：</p><ol><li>触发时机是什么？</li><li>它读取了哪些输入？</li><li>它可能修改什么？</li><li>它失败时会阻塞还是只记录？</li></ol><p>如果一个 Hook 无法用几句话解释清楚，就不应该直接进入团队共享配置。</p><hr><h2 id=十调试与观测看清-hook-为什么触发为什么阻止>十、调试与观测：看清 Hook 为什么触发、为什么阻止</h2><p>Hook 一旦变多，最常见的问题不是“写不出来”，而是“不知道它为什么触发”。因此调试能力要从第一天就设计进去。</p><p><img src=/img/claude-code-hooks/troubleshooting-flow.svg alt="Claude Code Hooks 故障排查流程"></p><h3 id=101-使用-transcript-定位事件上下文>10.1 使用 transcript 定位事件上下文</h3><p>Claude Code 会维护 transcript，Hook 输入中包含 <code>transcript_path</code>。可以把路径记录下来，方便事后排查。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;hooks&#34;</span>: {
+</span></span><span style=display:flex><span>    <span style=color:#ff79c6>&#34;SessionStart&#34;</span>: [
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#ff79c6>&#34;hooks&#34;</span>: [
+</span></span><span style=display:flex><span>          {
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/log-session.sh&#34;</span>
+</span></span><span style=display:flex><span>          }
+</span></span><span style=display:flex><span>        ]
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    ]
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>示例脚本：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#ff79c6>#!/usr/bin/env bash
+</span></span></span><span style=display:flex><span><span style=color:#ff79c6></span><span style=color:#8be9fd;font-style:italic>set</span> -euo pipefail
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>INPUT</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span>cat<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>TRANSCRIPT</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$INPUT</span><span style=color:#f1fa8c>&#34;</span> | jq -r <span style=color:#f1fa8c>&#39;.transcript_path // empty&#39;</span><span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>CWD</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$INPUT</span><span style=color:#f1fa8c>&#34;</span> | jq -r <span style=color:#f1fa8c>&#39;.cwd // empty&#39;</span><span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>mkdir -p <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$HOME</span><span style=color:#f1fa8c>/.claude/hook-logs&#34;</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s\t%s\t%s\n&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#ff79c6>$(</span>date -u +%FT%TZ<span style=color:#ff79c6>)</span><span style=color:#f1fa8c>&#34;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$CWD</span><span style=color:#f1fa8c>&#34;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$TRANSCRIPT</span><span style=color:#f1fa8c>&#34;</span> &gt;&gt; <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$HOME</span><span style=color:#f1fa8c>/.claude/hook-logs/sessions.tsv&#34;</span>
+</span></span></code></pre></div><p>注意不要把完整 transcript 内容自动复制到共享位置，因为里面可能包含用户输入、代码片段和敏感上下文。</p><h3 id=102-给-hook-加轻量日志-wrapper>10.2 给 Hook 加轻量日志 wrapper</h3><p>复杂 Hook 可以加统一日志 wrapper，记录事件名、工具名、决策结果和 exit code。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#ff79c6>#!/usr/bin/env bash
+</span></span></span><span style=display:flex><span><span style=color:#ff79c6></span><span style=color:#8be9fd;font-style:italic>set</span> -euo pipefail
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>LOG_DIR</span><span style=color:#ff79c6>=</span><span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$HOME</span><span style=color:#f1fa8c>/.claude/hook-logs&#34;</span>
+</span></span><span style=display:flex><span>mkdir -p <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$LOG_DIR</span><span style=color:#f1fa8c>&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>INPUT</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span>cat<span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>EVENT</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$INPUT</span><span style=color:#f1fa8c>&#34;</span> | jq -r <span style=color:#f1fa8c>&#39;.hook_event_name // &#34;n/a&#34;&#39;</span><span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>TOOL</span><span style=color:#ff79c6>=</span><span style=color:#ff79c6>$(</span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$INPUT</span><span style=color:#f1fa8c>&#34;</span> | jq -r <span style=color:#f1fa8c>&#39;.tool_name // &#34;n/a&#34;&#39;</span><span style=color:#ff79c6>)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s event=%s tool=%s start\n&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#ff79c6>$(</span>date -u +%FT%TZ<span style=color:#ff79c6>)</span><span style=color:#f1fa8c>&#34;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$EVENT</span><span style=color:#f1fa8c>&#34;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$TOOL</span><span style=color:#f1fa8c>&#34;</span> &gt;&gt; <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$LOG_DIR</span><span style=color:#f1fa8c>/hooks.log&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>set</span> +e
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$INPUT</span><span style=color:#f1fa8c>&#34;</span> | .claude/hooks/real-hook.sh
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>STATUS</span><span style=color:#ff79c6>=</span><span style=color:#8be9fd;font-style:italic>$?</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>set</span> -e
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>printf</span> <span style=color:#f1fa8c>&#39;%s event=%s tool=%s exit=%s\n&#39;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#ff79c6>$(</span>date -u +%FT%TZ<span style=color:#ff79c6>)</span><span style=color:#f1fa8c>&#34;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$EVENT</span><span style=color:#f1fa8c>&#34;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$TOOL</span><span style=color:#f1fa8c>&#34;</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$STATUS</span><span style=color:#f1fa8c>&#34;</span> &gt;&gt; <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$LOG_DIR</span><span style=color:#f1fa8c>/hooks.log&#34;</span>
+</span></span><span style=display:flex><span><span style=color:#8be9fd;font-style:italic>exit</span> <span style=color:#f1fa8c>&#34;</span><span style=color:#8be9fd;font-style:italic>$STATUS</span><span style=color:#f1fa8c>&#34;</span>
+</span></span></code></pre></div><p>日志建议只记录摘要，不记录完整 <code>tool_input.content</code>，否则可能把源码或 secrets 写入日志。</p><h3 id=103-常见故障定位表>10.3 常见故障定位表</h3><table><thead><tr><th>现象</th><th>可能原因</th><th>排查方法</th></tr></thead><tbody><tr><td>Hook 完全不触发</td><td>事件名写错、matcher 不匹配、配置未审核</td><td>检查 <code>/hooks</code>，确认 <code>Write</code>/<code>Bash</code> 大小写</td></tr><tr><td>Hook 触发太频繁</td><td>matcher 过宽</td><td>从 <code>*</code> 改成具体工具名</td></tr><tr><td>命令执行失败但 Claude 继续了</td><td>exit code 不是 <code>2</code></td><td>明确阻断场景使用 <code>exit 2</code></td></tr><tr><td>stdout 没进入上下文</td><td>事件类型不适合注入上下文</td><td>优先用 <code>SessionStart</code> 或 <code>UserPromptSubmit</code></td></tr><tr><td>自动批准没有生效</td><td>JSON 决策字段不对或 matcher 没匹配</td><td>打印决策摘要，检查 Bash 命令模式</td></tr><tr><td>Hook 很慢</td><td>脚本做了全仓库扫描或网络请求</td><td>缩小范围，设置 <code>timeout</code>，异步记录日志</td></tr><tr><td>敏感信息出现在日志</td><td>记录了完整 stdin</td><td>只记录事件名、工具名、路径摘要和决策</td></tr></tbody></table><hr><h2 id=十一最佳实践把-hooks-当成小型策略系统维护>十一、最佳实践：把 Hooks 当成小型策略系统维护</h2><h3 id=111-从一个低风险-hook-开始>11.1 从一个低风险 Hook 开始</h3><p>推荐顺序：</p><ol><li><code>PostToolUse</code> 自动格式化；</li><li><code>SessionStart</code> 注入短上下文；</li><li><code>PreToolUse</code> 阻止敏感文件；</li><li><code>PermissionRequest</code> 自动批准低风险命令；</li><li><code>Stop</code> 做任务完成检查。</li></ol><p>不要第一天就配置十几个 Hook。Hooks 越多，交互越复杂，排查成本越高。</p><h3 id=112-hook-脚本保持短小单一职责>11.2 Hook 脚本保持短小、单一职责</h3><p>一个 Hook 只做一件事。例如：</p><ul><li><code>format-touched-file.sh</code> 只格式化被触碰文件；</li><li><code>block-sensitive-files.sh</code> 只处理敏感路径；</li><li><code>session-context.sh</code> 只输出启动上下文；</li><li><code>approve-safe-test.sh</code> 只做测试命令授权判断。</li></ul><p>如果一个脚本同时做格式化、权限判断、日志上报和通知，很快会变成难以审查的黑盒。</p><h3 id=113-优先白名单谨慎黑名单>11.3 优先白名单，谨慎黑名单</h3><p>黑名单适合起步，例如阻止 <code>.env</code>、<code>*.pem</code>、<code>production.yaml</code>。但对高安全项目，白名单更可靠：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-text data-lang=text><span style=display:flex><span>允许：src/**、tests/**、docs/**
+</span></span><span style=display:flex><span>拒绝：infra/**、deploy/**、secrets/**、.github/workflows/release.yml
+</span></span><span style=display:flex><span>人工确认：package manager lockfile、数据库 migration、CI 配置
+</span></span></code></pre></div><p>白名单的好处是默认拒绝未知风险，缺点是维护成本更高。团队可以按项目敏感度选择。</p><h3 id=114-控制输出长度>11.4 控制输出长度</h3><p><code>SessionStart</code> 和 <code>UserPromptSubmit</code> 的 stdout 可能进入 Claude 上下文。输出太长会带来两个问题：</p><ul><li>占用上下文窗口；</li><li>增加模型处理成本和干扰。</li></ul><p>建议：</p><ul><li><code>git status --short</code> 可以，完整 <code>git diff</code> 要谨慎；</li><li>TODO 只输出前几十行；</li><li>错误日志只输出最近几条摘要；</li><li>大文件内容不要通过 Hook 注入。</li></ul><h3 id=115-为-hook-设置超时>11.5 为 Hook 设置超时</h3><p>原文提到 Hook 默认超时为 60 秒，也可以单独配置 timeout。实践上，绝大多数 Hook 都应该在几秒到几十秒内结束。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-json data-lang=json><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;type&#34;</span>: <span style=color:#f1fa8c>&#34;command&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;command&#34;</span>: <span style=color:#f1fa8c>&#34;.claude/hooks/format-touched-file.sh&#34;</span>,
+</span></span><span style=display:flex><span>  <span style=color:#ff79c6>&#34;timeout&#34;</span>: <span style=color:#bd93f9>30</span>
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>如果 Hook 需要跑完整测试套件，通常不适合放在高频事件上。更好的做法是让 Claude 显式运行测试，或者把完整测试放到 CI。</p><h3 id=116-团队规则进入代码评审>11.6 团队规则进入代码评审</h3><p><code>.claude/settings.json</code> 和 <code>.claude/hooks/*.sh</code> 应该像工程代码一样评审。评审重点包括：</p><ul><li>是否有 <code>eval</code>、未引用变量、命令拼接；</li><li>是否读取或记录敏感内容；</li><li>matcher 是否过宽；</li><li>自动批准策略是否保守；</li><li>失败时是否给出清晰错误；</li><li>是否有超时和日志。</li></ul><hr><h2 id=十二常见问题与解决方案>十二、常见问题与解决方案</h2><h3 id=q1hook-没有触发第一步查什么>Q1：Hook 没有触发，第一步查什么？</h3><p>先查三件事：</p><ol><li>事件名是否正确，例如 <code>PostToolUse</code> 不是 <code>PostTool</code>；</li><li>matcher 是否匹配，尤其是 <code>Bash</code> 大小写；</li><li>配置是否已在 <code>/hooks</code> 中审核生效。</li></ol><p>如果仍然不触发，把 matcher 暂时改成 <code>*</code> 做最小验证，确认事件能触发后再收窄范围。</p><h3 id=q2hook-应该写在项目级还是用户级>Q2：Hook 应该写在项目级还是用户级？</h3><p>团队共享规则写 <code>.claude/settings.json</code>；个人偏好写 <code>~/.claude/settings.json</code>；本机路径和实验写 <code>.claude/settings.local.json</code>。</p><p>判断标准很简单：如果你希望同事也执行同一条规则，就放项目级；如果只是你自己的效率工具，就不要提交到仓库。</p><h3 id=q3pretooluse-和-permissionrequest-都能拦截命令怎么选>Q3：<code>PreToolUse</code> 和 <code>PermissionRequest</code> 都能拦截命令，怎么选？</h3><p>如果你要在工具执行前校验工具输入，选 <code>PreToolUse</code>。如果你主要想处理权限弹窗前的批准或拒绝，选 <code>PermissionRequest</code>。</p><p>一个典型组合是：</p><ul><li><code>PreToolUse</code>：阻止写敏感路径；</li><li><code>PermissionRequest</code>：自动批准安全测试命令，拒绝危险 Bash 命令。</li></ul><h3 id=q4posttooluse-自动格式化会不会和-claude-的编辑冲突>Q4：<code>PostToolUse</code> 自动格式化会不会和 Claude 的编辑冲突？</h3><p>可能会改变 diff，但这通常是预期行为。建议只格式化被 Claude 触碰的文件，不要全仓库格式化。对于格式化失败，先记录日志，不要一开始就强制阻断。</p><h3 id=q5如何避免-hook-泄露敏感信息>Q5：如何避免 Hook 泄露敏感信息？</h3><p>关键是控制输入和日志：</p><ul><li>不记录完整 stdin；</li><li>不记录 <code>tool_input.content</code>；</li><li>不把 <code>.env</code>、token、credentials 输出到 stdout；</li><li>transcript 路径可以记录，但 transcript 内容不要自动复制到共享位置；</li><li>日志目录使用用户本地目录，并设置合理权限。</li></ul><h3 id=q6多个-hook-同时匹配会怎样>Q6：多个 Hook 同时匹配会怎样？</h3><p>原文提到多个匹配 Hook 会并行运行，相同命令会去重。这意味着不要依赖多个 Hook 的执行顺序。如果两个 Hook 有顺序依赖，最好合并到同一个脚本里显式编排。</p><h3 id=q7hook-里可以访问环境变量吗>Q7：Hook 里可以访问环境变量吗？</h3><p>可以。原文提到的变量包括 <code>CLAUDE_PROJECT_DIR</code>、<code>CLAUDE_CODE_REMOTE</code>、<code>CLAUDE_ENV_FILE</code> 等，也可以访问当前 shell 环境中的变量。但不要默认环境变量都存在，脚本里应提供兜底逻辑。</p><h3 id=q8hook-能修改工具输入吗>Q8：Hook 能修改工具输入吗？</h3><p>原文提到结构化响应可用于更细粒度控制，包括更新输入一类能力。实际字段和支持范围应以当前 Claude Code 文档为准。工程上建议谨慎使用“修改输入”：它比“批准/拒绝/记录”更难排查，最好只用于非常明确的场景。</p><h3 id=q9什么时候不应该用-hook>Q9：什么时候不应该用 Hook？</h3><p>这些场景不适合 Hook：</p><ul><li>需要人类判断业务语义；</li><li>需要长时间运行的完整测试；</li><li>需要访问生产系统；</li><li>会产生不可逆副作用；</li><li>只是为了“看起来自动化”，但没有真实摩擦点。</li></ul><p>Hook 的最佳使用方式是解决高频、确定、可验证的问题。</p><hr><h2 id=十三一个可落地的团队-playbook>十三、一个可落地的团队 Playbook</h2><p>如果要在团队里引入 Claude Code Hooks，可以按下面的节奏推进：</p><h3 id=阶段一个人试点>阶段一：个人试点</h3><p>目标：验证 Hook 机制是否适合项目。</p><ul><li>在 <code>.claude/settings.local.json</code> 中配置 <code>PostToolUse</code>；</li><li>只做被修改文件的格式化；</li><li>记录 Hook 触发日志；</li><li>观察一周，看是否影响正常开发。</li></ul><h3 id=阶段二项目共享>阶段二：项目共享</h3><p>目标：把低风险收益固化成团队规则。</p><ul><li>把稳定配置迁移到 <code>.claude/settings.json</code>；</li><li>Hook 脚本进入 <code>.claude/hooks/</code>；</li><li>代码评审中检查 shell 安全和 matcher 范围；</li><li>README 或团队文档中说明如何通过 <code>/hooks</code> 审核。</li></ul><h3 id=阶段三安全治理>阶段三：安全治理</h3><p>目标：让 Claude Code 不越过项目红线。</p><ul><li>增加敏感文件保护；</li><li>增加危险 Bash 命令拒绝策略；</li><li>对自动批准命令做白名单；</li><li>为策略决策记录轻量审计日志。</li></ul><h3 id=阶段四上下文工程>阶段四：上下文工程</h3><p>目标：减少重复提示，让 Claude 更快进入项目状态。</p><ul><li><code>SessionStart</code> 注入 git 状态和 TODO 摘要；</li><li><code>UserPromptSubmit</code> 注入短 Sprint 背景；</li><li><code>PreCompact</code> 保存关键决策；</li><li><code>Stop</code> 做完成度自检。</li></ul><h3 id=阶段五持续改进>阶段五：持续改进</h3><p>目标：把 Hook 当成工程资产维护。</p><ul><li>定期清理不再使用的 Hook；</li><li>统计 Hook 触发频率和失败率；</li><li>对误拦截、误批准做复盘；</li><li>随 Claude Code 版本更新调整配置。</li></ul><hr><h2 id=十四总结hooks-是-agent-工程化的控制面>十四、总结：Hooks 是 Agent 工程化的控制面</h2><p>Claude Code Hooks 的核心价值，不是让开发者少敲几条命令，而是把 Agent 工作流中的关键控制点显式化：</p><ul><li>在工具执行前，你可以拦截风险；</li><li>在权限确认前，你可以自动化低风险决策；</li><li>在工具执行后，你可以做格式化和记录；</li><li>在会话开始和用户提交时，你可以注入动态上下文；</li><li>在上下文压缩和任务停止前，你可以保存状态、检查完成度。</li></ul><p>这让 Claude Code 从一个“能主动调用工具的模型界面”，进一步变成一个“可以被团队规则约束、被工程流程治理、被日志和策略观测的 Agent 系统”。</p><p>但也正因为 Hooks 能执行本地命令，它必须被严肃对待。最好的实践不是配置最多的 Hook，而是配置少量、清晰、可审查、能解决真实摩擦点的 Hook。</p><p>如果只记住一句话，可以是：<strong>把确定性规则交给 Hooks，把创造性判断留给 Claude，把最终责任留给人类工程流程。</strong></p><div class="entry-shang text-center"><p>「真诚赞赏，手留余香」</p><button class="zs show-zs btn btn-bred">赞赏支持</button></div><div class=zs-modal-bg></div><div class=zs-modal-box><div class=zs-modal-head><button type=button class=close>×</button>
+<span class=author><a href=https://www.iceyao.com.cn/><img src=/img/favicon.png>爱折腾的工程师</a></span><p class=tip><i></i><span>真诚赞赏，手留余香</span></p></div><div class=zs-modal-body><div class=zs-modal-btns><button class="btn btn-blink" data-num=2>2元</button>
+<button class="btn btn-blink" data-num=5>5元</button>
+<button class="btn btn-blink" data-num=10>10元</button>
+<button class="btn btn-blink" data-num=50>50元</button>
+<button class="btn btn-blink" data-num=100>100元</button>
+<button class="btn btn-blink" data-num=1>任意金额</button></div><div class=zs-modal-pay><button class="btn btn-bred" id=pay-text>2元</button><p>使用<span id=pay-type>微信</span>扫描二维码完成支付</p><img src=/img/reward/wechat-2.png id=pay-image></div></div><div class=zs-modal-footer><label><input type=radio name=zs-type value=wechat class=zs-type checked><span><span class=zs-wechat><img src=/img/reward/wechat-btn.png></span></label>
+<label><input type=radio name=zs-type value=alipay class=zs-type class=zs-alipay><img src=/img/reward/alipay-btn.png></span></label></div></div><script type=text/javascript src=/js/reward.js></script><hr><ul class=pager><li class=previous><a href=/2026/05/02/non-technical-pm-claude-code-respiro/ data-toggle=tooltip data-placement=top title="从 0 行代码到 App Store：非技术项目经理用 Claude Code 六周发布压力管理应用">&larr;
+Previous Post</a></li><li class=next><a href=/2026/05/03/ai-agent-workflow-patterns/ data-toggle=tooltip data-placement=top title="AI 智能体常见工作流模式深度解析：何时顺序、何时并行、何时迭代优化">Next
+Post &rarr;</a></li></ul><script src=https://giscus.app/client.js data-repo=yaoice/yaoice.github.io data-repo-id=R_kgDOJnxqVg data-category=General data-category-id=DIC_kwDOJnxqVs4CWwUs data-mapping=pathname data-reactions-enabled=1 data-emit-metadata=0 data-theme=light data-lang=en crossorigin=anonymous async></script></div><div class="col-lg-2 col-lg-offset-0
+visible-lg-block
+sidebar-container
+catalog-container"><div class=side-catalog><hr class="hidden-sm hidden-xs"><h5><a class=catalog-toggle href=#>CATALOG</a></h5><ul class=catalog-body></ul></div></div><div class="col-lg-8 col-lg-offset-2
+col-md-10 col-md-offset-1
+sidebar-container"><section><hr class="hidden-sm hidden-xs"><h5><a href=/tags/>FEATURED TAGS</a></h5><div class=tags><a href=/tags/agent title=agent>agent
+</a><a href=/tags/ai title=ai>ai
+</a><a href=/tags/ascend title=ascend>ascend
+</a><a href=/tags/claude title=claude>claude
+</a><a href=/tags/claude-code title="claude code">claude code
+</a><a href=/tags/devops title=devops>devops
+</a><a href=/tags/go title=go>go
+</a><a href=/tags/k8s title=k8s>k8s
+</a><a href=/tags/llm title=llm>llm
+</a><a href=/tags/mcp title=mcp>mcp
+</a><a href=/tags/multi-agent title=multi-agent>multi-agent
+</a><a href=/tags/openstack title=openstack>openstack
+</a><a href=/tags/python title=python>python
+</a><a href=/tags/rag title=rag>rag
+</a><a href=/tags/skills title=skills>skills
+</a><a href=/tags/tkestack title=tkestack>tkestack
+</a><a href=/tags/vllm title=vllm>vllm
+</a><a href=/tags/%E7%BB%83%E8%BD%A6 title=练车>练车</a></div></section></div></div></div></article><footer><div class=container><div class=row><div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1"><ul class="list-inline text-center"><li><a href=mailto:yao3690093@gmail.com><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-envelope fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=/img/wechat.jpeg><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-weixin fa-stack-1x fa-inverse"></i></span></a></li><li><a target=_blank href=https://github.com/yaoice><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fab fa-github fa-stack-1x fa-inverse"></i></span></a></li><li><a href=/index.xml rel=alternate type=application/rss+xml title=爱折腾的工程师><span class="fa-stack fa-lg"><i class="fas fa-circle fa-stack-2x"></i>
+<i class="fas fa-rss fa-stack-1x fa-inverse"></i></span></a></li></ul><p class="copyright text-muted">Copyright &copy; 爱折腾的工程师 2026</p></div></div></div></footer><script>function loadAsync(e,t){var s=document,o="script",n=s.createElement(o),i=s.getElementsByTagName(o)[0];n.src=e,t&&n.addEventListener("load",function(e){t(null,e)},!1),i.parentNode.insertBefore(n,i)}</script><script>$("#tag_cloud").length!==0&&loadAsync("/js/jquery.tagcloud.js",function(){$.fn.tagcloud.defaults={color:{start:"#bbbbee",end:"#0085a1"}},$("#tag_cloud a").tagcloud()})</script><script>loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js",function(){var e=document.querySelector("nav");e&&FastClick.attach(e)})</script><script>(function(){var t,e=document.createElement("script"),n=window.location.protocol.split(":")[0];n==="https"?e.src="https://zz.bdstatic.com/linksubmit/push.js":e.src="http://push.zhanzhang.baidu.com/push.js",t=document.getElementsByTagName("script")[0],t.parentNode.insertBefore(e,t)})()</script><script>var _baId="92c175994ded75a3cd2074bc1123e2be",_hmt=_hmt||[];(function(){var e,t=document.createElement("script");t.src="//hm.baidu.com/hm.js?"+_baId,e=document.getElementsByTagName("script")[0],e.parentNode.insertBefore(t,e)})()</script><script type=text/javascript>function generateCatalog(e){_containerSelector="div.post-container";var t,n,s,o,i,a=$(_containerSelector),r=a.find("h1,h2,h3,h4,h5,h6");return $(e).html(""),r.each(function(){t=$(this).prop("tagName").toLowerCase(),o="#"+$(this).prop("id"),n=$(this).text(),i=$('<a href="'+o+'" rel="nofollow">'+n+"</a>"),s=$('<li class="'+t+'_nav"></li>').append(i),$(e).append(s)}),!0}generateCatalog(".catalog-body"),$(".catalog-toggle").click(function(e){e.preventDefault(),$(".side-catalog").toggleClass("fold")}),loadAsync("/js/jquery.nav.js",function(){$(".catalog-body").onePageNav({currentClass:"active",changeHash:!1,easing:"swing",filter:"",scrollSpeed:700,scrollOffset:0,scrollThreshold:.2,begin:null,end:null,scrollChange:null,padding:80})})</script></body></html>

@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Agent Skills 工程化深度解析：用 skill-creator 测试、度量并持续改进技能" />
+    <meta property="og:title" content="Agent Skills 工程化深度解析：用 skill-creator 测试、度量并持续改进技能" />
+    <meta property="twitter:title" content="Agent Skills 工程化深度解析：用 skill-creator 测试、度量并持续改进技能" />
+    
+
+    
+    <meta name="description" content="基于 Anthropic 官方博客 Improving skill-creator: Test, measure, and refine Agent Skills 的深度技术解读。文章系统分析 Agent Skills 为什么需要像软件一样测试，如何区分 capability uplift skills 与 encoded preference skills，如何设计 evals、benchmark、多智能体盲评和触发描述优化，并结合 PDF 表单、NDA 审查和周报生成案例总结可落地的工程实践。">
+    <meta property="og:description" content="基于 Anthropic 官方博客 Improving skill-creator: Test, measure, and refine Agent Skills 的深度技术解读。文章系统分析 Agent Skills 为什么需要像软件一样测试，如何区分 capability uplift skills 与 encoded preference skills，如何设计 evals、benchmark、多智能体盲评和触发描述优化，并结合 PDF 表单、NDA 审查和周报生成案例总结可落地的工程实践。" />
+    <meta property="twitter:description" content="基于 Anthropic 官方博客 Improving skill-creator: Test, measure, and refine Agent Skills 的深度技术解读。文章系统分析 Agent Skills 为什么需要像软件一样测试，如何区分 capability uplift skills 与 encoded preference skills，如何设计 evals、benchmark、多智能体盲评和触发描述优化，并结合 PDF 表单、NDA 审查和周报生成案例总结可落地的工程实践。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Agent Skills 工程化深度解析：用 skill-creator 测试、度量并持续改进技能 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/03/agent-skills-evals-skill-creator/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/skills" title="Skills">
+                            Skills
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                    </div>
+                    <h1>Agent Skills 工程化深度解析：用 skill-creator 测试、度量并持续改进技能</h1>
+                    <h2 class="subheading">从 evals、benchmark 到触发治理，系统拆解 Agent Skills 的工程化迭代方法</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Sunday, May 3, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言agent-skill-不能只写出来试试看">一、引言：Agent Skill 不能只“写出来试试看”</h2>
+<blockquote>
+<p>原文链接：<a href="https://claude.com/blog/improving-skill-creator-test-measure-and-refine-agent-skills">Improving skill-creator: Test, measure, and refine Agent Skills</a><br>
+来源：Claude Blog / Anthropic<br>
+发布时间：2026 年 3 月</p>
+</blockquote>
+<p>过去我们谈 Agent Skills，重点常常放在“怎么写”：如何把一套工作流整理进 <code>SKILL.md</code>，如何描述触发场景，如何给 Claude 提供工具、示例和约束。这个阶段很像早期提示词工程：把经验沉淀下来，让模型在特定任务上表现更稳定。</p>
+<p>但真正进入团队协作之后，问题会从“能不能写一个 Skill”变成更工程化的三个问题：</p>
+<ol>
+<li><strong>它真的比不用 Skill 更好吗？</strong></li>
+<li><strong>模型更新后，它还像上个月一样可靠吗？</strong></li>
+<li><strong>它会不会在错误场景触发，或者在该触发时没触发？</strong></li>
+</ol>
+<p>Anthropic 这篇文章的核心价值，就是把 Agent Skills 从“提示词资产”推进到“软件化能力资产”：Skill 不只是写出来给 Claude 读的说明书，而是需要被测试、被度量、被回归验证、被持续迭代的工程对象。</p>
+<p>下面这张图概括了本文的主线：</p>
+<p>
+  <img src="/img/agent-skills-evals-skill-creator/architecture-overview.svg" alt="Agent Skills 测试、度量与迭代闭环">
+
+</p>
+<p><strong>图注</strong>：这张示意图建议放在引言之后，用来建立全局直觉：<code>SKILL.md</code> 只是起点，后面还需要 eval suite、benchmark、多智能体评估、A/B 盲评和触发描述优化，最终形成持续迭代闭环。本文配图均为作者基于原文机制整理的概念示意，并非 Anthropic 官方架构图。</p>
+<hr>
+<h2 id="二核心概念什么是-agent-skills为什么需要-skill-creator">二、核心概念：什么是 Agent Skills，为什么需要 skill-creator</h2>
+<p>Agent Skills 可以理解为一种面向 Claude 的能力扩展包。它通常包含任务说明、执行步骤、判断标准、工具使用方法、示例和注意事项。与一次性的 prompt 不同，Skill 的目标是让某类任务形成可复用的工作流。</p>
+<p>例如：</p>
+<ul>
+<li>一个文档生成 Skill，可以告诉 Claude 如何根据组织模板写技术方案；</li>
+<li>一个 PDF 处理 Skill，可以告诉 Claude 如何提取、填写和校验 PDF；</li>
+<li>一个 NDA 审查 Skill，可以编码法务团队对风险条款的检查标准；</li>
+<li>一个周报生成 Skill，可以规定从哪些 MCP 数据源读取信息、按什么格式汇总。</li>
+</ul>
+<p><code>skill-creator</code> 则是帮助作者创建和改进 Skills 的工具。原文介绍的更新重点，不再只是“辅助生成 Skill”，而是增加了测试、benchmark、评估和描述优化能力。</p>
+<p>换句话说，<code>skill-creator</code> 的角色正在从“脚手架生成器”变成“Skill 质量工程平台”。</p>
+<h3 id="21-为什么普通-prompt-不够">2.1 为什么普通 prompt 不够</h3>
+<p>普通 prompt 很适合一次性任务，但不适合长期沉淀团队流程。原因很简单：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>普通 prompt</th>
+<th>Agent Skill</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>复用方式</td>
+<td>复制粘贴或临时输入</td>
+<td>作为可加载能力复用</td>
+</tr>
+<tr>
+<td>维护对象</td>
+<td>一段文本</td>
+<td>一套工作流和评估集</td>
+</tr>
+<tr>
+<td>质量验证</td>
+<td>主要靠人工感觉</td>
+<td>可用 evals 和 benchmark 验证</td>
+</tr>
+<tr>
+<td>触发方式</td>
+<td>用户显式输入</td>
+<td>可由任务语义触发</td>
+</tr>
+<tr>
+<td>团队治理</td>
+<td>难以统一</td>
+<td>可以版本化、回归测试、持续优化</td>
+</tr>
+</tbody>
+</table>
+<p>如果一个团队只是偶尔用 Claude 辅助写文档，prompt 足够了；但如果希望把某个流程稳定地交给 Agent 执行，就必须回答“怎么证明它一直有效”。这就是 evals 进入 Skill 创作流程的原因。</p>
+<hr>
+<h2 id="三两类-skills能力增强型与偏好编码型">三、两类 Skills：能力增强型与偏好编码型</h2>
+<p>原文把 Agent Skills 分成两类：<strong>capability uplift skills</strong> 和 <strong>encoded preference skills</strong>。这一区分非常重要，因为两类 Skill 的生命周期、评估重点和淘汰方式都不同。</p>
+<p>
+  <img src="/img/agent-skills-evals-skill-creator/skill-types.svg" alt="两类 Agent Skills 的差异">
+
+</p>
+<p><strong>图注</strong>：建议在本节开头插入这张左右对照图。左侧展示 capability uplift skill 如何补足模型短板，右侧展示 encoded preference skill 如何固化团队流程；中间用“验证重点”和“生命周期”两条轴强调它们的评估差异。</p>
+<h3 id="31-capability-uplift-skills补足模型当前短板">3.1 Capability uplift skills：补足模型当前短板</h3>
+<p>Capability uplift skills 的目标是让 Claude 完成基础模型本身还不能稳定完成的任务。它更像一组外置的“解题策略”或“任务诀窍”。</p>
+<p>典型例子包括：</p>
+<ul>
+<li>让 Claude 更稳定地生成复杂格式文档；</li>
+<li>让 Claude 学会某种领域特定的代码审查模式；</li>
+<li>让 Claude 在处理 PDF、表格、演示文稿等复杂文件时使用更可靠的步骤。</li>
+</ul>
+<p>这类 Skill 的一个特殊点是：<strong>它可能会随着基础模型变强而逐渐失去必要性</strong>。</p>
+<p>如果新版模型在不加载 Skill 的情况下也能通过同一组 evals，那么说明这个 Skill 解决的问题可能已经被模型内化了。这不是失败，而是一种正常的生命周期变化：Skill 从“必要辅助”变成“历史训练轮”。</p>
+<h3 id="32-encoded-preference-skills固化团队真实偏好">3.2 Encoded preference skills：固化团队真实偏好</h3>
+<p>Encoded preference skills 的目标不是补足模型能力，而是把组织内部的流程、标准和偏好编码进去。</p>
+<p>典型例子包括：</p>
+<ul>
+<li>法务团队的 NDA 审查标准；</li>
+<li>产品团队的 PRD 写作结构；</li>
+<li>安全团队的风险分级规则；</li>
+<li>工程团队的周报汇总格式；</li>
+<li>公司内部审批、合规或客服流程。</li>
+</ul>
+<p>这类 Skill 不会因为模型变强就自然消失。即使模型再强，它也不可能凭空知道某个团队“希望怎样做”。因此它的核心评估问题不是“模型能不能做”，而是：<strong>它是否忠实反映了真实工作流？</strong></p>
+<h3 id="33-两类-skill-的评估差异">3.3 两类 Skill 的评估差异</h3>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>Capability uplift skills</th>
+<th>Encoded preference skills</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主要目标</td>
+<td>提升模型在某类任务上的能力</td>
+<td>固化组织流程、标准和偏好</td>
+</tr>
+<tr>
+<td>评估重点</td>
+<td>是否比无 Skill 输出更好</td>
+<td>是否忠实执行团队标准</td>
+</tr>
+<tr>
+<td>生命周期</td>
+<td>可能随模型升级被吸收</td>
+<td>随组织流程变化而更新</td>
+</tr>
+<tr>
+<td>关键风险</td>
+<td>Skill 过时、复杂度超过收益</td>
+<td>规则失真、遗漏关键流程</td>
+</tr>
+<tr>
+<td>典型测试</td>
+<td>Skill vs no Skill A/B 对比</td>
+<td>输出是否覆盖所有检查项</td>
+</tr>
+</tbody>
+</table>
+<p>这个分类能帮助我们避免一个常见误区：用同一套标准评估所有 Skills。能力增强型 Skill 需要证明“有它更好”；偏好编码型 Skill 需要证明“它按我们的方式做”。</p>
+<hr>
+<h2 id="四evals把-skill-当作软件一样测试">四、evals：把 Skill 当作软件一样测试</h2>
+<p>原文最关键的工程化转向，是把 evals 引入 Skill 创作。可以把 eval 理解为 Agent Skill 的测试用例：给定输入、附件和评价标准，观察 Claude 是否在加载 Skill 后产生符合预期的行为。</p>
+<p>一个 eval 通常包含三类信息：</p>
+<ol>
+<li><strong>测试 prompt</strong>：模拟真实用户会怎样提出任务；</li>
+<li><strong>相关文件</strong>：例如 PDF、合同、表格、模板或历史样例；</li>
+<li><strong>通过标准</strong>：描述什么样的输出算好，什么样的行为算失败。</li>
+</ol>
+<p>
+  <img src="/img/agent-skills-evals-skill-creator/eval-pipeline.svg" alt="Agent Skill eval 执行流水线">
+
+</p>
+<p><strong>图注</strong>：这张流程图建议放在 evals 概念解释之后。它从 prompt、附件和 rubric 开始，经过隔离执行、输出采集、自动/人工评判，最终进入 Skill 修改和回归验证，强调 eval 不是一次性检查，而是持续闭环。</p>
+<h3 id="41-eval-不是看起来不错的主观判断">4.1 eval 不是“看起来不错”的主观判断</h3>
+<p>没有 eval 时，Skill 质量往往靠作者试几个样例，然后凭感觉判断“好像有用”。这种方式有三个问题：</p>
+<ul>
+<li><strong>不可重复</strong>：今天试得好，不代表下次还好；</li>
+<li><strong>不可比较</strong>：Skill v1 和 v2 谁更好，很容易被单个样例误导；</li>
+<li><strong>不可回归</strong>：模型、工具或基础设施变化后，很难知道哪里坏了。</li>
+</ul>
+<p>有了 eval 之后，Skill 的质量就能被拆成更清楚的指标：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pass rate</td>
+<td>通过率</td>
+<td>判断整体质量是否提升或退化</td>
+</tr>
+<tr>
+<td>elapsed time</td>
+<td>执行耗时</td>
+<td>判断 Skill 是否引入过高延迟</td>
+</tr>
+<tr>
+<td>token usage</td>
+<td>Token 使用量</td>
+<td>判断成本是否可接受</td>
+</tr>
+<tr>
+<td>failure category</td>
+<td>失败类别</td>
+<td>定位是理解、工具、格式还是触发问题</td>
+</tr>
+<tr>
+<td>reviewer notes</td>
+<td>评审备注</td>
+<td>记录人工判断和改进建议</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-一个概念性的-eval-配置长什么样">4.2 一个概念性的 eval 配置长什么样</h3>
+<p>不同平台和工具的具体格式可能不同，下面只是一个便于理解的概念模板，不代表官方固定语法：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">name</span>: nda-risk-review
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">skill</span>: nda-reviewer
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">prompt</span>: &gt;<span style="color:#f1fa8c">
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">  Review this NDA for enterprise procurement approval.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">  Return risks using our internal severity labels.</span>  
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">attachments</span>:
+</span></span><span style="display:flex;"><span>  - samples/vendor-nda.pdf
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">expected</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">must_include</span>:
+</span></span><span style="display:flex;"><span>    - confidentiality term
+</span></span><span style="display:flex;"><span>    - liability cap
+</span></span><span style="display:flex;"><span>    - governing law
+</span></span><span style="display:flex;"><span>    - unilateral termination clause
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">must_not_include</span>:
+</span></span><span style="display:flex;"><span>    - generic legal disclaimer only
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">judge</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">mode</span>: rubric
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">pass_if</span>: <span style="color:#f1fa8c">&#34;all required clauses are checked and risk labels follow team policy&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">metrics</span>:
+</span></span><span style="display:flex;"><span>  - pass_rate
+</span></span><span style="display:flex;"><span>  - elapsed_time
+</span></span><span style="display:flex;"><span>  - token_usage
+</span></span></code></pre></div><p>
+  <img src="/img/agent-skills-evals-skill-creator/eval-spec-screenshot.svg" alt="eval 配置的代码截图式示意">
+
+</p>
+<p><strong>图注</strong>：如果文章发布平台支持配图，这里建议插入一张“代码截图式”SVG，而不是普通代码块截图。图中展示一个 NDA 审查 eval 的概念配置：输入 prompt、附件、必查条款、评判方式和采集指标，帮助读者快速理解 eval 的组成。</p>
+<h3 id="43-eval-的两个核心用途">4.3 eval 的两个核心用途</h3>
+<h4 id="用途一捕捉质量回归">用途一：捕捉质量回归</h4>
+<p>Agent 系统不是静止的。基础模型会升级，工具实现会变化，MCP Server 可能调整返回字段，组织模板也会改版。一个上个月表现稳定的 Skill，这个月可能因为依赖环境变化而出现回归。</p>
+<p>如果没有 eval，团队往往只能等用户发现问题；如果有 eval，就可以在发布前、模型升级后或 CI 定时任务中提前发现退化。</p>
+<h4 id="用途二判断-skill-是否仍然必要">用途二：判断 Skill 是否仍然必要</h4>
+<p>对于 capability uplift skills，eval 还有一个很有意思的作用：判断基础模型是否已经“学会了”原本 Skill 提供的技巧。</p>
+<p>实践上可以做三组对比：</p>
+<ol>
+<li>加载 Skill 的 Claude；</li>
+<li>不加载 Skill 的 Claude；</li>
+<li>修改后的 Skill 或新版 Skill。</li>
+</ol>
+<p>如果第 2 组也能稳定通过 eval，说明这个 Skill 可能不再提供明显增益。此时团队可以选择简化、合并或下线它，把维护成本留给更有价值的工作流。</p>
+<hr>
+<h2 id="五benchmark-与多智能体评估让测试更快更干净更可比较">五、benchmark 与多智能体评估：让测试更快、更干净、更可比较</h2>
+<p>单个 eval 很容易理解，但真正有用的是 eval suite：一组覆盖常见场景、边界场景和反例场景的测试集合。</p>
+<p>当 eval 数量变多后，顺序运行会遇到两个问题：</p>
+<ol>
+<li><strong>慢</strong>：几十个甚至上百个 eval 顺序跑，反馈周期太长；</li>
+<li><strong>上下文污染</strong>：如果多个测试共享上下文，前一个测试的信息可能影响后一个测试。</li>
+</ol>
+<p>原文提到的多智能体支持，正是为了解决这两个问题。</p>
+<p>
+  <img src="/img/agent-skills-evals-skill-creator/multi-agent-benchmark.svg" alt="多智能体 benchmark 与 A/B 盲评架构">
+
+</p>
+<p><strong>图注</strong>：这张图建议放在 benchmark 章节。左侧展示 eval suite 并行分发到多个独立 agent，每个 agent 拥有干净上下文；右侧展示 comparator agent 对 Skill v1/v2 或 Skill/no Skill 的输出做盲评，从而降低评判偏差。</p>
+<h3 id="51-每个-eval-都应该有干净上下文">5.1 每个 eval 都应该有干净上下文</h3>
+<p>对 Agent 测试来说，干净上下文非常重要。因为模型很容易从前文中获得提示，例如：</p>
+<ul>
+<li>前一个 eval 已经暴露了答案模式；</li>
+<li>前一个失败案例让模型“猜到”下一题该注意什么；</li>
+<li>某些附件或规则残留在上下文中，影响后续判断。</li>
+</ul>
+<p>多智能体评估的核心思想是：<strong>每个 eval 由独立 agent 执行，拥有独立上下文、独立 token 统计和独立耗时指标</strong>。</p>
+<p>这样做带来三个好处：</p>
+<ul>
+<li>结果更接近真实用户单次调用；</li>
+<li>每个测试的成本和延迟可以独立分析；</li>
+<li>并行执行显著缩短反馈周期。</li>
+</ul>
+<h3 id="52-comparator-agent让-ab-对比更接近盲评">5.2 comparator agent：让 A/B 对比更接近盲评</h3>
+<p>很多 Skill 改动不是简单的 pass/fail，而是质量差异。例如：</p>
+<ul>
+<li>v2 的结构更清晰，但遗漏了一个风险点；</li>
+<li>v1 更保守，v2 更像团队语气；</li>
+<li>无 Skill 输出更简洁，但不符合内部格式。</li>
+</ul>
+<p>这时就需要 comparator agent。它不直接执行任务，而是比较两个输出，判断哪一个更符合 rubric。为了减少偏差，比较器不应该知道哪个输出来自哪个版本。</p>
+<p>常见对比方式包括：</p>
+<table>
+<thead>
+<tr>
+<th>对比对象</th>
+<th>目的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Skill v1 vs Skill v2</td>
+<td>判断修改是否真的提升效果</td>
+</tr>
+<tr>
+<td>Skill vs no Skill</td>
+<td>判断 Skill 是否仍有必要</td>
+</tr>
+<tr>
+<td>新模型 + Skill vs 旧模型 + Skill</td>
+<td>判断模型升级后的行为变化</td>
+</tr>
+<tr>
+<td>新 description vs 旧 description</td>
+<td>判断触发描述是否更准确</td>
+</tr>
+</tbody>
+</table>
+<h3 id="53-benchmark-不是只看通过率">5.3 benchmark 不是只看通过率</h3>
+<p>通过率当然重要，但只看通过率很容易误判。一个 Skill 即使通过率提升，也可能带来不可接受的延迟或成本。</p>
+<p>建议至少同时观察三类指标：</p>
+<ol>
+<li><strong>质量指标</strong>：pass rate、rubric score、人工偏好胜率；</li>
+<li><strong>效率指标</strong>：elapsed time、工具调用次数、重试次数；</li>
+<li><strong>成本指标</strong>：input token、output token、工具费用。</li>
+</ol>
+<p>对于生产团队来说，最佳 Skill 不是“理论输出最完美”的 Skill，而是在质量、延迟、成本和可维护性之间达到稳定平衡的 Skill。</p>
+<hr>
+<h2 id="六触发治理skill-描述比很多人想象得更关键">六、触发治理：Skill 描述比很多人想象得更关键</h2>
+<p>evals 主要评估 Skill 被使用之后的输出质量。但在真实系统里，还有一个更前置的问题：<strong>Skill 是否在正确场景触发？</strong></p>
+<p>随着 Skills 数量增加，触发治理会越来越重要。原因很简单：每个 Skill 的 description 都像一个“路由规则”。写得太宽，会在不该触发时触发；写得太窄，会在该触发时缺席。</p>
+<p>
+  <img src="/img/agent-skills-evals-skill-creator/trigger-tuning.svg" alt="Skill 触发描述优化：降低误触发与漏触发">
+
+</p>
+<p><strong>图注</strong>：这张图建议放在触发治理章节。图中左侧展示用户 prompts 流入 description gate，右侧用 false positives、false negatives 和 sweet spot 说明描述优化的目标：既不过宽，也不过窄。</p>
+<h3 id="61-false-positive不该触发时触发">6.1 false positive：不该触发时触发</h3>
+<p>描述太宽时，Skill 会抢走不属于自己的任务。例如一个“写技术设计文档”的 Skill，如果描述成“用于所有技术写作”，它可能会在用户只是想写一封简短邮件时触发。</p>
+<p>误触发的危害包括：</p>
+<ul>
+<li>输出过度结构化；</li>
+<li>引入不必要的工作流步骤；</li>
+<li>消耗更多 token；</li>
+<li>与其他更合适的 Skill 冲突。</li>
+</ul>
+<h3 id="62-false-negative该触发时没触发">6.2 false negative：该触发时没触发</h3>
+<p>描述太窄时，Skill 会错过本该处理的任务。例如一个“审查 NDA”的 Skill，如果描述只写“用于审查英文 NDA PDF”，那么用户上传 Word 版 NDA、或者说“帮我看看这份保密协议风险”，它可能不会触发。</p>
+<p>漏触发的危害更隐蔽：用户看到的是普通模型输出，可能以为 Skill 本身没价值，实际上是触发描述没有覆盖真实表达方式。</p>
+<h3 id="63-如何优化-skill-description">6.3 如何优化 Skill description</h3>
+<p>原文提到，<code>skill-creator</code> 可以分析当前描述和样本 prompts，并建议修改 description，以减少误触发和漏触发。Anthropic 在文档创建类 Skills 上运行该能力后，6 个公开 Skills 中有 5 个触发效果得到改善。</p>
+<p>一个实用做法是同时准备正例和负例：</p>
+<table>
+<thead>
+<tr>
+<th>样本类型</th>
+<th>示例</th>
+<th>期望</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>正例</td>
+<td>“帮我按公司模板审查这份 NDA 风险”</td>
+<td>应触发 NDA 审查 Skill</td>
+</tr>
+<tr>
+<td>正例</td>
+<td>“这份保密协议有哪些条款不符合采购标准？”</td>
+<td>应触发 NDA 审查 Skill</td>
+</tr>
+<tr>
+<td>负例</td>
+<td>“帮我总结这份 NDA 的主要内容”</td>
+<td>不一定触发审查 Skill</td>
+</tr>
+<tr>
+<td>负例</td>
+<td>“写一封邮件给供应商确认 NDA 收到”</td>
+<td>不应触发审查 Skill</td>
+</tr>
+</tbody>
+</table>
+<p>description 的目标不是覆盖所有词面表达，而是清楚描述任务边界：何时应该使用、何时不应该使用、与相邻 Skill 如何区分。</p>
+<hr>
+<h2 id="七实践案例一pdf-非可填写表单如何用-eval-定位失败点">七、实践案例一：PDF 非可填写表单如何用 eval 定位失败点</h2>
+<p>原文提到一个很典型的案例：PDF Skill 在处理 non-fillable forms 时表现不佳。可填写表单通常有明确字段，Agent 只要把值写入字段即可；但不可填写表单没有结构化字段，Claude 需要根据页面文本和坐标，把内容放到正确位置。</p>
+<p>这类问题非常适合用 eval 定位，因为失败可能发生在多个环节：</p>
+<ol>
+<li>PDF 文本提取不完整；</li>
+<li>坐标定位不准确；</li>
+<li>Agent 没有识别出标签和填写区域的对应关系；</li>
+<li>输出 PDF 的渲染位置偏移；</li>
+<li>验证逻辑只检查了文本存在，没有检查位置。</li>
+</ol>
+<h3 id="71-eval-应该怎样设计">7.1 eval 应该怎样设计</h3>
+<p>一个好的 PDF 表单 eval 不应该只问“有没有填上内容”，而要定义更具体的通过标准：</p>
+<table>
+<thead>
+<tr>
+<th>检查项</th>
+<th>通过标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>字段识别</td>
+<td>能识别姓名、日期、地址、签名等目标区域</td>
+</tr>
+<tr>
+<td>坐标锚定</td>
+<td>填写文本位于对应标签附近，而不是页面任意位置</td>
+</tr>
+<tr>
+<td>可读性</td>
+<td>字体大小、颜色和对齐方式不影响阅读</td>
+</tr>
+<tr>
+<td>完整性</td>
+<td>所有必填项都有内容</td>
+</tr>
+<tr>
+<td>稳定性</td>
+<td>多次运行不会出现明显漂移</td>
+</tr>
+</tbody>
+</table>
+<p>原文提到的修复方向是基于提取出的文本坐标进行 anchoring。这个细节很关键：它不是让模型“凭感觉”猜位置，而是把页面已有文本作为锚点，围绕锚点计算填写区域。</p>
+<h3 id="72-这类案例给-skill-作者的启发">7.2 这类案例给 Skill 作者的启发</h3>
+<p>PDF 案例说明，eval 不只是最终验收工具，也可以帮助定位 Agent 工具链中的失败环节。尤其当任务涉及文件、坐标、格式和外部工具时，单看最终输出很难知道哪里错了。</p>
+<p>建议把复杂文件处理 Skill 的 eval 拆成多层：</p>
+<ol>
+<li>解析层 eval：文件内容是否正确提取；</li>
+<li>推理层 eval：字段和目标位置是否正确匹配；</li>
+<li>执行层 eval：工具调用结果是否正确生成；</li>
+<li>回归层 eval：历史失败样例是否不再复现。</li>
+</ol>
+<hr>
+<h2 id="八实践案例二nda-审查-skill-如何评估忠实执行团队标准">八、实践案例二：NDA 审查 Skill 如何评估“忠实执行团队标准”</h2>
+<p>NDA 审查 Skill 是 encoded preference skill 的典型例子。它的价值不在于 Claude 是否懂法律常识，而在于它是否按照某个团队的内部标准审查。</p>
+<p>例如，一个采购法务团队可能要求每次审查必须覆盖：</p>
+<ul>
+<li>保密期限是否过长；</li>
+<li>责任限制是否对等；</li>
+<li>适用法律和争议解决是否符合公司政策；</li>
+<li>是否存在单方解除、过宽定义或不合理赔偿条款；</li>
+<li>输出是否按“高 / 中 / 低风险 + 修改建议”的格式呈现。</li>
+</ul>
+<h3 id="81-eval-的关键不是泛泛而谈">8.1 eval 的关键不是泛泛而谈</h3>
+<p>如果 eval 的通过标准只是“指出风险”，Claude 很容易给出看似专业但不可验证的回答。更好的标准应该接近团队检查表：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>通过条件：
+</span></span><span style="display:flex;"><span>1. 必须逐项检查 8 个指定条款；
+</span></span><span style="display:flex;"><span>2. 每个风险必须映射到内部风险等级；
+</span></span><span style="display:flex;"><span>3. 对高风险项必须给出可发送给供应商的修改建议；
+</span></span><span style="display:flex;"><span>4. 不得只输出泛泛的法律免责声明；
+</span></span><span style="display:flex;"><span>5. 如果条款缺失，必须明确标记“未发现”。
+</span></span></code></pre></div><p>这类 Skill 的 eval 更像流程合规测试，而不是知识问答测试。</p>
+<h3 id="82-失败案例比成功案例更有价值">8.2 失败案例比成功案例更有价值</h3>
+<p>NDA 审查 Skill 应该保留一些“容易漏”的样例，例如：</p>
+<ul>
+<li>条款被拆散在多个段落中；</li>
+<li>风险点用委婉措辞表达；</li>
+<li>合同中存在互相矛盾的条款；</li>
+<li>缺失某个关键条款但没有显式写“缺失”；</li>
+<li>用户要求“简单总结”，但实际希望做风险审查。</li>
+</ul>
+<p>这些样例能帮助 Skill 作者判断：Skill 是真的理解了团队标准，还是只是在输出一份看起来像审查报告的文本。</p>
+<hr>
+<h2 id="九实践案例三周报生成-skill-如何测试-mcp-数据整合">九、实践案例三：周报生成 Skill 如何测试 MCP 数据整合</h2>
+<p>周报生成 Skill 也是 encoded preference skill，但它多了一个复杂点：它往往需要从多个外部系统获取数据，例如项目管理、代码仓库、告警平台、文档系统和工单系统。这通常会通过 MCP Server 暴露给 Agent。</p>
+<p>这类 Skill 的 eval 不能只看最终周报写得好不好，还要看数据链路是否正确：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>测试问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数据源选择</td>
+<td>是否调用了正确的 MCP 工具或资源</td>
+</tr>
+<tr>
+<td>数据完整性</td>
+<td>是否覆盖指定项目、成员和时间范围</td>
+</tr>
+<tr>
+<td>数据去重</td>
+<td>是否合并重复工单、重复 PR 或重复事件</td>
+</tr>
+<tr>
+<td>格式偏好</td>
+<td>是否符合团队周报结构</td>
+</tr>
+<tr>
+<td>语气风格</td>
+<td>是否符合团队内部沟通习惯</td>
+</tr>
+<tr>
+<td>异常处理</td>
+<td>数据源不可用时是否明确说明缺口</td>
+</tr>
+</tbody>
+</table>
+<h3 id="91-周报-skill-的-eval-suite-可以分层">9.1 周报 Skill 的 eval suite 可以分层</h3>
+<p>建议至少准备四类测试：</p>
+<ol>
+<li><strong>标准样例</strong>：所有数据源可用，验证主流程；</li>
+<li><strong>缺失样例</strong>：某个数据源为空，验证是否说明缺口；</li>
+<li><strong>冲突样例</strong>：多个系统对同一事项状态不同，验证是否保守表达；</li>
+<li><strong>格式样例</strong>：同样数据以不同用户表达触发，验证输出结构稳定。</li>
+</ol>
+<p>这样做的好处是，Skill 作者可以知道失败到底来自数据获取、信息整合、格式输出还是触发描述。</p>
+<hr>
+<h2 id="十落地方法如何为一个-skill-建立最小可用评估体系">十、落地方法：如何为一个 Skill 建立最小可用评估体系</h2>
+<p>如果团队刚开始做 Agent Skills，不建议一上来建设复杂平台。可以从一个最小闭环开始。</p>
+<h3 id="101-第一步定义-skill-的价值假设">10.1 第一步：定义 Skill 的价值假设</h3>
+<p>每个 Skill 都应该先回答一句话：<strong>如果这个 Skill 成功，它具体改善了什么？</strong></p>
+<p>示例：</p>
+<ul>
+<li>PDF Skill：减少复杂 PDF 处理中的格式错误；</li>
+<li>NDA Skill：让审查输出稳定覆盖内部检查表；</li>
+<li>周报 Skill：把跨系统信息整合时间从 30 分钟降到 5 分钟；</li>
+<li>文档 Skill：让输出稳定符合团队模板，而不是每次从头解释。</li>
+</ul>
+<p>没有价值假设，就很难设计 eval。</p>
+<h3 id="102-第二步准备-5-到-10-个高质量-eval">10.2 第二步：准备 5 到 10 个高质量 eval</h3>
+<p>早期 eval 不需要多，但要覆盖关键场景：</p>
+<ol>
+<li>2 个最常见的成功路径；</li>
+<li>2 个历史失败样例；</li>
+<li>2 个边界输入；</li>
+<li>1 到 2 个不应触发的负例；</li>
+<li>1 个成本或耗时敏感样例。</li>
+</ol>
+<p>这比堆很多浅层测试更有价值。</p>
+<h3 id="103-第三步同时跑-skill-与-no-skill">10.3 第三步：同时跑 Skill 与 no Skill</h3>
+<p>对于 capability uplift skills，强烈建议每次 benchmark 都包含 no Skill baseline。否则你只能知道 Skill 是否过了测试，却不知道它是否真的带来增益。</p>
+<p>比较维度可以包括：</p>
+<ul>
+<li>输出是否更完整；</li>
+<li>格式是否更稳定；</li>
+<li>是否减少工具调用错误；</li>
+<li>是否降低人工修改量；</li>
+<li>成本和延迟是否可接受。</li>
+</ul>
+<h3 id="104-第四步把失败样例沉淀成回归集">10.4 第四步：把失败样例沉淀成回归集</h3>
+<p>每次线上或人工评审发现失败，都不要只修 <code>SKILL.md</code>。更重要的是把失败样例加入 eval suite。否则同类问题很容易在下一次模型升级或 Skill 修改后再次出现。</p>
+<p>一个成熟的 Skill 仓库应该同时包含：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>skill/
+</span></span><span style="display:flex;"><span>  SKILL.md
+</span></span><span style="display:flex;"><span>  examples/
+</span></span><span style="display:flex;"><span>  evals/
+</span></span><span style="display:flex;"><span>    positive/
+</span></span><span style="display:flex;"><span>    negative/
+</span></span><span style="display:flex;"><span>    regressions/
+</span></span><span style="display:flex;"><span>  benchmark-results/
+</span></span><span style="display:flex;"><span>  CHANGELOG.md
+</span></span></code></pre></div><p>这不是要求所有团队都照这个目录实现，而是强调一个原则：<strong>Skill 的说明、样例、测试和历史结果应该一起版本化。</strong></p>
+<h3 id="105-第五步设置发布门禁">10.5 第五步：设置发布门禁</h3>
+<p>当 Skill 被多人使用后，建议引入最低发布门禁：</p>
+<table>
+<thead>
+<tr>
+<th>门禁</th>
+<th>推荐规则</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>质量</td>
+<td>核心 eval pass rate 不低于上个版本</td>
+</tr>
+<tr>
+<td>触发</td>
+<td>正例触发率不下降，负例误触发不增加</td>
+</tr>
+<tr>
+<td>成本</td>
+<td>token usage 增幅超过阈值需要说明</td>
+</tr>
+<tr>
+<td>延迟</td>
+<td>elapsed time 明显增加需要复查</td>
+</tr>
+<tr>
+<td>回归</td>
+<td>历史失败样例不得重新失败</td>
+</tr>
+</tbody>
+</table>
+<p>这套门禁不一定要一开始接入 CI，但至少应该成为 Skill 发布前的检查清单。</p>
+<hr>
+<h2 id="十一从-skill-到-specification未来边界会越来越模糊">十一、从 Skill 到 specification：未来边界会越来越模糊</h2>
+<p>原文最后提出一个很有启发性的判断：随着模型能力提升，“skill”和“specification”的边界可能会变得模糊。</p>
+<p>当前的 <code>SKILL.md</code> 很像 implementation plan：它不仅描述要做什么，还会告诉 Claude 具体怎么做。比如先读取文件、再提取字段、再按模板输出、最后校验格式。</p>
+<p>但 eval 描述的是另一件事：<strong>什么结果算正确</strong>。</p>
+<p>当模型足够强时，也许作者不再需要写很细的执行步骤，只需要写清楚：</p>
+<ul>
+<li>任务目标是什么；</li>
+<li>输入输出边界是什么；</li>
+<li>什么行为算成功；</li>
+<li>哪些行为必须避免；</li>
+<li>哪些样例代表真实工作流。</li>
+</ul>
+<p>也就是说，未来的 Skill 可能更像一组可执行 specification：通过 eval 定义“what”，让模型自己推导“how”。</p>
+<p>
+  <img src="/img/agent-skills-evals-skill-creator/skill-lifecycle.svg" alt="Agent Skill 生命周期：创建、验证、观测与退役">
+
+</p>
+<p><strong>图注</strong>：建议把这张生命周期图放在展望章节。它展示 Skill 从创建、验证、发布、观测、迭代到简化或退役的过程，尤其强调 capability uplift skill 可能被基础模型吸收，而 encoded preference skill 会随组织流程持续演化。</p>
+<hr>
+<h2 id="十二总结把-skill-当成可以演进的软件资产">十二、总结：把 Skill 当成可以演进的软件资产</h2>
+<p>Anthropic 这篇文章真正重要的地方，不是 <code>skill-creator</code> 增加了几个功能，而是提出了一套新的 Skill 工程观：</p>
+<blockquote>
+<p>Agent Skills 不应该停留在“写一份更好的提示词”，而应该进入测试、度量、回归和迭代的工程闭环。</p>
+</blockquote>
+<p>对开发者和团队来说，可以提炼成五条实践原则：</p>
+<ol>
+<li><strong>先分类，再评估</strong>：区分 capability uplift skills 和 encoded preference skills，不同类型用不同指标判断价值。</li>
+<li><strong>用 evals 替代感觉</strong>：用 prompt、附件和 rubric 定义可重复测试，而不是靠几次手工试用判断质量。</li>
+<li><strong>把 benchmark 作为发布门禁</strong>：关注 pass rate，也关注耗时、token、工具调用和失败类别。</li>
+<li><strong>用多智能体隔离测试上下文</strong>：每个 eval 使用干净上下文，减少污染，并用 comparator agents 做 A/B 盲评。</li>
+<li><strong>治理触发描述</strong>：description 不是文案，它决定 Skill 何时被路由；要同时降低 false positives 和 false negatives。</li>
+</ol>
+<p>如果说早期 Agent 开发的重点是“让模型会做事”，那么 Agent Skills 工程化的重点就是“证明它持续做对事”。这也是从个人效率工具走向团队生产系统时必须跨过的一步。</p>
+<p>当 Skills 开始拥有 eval suite、benchmark history、触发样本、回归集和发布门禁时，它们就不再只是散落在文件夹里的提示词，而是可以被维护、被比较、被淘汰、被演进的软件资产。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/02/non-technical-pm-claude-code-respiro/" data-toggle="tooltip" data-placement="top" title="从 0 行代码到 App Store：非技术项目经理用 Claude Code 六周发布压力管理应用">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/04/ai-agent-workflow-patterns/" data-toggle="tooltip" data-placement="top" title="AI 智能体常见工作流模式深度解析：何时顺序、何时并行、何时迭代优化">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
