@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="华尔街的新同事：拆解 Anthropic 金融服务 Agent 发布" />
+    <meta property="og:title" content="华尔街的新同事：拆解 Anthropic 金融服务 Agent 发布" />
+    <meta property="twitter:title" content="华尔街的新同事：拆解 Anthropic 金融服务 Agent 发布" />
+    
+
+    
+    <meta name="description" content="Anthropic 一次性发布了 10 个即用金融 Agent 模板、Claude 与 Microsoft 365 的深度集成，以及 8 个新连接器 &#43; Moody&#39;s MCP 应用。本文从产品、架构、生态、客户侧写四个角度，拆解这次发布真正改变了什么。">
+    <meta property="og:description" content="Anthropic 一次性发布了 10 个即用金融 Agent 模板、Claude 与 Microsoft 365 的深度集成，以及 8 个新连接器 &#43; Moody&#39;s MCP 应用。本文从产品、架构、生态、客户侧写四个角度，拆解这次发布真正改变了什么。" />
+    <meta property="twitter:description" content="Anthropic 一次性发布了 10 个即用金融 Agent 模板、Claude 与 Microsoft 365 的深度集成，以及 8 个新连接器 &#43; Moody&#39;s MCP 应用。本文从产品、架构、生态、客户侧写四个角度，拆解这次发布真正改变了什么。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>华尔街的新同事：拆解 Anthropic 金融服务 Agent 发布 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/09/anthropic-finance-agents-launch/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/mcp" title="MCP">
+                            MCP
+                        </a>
+                        
+                    </div>
+                    <h1>华尔街的新同事：拆解 Anthropic 金融服务 Agent 发布</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Saturday, May 9, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>原文链接：<a href="https://www.anthropic.com/news/finance-agents">Agents for financial services</a>
+来源：Anthropic News · 2026-05-05</p>
+</blockquote>
+<blockquote>
+<p>一句话导读：Anthropic 在同一天把&quot;模型 + 桌面软件 + 行业数据&quot;三件事打包端上来——10 个金融 Agent 模板、Claude 全面进入 Microsoft 365、8 个新连接器加 Moody&rsquo;s MCP 应用，外加 Opus 4.7 在 Vals AI Finance Agent 基准上拿到 64.37%。</p>
+</blockquote>
+<h2 id="引言金融行业迎来ai-同事的临界点">引言：金融行业迎来&quot;AI 同事&quot;的临界点</h2>
+<p>过去一年，金融机构对 Claude 的使用普遍还停留在&quot;分析师桌面助手&quot;阶段——用它读 transcript、拉观点、改邮件。真正长链条的工作，比如 pitch book、财务建模、月末结账、KYC 升级审阅，仍然靠人一遍遍拉通。这次发布把这条分水岭推得更靠前了一步：Anthropic 不再只卖模型，而是把&quot;行业流程 + 数据通路 + 软件入口&quot;一次性交给客户。</p>
+<p>三件事同时落地：</p>
+<ol>
+<li><strong>10 个即用型金融 Agent 模板</strong>，覆盖研究、客户覆盖、估值、对账、月结、KYC 等日常长链路；</li>
+<li><strong>Claude 原生进入 Microsoft 365</strong>（Excel / PowerPoint / Word 已 GA，Outlook 即将推出）；</li>
+<li><strong>合作伙伴生态扩展</strong>——新增 8 个数据连接器，Moody&rsquo;s 以 MCP 应用形式接入，叠加已有的 FactSet、S&amp;P Capital IQ、PitchBook 等 8 家，组成相对完整的行业数据地图。</li>
+</ol>
+<p>推荐搭配的模型是 <strong>Claude Opus 4.7</strong>，它在 Vals AI 的 Finance Agent 基准上取得 <strong>64.37%</strong> 的行业领先得分。</p>
+<p>
+  <img src="/img/anthropic-finance-agents-launch/01-overview.svg" alt="三箭齐发围绕 Opus 4.7">
+
+</p>
+<h2 id="一10-个-agent-模板把分析师日常拆成两条主链路">一、10 个 Agent 模板：把分析师日常拆成两条主链路</h2>
+<p>这次发布最直接的可用物，是 GitHub 上开源的 10 个金融 Agent 模板（<code>github.com/anthropics/financial-services</code>）。它们被清晰地分成两组，对应华尔街两类常见角色：</p>
+<ul>
+<li><strong>研究与客户覆盖（Research &amp; Client Coverage）</strong>：服务于分析师、客户经理、投行前台；</li>
+<li><strong>财务与运营（Finance &amp; Operations）</strong>：服务于中后台的估值、会计、合规团队。</li>
+</ul>
+<p>
+  <img src="/img/anthropic-finance-agents-launch/02-ten-agents.svg" alt="10 个金融 Agent 模板按两条主链路分组">
+
+</p>
+<h3 id="研究与客户覆盖--5-个模板">研究与客户覆盖 · 5 个模板</h3>
+<table>
+<thead>
+<tr>
+<th>模板</th>
+<th>核心动作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Pitch Builder</strong></td>
+<td>构建目标清单 → 跑可比公司分析 → 输出客户会议用 pitchbook</td>
+</tr>
+<tr>
+<td><strong>Meeting Preparer</strong></td>
+<td>电话会议前整理客户和交易对手方简报</td>
+</tr>
+<tr>
+<td><strong>Earnings Reviewer</strong></td>
+<td>阅读 transcript 与备案，更新模型，标出与投资论点相关的变化</td>
+</tr>
+<tr>
+<td><strong>Model Builder</strong></td>
+<td>基于备案、数据源、分析师输入创建和维护财务模型</td>
+</tr>
+<tr>
+<td><strong>Market Researcher</strong></td>
+<td>跟踪行业/发行人动态，综合新闻、备案、券商研究</td>
+</tr>
+</tbody>
+</table>
+<p>这一组的共同点是&quot;把碎片化的外部信息转成结构化的内部决策资产&quot;。原文引用一位使用者的话：&ldquo;Claude 压缩并增强了会议前的工作，使每次会议更具影响力——准备时间已经转化为创意时间。&rdquo;</p>
+<h3 id="财务与运营--5-个模板">财务与运营 · 5 个模板</h3>
+<table>
+<thead>
+<tr>
+<th>模板</th>
+<th>核心动作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Valuation Reviewer</strong></td>
+<td>对照可比公司、方法论和公司标准复核估值</td>
+</tr>
+<tr>
+<td><strong>General Ledger Reconciler</strong></td>
+<td>对账总账科目，对照账簿计算 NAV</td>
+</tr>
+<tr>
+<td><strong>Month-end Closer</strong></td>
+<td>执行结账清单，准备分录，生成结账报告</td>
+</tr>
+<tr>
+<td><strong>Statement Auditor</strong></td>
+<td>审阅财报一致性、完整性和审计就绪性</td>
+</tr>
+<tr>
+<td><strong>KYC Screener</strong></td>
+<td>汇总实体档案，审阅源文档，打包升级合规审阅</td>
+</tr>
+</tbody>
+</table>
+<p>这一组是&quot;跨日跨周的合规与运营流水线&quot;。月末结账的 Agent 甚至需要一次连续工作几小时——这类场景正好对应下面要讲的&quot;托管 Agent&quot;部署模式。</p>
+<h3 id="pitch-agent-的一口气三件事">Pitch Agent 的&quot;一口气三件事&quot;</h3>
+<p>一个容易被忽略但信号很强的细节：Pitch Agent 作为 Claude Cowork 中的插件时，可以一次输出 <strong>Excel 可比公司模型 + PowerPoint 推介稿 + Outlook 发客户的邮件</strong>，而且三者之间的上下文是串起来的。这件事对投行一线意味着，从&quot;要约构思&quot;到&quot;可发送的 pitch 包&quot;的物理距离被压缩到一次对话。</p>
+<h2 id="二模板三件套skills--connectors--subagents">二、模板三件套：Skills + Connectors + Subagents</h2>
+<p>每个 Agent 模板都不是黑盒 prompt，而是一个显式三件套。理解这三件套，就理解了为什么这些模板&quot;能在不同公司复用&quot;。</p>
+<p>
+  <img src="/img/anthropic-finance-agents-launch/03-architecture.svg" alt="Agent 模板三件套 &#43; 两种部署模式">
+
+</p>
+<ul>
+<li><strong>Skills</strong>：任务指令与领域知识。比如&quot;可比公司如何挑选&quot;、&ldquo;估值方法论清单&rdquo;、&ldquo;哪些会计科目需要被重点对账&rdquo;。这是过去锁在资深分析师脑子里的 SOP，被显式化成可复用文件。</li>
+<li><strong>Connectors</strong>：对数据的受治理访问。重点是&quot;受治理&quot;三字——Agent 看到的不是一堆被灌进 prompt 的原始文件，而是带权限、可审计的调用。FactSet、Moody&rsquo;s、Dun &amp; Bradstreet、Intralinks 都以这种方式接入。</li>
+<li><strong>Subagents</strong>：处理子任务的 Claude 实例。比如 Valuation Reviewer 会调一个&quot;可比公司选择&quot;子 Agent，再调一个&quot;方法论一致性校验&quot;子 Agent，主 Agent 只做编排和结果合成。</li>
+</ul>
+<p>这套结构对工程团队的价值是：<strong>模板不是一次性 demo，而是可以按公司实际流程做裁剪的参考架构</strong>——替换 Skills 文件，替换允许访问的 Connectors，必要时替换 Subagent 的实现，模板就变成了本公司的 Agent。</p>
+<h3 id="两种部署模式插件-vs-托管">两种部署模式：插件 vs 托管</h3>
+<p>同一套模板支持两种部署方式，分别对应不同的工作形态：</p>
+<p><strong>方式 A：Cowork / Claude Code 插件</strong>
+跑在分析师桌面，紧贴 Excel / PowerPoint / Outlook。每一步输出都可以被人即时审阅。适合高频短任务——客户会议准备、pitch 起草、财报季快速过单。Claude Cowork 还带一个 <strong>Dispatch</strong> 能力：用户可以用文本或语音从任何地方派单，Claude 在用户离开工位时继续处理本地文件。</p>
+<p><strong>方式 B：Claude Managed Agent（公开测试版）</strong>
+跑在 Claude Platform，自主运行。特点有三：</p>
+<ul>
+<li>支持<strong>多小时长会话</strong>（比如跨交易日的结账）；</li>
+<li>每个工具都有<strong>独立权限控制</strong>，凭证由平台托管；</li>
+<li>完整<strong>审计日志</strong>沉淀在 Claude 控制台——这对合规团队是必选项。</li>
+</ul>
+<p>这两种模式的设计哲学有一个根本差异：前者把人放在每一步的环里，后者把人放在关键决策节点的环里。金融行业这两种形态都需要——pitch 产出可以是前者，月末结账必须是后者。</p>
+<h2 id="三microsoft-365claude-直接搬进分析师的主战场">三、Microsoft 365：Claude 直接搬进分析师的主战场</h2>
+<p>金融分析师的日常阵地其实不是聊天窗口，而是 Excel 表格、PPT 幻灯片和 Outlook 收件箱。这次 Anthropic 把 Claude 铺到了这四个应用里：</p>
+<table>
+<thead>
+<tr>
+<th>应用</th>
+<th>Claude 能做什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Excel</strong>（GA）</td>
+<td>从备案和数据源构建财务模型，跨关联工作簿审计公式，跑敏感性分析</td>
+</tr>
+<tr>
+<td><strong>PowerPoint</strong>（GA）</td>
+<td>起草随底层数据自动更新的幻灯片</td>
+</tr>
+<tr>
+<td><strong>Word</strong>（GA）</td>
+<td>按公司模板编辑信贷备忘录</td>
+</tr>
+<tr>
+<td><strong>Outlook</strong>（即将推出）</td>
+<td>收件箱分拣、安排会议、按用户语气起草回复——&ldquo;参谋长&quot;角色</td>
+</tr>
+</tbody>
+</table>
+<p>真正的关键词是&rdquo;<strong>上下文跨四个应用自动传递</strong>&quot;。分析师在 Excel 中让 Claude 更新的模型，切换到 PowerPoint 起草 pitch 时不需要重新解释；PPT 里的数据点被客户追问后，在 Outlook 起草回复时 Claude 仍然记得上下文。这把过去 Office 生态里&quot;应用之间靠复制粘贴同步&quot;的最大痛点抹平了。</p>
+<p>原文有一条很具体的引用来自私募客户（早期用的是 Claude Opus 4.6）：</p>
+<blockquote>
+<p>&ldquo;Claude for Excel 从尽职调查到财务建模都是一个极其强大的工具——能以最少的提示智能处理非结构化数据，大幅自动化复杂分析。&rdquo;</p>
+</blockquote>
+<p>这条引用里最值得注意的是&quot;<strong>最少的提示</strong>&quot;——意味着金融分析师不需要学习 prompt 工程，Claude 的价值能直接落到他们的键盘下。</p>
+<h2 id="四生态数据接入决定-agent-的天花板">四、生态：数据接入决定 Agent 的天花板</h2>
+<p>Agent 的能力上限由两件事决定：模型推理质量，和可调用的数据质量。前者由 Opus 4.7 的 64.37% 基准得分背书，后者这次通过 8 个新连接器 + 1 个 MCP 应用一次性补齐。</p>
+<p>
+  <img src="/img/anthropic-finance-agents-launch/04-ecosystem.svg" alt="金融数据生态地图">
+
+</p>
+<h3 id="新增-8-个连接器">新增 8 个连接器</h3>
+<table>
+<thead>
+<tr>
+<th>合作伙伴</th>
+<th>带来的能力</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Dun &amp; Bradstreet</strong></td>
+<td>经验证的全球企业身份标准（D-U-N-S 号码）</td>
+</tr>
+<tr>
+<td><strong>Fiscal AI</strong></td>
+<td>公众股票的实时基本面</td>
+</tr>
+<tr>
+<td><strong>Financial Modeling Prep</strong></td>
+<td>股票 / ETF / 加密 / 外汇 / 大宗的实时数据、基本面、报表、备案</td>
+</tr>
+<tr>
+<td><strong>Guidepoint</strong></td>
+<td>10 万+ 份合规审查过的专家访谈记录</td>
+</tr>
+<tr>
+<td><strong>IBISWorld</strong></td>
+<td>数千行业的收入、风险评分、成本结构、预测</td>
+</tr>
+<tr>
+<td><strong>SS&amp;C Intralinks</strong></td>
+<td>DealCenter AI 数据室，文档搜索、尽调 Q&amp;A</td>
+</tr>
+<tr>
+<td><strong>Third Bridge</strong></td>
+<td>原始专家访谈</td>
+</tr>
+<tr>
+<td><strong>Verisk</strong></td>
+<td>财险 / 意外 / 专业保险数据</td>
+</tr>
+</tbody>
+</table>
+<h3 id="新增-mcp-应用moodys">新增 MCP 应用：Moody&rsquo;s</h3>
+<p>Moody&rsquo;s 以 MCP 应用的形式接入，带来对 <strong>6 亿+ 家公私企业</strong>的专有信用评级与数据，用于合规、信贷分析和业务开发。这是一个信号：对深度行业数据来说，MCP 正在成为&quot;比连接器更重的集成单元&quot;。</p>
+<h3 id="已有合作伙伴">已有合作伙伴</h3>
+<p>叠加早前已接入的 FactSet、S&amp;P Capital IQ、MSCI、PitchBook、Morningstar、Chronograph、LSEG、Daloopa，Claude 在金融数据侧的可触达面显著扩大。Morningstar 和 PitchBook 的联合发言抓住了这件事的本质：</p>
+<blockquote>
+<p>&ldquo;投资者需要可信赖的 AI——信任始于背后的数据。Morningstar 和 PitchBook 将数十年的独立分析师智能带入 Claude。&rdquo;</p>
+</blockquote>
+<p>Dun &amp; Bradstreet 的角度更直白：</p>
+<blockquote>
+<p>&ldquo;风险工作流中的智能体必须了解交易对手方。将 D&amp;B 商业图谱和 D-U-N-S 号码接入 Claude，确保 AI 智能体基于<strong>经过验证</strong>的数据运行。&rdquo;</p>
+</blockquote>
+<p>&ldquo;经过验证的数据&quot;是这次生态扩张的核心价值观——金融机构不接受一个从公开网页拼凑答案的 Agent。</p>
+<h2 id="五客户侧写从试点到ai-优先的分水岭">五、客户侧写：从试点到&quot;AI 优先&quot;的分水岭</h2>
+<p>原文附带了 11 条客户引用，挑几条最有信息量的：</p>
+<p><strong>Walleye Capital（400 人对冲基金）</strong></p>
+<blockquote>
+<p><strong>100% 员工都在使用 Claude Code</strong>，反映了&quot;AI 优先&quot;思维。</p>
+</blockquote>
+<p>对一家非技术背景居多的 400 人对冲基金来说，Claude Code 的全员覆盖率是个相当有分量的数据点。它说明 AI 工具在金融行业里已经越过了&quot;工程师专属&quot;的边界。</p>
+<p><strong>FIS（金融基础设施公司）</strong></p>
+<blockquote>
+<p>FIS 处于全球数千家金融机构资金流动的中心。我们选 Anthropic 作为可信赖的供应商。双方合作的 Agent 把 AML 调查从<strong>数天压缩到数分钟</strong>，后续将推出信贷决策、欺诈防范、存款留存 Agent。</p>
+</blockquote>
+<p>AML（反洗钱）调查从数天到数分钟是一个具体的业务杠杆——这类调查数量大、流程固定、拖慢合规整体吞吐量，极其适合 Agent 化。</p>
+<p><strong>Carlyle（凯雷集团）</strong></p>
+<blockquote>
+<p>Claude 是从投资到运营再到投资组合管理各环节交付价值的核心工具。</p>
+</blockquote>
+<p>头部私募明确把 Claude 放进&quot;核心工具&quot;清单里，这是信号而不是 PR 辞令。</p>
+<p><strong>FactSet</strong></p>
+<blockquote>
+<p>与 Anthropic 的合作让 Claude 进入托管可编程环境。内部工程组织<strong>对 Claude Code 的全公司采用正在加速能力交付</strong>。</p>
+</blockquote>
+<p>FactSet 的引用同时印证了两件事：一是客户（机构投资者、资管、对冲基金、银行）越来越希望直接在精选 FactSet 数据上跑 AI 工作流；二是 FactSet 自己的工程团队全量用 Claude Code 后交付速度加快。这是个很有意思的自洽——数据供应商自己也在用 Claude 来更快地把数据送到 Claude 的用户手上。</p>
+<h2 id="六可用性速查">六、可用性速查</h2>
+<table>
+<thead>
+<tr>
+<th>产品</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10 个 Agent 模板（插件）</td>
+<td>现已可用，所有付费计划，<code>github.com/anthropics/financial-services</code></td>
+</tr>
+<tr>
+<td>Claude Managed Agents</td>
+<td>公开测试版</td>
+</tr>
+<tr>
+<td>新连接器与 Moody&rsquo;s MCP 应用</td>
+<td>联合客户付费计划可用</td>
+</tr>
+<tr>
+<td>Claude for Excel / PowerPoint / Word</td>
+<td>全面可用（GA）</td>
+</tr>
+<tr>
+<td>Claude for Outlook</td>
+<td>即将推出</td>
+</tr>
+</tbody>
+</table>
+<h2 id="结语行业化-agent-的一个模板范式">结语：行业化 Agent 的一个模板范式</h2>
+<p>把这次发布的信号拎出来看，其实不只关于金融：</p>
+<ul>
+<li><strong>模型（Opus 4.7）+ 行业 SOP（Skills）+ 受治理数据（Connectors / MCP）+ 原生软件入口（M365）+ 可托管运行时（Managed Agent）</strong>——这是一套相对完整的&quot;行业 Agent 范式&rdquo;。</li>
+<li>其中每一层都可以替换：金融这次用的是 FactSet / Moody&rsquo;s，医疗可以换成临床数据库，法律可以换成判例库和合同库。</li>
+<li>&ldquo;把资深从业者脑里的 SOP 显式化&quot;的工作，比&quot;调模型参数&quot;带来的杠杆要大得多。模板越具体，迁移越快。</li>
+<li>Human-in-the-loop 没有被抛弃，而是被&quot;分层&rdquo;：高频短任务的人在每一步；长链路托管任务的人只在关键决策节点。</li>
+</ul>
+<p>对已经在用 Claude 的金融机构，这次发布真正值得做的事不是&quot;立刻全量上 10 个模板&quot;，而是：<strong>挑一个最消耗时间、流程最固定、合规成本最高的场景</strong>（比如 KYC 筛查或月末结账），把对应模板拿下来做公司化裁剪，再决定是走桌面插件还是托管 Agent。这条路径的 ROI 在原文客户案例里已经被反复印证。</p>
+<h2 id="参考链接">参考链接</h2>
+<ul>
+<li>原文：<a href="https://www.anthropic.com/news/finance-agents">Agents for financial services</a></li>
+<li>金融服务 Agent 模板：<a href="https://github.com/anthropics/financial-services">github.com/anthropics/financial-services</a></li>
+<li>相关：<a href="https://claude.com/blog/deploying-claude-across-financial-services">Deploying Claude across financial services</a>（同日发布的部署指南）</li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/07/claude-skills-creation-guide/" data-toggle="tooltip" data-placement="top" title="Claude Skills 创建指南：关键步骤、局限性与实战示例">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/15/claude-computer-browser-use-best-practices/" data-toggle="tooltip" data-placement="top" title="Computer Use 工程化指南：拆解 Anthropic 官方《Best Practices》里的 6 条主线">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

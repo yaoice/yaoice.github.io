@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="把『基于 URL 写一篇博文』这条 prompt 救回来：一个 Claude Skill 的设计、打造与三轮评测实录" />
+    <meta property="og:title" content="把『基于 URL 写一篇博文』这条 prompt 救回来：一个 Claude Skill 的设计、打造与三轮评测实录" />
+    <meta property="twitter:title" content="把『基于 URL 写一篇博文』这条 prompt 救回来：一个 Claude Skill 的设计、打造与三轮评测实录" />
+    
+
+    
+    <meta name="description" content="为什么「基于这个 URL 写一篇博文」这条 prompt 几乎注定塌？prompt-optimizer skill 用 5 维度心智模型 &#43; 5 步工作流把它救回来。本文先讲清楚它从概念构思到定型上线的 4 阶段开发过程、设计动机和实现原理，再把一份完整的双轨评测（质量评测 21/21 vs 4/8、触发评测三轮迭代 F1 0.90 → 1.00、全样本 3/3 全票一致）拆给你看，附 8 张数据信息图。读完你会知道——评测 skill 不只是看分数，更是看分数停在 100% 之后还有什么可以改。">
+    <meta property="og:description" content="为什么「基于这个 URL 写一篇博文」这条 prompt 几乎注定塌？prompt-optimizer skill 用 5 维度心智模型 &#43; 5 步工作流把它救回来。本文先讲清楚它从概念构思到定型上线的 4 阶段开发过程、设计动机和实现原理，再把一份完整的双轨评测（质量评测 21/21 vs 4/8、触发评测三轮迭代 F1 0.90 → 1.00、全样本 3/3 全票一致）拆给你看，附 8 张数据信息图。读完你会知道——评测 skill 不只是看分数，更是看分数停在 100% 之后还有什么可以改。" />
+    <meta property="twitter:description" content="为什么「基于这个 URL 写一篇博文」这条 prompt 几乎注定塌？prompt-optimizer skill 用 5 维度心智模型 &#43; 5 步工作流把它救回来。本文先讲清楚它从概念构思到定型上线的 4 阶段开发过程、设计动机和实现原理，再把一份完整的双轨评测（质量评测 21/21 vs 4/8、触发评测三轮迭代 F1 0.90 → 1.00、全样本 3/3 全票一致）拆给你看，附 8 张数据信息图。读完你会知道——评测 skill 不只是看分数，更是看分数停在 100% 之后还有什么可以改。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>把『基于 URL 写一篇博文』这条 prompt 救回来：一个 Claude Skill 的设计、打造与三轮评测实录 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/16/prompt-optimizer-skill-evaluation/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/skills" title="Skills">
+                            Skills
+                        </a>
+                        
+                        <a class="tag" href="/tags/prompt-engineering" title="Prompt Engineering">
+                            Prompt Engineering
+                        </a>
+                        
+                        <a class="tag" href="/tags/evaluation" title="Evaluation">
+                            Evaluation
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                    </div>
+                    <h1>把『基于 URL 写一篇博文』这条 prompt 救回来：一个 Claude Skill 的设计、打造与三轮评测实录</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Saturday, May 16, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <p>
+  <img src="/img/prompt-optimizer-skill-evaluation/cover.svg" alt="把&amp;quot;模糊一句话&amp;quot;重写成深度博文 prompt：prompt-optimizer skill 的设计与三轮评测">
+
+</p>
+<p>如果你在用 Claude（或任何 LLM）写过技术博文，应该熟悉这种沮丧——</p>
+<p>你给它一句&quot;基于 <a href="https://xxx.com">https://xxx.com</a>，写一篇博文，图文并茂&quot;，它给你一篇<strong>看上去什么都对、读完什么都没记住</strong>的 AI 百科。配图只有一张封面，结构是干巴巴的&quot;是什么 / 为什么 / 怎么用&quot;，论点是<strong>复述原文</strong>的一个稍微改写版本，发出去基本没人转。</p>
+<p>你换了几个模型、加了几句&quot;请深入分析、要有洞察&quot;，效果略好但仍不稳。问题不在模型——<strong>问题在 prompt 漏掉了太多信号</strong>。</p>
+<p><code>prompt-optimizer</code> 是一个为这个高频失败模式量身定做的 <a href="https://www.anthropic.com/news/skills">Claude Skill</a>。它不是通用 prompt 优化器，<strong>只服务一种场景：用户给一个 URL / 一份资料 / 一个主题，让 LLM 写一篇博客发表级别的图文长文</strong>。这种需求的失败模式高度集中——所以可以按一份固定的&quot;维度清单&quot;去补。</p>
+<p>本文做三件事：</p>
+<ol>
+<li><strong>打造过程</strong>：从一次糟糕的写作经验讲起，拆开它从概念构思到定型上线的 4 个阶段、每个阶段的关键决策</li>
+<li><strong>设计部分</strong>：拆开它的 5 维度心智模型与 5 步工作流，讲清楚&quot;它怎么把模糊 prompt 变成可执行的深度 prompt&quot;</li>
+<li><strong>评测部分</strong>：把我刚做完的一份双轨评测（5 case 质量评测 + 20 query 三轮触发评测）的真实数据贴给你看——包括 F1 怎么从 0.90 推到 1.00、然后<strong>100% 之后还能怎么继续进步</strong></li>
+</ol>
+<blockquote>
+<p>提前说一个反常识：<strong>分数停在 100% 之后还能继续改 skill</strong>——这次实验的最后一轮，分数没变，但 skill 变得更稳了。怎么做到的、为什么值得做，文章后半段会拆开讲。</p>
+</blockquote>
+<hr>
+<h2 id="一引言为什么模糊一句话写作-prompt几乎注定会塌">一、引言：为什么&quot;模糊一句话写作 prompt&quot;几乎注定会塌</h2>
+<p>先用一张图把这事说清。</p>
+<p>
+  <img src="/img/prompt-optimizer-skill-evaluation/funnel.svg" alt="模糊 prompt 的失败漏斗：每丢一个维度，写作质量按几何级数下滑">
+
+</p>
+<p>一句&quot;基于 URL 写博文&quot;看似清楚，实则<strong>至少缺 5 类信号</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>缺的信号</th>
+<th>LLM 会怎么默认它</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>受众</td>
+<td>&ldquo;应该写给所有人看&rdquo;</td>
+<td>中性、平均、谁都能看 = 谁都不记得</td>
+</tr>
+<tr>
+<td>内容深度</td>
+<td>&ldquo;把原文要点总结一下就行&rdquo;</td>
+<td>复述 + 罗列 = 没洞察</td>
+</tr>
+<tr>
+<td>结构骨架</td>
+<td>&ldquo;随便写到哪算哪&rdquo;</td>
+<td>虎头蛇尾、结尾仓促</td>
+</tr>
+<tr>
+<td>视觉协同</td>
+<td>&ldquo;插一张封面就完事&rdquo;</td>
+<td>只有 banner，正文裸奔</td>
+</tr>
+<tr>
+<td>阅读体验</td>
+<td>&ldquo;尽量流畅就好&rdquo;</td>
+<td>段落冗长、术语堆砌</td>
+</tr>
+</tbody>
+</table>
+<p>每丢一个维度，写作质量按几何级数下滑——5 个全丢（这是模糊 prompt 的常态），漏斗底部就是一篇没人想看完的稿子。</p>
+<p>很多人遇到这个问题的反应是&quot;换更好的模型 / 加更多形容词&quot;。但<strong>形容词救不了你</strong>——&ldquo;请深入分析、要有洞察、语言生动&quot;这些词在数百万训练样本里被滥用过太多次，模型已经学会把它们当装饰品而不是约束。</p>
+<p><code>prompt-optimizer</code> 的思路很朴素：<strong>把&quot;模糊&quot;翻译成&quot;具体的 5 个维度信号&rdquo;，强制每个维度都要给出可执行的值</strong>。</p>
+<hr>
+<h2 id="二skill-是怎么造出来的从一次糟糕的写作经验到一个可复用-skill">二、Skill 是怎么造出来的：从一次糟糕的写作经验到一个可复用 skill</h2>
+<p>讲完痛点，先别急着看 skill 长什么样。<strong>一个好用的 skill 不是设计出来的，是从一连串失败案例里被&quot;逼&quot;出来的</strong>——下面把这个 skill 从概念到上线的完整开发过程拆给你看，4 个阶段，每个阶段都对应一个真实的失败 → 一个具体的决策。</p>
+<p>
+  <img src="/img/prompt-optimizer-skill-evaluation/development-journey.svg" alt="从概念构思到定型上线：每个决策都来自一个真实的失败案例">
+
+</p>
+<h3 id="阶段一--概念构思先想清楚不做什么">阶段一 · 概念构思：先想清楚&quot;不做什么&quot;</h3>
+<p>最早的想法是做一个&quot;通用 prompt 优化器&quot;——任何模糊的 prompt 都帮用户改清楚。这个想法听起来很美，但很快被自己劝退了。原因有两条：</p>
+<ol>
+<li><strong>&ldquo;模糊&quot;的失败模式因场景而异</strong>。代码生成 prompt 的失败是&quot;格式不合规、type 乱造&rdquo;；写作 prompt 的失败是&quot;没图、没结构、复述原料&quot;；Agent 行为 prompt 的失败是&quot;边界没写清、上下文管理失控&quot;。<strong>你不可能用同一份维度清单去补所有场景</strong>。</li>
+<li><strong>场景越宽，维度越虚</strong>。一旦尝试覆盖所有 prompt 类型，唯一能写出的东西就只剩&quot;请清晰、请具体、请有结构&quot;这种<strong>形容词级别的废话</strong>——而这恰恰是 LLM 已经学会无视的指令。</li>
+</ol>
+<p>于是做了第一个关键决策——<strong>收窄场景</strong>：</p>
+<blockquote>
+<p>这个 skill 只服务一类高频塌方需求：<strong>用户给一个 URL / 一份资料 / 一个主题，让 LLM 写一篇博客发表级别的图文长文</strong>。其它一切都不管。</p>
+</blockquote>
+<p>这条原则上看是放弃了 90% 的潜在用户，但<strong>收窄 = 把&quot;维度清单&quot;做实的前提</strong>。后面的 5 维度心智模型只有在这个窄场景里才不是空话。</p>
+<p>这也是 <a href="https://www.anthropic.com/news/skills">Anthropic 在 Skills 设计指南</a> 里反复强调的——<strong>skill 不是越宽越好，&ldquo;description 写清楚什么时候触发、什么时候不触发&quot;是它最重要的工程能力</strong>。</p>
+<h3 id="阶段二--架构设计主文档要轻细节要分层">阶段二 · 架构设计：主文档要轻，细节要分层</h3>
+<p>下一步要回答一个具体问题——<strong>SKILL.md 主文档里应该塞什么、不塞什么</strong>？</p>
+<p>Claude Skills 的机制核心是<strong>渐进披露（progressive disclosure）</strong>：模型先看 description 决定要不要触发；触发了才加载 SKILL.md 主文档；主文档里再决定要不要进一步去读 references。这意味着——<strong>主文档每一行都会进入工作上下文，越长越占 token、越容易稀释关键信号</strong>。</p>
+<p>按这个原则把内容分了三层：</p>
+<pre tabindex="0"><code>prompt-optimizer/
+├── SKILL.md                              ← 主文档（方法论 + 工作流 + 铁律）
+│                                            注：被触发后必加载，要短而精
+├── references/
+│   ├── 5-dimensions-checklist.md         ← 5 维度的逐项检查清单
+│   └── before-after-gallery.md           ← 跨领域对照范例
+│                                            注：按需引用，长卷宗放这里
+└── templates/
+    └── optimized-prompt-template.md      ← 可直接 fork 的最终骨架
+                                             注：模型主动 read 时使用
+</code></pre><p>关键决策是——<strong>主文档只放&quot;理解 + 决策&quot;层面的内容</strong>（场景定义、5 维度心智模型、5 步工作流、反触发清单），所有**&ldquo;长例子、详细对照、可复制模板&quot;全部下沉到 references/ 和 templates/**。</p>
+<p>主文档越短，模型越能记住核心动作；细节按需加载，反而执行得更准。这条原则在后面的评测里被反复证明有效——经过三轮 description 修订，主文档正文一行没动，因为它确实是&quot;决策层&quot;该有的样子。</p>
+<h3 id="阶段三--实现细节5-维度怎么找出来的step-5-是怎么发明的">阶段三 · 实现细节：5 维度怎么找出来的？Step 5 是怎么发明的？</h3>
+<p>主文档要写哪些内容？这是 skill 的<strong>核心实现</strong>问题。</p>
+<h4 id="5-维度从失败模式逆推">5 维度从&quot;失败模式逆推&rdquo;</h4>
+<p>5 维度不是凭&quot;我觉得写文章需要这几样&quot;想出来的，而是<strong>从 LLM 在裸 prompt 下的真实失败模式逆推出来的</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>失败模式（观察到的）</th>
+<th>缺失的信号（逆推出的维度）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>写成&quot;百科条目&rdquo;，谁都能看谁都不记得</td>
+<td>缺 <strong>① 角色受众</strong></td>
+</tr>
+<tr>
+<td>复述原文要点，没洞察没判断</td>
+<td>缺 <strong>② 内容深度</strong></td>
+</tr>
+<tr>
+<td>虎头蛇尾，结尾仓促</td>
+<td>缺 <strong>③ 结构骨架</strong></td>
+</tr>
+<tr>
+<td>一张封面交差，正文裸奔</td>
+<td>缺 <strong>④ 视觉协同</strong></td>
+</tr>
+<tr>
+<td>段落冗长、术语堆砌</td>
+<td>缺 <strong>⑤ 阅读体验</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>先观察失败、再倒推维度</strong>——这个顺序很重要。如果反过来&quot;先设计维度、再去匹配失败&quot;，往往会陷入&quot;维度无限增加但仍盖不住实际失败&quot;的尴尬。</p>
+<h4 id="step-5-这条铁律是怎么被发现的">Step 5 这条铁律是怎么被发现的</h4>
+<p>5 维度补齐到位，已经能让 LLM 写出<strong>结构清晰的优化版 prompt</strong>。但实际使用中很快发现一个隐性失败模式——<strong>LLM 把优化版 prompt 写完后会&quot;自然停下&quot;，等用户再说&quot;那现在开始写吧&quot;</strong>。</p>
+<p>这一停就毁了整个体验。</p>
+<p>用户的真实期望从来不是拿到一段更漂亮的 prompt，<strong>用户想要的是文章本身</strong>——优化 prompt 只是手段。但模型不知道这一点，它觉得&quot;优化 prompt 这个任务完成了，可以交差了&quot;。</p>
+<p>于是加了第 5 步铁律——<strong>Step 5：直接执行优化后的提示词（不要等用户再说一句&quot;开始&quot;）</strong>：</p>
+<blockquote>
+<p>优化提示词的最终目的是产出文章，不是产出一段更漂亮的 prompt。所以 Step 4 输出完毕后，必须立刻把这条优化版提示词当作下一步的输入，直接开始执行写作任务。</p>
+</blockquote>
+<p>这条铁律的本质是<strong>显式化了用户的隐性约束</strong>——&ldquo;你优化完，我接着用&rdquo;——并强制模型把它当成同一个任务的两个连续阶段。</p>
+<p>后面的质量评测会反复看到这条铁律的威力：eval-1 baseline 直接停下不写，eval-4 baseline 改完 prompt 就停——这两个 case 上 with_skill 和 baseline 的差距，<strong>几乎全部来自 Step 5 铁律</strong>。</p>
+<blockquote>
+<p><strong>设计 skill 的反常识经验</strong>：找到那个&quot;用户没说但显然想要&quot;的隐性约束，并强制要求执行它，比写更长的指令更有用。</p>
+</blockquote>
+<h3 id="阶段四--定型上线让-skill-知道自己什么时候不该上">阶段四 · 定型上线：让 skill 知道自己什么时候不该上</h3>
+<p>最后一个决策是关于<strong>边界</strong>。</p>
+<p>一个 skill 最容易翻车的地方不是&quot;它该做的事没做好&quot;，而是&quot;它在不该上的时候硬上&quot;——硬要给 commit message 加 4 张配图、硬要给 SQL prompt 写&quot;引言 / 案例 / 总结&quot;。一旦发生，用户体验比&quot;没有这个 skill&quot;还差。</p>
+<p>于是把&quot;反触发清单&quot;放进了 description 字面（而不是只放在 SKILL.md 正文里）：</p>
+<pre tabindex="0"><code>不要用于代码生成、数据查询、Agent 行为定义这类非写作 prompt；
+也不要用于最终产物不对外发表的场景（如 commit message、内部邮件、
+内部周报/RFC、PPT 大纲、slogan）——判断依据是&#34;用户最终要交付什么&#34;，
+不是&#34;原料来自哪里&#34;。
+</code></pre><p>为什么放在 description 字面而不是 SKILL.md 正文？因为 <strong>description 是 skill 召回时唯一被模型看到的东西</strong>。要让 skill 在被召回前就知道&quot;我不该上&quot;，必须把反触发清单<strong>贴到 description 里</strong>——只放在 SKILL.md 正文里，要等模型把整个 skill 拉起来才能看到，那时已经晚了。</p>
+<p>这一条直接决定了后面触发评测能不能拿到 100% specificity——后面三轮迭代里 v2/v3 的演化，<strong>几乎全部是在改这条反触发线的措辞</strong>。</p>
+<h3 id="一句话回看整个开发过程">一句话回看整个开发过程</h3>
+<p>这 4 个决策连起来，是一条非常清晰的开发节奏——</p>
+<blockquote>
+<p><strong>收窄场景 → 分层架构 → 从失败模式逆推规则 → 显式标注边界。</strong></p>
+</blockquote>
+<p>注意：每个决策都来自一个<strong>具体的失败案例</strong>，而不是&quot;我觉得这样比较优雅&quot;。skill 开发是个<strong>经验驱动</strong>的过程，先有&quot;它塌了&quot;的观察，才有&quot;我们该补什么&quot;的设计。这一点在后面的评测里会被反复验证——三轮 description 迭代每一轮的修订，<strong>没有一处是凭直觉改的，全部是从 trigger eval 暴露的具体 query 失败案例反推出来的</strong>。</p>
+<p>下面这一节就来看 skill 最终成型后长什么样——同样的内容你已经在上面的&quot;5 维度 × 5 步&quot;里隐约见过了，这次给它一个完整、静态的拆解。</p>
+<hr>
+<h2 id="三skill-长什么样5-维度心智模型--5-步工作流">三、Skill 长什么样：5 维度心智模型 × 5 步工作流</h2>
+<p>经过上面 4 个阶段，skill 最终成型后的核心由两个东西构成——<strong>一份 5 维度补齐清单</strong>和<strong>一份 5 步工作流</strong>。两者配合，把模糊 prompt 变成可执行的深度 prompt。</p>
+<p>
+  <img src="/img/prompt-optimizer-skill-evaluation/skill-design.svg" alt="prompt-optimizer 的设计：5 维度补齐清单 × 5 步工作流">
+
+</p>
+<h3 id="5-维度补齐清单核心心智模型">5 维度补齐清单（核心心智模型）</h3>
+<p>绝大多数&quot;写博文&quot;的模糊 prompt，在下面这 5 个维度里至少缺 4 个：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>缺失时 LLM 会做什么</th>
+<th>补齐后 LLM 会做什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>① 角色受众</strong></td>
+<td>写成&quot;百科条目&quot;</td>
+<td>锁定身份 / 阶段 / 知识起点</td>
+</tr>
+<tr>
+<td><strong>② 内容深度</strong></td>
+<td>复述原文 / 罗列要点</td>
+<td>提炼洞察 + 案例 + 反常识判断</td>
+</tr>
+<tr>
+<td><strong>③ 结构骨架</strong></td>
+<td>虎头蛇尾</td>
+<td>引言 / 核心 / 案例 / 总结，每段有功能</td>
+</tr>
+<tr>
+<td><strong>④ 视觉协同</strong></td>
+<td>一张 banner 完事</td>
+<td>关键节点点名&quot;在哪要图&quot;</td>
+</tr>
+<tr>
+<td><strong>⑤ 阅读体验</strong></td>
+<td>段落冗长</td>
+<td>排版分块 / 风格选定 / 节奏感</td>
+</tr>
+</tbody>
+</table>
+<p>记住这张表。Skill 的所有动作都围绕&quot;把这 5 个维度补齐&quot;展开。</p>
+<h3 id="5-步工作流">5 步工作流</h3>
+<pre tabindex="0"><code>Step 1 · 收集（不要急着改）
+Step 2 · 5 维度补齐
+Step 3 · 编排成最终提示词
+Step 4 · 自检 + 一次缩减
+Step 5 · 立即执行写正文 ⚡
+</code></pre><p>前 4 步好理解。<strong>Step 5 是这个 skill 的灵魂</strong>——它强制要求&quot;优化版 prompt 输出后，紧接着用它当输入立即开始写正文&quot;，把 prompt 优化和正文产出做成同一次响应里的两个连续阶段，不要停下来问&quot;要不要现在开始？&quot;。</p>
+<p>为什么这条很关键？因为大多数 LLM 在写完优化版 prompt 后会<strong>自然停下</strong>——它觉得任务完成了。但用户的真实目的从来不是拿到一段更漂亮的 prompt，<strong>用户想要的是文章本身</strong>。Step 5 把这个隐性期望显式化，根除了&quot;优化完不写正文&quot;的失败模式。</p>
+<p>后面评测部分会看到，<strong>这一条铁律是 baseline 和 skill 在某些 case 上拉开差距的最大原因</strong>。</p>
+<hr>
+<h2 id="四质量评测with_skill-2121-vs-baseline-48">四、质量评测：with_skill 21/21 vs baseline 4/8</h2>
+<p>理论部分到此，接下来用数据说话。我设计了 5 个真实写作场景，每个跑两份：一份让子代理读完 SKILL.md 再执行（with_skill），一份不读 skill 直接按裸 LLM 本能反应（baseline）。然后用一组客观断言自动 grading。</p>
+<h3 id="5-个测试-case">5 个测试 case</h3>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>输入 prompt</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>eval-0</td>
+<td>&ldquo;基于 anthropic.com/news/claude-skills 写一篇博文，图文并茂&rdquo;</td>
+<td>典型 URL 博文</td>
+</tr>
+<tr>
+<td>eval-1</td>
+<td>&ldquo;写一篇关于 AI Agent 在 2026 年的发展趋势的深度文章&rdquo;</td>
+<td>纯主题无原料</td>
+</tr>
+<tr>
+<td>eval-2</td>
+<td>&ldquo;根据下面这段资料写一篇技术解读：&hellip;&rdquo;</td>
+<td>资料型解读</td>
+</tr>
+<tr>
+<td>eval-3</td>
+<td>&ldquo;帮我写个 git commit message 优化的提示词&rdquo;</td>
+<td><strong>反触发用例</strong></td>
+</tr>
+<tr>
+<td>eval-4</td>
+<td>&ldquo;帮我把这条 prompt 改清楚一点：写一篇讲 Claude Skills 的文章&rdquo;</td>
+<td>显式索取（短输入）</td>
+</tr>
+</tbody>
+</table>
+<p>eval-3 是一个<strong>陷阱用例</strong>——它看起来像&quot;prompt 优化请求&quot;，但 commit message 在 skill 自己的反触发清单里，正确行为应该是<strong>不</strong>走 5 维度博文流程。</p>
+<h3 id="客观断言通过率对比">客观断言通过率对比</h3>
+<p>
+  <img src="/img/prompt-optimizer-skill-evaluation/quality-bars.svg" alt="质量评测：with_skill 21/21 (100%) 全面碾压 baseline 4/8 (50%)">
+
+</p>
+<p>总分：<strong>with_skill 21/21（100%） vs baseline 4/8（50%）</strong>。</p>
+<p>但分数本身不是重点。<strong>重点是失败模式的差异</strong>——这是评测最值钱的部分。</p>
+<h4 id="三大失败模式被-skill-完全消除">三大失败模式被 skill 完全消除</h4>
+<p><strong>失败模式一：遇模糊 prompt 不敢动笔写</strong></p>
+<p>eval-1（纯主题深度文）的 baseline 子代理收到&quot;写一篇 AI Agent 2026 趋势的深度文章&quot;后，<strong>直接停下来</strong>报告&quot;工具不足、信息不够、请补充澄清&quot;。它没有写任何文章。0/1 通过。</p>
+<p>而读了 skill 的子代理直接进入产出——按 5 维度补出&quot;AI 应用开发者 / 6 条结构性趋势 / 三段式论证 / 每条趋势配概念图&quot;等约束，一口气写出近 8000 字符的完整产出（优化版 prompt + 完整正文 + 7 段配图描述）。</p>
+<p><strong>这正是 Step 5 铁律存在的意义</strong>。</p>
+<p><strong>失败模式二：优化完 prompt 就停下，不写正文</strong></p>
+<p>eval-4 是更典型的差异点——用户说&quot;帮我把这条 prompt 改清楚一点：写一篇讲 Claude Skills 的文章&quot;。</p>
+<ul>
+<li><strong>baseline</strong>：给出了一份漂亮的&quot;改写后 prompt + 7 个改写维度对照表&quot;，然后<strong>停了</strong>。它觉得任务已经完成。</li>
+<li><strong>with_skill</strong>：先给优化版 prompt，紧接着一句过渡话——&ldquo;下面按上面这条提示词直接开写——&quot;，然后产出整整一篇带 5 节配图描述的深度博文。</li>
+</ul>
+<p>baseline 在客观断言上其实也通过了（因为我的断言只测&quot;是否给了 prompt 优化建议&rdquo;），但<strong>实际质量塌</strong>——用户得到的不是文章，是一份&quot;作业说明&quot;。这个差异在表面分数上看不出来，要看实际产物才能感知。</p>
+<p><strong>失败模式三：原料缺失硬编内容</strong></p>
+<p>eval-0 让子代理基于一个 URL 写博文。但子代理（code-explorer 子代理）实际没有 web_fetch 工具。</p>
+<ul>
+<li><strong>baseline</strong>：基于训练数据印象<strong>硬编内容</strong>，文章里出现 <code>via.placeholder.com/800x400.png?text=Claude+Skills</code> 这种假图链。事实细节多处与官方说法对不上。</li>
+<li><strong>with_skill</strong>：按 SKILL.md 的「Step 5 例外条件②」<strong>正确停下</strong>，报告&quot;原料缺失，请补料&quot;——给出 4 种补料方式让用户选。</li>
+</ul>
+<p>这正是 skill 反模式条款&quot;不要让 LLM 在没读原料的情况下产出&quot;想防住的——<strong>不在原文支撑下铺出来的内容，再漂亮也是污染</strong>。</p>
+<hr>
+<h2 id="五触发评测f1-从-090-到-100-的三轮迭代">五、触发评测：F1 从 0.90 到 1.00 的三轮迭代</h2>
+<p>质量评测告诉我们 skill <strong>被触发后能干好活</strong>。但还有另一半问题——<strong>它会不会在该触发时被触发，在不该触发时被准确拒绝</strong>？</p>
+<p>这就是触发评测要解决的问题。我设计了 20 个 query（10 应触发 + 10 不应触发，包含口语化、错别字、近似命中等真实用法），每个 query 由独立子代理判定 3 次（多数票决定最终是否触发）。</p>
+<h3 id="三轮迭代的完整轨迹">三轮迭代的完整轨迹</h3>
+<p>
+  <img src="/img/prompt-optimizer-skill-evaluation/trigger-progress.svg" alt="触发评测三轮迭代：F1 0.90 → 1.00 &#43; confidence 4.28 → 4.45 → 4.60">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>iter1 (v1)</th>
+<th>iter2 (v2)</th>
+<th>iter3 (v3)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Accuracy / F1</td>
+<td><strong>90%</strong> / 0.90</td>
+<td><strong>100%</strong> / 1.00</td>
+<td><strong>100%</strong> / 1.00</td>
+</tr>
+<tr>
+<td>平均 confidence</td>
+<td>4.28</td>
+<td>4.45</td>
+<td><strong>4.60</strong></td>
+</tr>
+<tr>
+<td>3/3 全票一致</td>
+<td>17/20</td>
+<td>19/20</td>
+<td><strong>20/20 🎯</strong></td>
+</tr>
+</tbody>
+</table>
+<p>iter1 是基线评测——结果发现 description 已经&quot;够用&quot;但有 3 个边界洞：q4 弱判定、q10 漏召、q20 误召。</p>
+<h3 id="iter1--iter23-处补丁拿满分">iter1 → iter2：3 处补丁拿满分</h3>
+<p>
+  <img src="/img/prompt-optimizer-skill-evaluation/iteration-timeline.svg" alt="三轮 description 迭代时间线：每一轮都从评测里读出一个具体洞察">
+
+</p>
+<p>针对 iter1 暴露的 3 个边界，v2 做了 3 处对症下药的修订：</p>
+<ol>
+<li><strong>触发线 A 末尾</strong>追加 <code>&quot;或给一段自己写的初稿要求重写为博文&quot;</code> → 修 q10</li>
+<li><strong>新增一句判定标准</strong>：<code>&quot;判定模糊的标准是没说清受众/结构/视觉/风格——即便主题明确、字数指定，缺这些信号仍算模糊&quot;</code> → 修 q4</li>
+<li><strong>反触发线扩展</strong>：从<code>代码生成 / 数据查询 / Agent 行为定义</code>扩到 <code>commit message / 邮件 / 内部报告 / 内部 RFC</code> → 修 q20</li>
+</ol>
+<p>字数 153 → 217。改完拿到 <strong>F1 = 1.00</strong>。</p>
+<h3 id="iter2--iter3分数停在-100-之后还能进步">iter2 → iter3：分数停在 100% 之后还能进步</h3>
+<p>很多人会在 F1 = 1.00 时收手。但<strong>触发评测里有比&quot;分数&quot;更细的信号</strong>——v2 虽然 100% 准确率，但 <strong>q3 出现了 2/3 弱判定</strong>（其它 19 个都是 3/3 全票）。</p>
+<p>挖一下原因：</p>
+<blockquote>
+<p>q3 用户输入（精简）：「我把老板发的<strong>内部讨论稿</strong>贴下面……帮我<strong>改写成可以发在公众号上的深度解读</strong>」</p>
+</blockquote>
+<p>q3 的第一票判 false，理由是：<code>&quot;内部讨论稿，description排除内部RFC&quot;</code>——子代理只看到&quot;内部讨论稿&quot;几个字，匹配上 v2 反触发线里&quot;内部 RFC&quot;，就判 false 了。<strong>它没看完整句话</strong>——输入是内部稿，但产物要发公众号。</p>
+<p>这是 v2 反触发线的措辞副作用：<strong>&ldquo;内部 X&rdquo; 变成了过强的字面信号</strong>。</p>
+<p>修这个的关键洞察是：<strong>判触发与否，应该看用户最终想要什么（产物形态），而不是用户给我的原料是什么</strong>。</p>
+<p>v3 把反触发线整体重构：</p>
+<pre tabindex="0"><code>v2: 不要用于 ... commit message / 邮件 / 内部报告 / 内部 RFC 这类非&#34;对外发表&#34;的写作 prompt。
+        ↓
+v3: 不要用于代码生成、数据查询、Agent 行为定义这类非写作 prompt；也不要用于
+   最终产物不对外发表的场景（如 commit message、内部邮件、内部周报/RFC、
+   PPT 大纲、slogan）——判断依据是&#34;用户最终要交付什么&#34;，不是&#34;原料来自哪里&#34;。
+</code></pre><p>字数 217 → 257。改完跑回归：</p>
+<ul>
+<li>✅ q3：vote 2/3 → <strong>3/3</strong></li>
+<li>✅ q17/q18/q19（翻译/PPT/slogan 反例）confidence 都从 4.0 升到 5.0</li>
+<li>✅ <strong>0 硬回归 + 0 共识弱化</strong></li>
+<li>✅ 全样本 <strong>20/20 全票一致</strong>，平均 confidence 推到 <strong>4.60</strong></li>
+</ul>
+<p>至此触发评测真正触顶——<strong>分数 100%、一致性 100%、平均坚定度 4.60/5</strong>。</p>
+<h3 id="两条反常识结论">两条反常识结论</h3>
+<p>跑完这三轮，沉淀下来两条值得记住的判断：</p>
+<p><strong>① description 的护城河，是&quot;看产物不看原料&quot;</strong></p>
+<p>iter2 → iter3 的修订没有加新规则，只是把判据从&quot;原料类型&quot;改成了&quot;产物去向&quot;。这一句&quot;判断依据是用户最终要交付什么&quot;是整个 description 里最值钱的一句——它替代了对反例的字面列举，让模型自己去想清楚每条 query 的本质。</p>
+<p>写 skill description 的常见误区是<strong>把反例列得越长越好</strong>。但反例越长，<strong>字面冲突越多</strong>——v2 的&quot;内部 RFC&quot;在 q3 上踩中的就是这种坑。<strong>让模型理解判据的&quot;原则&quot;，比给它一个&quot;反例清单&quot;更稳</strong>。</p>
+<p><strong>② 触发评测能找到质量评测找不到的问题</strong></p>
+<p>q3 在质量评测里是<strong>完美通过</strong>的——它属于 eval-2（资料型解读），with_skill 在那个 case 上拿了 6/6 满分。如果只看质量评测，你会觉得 description 没问题。</p>
+<p>但触发评测让 60 个独立子代理只读 description 不读正文，就<strong>直接暴露</strong>了 description 的字面陷阱。<strong>这是质量评测做不到的</strong>——质量评测是&quot;模型已经被触发后能干多好&quot;，触发评测是&quot;description 字面措辞的稳健性&quot;。两者都做才能看到全貌。</p>
+<hr>
+<h2 id="六三轮迭代复盘每一轮的洞察长什么样">六、三轮迭代复盘：每一轮的&quot;洞察&quot;长什么样</h2>
+<table>
+<thead>
+<tr>
+<th>迭代</th>
+<th>改了什么</th>
+<th>收益</th>
+<th>暴露的新问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>iter1 → iter2</td>
+<td>+3 处补丁</td>
+<td>F1 0.90 → 1.00</td>
+<td>q3 出现 2/3 弱判定</td>
+</tr>
+<tr>
+<td>iter2 → iter3</td>
+<td>重构反触发线，从&quot;列原料&quot;改&quot;看产物&quot;</td>
+<td>全票 19/20 → 20/20，conf 4.45 → 4.60</td>
+<td>无</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关键工程实践</strong>——每轮迭代都做了 3 件事：</p>
+<ol>
+<li><strong>明确目标</strong>：列出要修复的 query 编号 + 期望结果（&ldquo;q3 vote 应从 2/3 提升到 3/3&rdquo;）</li>
+<li><strong>跑回归</strong>：用同一份 20 query 全跑一遍，确认 0 硬回归</li>
+<li><strong>多维指标</strong>：除 F1 外，还看&quot;3/3 全票数&quot;、&ldquo;平均 confidence&rdquo;——这些副指标在分数饱和后还能告诉你 description 是否真的稳</li>
+</ol>
+<p>第 3 点特别重要。<strong>不止一个评测告诉你&quot;100% 后还能改&quot;</strong>：confidence 从 4.28 → 4.45 → 4.60 的爬升，3/3 全票从 17 → 19 → 20 的提升，都说明 description 不是只&quot;答对&quot;了，还在变得<strong>更难被字面误读</strong>。这种&quot;鲁棒性&quot;的提升在分数上看不见，但在生产环境里直接决定你的 skill 在边角 query 上是否会忽然失常。</p>
+<hr>
+<h2 id="七什么时候你应该用-prompt-optimizer">七、什么时候你应该用 prompt-optimizer</h2>
+<p>写完了三轮评测，回头看，这个 skill 适合的场景其实非常明确——</p>
+<p>
+  <img src="/img/prompt-optimizer-skill-evaluation/decision-tree.svg" alt="什么时候该让 prompt-optimizer 接手：一张决策树">
+
+</p>
+<p><strong>四条都满足，就用 skill</strong>：</p>
+<ol>
+<li>产物是<strong>对外发表</strong>的深度博文（不是 commit / 邮件 / 内部 RFC / PPT / slogan）</li>
+<li>不属于<strong>代码生成 / 数据查询 / Agent 行为定义</strong>这些非写作 prompt</li>
+<li>原始 prompt <strong>没说清</strong>受众、结构、视觉、风格四个信号中的至少一个</li>
+<li>你接受 skill 在优化完 prompt 后<strong>立即接着写正文</strong>（这是默认行为）</li>
+</ol>
+<p>否则就<strong>不</strong>用——硬套博文流程会引入&quot;配图&quot;&ldquo;分章节&quot;等无关约束，反而降低产出质量。eval-3 那个 commit message 用例就是反例：with_skill 子代理读完 SKILL.md 后正确识别&quot;这不是博文场景&rdquo;，没有走 5 维度流程，而是切换到普通 prompt 设计建议。这种&quot;知道自己什么时候不该上&quot;的能力，比&quot;什么场景都强行套用&quot;更值钱。</p>
+<hr>
+<h2 id="八总结评测-skill-的-7-条带走清单">八、总结：评测 skill 的 7 条带走清单</h2>
+<p>如果你也想给自己的 skill 做一次类似的双轨评测，下面是这次实验留下的可复用经验：</p>
+<ol>
+<li><strong>质量评测和触发评测要双轨跑</strong>。前者看&quot;被触发后能干多好&quot;，后者看&quot;description 字面措辞的稳健性&quot;。两者答案经常不一样。</li>
+<li><strong>测试用例里要塞反触发用例</strong>（eval-3 commit message、q15 改 skill description 等）。这些近似命中的边界比正向用例更能暴露 description 的薄弱处。</li>
+<li><strong>触发评测每个 query 跑 ≥ 3 次独立判定</strong>。多数票决定 verdict，但<strong>少数票（2/3）本身就是信号</strong>——告诉你 description 在哪条边界上不够稳。</li>
+<li><strong>F1 之外还要看 confidence 和 3/3 全票一致率</strong>。分数停在 100% 之后这两个指标还能继续暴露问题。</li>
+<li><strong>description 修订要可回归</strong>。每改一处都跑同一份评测集，确认 0 硬回归 + 0 共识弱化才落地。</li>
+<li><strong>判断依据写&quot;原则&quot;比写&quot;反例清单&quot;更稳</strong>。反例越长字面冲突越多，原则一句话覆盖一片。</li>
+<li><strong>skill 的核心铁律比 5 维度更难发明</strong>。<code>prompt-optimizer</code> 的 Step 5「优化即执行」是这个 skill 真正的灵魂——它根除了一个隐性失败模式（优化完不写正文）。设计 skill 时，<strong>找到那个&quot;用户没说但显然想要&quot;的隐性约束，并强制要求执行它</strong>，比写更长的指令更有用。</li>
+</ol>
+<hr>
+<p>最后留一个值得自己琢磨的问题——</p>
+<blockquote>
+<p>你写过的 prompt / skill / system prompt，<strong>有没有跑过类似的双轨评测</strong>？如果没有，你怎么知道它真的有用？</p>
+</blockquote>
+<p>评测不是上线前的可选项，<strong>评测是你的 prompt 真实质量的镜子</strong>。这次实验完整跑下来花了不到 1 小时，但回报是：从此对这个 skill 的能力边界<strong>有底</strong>了——知道它什么时候稳、什么时候会失常、改一行字会带来什么副作用。</p>
+<blockquote>
+<p>本文用到的全部脚本、20 query 评测集、180 次召回判定的原始数据、三轮 iteration 报告，都在仓库 <code>.codebuddy/skills/prompt-optimizer-workspace/</code> 下，可复跑可扩展。</p>
+</blockquote>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/15/founders-playbook-ai-native-startup/" data-toggle="tooltip" data-placement="top" title="10 人独角兽不再是故事：拆解 Anthropic《创始人手册》里的 AI-native 创业新路线">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Perplexity 的 Agent Skills：一套与 Zen of Python 几乎完全反向的设计哲学" />
+    <meta property="og:title" content="Perplexity 的 Agent Skills：一套与 Zen of Python 几乎完全反向的设计哲学" />
+    <meta property="twitter:title" content="Perplexity 的 Agent Skills：一套与 Zen of Python 几乎完全反向的设计哲学" />
+    
+
+    
+    <meta name="description" content="Perplexity 把 Agent Skills 当一等公民来设计、迭代、维护。本文从原文出发，提炼五条反直觉心智模型——Zen of Skills、四属性、三层上下文成本、Description 即路由、Gotchas Flywheel——并结合 U.S. Income Tax Skill 失败案例与 PR 监控 Skill 路由案例，给出可落地的五步构建法、四套 Eval Suite 与一份 7 条带走清单，图文并茂。">
+    <meta property="og:description" content="Perplexity 把 Agent Skills 当一等公民来设计、迭代、维护。本文从原文出发，提炼五条反直觉心智模型——Zen of Skills、四属性、三层上下文成本、Description 即路由、Gotchas Flywheel——并结合 U.S. Income Tax Skill 失败案例与 PR 监控 Skill 路由案例，给出可落地的五步构建法、四套 Eval Suite 与一份 7 条带走清单，图文并茂。" />
+    <meta property="twitter:description" content="Perplexity 把 Agent Skills 当一等公民来设计、迭代、维护。本文从原文出发，提炼五条反直觉心智模型——Zen of Skills、四属性、三层上下文成本、Description 即路由、Gotchas Flywheel——并结合 U.S. Income Tax Skill 失败案例与 PR 监控 Skill 路由案例，给出可落地的五步构建法、四套 Eval Suite 与一份 7 条带走清单，图文并茂。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Perplexity 的 Agent Skills：一套与 Zen of Python 几乎完全反向的设计哲学 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/14/perplexity-agent-skills-design/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/skills" title="Skills">
+                            Skills
+                        </a>
+                        
+                        <a class="tag" href="/tags/context-engineering" title="Context Engineering">
+                            Context Engineering
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                    </div>
+                    <h1>Perplexity 的 Agent Skills：一套与 Zen of Python 几乎完全反向的设计哲学</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Thursday, May 14, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>原文：<a href="https://research.perplexity.ai/articles/designing-refining-and-maintaining-agent-skills-at-perplexity">Designing, Refining, and Maintaining Agent Skills at Perplexity</a> · Perplexity Research · 2026-05-01</p>
+</blockquote>
+<p>
+  <img src="/img/perplexity-agent-skills-design/cover.svg" alt="Perplexity Agent Skills 设计封面">
+
+</p>
+<h2 id="引言为什么-skill-不是软件">引言：为什么 Skill 不是软件</h2>
+<p>如果你是个写过十年代码的工程师，第一次去给 Agent 写 Skill，大概率会写出一份&quot;看上去很专业、实际效果却比不加载还差&quot;的东西。</p>
+<p>Perplexity 给出的判断很直接——<strong>Agent Skill 不是软件，是上下文</strong>。它的读者是 LLM，是一个带着训练数据、按 token 收费、上下文窗口里挤着 3~5 个 Skill 同时争夺注意力的协作者。你过去写好软件的那些直觉——显式、覆盖、抽象、防御性——拿到这里几乎条条都要翻面。</p>
+<p>
+  <img src="/img/perplexity-agent-skills-design/skill-vs-software.svg" alt="Skill 与软件的本质差异">
+
+</p>
+<p>Perplexity Agents 团队把 Skill 质量看得和代码质量一样重。原文里有一句话不长，但值得贴出来：</p>
+<blockquote>
+<p><em>Self-generated Skills provide no benefit on average, showing that models cannot reliably author the procedural knowledge they benefit from consuming.</em></p>
+</blockquote>
+<p>模型能消费程序性知识，却不能可靠地造出它——这正是为什么 Skill 设计是个<strong>人类工程师的活</strong>，而且是个需要专门方法论的活。下面这篇文章，就是从原文里提炼的五条心智模型 + 一套可上手的流程。</p>
+<hr>
+<h2 id="一zen-of-skills五条与-python-反向的原则">一、Zen of Skills：五条与 Python 反向的原则</h2>
+<p>最直观的对照表，原文摆得很清楚：</p>
+<p>
+  <img src="/img/perplexity-agent-skills-design/zen-of-skills.svg" alt="Zen of Python 与 Zen of Skills 对照">
+
+</p>
+<p>逐条解释一下为什么是反的：</p>
+<ul>
+<li><strong>简单 vs. Skill 是文件夹</strong>：单文件 Skill 看起来&quot;干净&quot;，但它会强迫你把所有细节铺到一层，结果要么塞不下，要么塞下了让模型抓不到重点。<strong>结构本身就是一种信号</strong>，目录层级帮模型知道&quot;什么时候去读哪一段&quot;。</li>
+<li><strong>显式 vs. 模式匹配 + 渐进披露</strong>：传统软件会在头部 import 全部依赖，运行起来心里有数。Skill 反过来——所有重资料都默认不加载，只在描述命中、模型真去读它的时候才付钱。</li>
+<li><strong>稀疏 vs. 单 token 信号最大化</strong>：写代码我们追求行数稀疏；写 Skill 我们追求<strong>每个 token 都打在点上</strong>。这两者完全不冲突，但在直觉上很容易混淆。</li>
+<li><strong>特殊情况 vs. Gotchas 才是宝藏</strong>：在软件里，特殊情况是技术债；在 Skill 里，<strong>特殊情况就是 Skill 的全部价值</strong>。正常路径模型自己会，它不会的是那些&quot;看起来合理但会翻车&quot;的边缘情况。</li>
+<li><strong>易于解释 vs. 易于解释就该删掉</strong>：这条最反直觉，但也最关键——如果一段话你能轻松向同事解释清楚，模型大概率也已经从训练数据里知道它了。把这段话写进 Skill，等于花上下文成本买&quot;模型已经会的东西&quot;。</li>
+</ul>
+<p>记住这五条，就有了&quot;我现在写的这一段，到底该不该出现在 Skill 里&quot;的判断标尺。</p>
+<hr>
+<h2 id="二skill-的四个定义性属性">二、Skill 的四个定义性属性</h2>
+<p>原文给 Skill 下了一个不算定义的定义——&ldquo;Skill 是模型与它的环境共享的上下文&rdquo;。但它有四个非常具体的属性：</p>
+<p>
+  <img src="/img/perplexity-agent-skills-design/four-properties.svg" alt="Skill 的四个定义性属性">
+
+</p>
+<h3 id="-它是一个目录不是一个文件">① 它是一个目录，不是一个文件</h3>
+<p>典型结构：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>my-skill/
+</span></span><span style="display:flex;"><span>├── SKILL.md          # frontmatter + 主指令
+</span></span><span style="display:flex;"><span>├── scripts/          # 模型会调用的脚本，让它&#34;组合&#34;而不是&#34;重造&#34;
+</span></span><span style="display:flex;"><span>├── references/       # 重资料，按需读取
+</span></span><span style="display:flex;"><span>├── assets/           # 输出模板、schema
+</span></span><span style="display:flex;"><span>└── config.json       # 首次运行的用户配置
+</span></span></code></pre></div><p>这是 hub-and-spoke——<code>SKILL.md</code> 是 hub，其它文件是按条件向外辐射的 spoke。</p>
+<p><strong>为什么必须分层？</strong> 原文给了一个特别戳的反例：</p>
+<blockquote>
+<p>Perplexity 早期的 U.S. Income Tax Skill 用三层主题嵌套。但更早的实验显示：<strong>把 IRS 全部 1945 节扁平塞进一个文件夹，效果比根本不加载这个 Skill 还差。</strong></p>
+</blockquote>
+<p>把所有信息一股脑摆在模型面前，不是&quot;信息更全&quot;，而是<strong>让模型在每次决策时都要重新筛一遍噪音</strong>。Skill 的目录结构，本质是替模型预先做了一遍粗排。</p>
+<h3 id="-它有规定的格式">② 它有规定的格式</h3>
+<p><code>SKILL.md</code> 的 frontmatter 是强约束：</p>
+<ul>
+<li>必须有 <code>name</code>，且与目录名一致，全小写连字符</li>
+<li>必须有 <code>description</code>——但它不是给人读的文档，是<strong>路由触发器</strong></li>
+<li>可选 <code>depends:</code> 实现层级依赖，会被递归加载</li>
+<li>可选 <code>metadata:</code> 放评测、责任人等辅助信息</li>
+</ul>
+<p>注意一个细节：Perplexity Computer 的实现里，frontmatter 在交给模型前会被剥离——也就是说，写在 frontmatter 里的元信息<strong>不进模型上下文</strong>，是给加载器看的。这给出一条实操建议：<strong>评测、维护者、版本号这类元数据，应该写在 frontmatter，不要写进 body</strong>。</p>
+<h3 id="-它在运行时才被装载">③ 它在运行时才被装载</h3>
+<p>Skill 不是默认塞进系统提示词的。Perplexity Computer 的加载流程是：</p>
+<ol>
+<li>Agent 主动调用 <code>load_skill(name=&quot;...&quot;)</code></li>
+<li>整个 Skill 目录被复制到一个隔离的沙箱</li>
+<li><code>depends:</code> 里声明的依赖 Skill 递归加载</li>
+<li>frontmatter 被剥离</li>
+<li>模型看到 body + 这些附加文件</li>
+</ol>
+<p><strong>Computer 默认不把目录树暴露给模型</strong>，每个 Skill 可以单独覆盖这个行为。这是个挺细的设计——它逼着 Skill 作者在 body 里<strong>主动指引</strong>模型去读哪些 spoke 文件，而不是让模型在文件列表里自行猜测。</p>
+<h3 id="-它是渐进式的">④ 它是渐进式的</h3>
+<p>最关键的一条属性，单独开一节讲。</p>
+<hr>
+<h2 id="三上下文成本index--load--runtime-三层税">三、上下文成本：Index / Load / Runtime 三层税</h2>
+<p>理解 Skill 经济学，必须理解每个 Skill 都在三个不同的层级收税：</p>
+<p>
+  <img src="/img/perplexity-agent-skills-design/three-tier-cost.svg" alt="上下文成本三层漏斗">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>层级</th>
+<th>加载内容</th>
+<th>单位成本</th>
+<th>谁来付</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Index</strong></td>
+<td>每个未隐藏 Skill 的 name + description</td>
+<td>~100 tok / Skill</td>
+<td><strong>每次会话、每个用户、永远</strong></td>
+</tr>
+<tr>
+<td><strong>Load</strong></td>
+<td>整段 <code>SKILL.md</code> body</td>
+<td>~5,000 tok（建议上限）</td>
+<td>命中路由的会话</td>
+</tr>
+<tr>
+<td><strong>Runtime</strong></td>
+<td><code>scripts/</code> <code>references/</code> <code>assets/</code>、子 Skill 内容</td>
+<td>不限</td>
+<td>模型真去读时</td>
+</tr>
+</tbody>
+</table>
+<p>这张图的核心信息是：<strong>Index 这一层是永远在场的&quot;基础税&quot;</strong>。</p>
+<p>如果你有 50 个 Skill，每个 description 平均 100 tokens，那就是 5,000 tokens——<strong>在用户还没说一句话之前，模型上下文就已经被吃掉一段了</strong>。而且这部分支出和会话内容无关，每次都付。</p>
+<p><strong>Load 层的预算约束更现实</strong>：原文建议 SKILL.md body 控制在 5,000 tokens 以内。原因是一个 Agent 线程里经常同时加载 3~5 个 Skill——如果每个都写到 1 万 tokens，那是几万 tokens 的占用，<strong>任何一个臃肿的 Skill 都会拖累其它 Skill 的发挥</strong>。</p>
+<p>这也解释了为什么 Perplexity 这么强调&quot;短&quot;。短不是审美洁癖，是经济学。</p>
+<h3 id="一句话判断你的-skill-该不该瘦身">一句话判断你的 Skill 该不该瘦身</h3>
+<blockquote>
+<p><em>&ldquo;Would the agent get this wrong without this instruction?&rdquo;</em></p>
+</blockquote>
+<p>把每一句话都拿这个问题去过一遍。回答是&quot;不会&quot;的，立刻删。这是原文里唯一一条<strong>强制 SOP</strong>，比&quot;先写 eval&quot;还硬。</p>
+<hr>
+<h2 id="四description-是最难写的一行">四、Description 是最难写的一行</h2>
+<p>如果你只能从这篇文章里记一件事，那就是：<strong>Skill 的描述不是文档，是路由器的输入</strong>。</p>
+<p>
+  <img src="/img/perplexity-agent-skills-design/description-routing.svg" alt="Description 路由对比">
+
+</p>
+<p>原文用了 PR 监控 Skill 当例子。两种写法：</p>
+<p><strong>反例（写成文档）</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">description</span>: This skill monitors pull requests by polling
+</span></span><span style="display:flex;"><span>  GitHub API, checking CI status, and reporting back to the user.
+</span></span></code></pre></div><p>听起来很专业。但用户在 Cursor 里实际敲的话是什么？</p>
+<blockquote>
+<p>&ldquo;帮我盯着这个 PR&rdquo; / &ldquo;watch this CI&rdquo; / &ldquo;babysit it until it lands&rdquo;</p>
+</blockquote>
+<p><code>monitor / poll / API</code> 这些词在用户嘴里根本不出现。结果是：<strong>这条 Skill 永远不会被加载，而它的 100 tokens 索引费照付</strong>。</p>
+<p><strong>正例（用用户的话）</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">description</span>: Load when user asks to babysit, watch, or
+</span></span><span style="display:flex;"><span>  shepherd a PR through CI until it lands.
+</span></span></code></pre></div><p>Perplexity 给出的硬性 checklist：</p>
+<ul>
+<li>起手必须是 <code>Load when...</code>，不是 <code>This Skill does...</code></li>
+<li>≤ 50 词</li>
+<li>描述<strong>用户意图</strong>，最好直接抄真实查询里的用词</li>
+<li><strong>绝对不要</strong>总结 Skill 的实现流程</li>
+</ul>
+<h3 id="一个被反复强调的副作用">一个被反复强调的副作用</h3>
+<blockquote>
+<p>Changing a description after merge <strong>without new evals</strong> means you&rsquo;re off-track.</p>
+</blockquote>
+<p>改 description 不是改文档，是改路由。哪怕只换一个动词，都可能<strong>让相邻的、你根本没动过的 Skill 突然失效</strong>——原文把这种现象叫 <em>action at a distance</em>，远距离副作用。这也是 Perplexity 要专门跑一套&quot;加载/读取&quot; Eval Suite 的根本原因。</p>
+<hr>
+<h2 id="五gotchas-flywheel维护比构建更重要">五、Gotchas Flywheel：维护比构建更重要</h2>
+<p>写一个新 Skill 不难，难的是它上线半年后还在变好。</p>
+<p>
+  <img src="/img/perplexity-agent-skills-design/gotchas-flywheel.svg" alt="Gotchas Flywheel 维护回路">
+
+</p>
+<p>Perplexity 给出的方法论是 <strong>append-mostly</strong>——大部分维护工作都是往 gotchas 段尾追加，<strong>而不是改描述、不是重写正文</strong>。</p>
+<p>为什么？因为：</p>
+<ul>
+<li>改描述 → 影响路由 → 牵动相邻 Skill → 需要补 eval</li>
+<li>改正文 → 影响 Load 层成本 → 影响其它同时加载的 Skill</li>
+<li>追加 gotchas → 只增不删，影响范围最小</li>
+</ul>
+<p>四种典型观察 → 动作映射如下：</p>
+<table>
+<thead>
+<tr>
+<th>你看到的现象</th>
+<th>该做的事</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Agent 在某情境下做错</td>
+<td>写一条 gotcha 进去</td>
+</tr>
+<tr>
+<td>Skill 被错误激活（off-target）</td>
+<td>收紧 description + 加负例 eval</td>
+</tr>
+<tr>
+<td>该加载时没加载</td>
+<td>补关键词 + 加正例 eval</td>
+</tr>
+<tr>
+<td>系统提示词改了</td>
+<td>检查 Skill 是否与之冲突 / 重复</td>
+</tr>
+</tbody>
+</table>
+<p>原文里有句话特别能打消&quot;我是不是应该把这个 Skill 重写一遍&quot;的冲动：</p>
+<blockquote>
+<p>一个 Skill 从 80/20 爬到 99.9% 的成功率，靠的不是写得更长，<strong>而是 gotchas 越攒越准</strong>。</p>
+</blockquote>
+<h3 id="一个隐藏的工程纪律">一个隐藏的工程纪律</h3>
+<p><strong>5 分钟拍脑袋开个 PR 加新 Skill，几乎一定会出岔子。</strong> 因为：</p>
+<ul>
+<li>你没跑 hero query</li>
+<li>你没补负例 eval</li>
+<li>你的 description 没人挑过用词</li>
+<li>它会偷走相邻 Skill 的路由命中</li>
+</ul>
+<p>Perplexity 的做法是：<strong>单次 changeset 必须带评测集</strong>。Skill PR 不允许&quot;先合入再补 eval&quot;——增量审查在 Skill 上几乎做不了，因为一个小词的变化就可能把 50 条评测的命中率拉下 10 个点。</p>
+<hr>
+<h2 id="六实战五步法--四套-eval-suite">六、实战五步法 + 四套 Eval Suite</h2>
+<p>把上面所有东西串起来，落到一个具体的 Skill 上：</p>
+<p>
+  <img src="/img/perplexity-agent-skills-design/build-five-steps.svg" alt="构建五步法与四套 Eval Suite">
+
+</p>
+<h3 id="step-0--先写-eval不是先写代码">Step 0 · 先写 Eval（不是先写代码）</h3>
+<p>来源有三：</p>
+<ul>
+<li><strong>真实用户查询</strong>：从生产里采样</li>
+<li><strong>已知失败</strong>：以前因为没这 Skill 而翻车的 case</li>
+<li><strong>相邻领域</strong>：会误触发的、但应该路由到别的 Skill 的查询</li>
+</ul>
+<p><strong>负例 eval 比正例还重要</strong>——它们决定了你的描述是不是太宽泛。</p>
+<h3 id="step-1--写-description">Step 1 · 写 Description</h3>
+<p>按上一节的硬性 checklist 来。这一步是整个流程的瓶颈，<strong>预算上花在这一行的时间应该多于花在 body 上的时间</strong>。</p>
+<h3 id="step-2--写-body">Step 2 · 写 Body</h3>
+<p>跳过显而易见。原文给了一个反例：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 反例：当模型已经会做的事情，逐行写出来</span>
+</span></span><span style="display:flex;"><span>git log              <span style="color:#6272a4"># find the commit</span>
+</span></span><span style="display:flex;"><span>git checkout main
+</span></span><span style="display:flex;"><span>git checkout -b &lt;clean-branch&gt;
+</span></span><span style="display:flex;"><span>git cherry-pick &lt;commit&gt;
+</span></span></code></pre></div><p>应该写成：</p>
+<blockquote>
+<p>&ldquo;把那个 commit cherry-pick 到一条干净分支上。<strong>保留意图地解决冲突。如果落不下去，解释为什么。</strong>&rdquo;</p>
+</blockquote>
+<p>要点：</p>
+<ul>
+<li>别 railroad（&ldquo;先做 A 再做 B 再做 C&quot;那种写法）</li>
+<li>把重点放在 gotchas 和负例上——这两块是单 token 信号最大的内容</li>
+<li>重资料、长流程、有条件的内容 → 移到 <code>references/</code>，让模型按需读</li>
+</ul>
+<h3 id="step-3--用好层级">Step 3 · 用好层级</h3>
+<table>
+<thead>
+<tr>
+<th>文件夹</th>
+<th>干什么</th>
+<th>例子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/</code></td>
+<td>装确定性逻辑，让模型组合而非重造</td>
+<td>已经写好的工具脚本</td>
+</tr>
+<tr>
+<td><code>references/</code></td>
+<td>重资料，按条件加载</td>
+<td>&ldquo;If API returns non-200, read api-errors.md&rdquo;</td>
+</tr>
+<tr>
+<td><code>assets/</code></td>
+<td>输出模板</td>
+<td>report-template.md、output schema</td>
+</tr>
+<tr>
+<td><code>config.json</code></td>
+<td>首次运行设置</td>
+<td>让用户填 Slack channel 后存下来复用</td>
+</tr>
+</tbody>
+</table>
+<p>复杂场景下，可以把一个大 Skill 拆成&quot;主 Skill + 多个子 Skill&rdquo;，用 <code>depends:</code> 串起来。Perplexity 内部就这么做。</p>
+<h3 id="step-4--迭代">Step 4 · 迭代</h3>
+<p>从无 Skill 状态开一个分支，跑 hero query 集，再跑 eval。<strong>单 changeset 提交</strong>——别想着&quot;先合再修&quot;，Skill 的增量审查极难做。</p>
+<h3 id="step-5--ship">Step 5 · Ship</h3>
+<p>发布前再过一遍上面提到的&quot;每句话都该被删&quot;的判断。如果体感超过 5,000 tokens，强行瘦身一轮。</p>
+<h3 id="perplexity-的四套-eval-suite">Perplexity 的四套 Eval Suite</h3>
+<p>不是只有最后才跑 eval，而是<strong>贯穿全流程</strong>：</p>
+<ol>
+<li><strong>加载 &amp; 读取 eval</strong>：precision、recall、forbidden 检查——确保新 Skill 不破坏既有 Skill 的边界，这是防&quot;远距离副作用&quot;的核心。</li>
+<li><strong>渐进式加载 eval</strong>：检验 Skill 是否真的会去读它该读的辅助文件（比如 finance Skill 有没有读 <code>FORMATTING.md</code>）——这是检验 hub-and-spoke 设计是否生效的关键。</li>
+<li><strong>端到端任务完成度</strong>：跑完整 Agent loop，LLM judge 按 rubric 打分。最贵也最关键，看真实产出质量。</li>
+<li><strong>跨模型 eval</strong>：Perplexity Computer 支持 GPT、Claude Opus、Claude Sonnet 作为编排器，原文明确说&quot;<strong>Sonnet 和 GPT 在与 Skill 交互时行为差异很大</strong>&quot;——不能假设一套 Skill 在所有模型上等效。</li>
+</ol>
+<p>这四层 eval 加在一起，本质是<strong>一套&quot;Skill 不会偷偷劣化&quot;的保险机制</strong>。Perplexity 把这个保险机制看得和单元测试一样不可妥协。</p>
+<hr>
+<h2 id="七给落地者的-7-条带走清单">七、给落地者的 7 条带走清单</h2>
+<p>最后，把上面所有内容压成一张可贴在 monitor 上的清单：</p>
+<p>
+  <img src="/img/perplexity-agent-skills-design/takeaways.svg" alt="7 条带走清单">
+
+</p>
+<ol>
+<li><strong>先写 Eval，再写 Skill</strong>——含负例与&quot;禁止加载&quot;案例，没有 eval 的 Skill = 没有验收的代码。</li>
+<li><strong>Description 是最难写的一行</strong>——<code>Load when...</code>，用用户的话，每词都在抢路由器注意力；改一个动词都要补 eval。</li>
+<li><strong>Gotchas 才值钱</strong>——起手薄，随失败逐条追加；append-mostly。</li>
+<li><strong>警惕远距离副作用</strong>——新增一个 Skill 可能让其它 Skill 失效，这正是&quot;加载/读取 eval&quot;存在的理由。</li>
+<li><strong>Less is more</strong>——不必凡事都做 Skill：模型已会的写成文档；系统提示能装下的直接放；变化太快的别做 Skill，做工具。</li>
+<li><strong>Skill 是复利</strong>——把 postmortem、PR 评审、周报这种高频自动化为 Skill，买回的时间再投入下一个 Skill。</li>
+<li><strong>不要让模型自己写 Skill</strong>——<em>&ldquo;Self-generated Skills provide no benefit on average.&rdquo;</em> 模型能消费程序性知识，却不能可靠地造出它。</li>
+</ol>
+<hr>
+<h2 id="写在最后">写在最后</h2>
+<p>Perplexity 这篇文章最有价值的不是某条具体技巧，而是它<strong>给&quot;Skill&quot;这个概念真正确立了一个工程纪律</strong>：</p>
+<ul>
+<li>它有边界——Skill 是文件夹，有目录约定</li>
+<li>它有协议——<code>Load when...</code> 的描述格式、<code>depends:</code>、frontmatter</li>
+<li>它有成本——Index / Load / Runtime 三层税</li>
+<li>它有验收——四套 Eval Suite</li>
+<li>它有维护范式——Gotchas Flywheel</li>
+</ul>
+<p>这是把&quot;prompt engineering&quot;从手艺活推到&quot;上下文工程&quot;的关键一步。如果你正在搭自己的 Skill 体系——不管是给 Claude Code 写 Skill、给 Cursor 写 rules、还是给内部 Agent 写工具集——这套方法论几乎都可以<strong>原样平移</strong>过来用。</p>
+<p>最后留一句 Pascal 1657 年的话，原文也引了，放在这里再合适不过：</p>
+<blockquote>
+<p><em>&ldquo;Je n&rsquo;ai fait celle-ci plus longue que parce que je n&rsquo;ai pas eu le loisir de la faire plus courte.&rdquo;</em></p>
+<p>&ldquo;我没把这封信写短，只是因为我没时间把它写短。&rdquo;</p>
+</blockquote>
+<p>写好一个 Skill，真正花时间的，是把它写<strong>短</strong>。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/13/html-vs-markdown-agent-output/" data-toggle="tooltip" data-placement="top" title="HTML 对 Agent 的不合理有效：从文字墙到可操作工件的输出格式革命">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/15/founders-playbook-ai-native-startup/" data-toggle="tooltip" data-placement="top" title="10 人独角兽不再是故事：拆解 Anthropic《创始人手册》里的 AI-native 创业新路线">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

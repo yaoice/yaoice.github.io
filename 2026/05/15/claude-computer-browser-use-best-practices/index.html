@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Computer Use 工程化指南：拆解 Anthropic 官方《Best Practices》里的 6 条主线" />
+    <meta property="og:title" content="Computer Use 工程化指南：拆解 Anthropic 官方《Best Practices》里的 6 条主线" />
+    <meta property="twitter:title" content="Computer Use 工程化指南：拆解 Anthropic 官方《Best Practices》里的 6 条主线" />
+    
+
+    
+    <meta name="description" content="Anthropic 在 2026 年 5 月发布的《Best practices for computer and browser use with Claude》，把 Computer/Browser Use 落地最难的 6 件事一口气说透：分辨率与坐标、思考强度、Prompt Injection 防御、上下文管理、Batch/Advisor 实验工具、Teach Mode 演示回放。本文把这 6 条主线提炼成可直接抄走的工程清单，并配 8 张信息图。">
+    <meta property="og:description" content="Anthropic 在 2026 年 5 月发布的《Best practices for computer and browser use with Claude》，把 Computer/Browser Use 落地最难的 6 件事一口气说透：分辨率与坐标、思考强度、Prompt Injection 防御、上下文管理、Batch/Advisor 实验工具、Teach Mode 演示回放。本文把这 6 条主线提炼成可直接抄走的工程清单，并配 8 张信息图。" />
+    <meta property="twitter:description" content="Anthropic 在 2026 年 5 月发布的《Best practices for computer and browser use with Claude》，把 Computer/Browser Use 落地最难的 6 件事一口气说透：分辨率与坐标、思考强度、Prompt Injection 防御、上下文管理、Batch/Advisor 实验工具、Teach Mode 演示回放。本文把这 6 条主线提炼成可直接抄走的工程清单，并配 8 张信息图。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Computer Use 工程化指南：拆解 Anthropic 官方《Best Practices》里的 6 条主线 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/15/claude-computer-browser-use-best-practices/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                        <a class="tag" href="/tags/computer-use" title="Computer Use">
+                            Computer Use
+                        </a>
+                        
+                        <a class="tag" href="/tags/browser-use" title="Browser Use">
+                            Browser Use
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                    </div>
+                    <h1>Computer Use 工程化指南：拆解 Anthropic 官方《Best Practices》里的 6 条主线</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Tuesday, May 12, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>原文：<a href="https://claude.com/blog/best-practices-for-computer-and-browser-use-with-claude">Best practices for computer and browser use with Claude</a> · Anthropic / Claude · 2026-05-13
+配套 Demo：<a href="https://github.com/anthropics/claude-quickstarts/tree/main/computer-use-best-practices">anthropics/claude-quickstarts · computer-use-best-practices</a></p>
+</blockquote>
+<blockquote>
+<p>一句话导读：Computer Use 真正难的不是「让 Claude 看懂屏幕」，而是把它当一个<strong>远端打工人</strong>来工程化——图怎么进、坐标怎么回、想多深、记多少、信不信网页、能不能录一遍让它复用。这 6 件事做对了，剩下的就只是业务问题。</p>
+</blockquote>
+<p>
+  <img src="/img/claude-computer-browser-use-best-practices/01-cover.svg" alt="Claude Computer/Browser Use 最佳实践全景">
+
+</p>
+<h2 id="引言computer-use-工程化难在让模型把人当好">引言：Computer Use 工程化，难在「让模型把人当好」</h2>
+<p>Computer Use 这件事，第一次跑通通常很容易：截个屏、丢给模型、它告诉你点哪儿、你照着点。<strong>第十次跑稳就开始难了</strong>：点偏 1 像素、思考链路慢一倍、上下文撑爆 150K、突然被网页里的一句&quot;忽略上面所有指令&quot;带跑。</p>
+<p>Anthropic 这篇文章的价值在于：它没在讲&quot;Claude 多强&quot;，而是在系统性地告诉你<strong>这些失败模式各自的根因和工程对策</strong>。把全篇读完，会发现所有问题最终归到 6 条主线。</p>
+<p>
+  <img src="/img/claude-computer-browser-use-best-practices/02-landing-challenges.svg" alt="Computer Use 落地难点全景">
+
+</p>
+<p>下面就按这 6 条主线展开，每条只回答两个问题：<strong>为什么这样做？不这样做会失败成什么样？</strong></p>
+<hr>
+<h2 id="主线-分辨率与坐标缩放点击精度的真正根因">主线 ①：分辨率与坐标缩放——点击精度的真正根因</h2>
+<blockquote>
+<p><strong>Takeaway：你以为是模型不会点，其实是图根本没按你想的尺度进 API。</strong></p>
+</blockquote>
+<p>这是整篇文章 ROI 最高的一条建议，也是绝大多数 Computer Use 项目第一次踩坑的地方。</p>
+<h3 id="为什么会点不准">为什么会点不准</h3>
+<p>Claude API 对图像有<strong>硬上限</strong>：</p>
+<ul>
+<li>Claude 4.6 系列：长边 ≤ 1568 px，总像素 ≤ 1.15 MP</li>
+<li>Claude Opus 4.7：长边 ≤ 2576 px，总像素 ≤ 3.75 MP</li>
+</ul>
+<p><strong>超限的图不会被拒，会被服务端&quot;静默降采样&quot;</strong>——这是关键。模型在被缩过的图上输出坐标，但你拿这个坐标回去操作的是<strong>原始屏幕</strong>，于是出现&quot;模型说点 (640, 360) 你点出去落在按钮外&quot;的灵异现象。小目标尤其惨：可能模型本来视觉识别就准，但缩放损失了 1~2 像素，按钮就点空了。</p>
+<h3 id="推荐做法客户端预降采样--显式坐标还原">推荐做法：客户端预降采样 + 显式坐标还原</h3>
+<p>
+  <img src="/img/claude-computer-browser-use-best-practices/03-resolution-pipeline.svg" alt="分辨率与坐标缩放因果链">
+
+</p>
+<p>整个 pipeline 只有三步：</p>
+<ol>
+<li><strong>客户端缩好再喂</strong>：用 <code>prepare_screenshot</code> / <code>compute_max_api_fit</code> 按&quot;原始宽高比 + API 上限&quot;算出目标尺寸。Anthropic 的明确推荐是 <strong>1280×720（4.6 系列首选）</strong> 和 <strong>1080p（Opus 4.7 推荐）</strong>。</li>
+<li><strong>指令在前，截图在后</strong>：消息体里 text 块放前面，image 放后面，并在指令里<strong>带上位置上下文</strong>（&ldquo;右上角的 Submit 按钮&rdquo;），不要让模型自己猜你在说哪一块。</li>
+<li><strong>坐标显式还原</strong>：模型在缩放图上吐 <code>(x', y')</code>，你用 <code>scale_coordinates</code> 按缩放比例还原成真实屏幕坐标，再交给操作系统。</li>
+</ol>
+<h3 id="反常识结论这些优化其实没用">反常识结论：这些&quot;优化&quot;其实没用</h3>
+<p>文中 &ldquo;Approaches that didn&rsquo;t help&rdquo; 一节非常坦诚——下面这些试过都没帮上忙，<strong>别浪费时间</strong>：</p>
+<ul>
+<li>把图切成多块再拼：不提升精度</li>
+<li>在截图上叠网格 / 坐标轴：模型并不会因此更准</li>
+<li>换 resize 算法（Lanczos / Bicubic ……）：差异在噪声范围内</li>
+<li>macOS 2× DPR 不缩直接发：典型反例</li>
+<li>低于 960×540：信息损失太多</li>
+<li>4.6 系列上塞 1920×1080+：触发静默降采样</li>
+</ul>
+<h3 id="模型选择速查针对点击精度">模型选择速查（针对点击精度）</h3>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>点击精度</th>
+<th>推理</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sonnet 4.6</strong></td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>⭐⭐⭐</td>
+<td>机械点击精度最高，对降采样最鲁棒</td>
+</tr>
+<tr>
+<td>Opus 4.6</td>
+<td>⭐⭐⭐⭐</td>
+<td>⭐⭐⭐⭐</td>
+<td>推理强但点击稍弱</td>
+</tr>
+<tr>
+<td><strong>Opus 4.7</strong></td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>推理强 + 精度近 Sonnet 4.6 + 更高分辨率预算</td>
+</tr>
+<tr>
+<td>Haiku 4.5</td>
+<td>⭐⭐⭐</td>
+<td>⭐⭐</td>
+<td>延迟优先</td>
+</tr>
+</tbody>
+</table>
+<p><strong>默认选 Sonnet 4.6</strong>——这一句几乎是文章的官方推荐底色。</p>
+<h3 id="小目标点不准时怎么办按代价从低到高">小目标点不准时怎么办（按代价从低到高）</h3>
+<ol>
+<li><strong>启用 <code>enable_zoom</code></strong>：让模型主动放大局部</li>
+<li><strong>放大源 UI</strong>：能改 CSS / DPI 的话直接调整</li>
+<li><strong>键盘代替</strong>：Tab + Enter 比鼠标稳得多</li>
+<li><strong>降低源 DPI</strong>：Mac 用户尤其要注意 2× DPR 的坑</li>
+</ol>
+<hr>
+<h2 id="主线-thinking-effort-调优ui-任务别逼模型想到底">主线 ②：Thinking Effort 调优——UI 任务别逼模型「想到底」</h2>
+<blockquote>
+<p><strong>Takeaway：UI 任务以&quot;感知&quot;为主而不是&quot;推理&quot;，过度思考无益，反而拖延迟、加成本。</strong></p>
+</blockquote>
+<p>文章给了一个反常识的明确判断：<strong>不推荐在 4.6 系列上用 <code>max</code> effort</strong>。这与很多人对&quot;effort 越高越好&quot;的直觉相反。原因很朴素：你点一个按钮，靠的是看到它，不是推导它的存在。</p>
+<p>
+  <img src="/img/claude-computer-browser-use-best-practices/04-thinking-effort-matrix.svg" alt="Thinking Effort × 模型场景—档位矩阵">
+
+</p>
+<h3 id="调档实操按场景">调档实操（按场景）</h3>
+<p><strong>Claude 4.6 系列：</strong></p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>Effort</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>默认通用</td>
+<td><code>medium</code></td>
+<td>性价比最优</td>
+</tr>
+<tr>
+<td>高吞吐 / 成本敏感</td>
+<td><code>low</code></td>
+<td><strong>比关掉思考更准且 token 更少</strong>——别误以为关掉就最快</td>
+</tr>
+<tr>
+<td>简单一步任务</td>
+<td>关闭 thinking</td>
+<td>延迟优先，配 Sonnet 4.6 / Haiku 4.5</td>
+</tr>
+<tr>
+<td>一次成功的复杂任务</td>
+<td><code>high</code>（到此为止）</td>
+<td>⚠ 不要上 <code>max</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Claude Opus 4.7：</strong></p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>Effort</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>默认通用</td>
+<td><code>high</code></td>
+<td>复杂多步推理够用</td>
+</tr>
+<tr>
+<td>高吞吐</td>
+<td><code>low</code></td>
+<td>质量仍超 4.6 high/max，性价比首选</td>
+</tr>
+<tr>
+<td>简单工作流</td>
+<td>建议改用 Sonnet 4.6</td>
+<td>Opus 在简单任务上性价比不高</td>
+</tr>
+<tr>
+<td>一次成的复杂任务</td>
+<td><code>max</code></td>
+<td>高难场景，注意成本曲线</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>⚠ 注意：「关闭思考」≠「low effort」。<strong>low 通常更准、token 也更少</strong>。这是文章里被反复强调的一个反直觉点。</p>
+</blockquote>
+<hr>
+<h2 id="主线-prompt-injection-三层防御web-内容默认不可信">主线 ③：Prompt Injection 三层防御——Web 内容默认不可信</h2>
+<blockquote>
+<p><strong>Takeaway：你不防，模型不一定能挡住；模型挡住了，你的应用层不一定挡得住。三层缺一不可。</strong></p>
+</blockquote>
+<p>
+  <img src="/img/claude-computer-browser-use-best-practices/06-injection-defense.svg" alt="Prompt Injection 三层防御漏斗 &#43; Guardrails 四件套">
+
+</p>
+<h3 id="三层防御漏斗">三层防御漏斗</h3>
+<ol>
+<li><strong>Training-time robustness（训练期）</strong>：RL 已经训练模型识别&quot;忽略以上指令&quot;这类经典攻击。</li>
+<li><strong>Real-time classifiers（实时分类器）</strong>：扫描所有进入上下文的内容。<strong>用官方 <code>computer_20251124</code> 工具时默认开启，免费、零延迟。</strong> ⚠ <strong>自定义工具暂不支持</strong>，需要填官方兴趣表单等评估，在此之前请补足应用层防御。</li>
+<li><strong>Continuous red teaming（持续红队）</strong>：官方持续演练，你也应该针对自家场景演练。</li>
+</ol>
+<h3 id="guardrails-四件套应用层永远要自己做">Guardrails 四件套（应用层永远要自己做）</h3>
+<table>
+<thead>
+<tr>
+<th>措施</th>
+<th>为什么是它</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⚠ <strong>关键操作必经人审</strong></td>
+<td>文中称为&quot;最有效的缓解措施&quot;——付款、发邮件、删数据都不能让 agent 单独决策</td>
+</tr>
+<tr>
+<td>🔒 <strong>最小爆炸半径</strong></td>
+<td>权限 / 账号 / 网络分级，沙箱 + 只读为先，越权时损失越小</td>
+</tr>
+<tr>
+<td>📊 <strong>全量监控与日志</strong></td>
+<td>每次截图 / 点击 / 工具调用都写到可回放的轨迹存档</td>
+</tr>
+<tr>
+<td>🚨 <strong>Web 内容默认不可信</strong></td>
+<td>网页文字、评论、弹窗都可能藏注入指令；<strong>&ldquo;用户说的&rdquo; ≠ &ldquo;页面说的&rdquo;</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>一条工程铁律：<strong>永远不要让 agent 直接动钱、直接发对外消息、直接动生产数据。</strong></p>
+</blockquote>
+<hr>
+<h2 id="主线-上下文管理三件套长任务能跑过-150k-tokens-而不爆炸">主线 ④：上下文管理三件套——长任务能跑过 150K tokens 而不爆炸</h2>
+<blockquote>
+<p><strong>Takeaway：长 agent 任务真正的成本杀手不是模型贵，而是上下文不稳。</strong></p>
+</blockquote>
+<p>Computer Use 的特殊难点：<strong>每一轮都会塞一张大截图进上下文</strong>。20 轮之后，token 数曲线非常吓人。Anthropic 给出的解法是三层组合，每层各司其职。</p>
+<p>
+  <img src="/img/claude-computer-browser-use-best-practices/05-context-management.svg" alt="上下文管理三件套协作流">
+
+</p>
+<h3 id="-cache-breakpoints缓存断点">① Cache Breakpoints（缓存断点）</h3>
+<ul>
+<li>总共 <strong>4 个断点</strong>：1 个固定在 system prompt 前缀，3 个跟随最近的 tool_result 滚动。</li>
+<li><strong>每轮 turn 重新放置</strong>——这一点是关键。它让缓存能&quot;优雅降级&quot;：即使最末尾断点失效，前面三个仍可命中。</li>
+<li>命中即省钱省延迟，<strong>前缀字节稳定是命中率的前提</strong>（这也是为什么后面 rolling buffer 必须批量修剪）。</li>
+</ul>
+<h3 id="-rolling-buffer滚动缓冲区">② Rolling Buffer（滚动缓冲区）</h3>
+<ul>
+<li>默认 <code>keep_n=3, interval=25</code>：每 25 轮做一次批量修剪，保留最近 3 张活跃截图。</li>
+<li><strong>批量修剪 ≠ 逐条丢弃</strong>——后者会让前缀字节频繁变动，缓存命中率崩盘。这个区别非常重要，是新手最常踩的坑。</li>
+<li>旧截图替换为 <code>[Image omitted]</code> 占位符：保留语义连续性，但不再付图像 token 的钱。</li>
+</ul>
+<h3 id="-llm-based-compaction智能压缩">③ LLM-based Compaction（智能压缩）</h3>
+<p>跨阈值时把&quot;历史 turns&quot;压成结构化摘要：</p>
+<ul>
+<li><strong>Server-side（beta）</strong>：用 <code>compact_20260112</code> beta header，触发阈值默认 ~150K tokens，最省心。</li>
+<li><strong>Client-side</strong>：自己测 token 数，跨阈值时调用摘要模型，自由度更高。</li>
+</ul>
+<p>文章给了一个<strong>摘要 prompt 必含 8 节</strong>的模板，照抄即可：</p>
+<pre tabindex="0"><code>1. USER INSTRUCTIONS（逐字保留）
+2. TASK TEMPLATE（可重复工作流模式）
+3. CONSTRAINTS AND RULES
+4. ACTIONS TAKEN
+5. ERRORS AND FIXES
+6. PROGRESS TRACKING
+7. CURRENT STATE
+8. NEXT STEP
+</code></pre><blockquote>
+<p>8 节里最容易被忽略也最关键的是 <strong>5（错误与修复）和 6（进度跟踪）</strong>——它们让 agent 在&quot;瘦身&quot;之后还能把活干完。</p>
+</blockquote>
+<hr>
+<h2 id="主线-batch--advisor--提醒实验性但当下可用">主线 ⑤：Batch / Advisor / 提醒——实验性但当下可用</h2>
+<blockquote>
+<p><strong>Takeaway：合批、找帮手、定时拍肩，都是把&quot;单 agent 单步思考&quot;扩展成&quot;团队作战&quot;的廉价手段。</strong></p>
+</blockquote>
+<h3 id="batch-tools批处理工具">Batch tools（批处理工具）</h3>
+<p><code>computer_batch</code> / <code>browser_batch</code>：<strong>单次调用执行多个子动作</strong>，省往返 + 省 token。</p>
+<ul>
+<li>✅ <strong>适用</strong>：动作之间互不依赖（填多个表单字段、一连串键盘快捷键、批量勾选复选框）</li>
+<li>❌ <strong>不适用</strong>：探索性导航、错误恢复——这些必须看一步走一步</li>
+</ul>
+<h3 id="advisor-tool顾问工具beta">Advisor tool（顾问工具，beta）</h3>
+<p>执行模型（Sonnet）+ 顾问模型（Opus 4.7）组合，<strong>服务端单 RT 内完成，无额外往返</strong>。意思是：你只发一次 API 请求，但 Sonnet 卡壳时会被 Opus 4.7 在服务端帮忙拍板。</p>
+<p>控制项：</p>
+<ul>
+<li><code>max_uses</code>：单步内最多咨询次数</li>
+<li>conversation-wide cap：整个对话级上限</li>
+<li>Advisor-side caching（默认 5 分钟）</li>
+</ul>
+<blockquote>
+<p>⚠ 有个小坑：<strong>切换工具时要清理孤立的 <code>server_tool_use</code> / <code>advisor_tool_result</code> 块</strong>，否则会触发 schema 报错。文章给了 <code>strip_orphaned_advisor_blocks</code> 函数，照抄。</p>
+</blockquote>
+<h3 id="periodic-reminder-nudges周期性提醒">Periodic reminder nudges（周期性提醒）</h3>
+<p>每 ~20 轮往上下文里插一句&quot;提醒：你可以用 batch / advisor&quot;——简单粗暴但很有效。模型不像人会主动想起新工具，<strong>得有人定时提醒它</strong>。</p>
+<h3 id="debugging-utilities">Debugging utilities</h3>
+<p>文章配套的三件调试套件值得单独提：</p>
+<ul>
+<li><strong>Trajectory viewer</strong>（streamlit）：回放 agent 的每一步决策，<strong>长任务复盘必备</strong></li>
+<li><strong>Tool debug panel</strong>（uvicorn）：单独测试每个工具是否正确响应</li>
+<li><strong>Localization playground</strong>：上传图像测试目标定位，<strong>复现&quot;点不准&quot;问题的最快方式</strong></li>
+</ul>
+<hr>
+<h2 id="主线-teach-modeshow-dont-tell">主线 ⑥：Teach Mode——Show, Don&rsquo;t Tell</h2>
+<blockquote>
+<p><strong>Takeaway：与其用 prompt 描述工作流，不如录一遍人类怎么做。</strong></p>
+</blockquote>
+<p>这是文章里最有&quot;产品味&quot;的一节。Anthropic 内部 &ldquo;Claude in Chrome&rdquo; 团队正在用的方法：录人类操作一遍，<strong>作为可复用规范回放给 Claude</strong>。</p>
+<p>
+  <img src="/img/claude-computer-browser-use-best-practices/07-teach-mode.svg" alt="Teach Mode 录制与三种回放模式">
+
+</p>
+<h3 id="录制每步都要双保险">录制：每步都要&quot;双保险&quot;</h3>
+<p><code>WorkflowStep</code> 同时捕获两类信号：</p>
+<ul>
+<li><strong>Selector</strong>（DOM/UI 选择器）：抗布局变化更鲁棒</li>
+<li><strong>Coordinates</strong>（坐标）：视觉回退，selector 找不到时兜底</li>
+</ul>
+<p>外加 <code>screenshot</code>（<strong>带蓝色圆圈标注点击位</strong>）、<code>description</code>、<code>speech_transcript</code>（讲解为什么这一步要这么做）。这些字段不是装饰——它们是回放时模型重建意图的关键。</p>
+<h3 id="案例5-步费用报告提交">案例：5 步费用报告提交</h3>
+<ol>
+<li>导航到 Expense 页</li>
+<li>点击 Category 下拉</li>
+<li>选 Travel</li>
+<li>输入金额 ¥1,280</li>
+<li>点击 Submit</li>
+</ol>
+<p>录制一次之后，<strong>这套规范就被 <code>SavedWorkflow</code> 序列化下来</strong>，下次直接用 <code>generate_playback_context</code> 喂给 Claude 即可复用。</p>
+<h3 id="回放三模式按业务严苛度选">回放三模式：按业务严苛度选</h3>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>行为</th>
+<th>真实场景</th>
+<th>选它的判据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strict 严格</strong></td>
+<td>完全按演示走，UI 变化大就停</td>
+<td>合规审批 / 财务结账 / 监管报送</td>
+<td>「宁可停 ≫ 走错一步」的链路</td>
+</tr>
+<tr>
+<td><strong>Adaptive 自适应</strong>（推荐默认）</td>
+<td>演示作指引，适应轻微 UI 变化</td>
+<td>CRM / 表单填写 / 工单流转</td>
+<td>大多数企业内部系统的甜区</td>
+</tr>
+<tr>
+<td><strong>Goal-oriented 目标导向</strong></td>
+<td>只关心最终结果，步骤仅作提示</td>
+<td>竞品调研 / 数据采集 / 开放网页爬取</td>
+<td>允许「换路达终点」的场景</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>一个简单判据：**这个流程错一步会出报销单还是会扣钱？**前者用 Adaptive，后者用 Strict。</p>
+</blockquote>
+<hr>
+<h2 id="案例落地两个最容易复现的场景">案例落地：两个最容易复现的场景</h2>
+<h3 id="案例-a点击为何总是偏移的诊断流程">案例 A：「点击为何总是偏移」的诊断流程</h3>
+<p>新人第一次写 Computer Use Agent，<strong>80% 的时间会卡在这里</strong>。Anthropic 推荐的诊断顺序如下：</p>
+<ol>
+<li><strong>第一现场</strong>：打开 Trajectory viewer，<strong>把模型预测的点击位叠加在原图上</strong>——肉眼看是&quot;模型瞎&quot;还是&quot;坐标错了&quot;。</li>
+<li><strong>如果模型瞎了</strong>：去 Localization playground，单独喂相同的截图问&quot;Submit 按钮在哪&quot;——能精准命中说明不是认知问题。</li>
+<li><strong>基本可以确认是缩放问题</strong>：检查输入图分辨率，是不是塞了 1920×1080 进 4.6 系列、是不是 macOS 2× DPR 没缩、是不是低于 960×540。</li>
+<li><strong>改完仍偏一两像素</strong>：开 <code>enable_zoom</code>，让模型主动放大；或者用键盘 Tab 导航代替鼠标点击。</li>
+<li><strong>小目标真的太小</strong>：放大源 UI 的 CSS / DPI——别在模型这一侧硬卷。</li>
+</ol>
+<p>诊断的核心心法是 <strong>&ldquo;先证伪模型瞎，再回头查 pipeline&rdquo;</strong>。99% 的偏移问题都在 pipeline 上。</p>
+<h3 id="案例-b用-teach-mode-把提交费用报告工作流自动化">案例 B：用 Teach Mode 把&quot;提交费用报告&quot;工作流自动化</h3>
+<p>假设你要给公司内部财务系统做一个 Claude 助手。<strong>没有 Teach Mode 的话</strong>，你大概率会写一个 30 行的 prompt 描述每个字段叫什么、长什么样、应该填什么——脆弱、难维护、UI 改一点就坏。</p>
+<p><strong>有 Teach Mode 的工程化做法是：</strong></p>
+<ol>
+<li>让真实员工在 Chrome 里<strong>录一遍</strong>正常的报销提交。</li>
+<li>系统自动捕获 5 步：导航 → 点 Category → 选 Travel → 填金额 → Submit，每步附带 selector + coordinates + 截图 + 讲解。</li>
+<li>序列化为 <code>SavedWorkflow</code> 存进资源库。</li>
+<li><strong>回放选 Adaptive</strong>：因为内部系统 UI 偶尔小改，但流程稳定。</li>
+<li>上线时配 Guardrails：Submit 前必须人审金额。</li>
+</ol>
+<p>接下来财务系统改版了 Category 下拉的位置——<strong>Adaptive 模式仍能完成任务</strong>，因为 selector 没变；只有当系统大改（例如把&quot;Submit&quot;按钮拆成&quot;暂存 + 提交&quot;两个按钮）时，才需要重新录一次。</p>
+<blockquote>
+<p>比起 prompt 工程，<strong>录制是更接近软件工程的人机协作范式</strong>——它有明确的&quot;代码、版本、回放、回归&quot;的概念。</p>
+</blockquote>
+<hr>
+<h2 id="总结把-6-条主线拍成一张上手清单">总结：把 6 条主线拍成一张上手清单</h2>
+<p>文章信息密度很高，最后给你一张可以贴在显示器旁边的清单图：</p>
+<p>
+  <img src="/img/claude-computer-browser-use-best-practices/08-radar-checklist.svg" alt="上手清单：Computer Use 工程化全景">
+
+</p>
+<p>如果你现在就要从 0 开始落地一个 Computer Use Agent，<strong>严格按这个优先级走</strong>：</p>
+<ol>
+<li><strong>先把分辨率与坐标 pipeline 写对</strong>（ROI 最高，零模型成本）</li>
+<li><strong>把 Cache + Rolling Buffer 接上</strong>（决定你的钱包能撑多久）</li>
+<li><strong>加 Guardrails</strong>：人审 + 全量日志 + 最小权限（决定你的项目能不能上线）</li>
+<li><strong>Effort 选档位、模型按场景挑</strong>（默认 Sonnet 4.6 + medium，难任务才升级）</li>
+<li><strong>用 Teach Mode 把高频场景固化</strong>（决定你的可靠性曲线）</li>
+<li><strong>再考虑 Batch / Advisor / 提醒</strong> 等实验项（锦上添花）</li>
+</ol>
+<blockquote>
+<p>这篇文章值得反复读的地方在于：它不是一篇&quot;Claude 多强&quot;的宣传稿，而是一份<strong>把 Computer Use 从 Demo 推向生产</strong>的工程清单。它的每一条建议都是踩过坑的——你能少踩多少，取决于你愿意把它读多细。</p>
+</blockquote>
+<hr>
+<p><strong>延伸阅读：</strong></p>
+<ul>
+<li>📦 配套 Demo 实现：<a href="https://github.com/anthropics/claude-quickstarts/tree/main/computer-use-best-practices">anthropics/claude-quickstarts · computer-use-best-practices</a></li>
+<li>📘 <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool">Computer Use Tool 官方文档</a></li>
+<li>🧠 <a href="https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking">Adaptive Thinking 官方文档</a></li>
+<li>🛡 <a href="https://www.anthropic.com/research/prompt-injection-defenses">Prompt Injection Defenses 研究</a></li>
+<li>🗜 <a href="https://docs.anthropic.com/en/docs/build-with-claude/compaction">Server-side Compaction 文档</a></li>
+<li>🤝 <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool">Advisor Tool 官方文档</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/09/anthropic-finance-agents-launch/" data-toggle="tooltip" data-placement="top" title="华尔街的新同事：拆解 Anthropic 金融服务 Agent 发布">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/13/html-vs-markdown-agent-output/" data-toggle="tooltip" data-placement="top" title="HTML 对 Agent 的不合理有效：从文字墙到可操作工件的输出格式革命">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
