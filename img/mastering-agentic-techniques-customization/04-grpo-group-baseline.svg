@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,10 L10,5 z" fill="#64748b"/>
+    </marker>
+    <filter id="sd" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <rect width="960" height="460" fill="#f8fafc" rx="10"/>
+
+  <!-- Title -->
+  <text x="480" y="40" text-anchor="middle" font-size="20" font-weight="700" fill="#1e293b">GRPO：用"组内归一化"取代 Critic 网络</text>
+  <text x="480" y="62" text-anchor="middle" font-size="13" fill="#64748b">同一个 Prompt 采 N 个回答，把"高于平均"的拉上来、"低于平均"的压下去</text>
+
+  <!-- Step 1: Prompt -->
+  <g filter="url(#sd)">
+    <rect x="40" y="100" width="160" height="80" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="120" y="128" text-anchor="middle" font-size="13" font-weight="700" fill="#1e40af">① Prompt</text>
+    <text x="120" y="150" text-anchor="middle" font-size="11" fill="#475569">"把这句话翻成</text>
+    <text x="120" y="166" text-anchor="middle" font-size="11" fill="#475569">合法的 CLI 命令"</text>
+  </g>
+
+  <line x1="200" y1="140" x2="248" y2="140" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Step 2: N completions -->
+  <g>
+    <text x="330" y="92" text-anchor="middle" font-size="12" font-weight="700" fill="#1e40af">② 当前 Policy 采 N 个回答（典型 4–64）</text>
+
+    <rect x="252" y="105" width="170" height="36" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+    <text x="265" y="128" font-size="12" fill="#1e293b">a₁:  完整正确</text>
+    <text x="412" y="128" text-anchor="end" font-size="12" font-weight="700" fill="#10b981">+1.0</text>
+
+    <rect x="252" y="148" width="170" height="36" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+    <text x="265" y="171" font-size="12" fill="#1e293b">a₂:  少一个 flag</text>
+    <text x="412" y="171" text-anchor="end" font-size="12" font-weight="700" fill="#f59e0b">+0.6</text>
+
+    <rect x="252" y="191" width="170" height="36" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+    <text x="265" y="214" font-size="12" fill="#1e293b">a₃:  命令对，参数错</text>
+    <text x="412" y="214" text-anchor="end" font-size="12" font-weight="700" fill="#f59e0b">+0.3</text>
+
+    <rect x="252" y="234" width="170" height="36" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+    <text x="265" y="257" font-size="12" fill="#1e293b">a₄:  非法 JSON</text>
+    <text x="412" y="257" text-anchor="end" font-size="12" font-weight="700" fill="#ef4444">−1.0</text>
+  </g>
+
+  <line x1="425" y1="190" x2="473" y2="190" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Step 3: Group normalize -->
+  <g filter="url(#sd)">
+    <rect x="475" y="120" width="280" height="140" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+    <text x="615" y="148" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">③ 组内归一化（Group Baseline）</text>
+    <text x="615" y="178" text-anchor="middle" font-size="13" font-family="'SF Mono','Monaco','Consolas',monospace" fill="#1e293b">Aᵢ = (rᵢ − μ) / σ</text>
+    <text x="615" y="208" text-anchor="middle" font-size="11" fill="#475569">μ = 0.225 ·  σ ≈ 0.78</text>
+    <text x="615" y="228" text-anchor="middle" font-size="11" fill="#475569">A₁=+0.99 · A₂=+0.48 · A₃=+0.10 · A₄=−1.57</text>
+    <text x="615" y="248" text-anchor="middle" font-size="11" fill="#64748b">用组均值替代 PPO 的 critic 网络</text>
+  </g>
+
+  <line x1="615" y1="260" x2="615" y2="288" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Step 4: Reinforce -->
+  <g filter="url(#sd)">
+    <rect x="475" y="295" width="280" height="100" rx="10" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5"/>
+    <text x="615" y="322" text-anchor="middle" font-size="13" font-weight="700" fill="#6d28d9">④ Policy 更新</text>
+    <text x="615" y="346" text-anchor="middle" font-size="12" fill="#10b981">A &gt; 0  →  增大该回答的对数概率</text>
+    <text x="615" y="366" text-anchor="middle" font-size="12" fill="#ef4444">A &lt; 0  →  减小该回答的对数概率</text>
+    <text x="615" y="384" text-anchor="middle" font-size="11" fill="#64748b">同时受 KL 正则约束，避免偏离 reference</text>
+  </g>
+
+  <!-- Right side: callout -->
+  <g filter="url(#sd)">
+    <rect x="780" y="100" width="160" height="295" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+    <text x="860" y="124" text-anchor="middle" font-size="13" font-weight="700" fill="#1e40af">为什么是 GRPO</text>
+
+    <text x="800" y="155" font-size="11" fill="#10b981" font-weight="700">+</text>
+    <text x="816" y="155" font-size="11" fill="#475569">省去 critic，</text>
+    <text x="816" y="170" font-size="11" fill="#475569">显存与稳定性双赢</text>
+
+    <text x="800" y="195" font-size="11" fill="#10b981" font-weight="700">+</text>
+    <text x="816" y="195" font-size="11" fill="#475569">天然适配 RLVR</text>
+    <text x="816" y="210" font-size="11" fill="#475569">的离散奖励</text>
+
+    <text x="800" y="235" font-size="11" fill="#ef4444" font-weight="700">−</text>
+    <text x="816" y="235" font-size="11" fill="#475569">N 越小方差越大</text>
+
+    <text x="800" y="260" font-size="11" fill="#ef4444" font-weight="700">−</text>
+    <text x="816" y="260" font-size="11" fill="#475569">每步多次采样，</text>
+    <text x="816" y="275" font-size="11" fill="#475569">单步 compute 上升</text>
+
+    <text x="800" y="305" font-size="11" fill="#ef4444" font-weight="700">−</text>
+    <text x="816" y="305" font-size="11" fill="#475569">奖励函数失真则</text>
+    <text x="816" y="320" font-size="11" fill="#475569">全盘失真</text>
+
+    <text x="860" y="365" text-anchor="middle" font-size="11" fill="#6d28d9" font-weight="700">DeepSeek-R1 同款</text>
+    <text x="860" y="382" text-anchor="middle" font-size="10" fill="#64748b">推理 RL 默认配方</text>
+  </g>
+
+  <!-- Bottom note -->
+  <text x="480" y="430" text-anchor="middle" font-size="11" fill="#64748b">本图奖励为示意值；实际 RLVR 通常配合"+1 / 部分分 / −1"三档 + KL 正则</text>
+</svg>

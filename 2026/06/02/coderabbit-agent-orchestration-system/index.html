@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="CodeRabbit 如何用 Claude 构建 Agent 编排系统：从隐性知识鸿沟到规划驱动的代码生成" />
+    <meta property="og:title" content="CodeRabbit 如何用 Claude 构建 Agent 编排系统：从隐性知识鸿沟到规划驱动的代码生成" />
+    <meta property="twitter:title" content="CodeRabbit 如何用 Claude 构建 Agent 编排系统：从隐性知识鸿沟到规划驱动的代码生成" />
+    
+
+    
+    <meta name="description" content="CodeRabbit 每周审查 200 万个 PR，他们发现 AI 生成代码最常见的失败不是编译错误，而是方向偏离。本文解析其 Agent 编排系统的核心设计：在代码生成之前插入规划层，通过 Opus/Sonnet/Haiku 多模型路由与评估体系闭环，将模糊需求转化为精准执行计划。">
+    <meta property="og:description" content="CodeRabbit 每周审查 200 万个 PR，他们发现 AI 生成代码最常见的失败不是编译错误，而是方向偏离。本文解析其 Agent 编排系统的核心设计：在代码生成之前插入规划层，通过 Opus/Sonnet/Haiku 多模型路由与评估体系闭环，将模糊需求转化为精准执行计划。" />
+    <meta property="twitter:description" content="CodeRabbit 每周审查 200 万个 PR，他们发现 AI 生成代码最常见的失败不是编译错误，而是方向偏离。本文解析其 Agent 编排系统的核心设计：在代码生成之前插入规划层，通过 Opus/Sonnet/Haiku 多模型路由与评估体系闭环，将模糊需求转化为精准执行计划。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>CodeRabbit 如何用 Claude 构建 Agent 编排系统：从隐性知识鸿沟到规划驱动的代码生成 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/06/02/coderabbit-agent-orchestration-system/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        <li>
+                            <a href="/categories/ai/">ai</a>
+                        </li>
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent-orchestration" title="Agent Orchestration">
+                            Agent Orchestration
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                        <a class="tag" href="/tags/code-review" title="Code Review">
+                            Code Review
+                        </a>
+                        
+                        <a class="tag" href="/tags/planning-system" title="Planning System">
+                            Planning System
+                        </a>
+                        
+                    </div>
+                    <h1>CodeRabbit 如何用 Claude 构建 Agent 编排系统：从隐性知识鸿沟到规划驱动的代码生成</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Tuesday, June 2, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>来源：<a href="https://claude.com/blog/how-coderabbit-used-claude-to-build-an-agent-orchestration-system">Claude Blog — How CodeRabbit used Claude to build an agent orchestration system</a>（2026.05.27）</p>
+<p>一句话：代码生成越便宜，方向错误的代价就越高——CodeRabbit 的答案是在 Claude Code 之前加一层规划系统，让所有隐式假设在第一行代码写出之前就被暴露。</p>
+</blockquote>
+<p>
+  <img src="/img/coderabbit-agent-orchestration-system/cover.svg" alt="CodeRabbit Agent 编排系统：从模糊需求到精准代码">
+
+</p>
+<h2 id="引言ai-编码的真正瓶颈不是能力是方向">引言：AI 编码的真正瓶颈不是能力，是方向</h2>
+<p>CodeRabbit 成立于 2023 年，目前每周审查超过 200 万个 Pull Request，服务 15,000+ 客户。当他们大规模分析 AI 生成的 PR 时，发现了一个反直觉的事实：</p>
+<p><strong>最常见的失败模式不是代码无法编译或测试失败，而是——代码能编译、能通过测试，但并没有解决它本该解决的问题。</strong></p>
+<p>这不是模型能力不足，而是信息传递出了问题。</p>
+<h2 id="问题定义隐性知识鸿沟">问题定义：隐性知识鸿沟</h2>
+<p>经验丰富的开发者会内化大量上下文知识——架构决策的历史原因、团队约定的边界、业务规则的隐含前提。当他们给 AI 下达指令时，往往假设对方和团队成员一样理解这些&quot;不言自明&quot;的背景。</p>
+<p>AI 不理解暗示，它用自认为&quot;合理&quot;的内容填补空白。</p>
+<p>CodeRabbit AI 副总裁 David Loker 分享了一个切身经历：他在副项目中构建内存系统，花了数小时与编码 Agent 迭代直到一切运行正常。当他查看使用说明时，被告知需要传入用户令牌。问题是——<strong>系统中没有登录页面</strong>。他指定了系统需要用户，但从未明确说&quot;用户需要一种登录方式&quot;。</p>
+<blockquote>
+<p>&ldquo;你在上面继续构建更多功能，很久以后才发现根基有问题。在 AI 工作流中，延迟验证的代价非常昂贵。&rdquo;</p>
+</blockquote>
+<p>这个案例精准概括了问题本质：<strong>隐性假设 + 延迟验证 = 累积的方向偏移</strong>。</p>
+<h2 id="架构设计在代码生成之前插入规划层">架构设计：在代码生成之前插入规划层</h2>
+<p>CodeRabbit 的解决方案不是让模型更聪明，而是在架构上做文章——在代码生成之前插入一个<strong>编排层/规划系统</strong>，协调多个 Claude 模型来分析需求、暴露假设，生成结构化执行计划。</p>
+<p>核心流程：</p>
+<pre tabindex="0"><code>开发者需求 → [编排层：需求分析 → 假设暴露 → 上下文补全 → 结构化 PRD] → Claude Code → 代码实现
+</code></pre><p>关键设计决策：</p>
+<ul>
+<li><strong>这不是 Claude Code Plan Mode 的替代品</strong>。Plan Mode 是 Claude Code 内部的规划；编排层是更高层级的系统，在 Claude Code 之前运行，目的是&quot;将其引导到一个非常狭窄且正确的方向&quot;。</li>
+<li><strong>输出物是协作式 PRD</strong>——一份在完整上下文下创建、经利益相关者验证、在实施开始前审查的计划。它是一个共享工件，记录了做出的决策及其原因。</li>
+</ul>
+<p>这份 PRD 的价值不仅在于指导当次代码生成，更在于：</p>
+<ol>
+<li>避免返工（假设在前期暴露）</li>
+<li>验证输出（PRD 是对照基准）</li>
+<li>知识沉淀（新工程师可直接查阅决策上下文）</li>
+</ol>
+<h2 id="跨模型路由按复杂度分配模型层级">跨模型路由：按复杂度分配模型层级</h2>
+<p>
+  <img src="/img/coderabbit-agent-orchestration-system/model-routing.svg" alt="跨 Claude 模型家族的智能路由策略">
+
+</p>
+<p>CodeRabbit 并不是用单一模型跑完全流程，而是根据任务复杂度在 Claude 模型家族内做智能路由：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>角色</th>
+<th>典型任务</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Opus</strong></td>
+<td>编排循环 · 战略层</td>
+<td>理解问题本质、设定整体方向与约束、质量门禁判断</td>
+</tr>
+<tr>
+<td><strong>Sonnet</strong></td>
+<td>结构化规划层</td>
+<td>将 Opus 输出排列为步骤、生成 PRD、需求细化</td>
+</tr>
+<tr>
+<td><strong>Haiku</strong></td>
+<td>窄范围执行层</td>
+<td>上下文蒸馏、针对性工具调用、格式化提取</td>
+</tr>
+</tbody>
+</table>
+<p>路由原则很务实：</p>
+<blockquote>
+<p>&ldquo;如果 Haiku 在某个任务上表现和 Sonnet 一样好，我们就用 Haiku。如果评估工具告诉我们给 Opus 更多空间能提升计划质量，我们就给它更多空间。我们不靠猜测。&rdquo;</p>
+</blockquote>
+<p><strong>可迁移的启示</strong>：多模型路由不是奢侈品，而是工程必需。Agent 系统中大量中间步骤（上下文压缩、格式化、简单分类）完全不需要旗舰模型，用小模型处理可以在不损失质量的前提下大幅降低延迟和成本。关键是——需要一套评估体系来验证路由决策是否正确。</p>
+<h2 id="评估体系让规划质量可度量">评估体系：让规划质量可度量</h2>
+<p>
+  <img src="/img/coderabbit-agent-orchestration-system/evaluation-loop.svg" alt="规划质量评估体系闭环">
+
+</p>
+<p>CodeRabbit 拥有成熟的代码审查评估系统，但在引入规划层时面临一个新挑战：<strong>没有评估规划输出质量的基础设施</strong>。</p>
+<p>他们的解法分为四步：</p>
+<p><strong>1. 冷启动：手动调优</strong></p>
+<p>从手工示例和人工检查开始，建立初始质量基线。</p>
+<p><strong>2. LLM 评判库（LLM Judges）</strong></p>
+<p>开发了一套自动化评判器，对计划质量的多个维度评分——完整性、一致性、可执行性。</p>
+<p><strong>3. 端到端验证</strong></p>
+<p>由于计划最终会产生代码，可以闭环度量：</p>
+<ul>
+<li>生成的代码是否有效（编译/测试）</li>
+<li>是否包含额外范围（scope creep）</li>
+<li>花费了多少 tokens</li>
+<li>输出是否匹配原始意图</li>
+</ul>
+<p><strong>4. A/B 对比隔离</strong></p>
+<p>对同一任务分别运行有/无规划步骤，隔离规划本身的增量价值。</p>
+<h3 id="关键发现抽象层级的平衡">关键发现：抽象层级的平衡</h3>
+<blockquote>
+<p>&ldquo;我们没有意识到计划的正确详细程度应该是什么。&rdquo;</p>
+</blockquote>
+<ul>
+<li>计划<strong>过于细粒度</strong> → 代码库一变动就过时，维护成本高</li>
+<li>计划<strong>过于高层</strong> → 给 Agent 留下了填补假设的空间，回到了原始问题</li>
+</ul>
+<p>找到合适的抽象层级需要反复迭代——而评估体系使这种迭代成为可能。没有度量，就无法知道某次抽象层级的调整是改善还是退化。</p>
+<h2 id="最佳实践四个关键问题">最佳实践：四个关键问题</h2>
+<p>CodeRabbit 团队将经验提炼为四条行动建议：</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>在编码之前问自己</th>
+<th>行动</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>你实际想创造什么结果？如何衡量？</td>
+<td>明确规格说明，定义最大可能产品（MPP）</td>
+</tr>
+<tr>
+<td>2</td>
+<td>哪些假设仍然是隐式的？</td>
+<td>让 AI 帮你识别：计划中哪些部分作为隐式假设而非显式规格存在？</td>
+</tr>
+<tr>
+<td>3</td>
+<td>哪些工作流或边缘情况容易被遗忘？</td>
+<td>让 AI 帮助枚举可能未考虑到的场景</td>
+</tr>
+<tr>
+<td>4</td>
+<td>如何在上线前确认输出符合意图？</td>
+<td>创建工作记录：保存和复用规划工件的编年史</td>
+</tr>
+</tbody>
+</table>
+<p>这四条本质上是在说同一件事：<strong>把验证前移</strong>。不是等代码写完再审查，而是在计划阶段就把方向锁死。</p>
+<h2 id="总结代码生成越便宜规划越重要">总结：代码生成越便宜，规划越重要</h2>
+<p>CodeRabbit 的案例揭示了一个 Agent 工程化的核心悖论：</p>
+<ul>
+<li>代码生成的边际成本趋近于零</li>
+<li>但方向错误的代码产生的<strong>下游成本</strong>（返工、调试、级联错误）并未降低</li>
+<li>因此：<strong>规划层的 ROI 随着生成能力增强而不断提升</strong></li>
+</ul>
+<blockquote>
+<p>&ldquo;计划本身成为了一个质量门禁。如果我们能确保计划的质量在前期就足够好，下游效果会非常显著——最终你会得到更好的代码。&rdquo;</p>
+</blockquote>
+<p>对于正在构建 Agent 系统的工程师，三条可直接迁移的经验：</p>
+<ol>
+<li><strong>在 Agent 执行链前加规划层</strong>——不是让模型在 system prompt 里&quot;先思考再回答&quot;，而是一个独立的编排系统，输出结构化 PRD。</li>
+<li><strong>按复杂度路由模型</strong>——战略决策用旗舰、结构化输出用中端、窄操作用轻量模型，用评估数据而非直觉决定路由边界。</li>
+<li><strong>为规划输出建评估闭环</strong>——如果你无法度量计划质量，就无法迭代改进它。从 LLM 评判 + 端到端验证 + A/B 对比三板斧开始。</li>
+</ol>
+<p>规划不是开销，规划是 Agent 系统中 ROI 最高的投资。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-06-02-using-llms-secure-source-code/" data-toggle="tooltip" data-placement="top" title="用 LLM 保护源代码安全：Anthropic 六步闭环实战指南">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

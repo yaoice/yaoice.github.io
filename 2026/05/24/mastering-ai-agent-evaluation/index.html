@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="AI Agent 评估指南：从模型分数到轨迹质量的范式迁移" />
+    <meta property="og:title" content="AI Agent 评估指南：从模型分数到轨迹质量的范式迁移" />
+    <meta property="twitter:title" content="AI Agent 评估指南：从模型分数到轨迹质量的范式迁移" />
+    
+
+    
+    <meta name="description" content="NVIDIA 这篇 Agent 评估指南最值钱的不是那 5 条 Tip，而是它戳破了一层窗户纸：模型基准回答的是『引擎够不够强』，Agent 评估回答的是『系统在你的技术栈里能不能反复跑通』。本文用一个『订单查询 Agent』贯穿全文，把 TSR、Tool Call Accuracy、Trajectory Efficiency 三件套讲清，附评估驱动开发（EDD）循环与最小可行评估栈清单。">
+    <meta property="og:description" content="NVIDIA 这篇 Agent 评估指南最值钱的不是那 5 条 Tip，而是它戳破了一层窗户纸：模型基准回答的是『引擎够不够强』，Agent 评估回答的是『系统在你的技术栈里能不能反复跑通』。本文用一个『订单查询 Agent』贯穿全文，把 TSR、Tool Call Accuracy、Trajectory Efficiency 三件套讲清，附评估驱动开发（EDD）循环与最小可行评估栈清单。" />
+    <meta property="twitter:description" content="NVIDIA 这篇 Agent 评估指南最值钱的不是那 5 条 Tip，而是它戳破了一层窗户纸：模型基准回答的是『引擎够不够强』，Agent 评估回答的是『系统在你的技术栈里能不能反复跑通』。本文用一个『订单查询 Agent』贯穿全文，把 TSR、Tool Call Accuracy、Trajectory Efficiency 三件套讲清，附评估驱动开发（EDD）循环与最小可行评估栈清单。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>AI Agent 评估指南：从模型分数到轨迹质量的范式迁移 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/24/mastering-ai-agent-evaluation/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        <li>
+                            <a href="/categories/ai/">ai</a>
+                        </li>
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/evaluation" title="Evaluation">
+                            Evaluation
+                        </a>
+                        
+                    </div>
+                    <h1>AI Agent 评估指南：从模型分数到轨迹质量的范式迁移</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Sunday, May 24, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>原文：<a href="https://developer.nvidia.com/blog/mastering-agentic-techniques-ai-agent-evaluation/">Mastering Agentic Techniques: AI Agent Evaluation</a> · NVIDIA Technical Blog · 2026-05-19
+作者：Edward Li、Vanessa Bellotti、Nicola Sessions、Rebecca Kao</p>
+</blockquote>
+<blockquote>
+<p>一句话导读：模型基准告诉你「这台引擎在标准跑道上有多快」，Agent 评估告诉你「这台车在你家门口的烂路上能不能反复跑通」。这两件事，长得像，但根本不是同一个问题。</p>
+</blockquote>
+<p>
+  <img src="/img/mastering-ai-agent-evaluation/01-cover.svg" alt="从静态考卷到动态轨迹：Agent 评估的范式迁移">
+
+</p>
+<h2 id="引言一个-mmlu-90-分的-agent为什么在产线上反复掉链子">引言：一个 MMLU 90 分的 Agent，为什么在产线上反复掉链子</h2>
+<p>设想一个真实场景。你的「订单查询 Agent」上线第一周：</p>
+<ul>
+<li>用户问：&ldquo;帮我看下昨晚那笔订单到哪儿了？&rdquo;</li>
+<li>Agent 调用 <code>search_order(user_id, time_range)</code>，参数 schema 多写了一个字段，API 返回 400。</li>
+<li>Agent 没有兜底，<strong>重试 12 次，每次都用同一个错误 schema</strong>，最终对用户说：&ldquo;抱歉，系统繁忙。&rdquo;</li>
+</ul>
+<p>底模是哪家？业内顶配。MMLU、HumanEval 分数都在排行榜前列。但<strong>用户的任务一次没成</strong>。</p>
+<p>这就是 NVIDIA 这篇文章想点破的窗户纸：</p>
+<blockquote>
+<p>你在排行榜上读到的，是<strong>模型的能力上限</strong>。你在生产环境里付出的，是<strong>系统的轨迹质量</strong>。</p>
+</blockquote>
+<p>中间隔着一整条链路：规划、工具调用、Schema 合规、失败重试、环境观察、多步推理。<strong>任何一个环节翻车，最终答案就是零分</strong>——而模型基准压根不会告诉你这件事。</p>
+<hr>
+<h2 id="一范式分野评模型-vs-评-agent到底在评什么">一、范式分野：评模型 vs 评 Agent，到底在评什么</h2>
+<p>先把两件事彻底分开。这是后面所有评估动作的认知底座。</p>
+<p>
+  <img src="/img/mastering-ai-agent-evaluation/02-paradigm-shift.svg" alt="模型评估 vs Agent 评估：两件事的根本差异">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>AI 模型评估</th>
+<th>AI Agent 评估</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>评估对象</td>
+<td>孤立的基础模型</td>
+<td>端到端运行的系统</td>
+</tr>
+<tr>
+<td>环境</td>
+<td>静态、预定义</td>
+<td>动态、非确定性</td>
+</tr>
+<tr>
+<td>典型基准</td>
+<td>MMLU、GSM8K、HumanEval</td>
+<td>GAIA、SWE-bench、WebArena</td>
+</tr>
+<tr>
+<td>核心指标</td>
+<td>知识、推理、编码准确率</td>
+<td>TSR、Tool Call Accuracy、Trajectory Efficiency</td>
+</tr>
+<tr>
+<td>核心问题</td>
+<td><strong>引擎够不够强？</strong></td>
+<td><strong>系统能不能反复跑通？</strong></td>
+</tr>
+<tr>
+<td>关注焦点</td>
+<td>最终输出</td>
+<td>完整轨迹（规划 + 工具 + 观测 + 结果）</td>
+</tr>
+</tbody>
+</table>
+<p>一个反常识的事实：<strong>模型基准分越高，越容易让你忽略 Agent 评估</strong>。因为顶级模型的能力盖住了大部分推理失败，剩下露出来的全是工具调用、Schema、规划与重试问题——而这些恰恰是模型基准压根不测的部分。</p>
+<blockquote>
+<p>一句话总结：模型基准是「考卷」，Agent 评估是「跟车记录仪」。考卷打 90 分的人，未必能把车开到目的地。</p>
+</blockquote>
+<hr>
+<h2 id="二五维评估清单agent-该被怎么打分">二、五维评估清单：Agent 该被怎么打分</h2>
+<p>NVIDIA 这篇文章给出的不是「指标罗列」，而是一张能贴在工位上的检查表。我把它整理成五个维度——<strong>任意一项缺位，评估就有盲区</strong>。</p>
+<p>
+  <img src="/img/mastering-ai-agent-evaluation/03-five-dimensions.svg" alt="Agent 评估五维清单">
+
+</p>
+<h3 id="维度-1--任务成功率tsr而不是最终答案对不对">维度 1 · 任务成功率（TSR），而不是「最终答案对不对」</h3>
+<p>把任务定义为 <strong>意图 + 约束</strong> 的组合，而不是只看输出字符串：</p>
+<ul>
+<li>❌ 旧式：判 Agent 回答和参考答案的字符相似度</li>
+<li>✅ 新式：「在 ≤ 2 次工具调用内、通过 <code>update_order</code> API 完成订单状态修改」——意图 + 硬约束都满足才算 1，否则算 0</li>
+</ul>
+<p><strong>关键动作</strong>：分场景跟踪 TSR——正常场景、降级工具场景（API 限流/超时）、模糊指令场景。<strong>只看总体 TSR 会掩盖脆弱性</strong>，分场景拆开才能看见 Agent 在哪类情况下崩。</p>
+<h3 id="维度-2--完整轨迹不只是终点">维度 2 · 完整轨迹，不只是终点</h3>
+<p>两个 Agent 给同样的答案，<strong>一个 3 步搞定，一个 17 步乱试</strong>——这两件事的可靠性、成本、可维护性，完全不在一个量级。</p>
+<p>轨迹日志最少要记：</p>
+<ul>
+<li>计划与子目标</li>
+<li>每次工具调用的参数、响应、耗时</li>
+<li>中间推理步骤（能记则记）</li>
+<li>最终答案与副作用（写入、更新）</li>
+</ul>
+<h3 id="维度-3--工具使用是一等信号">维度 3 · 工具使用是一等信号</h3>
+<p>生产级 Agent 的成败 <strong>80% 取决于工具用得对不对</strong>，而不是语言表达。</p>
+<p>为每个评估任务声明 <strong>工具契约</strong>：</p>
+<ul>
+<li>哪些工具允许 / 必须使用</li>
+<li>每个工具的最大调用次数</li>
+<li>每次调用预期的 Schema</li>
+</ul>
+<p>衡量两件事：</p>
+<ul>
+<li><strong>Tool selection precision / recall</strong>：选对了吗？避开错的了吗？</li>
+<li><strong>Schema compliance</strong>：参数一次性通过吗，还是反复重试？</li>
+</ul>
+<blockquote>
+<p>Schema 重试是个常被忽略的成本黑洞——模型在「幻觉一个看起来合理但不存在的字段」上能反复尝试十几次，不限次就能把账单刷穿。</p>
+</blockquote>
+<h3 id="维度-4--推理质量--效率">维度 4 · 推理质量 &amp; 效率</h3>
+<p>正确答案 + 错乱推理 = 高账单，且不可维护。</p>
+<ul>
+<li>抽样标注推理轨迹：<strong>正确 / 部分有缺陷 / 错误</strong></li>
+<li>跟踪每次成功任务的 <strong>tokens / 工具调用次数 / 端到端延迟</strong></li>
+<li>用显式预算做约束：「95% 任务在 N tokens、M 次工具调用内完成」——这条预算线一旦写下来，就是优化 prompt、路由、重试策略的指南针</li>
+</ul>
+<h3 id="维度-5--自定义指标对齐业务">维度 5 · 自定义指标对齐业务</h3>
+<p>通用指标之上，叠加用例特定 KPI：</p>
+<ul>
+<li>客服 Agent：语气合规率、是否触发安全词</li>
+<li>研究 Agent：引用覆盖率、是否给出来源</li>
+<li>风控 Agent：误判率、漏判成本</li>
+</ul>
+<p><strong>通用指标保你不至于不可靠，自定义指标决定你能不能上线</strong>——前者是地基，后者是验收单。</p>
+<hr>
+<h2 id="三贯穿案例同样的最终答案两条天差地别的轨迹">三、贯穿案例：同样的最终答案，两条天差地别的轨迹</h2>
+<p>把「订单查询 Agent」拿出来当示范。用户问：&ldquo;昨晚那笔订单到哪儿了？&rdquo;</p>
+<p>两个 Agent 最终都答对了「正在派送，预计今晚 8 点送达」。但打开轨迹看：</p>
+<p>
+  <img src="/img/mastering-ai-agent-evaluation/04-trajectory-compare.svg" alt="同一个答案的两条轨迹：3 步精确 vs 17 步乱试">
+
+</p>
+<p><strong>Agent A · 精确轨迹（3 步）</strong></p>
+<ol>
+<li><code>get_user_recent_orders(user_id, limit=1)</code> → 返回订单 ID</li>
+<li><code>track_shipment(order_id)</code> → 返回物流状态</li>
+<li>综合答复用户</li>
+</ol>
+<p><strong>Agent B · 乱试轨迹（17 步）</strong></p>
+<ol>
+<li><code>search_orders()</code> —— 参数 Schema 错误 → 重试 4 次</li>
+<li><code>query_database(&quot;SELECT * FROM orders&quot;)</code> —— 工具选错，没权限</li>
+<li><code>web_search(&quot;订单 昨晚&quot;)</code> —— 工具选错，无关结果</li>
+<li>……再瞎试 10 步，最终撞对 <code>track_shipment</code> 拿到答案</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>Agent A</th>
+<th>Agent B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>最终答案</td>
+<td>✅ 正确</td>
+<td>✅ 正确</td>
+</tr>
+<tr>
+<td><strong>TSR（限 ≤ 5 步内完成）</strong></td>
+<td>1</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>Tool Call Accuracy</td>
+<td>100%</td>
+<td>12%</td>
+</tr>
+<tr>
+<td>Trajectory Efficiency（步数）</td>
+<td>3</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Schema Compliance（一次过）</td>
+<td>100%</td>
+<td>38%</td>
+</tr>
+<tr>
+<td>单次成本（tokens 估算）</td>
+<td>~1.2k</td>
+<td>~14k</td>
+</tr>
+<tr>
+<td>端到端延迟</td>
+<td>~2s</td>
+<td>~28s</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>如果你只看「最终答案准确率」，这两个 Agent 在排行榜上是并列冠军。<strong>只有打开轨迹看，你才会发现 Agent B 是一个等着被熔断的定时炸弹。</strong></p>
+</blockquote>
+<p>这就是为什么 NVIDIA 反复强调：<strong>Outcomes + Tool Usage + Reasoning + Cost 四类信号必须同步追踪</strong>。少看一类，就有一类坑你来背。</p>
+<hr>
+<h2 id="四把评估前置评估驱动开发edd循环">四、把评估前置：评估驱动开发（EDD）循环</h2>
+<p>第 5 条 Tip 是这篇文章里最容易被一带而过、但最值钱的一条：<strong>不要事后补可观测性，从原型那一天起就把评估织进开发循环</strong>。</p>
+<p>
+  <img src="/img/mastering-ai-agent-evaluation/05-edd-loop.svg" alt="评估驱动开发（EDD）循环">
+
+</p>
+<p>落地姿势分三层：</p>
+<p><strong>Layer 1 · 写代码时就埋观测点</strong></p>
+<ul>
+<li>每个 plan、tool call、关键推理步骤都打稳定 ID</li>
+<li>轨迹结构化落盘（JSON Lines / OpenTelemetry span），不要只打 print</li>
+<li>失败模式打标签：plan_failure / tool_failure / env_failure / schema_failure</li>
+</ul>
+<p><strong>Layer 2 · 建一个「日常跑」的评测集</strong></p>
+<ul>
+<li>不要只有大规模 benchmark，要有<strong>每次 PR 都能跑的小集合</strong>（30–100 case）</li>
+<li>覆盖正常 + 降级 + 模糊 + 对抗四类场景</li>
+<li>跑完自动产出 TSR、Trajectory Efficiency、Tool Call Accuracy 三件套报告</li>
+</ul>
+<p><strong>Layer 3 · 把评估指标接进 CI/CD</strong></p>
+<ul>
+<li>关键指标设 SLO：例如「TSR ≥ 92%、p95 步数 ≤ 8、Schema 一次通过率 ≥ 95%」</li>
+<li>不达标的 PR 不准合入；上线后线上指标退化触发回滚</li>
+</ul>
+<p>这条循环跑顺了之后，<strong>「这版 prompt 是不是变好了」这种主观争论会消失</strong>——剩下的全是可量化的对比。</p>
+<hr>
+<h2 id="五agent-评估的最小可行栈mvs">五、Agent 评估的最小可行栈（MVS）</h2>
+<p>如果你今天刚要给一个 Agent 项目搭评估体系，<strong>最少最少需要这五块</strong>：</p>
+<p>
+  <img src="/img/mastering-ai-agent-evaluation/06-minimum-stack.svg" alt="Agent 评估最小可行栈">
+
+</p>
+<ol>
+<li><strong>轨迹采集层</strong>：OpenTelemetry / LangSmith / NVIDIA NeMo Agent Toolkit — 任选一个，关键是落结构化日志，不是 print</li>
+<li><strong>评测集仓库</strong>：用 Git 管，case 是代码资产；至少 4 类场景分桶</li>
+<li><strong>指标计算器</strong>：跑一遍评测集，输出 TSR / Tool Call Accuracy / Trajectory Efficiency / Schema Compliance 四张表</li>
+<li><strong>可视化看板</strong>：Grafana / Streamlit / 自建 — 让 PM 和工程师看同一张图，省下一半口水</li>
+<li><strong>CI 守门员</strong>：把指标 SLO 写进 GitHub Actions，不达标不让合</li>
+</ol>
+<blockquote>
+<p>工具选谁都行，但<strong>这五块缺一块，你的 Agent 就是黑盒上线</strong>。</p>
+</blockquote>
+<p>NVIDIA 自家方案是 <a href="https://developer.nvidia.com/nemo-agent-toolkit">NeMo Agent Toolkit</a>——它的卖点是「可插入现有 Agent 框架，不重写就能加评估」。如果你已经在用 LangGraph / AutoGen / CrewAI，这是个值得评估的选项；如果是自建框架，至少要按这五块的形状自己拼一套。</p>
+<hr>
+<h2 id="收束从跑得通到反复跑得通">收束：从「跑得通」到「反复跑得通」</h2>
+<p>回到开头那个 MMLU 90 分却在产线上掉链子的 Agent。它的问题不在模型，而在没人给它建立<strong>轨迹层面的反馈回路</strong>。</p>
+<p>这篇文章可以浓缩成三句话：</p>
+<ol>
+<li><strong>评模型 ≠ 评 Agent</strong>：前者评能力上限，后者评系统下限。</li>
+<li><strong>核心三件套</strong>：TSR、Tool Call Accuracy、Trajectory Efficiency——任意一个缺位都看不出 Agent B 那种「答对但有病」的情况。</li>
+<li><strong>评估必须前置</strong>：从第一天就把它织进开发循环，否则就是事后救火。</li>
+</ol>
+<p>Agent 不会因为底模升级而自动变可靠。<strong>反复跑得通</strong>这件事，永远要靠评估闭环亲手织出来——这是 NVIDIA 这篇文章给这个浮躁行业最朴素也最重要的一句提醒。</p>
+<hr>
+<p><strong>延伸阅读：</strong></p>
+<ul>
+<li><a href="https://arxiv.org/abs/2311.12983">GAIA: A Benchmark for General AI Assistants</a></li>
+<li><a href="https://www.swebench.com/">SWE-bench: Can Language Models Resolve Real-World GitHub Issues?</a></li>
+<li><a href="https://webarena.dev/">WebArena: A Realistic Web Environment for Building Autonomous Agents</a></li>
+<li><a href="https://developer.nvidia.com/nemo-agent-toolkit">NVIDIA NeMo Agent Toolkit</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/24/nvidia-ai-q-deep-research-skill/" data-toggle="tooltip" data-placement="top" title="Harness 不该亲自做研究：NVIDIA AI-Q Deep Research Skill 工程解读">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/25/openai-in-house-data-agent/" data-toggle="tooltip" data-placement="top" title="OpenAI 内部数据 Agent 深读：上下文工程，比换更大的模型更重要">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

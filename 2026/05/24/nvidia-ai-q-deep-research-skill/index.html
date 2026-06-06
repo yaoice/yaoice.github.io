@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Harness 不该亲自做研究：NVIDIA AI-Q Deep Research Skill 工程解读" />
+    <meta property="og:title" content="Harness 不该亲自做研究：NVIDIA AI-Q Deep Research Skill 工程解读" />
+    <meta property="twitter:title" content="Harness 不该亲自做研究：NVIDIA AI-Q Deep Research Skill 工程解读" />
+    
+
+    
+    <meta name="description" content="通用 Agent Harness 擅长编排但做不好研究——NVIDIA 把多文档综合、引文溯源、企业数据接入打包成一个可移植的 Skill，让 Claude Code / Codex 通过『委托』而非『拥有』获得研究能力。本文按四阶段流水线 → 三种 MCP 认证 → 数据治理反转 → 模型混合策略的顺序拆开 AI-Q 的工程取舍，并给出落地决策清单。">
+    <meta property="og:description" content="通用 Agent Harness 擅长编排但做不好研究——NVIDIA 把多文档综合、引文溯源、企业数据接入打包成一个可移植的 Skill，让 Claude Code / Codex 通过『委托』而非『拥有』获得研究能力。本文按四阶段流水线 → 三种 MCP 认证 → 数据治理反转 → 模型混合策略的顺序拆开 AI-Q 的工程取舍，并给出落地决策清单。" />
+    <meta property="twitter:description" content="通用 Agent Harness 擅长编排但做不好研究——NVIDIA 把多文档综合、引文溯源、企业数据接入打包成一个可移植的 Skill，让 Claude Code / Codex 通过『委托』而非『拥有』获得研究能力。本文按四阶段流水线 → 三种 MCP 认证 → 数据治理反转 → 模型混合策略的顺序拆开 AI-Q 的工程取舍，并给出落地决策清单。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Harness 不该亲自做研究：NVIDIA AI-Q Deep Research Skill 工程解读 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/24/nvidia-ai-q-deep-research-skill/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        <li>
+                            <a href="/categories/ai/">ai</a>
+                        </li>
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/mcp" title="MCP">
+                            MCP
+                        </a>
+                        
+                        <a class="tag" href="/tags/deep-research" title="Deep Research">
+                            Deep Research
+                        </a>
+                        
+                    </div>
+                    <h1>Harness 不该亲自做研究：NVIDIA AI-Q Deep Research Skill 工程解读</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Sunday, May 24, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>原文：<a href="https://developer.nvidia.com/blog/add-a-specialized-deep-research-skill-to-agent-harnesses/">Add a Specialized Deep Research Skill to Agent Harnesses</a> · NVIDIA Technical Blog · 2026-05-20
+作者：William Markito Oliveira（NVIDIA 企业 AI Agents 产品负责人）、Isabel Hulseman（产品营销经理）</p>
+</blockquote>
+<p>
+  <img src="/img/nvidia-ai-q-deep-research-skill/cover.svg" alt="让 Agent Harness 委托研究，而不是亲自研究">
+
+</p>
+<h2 id="引言harness-不擅长的那件事">引言：Harness 不擅长的那件事</h2>
+<p>过去一年，Claude Code、Codex、OpenCode 这类 agent harness 几乎成了「AI 工程师标配」。它们擅长编排、UI、上下文管理——但凡你让它们做一件真正意义上的「研究」，比如「读完这 47 份合同后告诉我哪几条续约风险最高」「跨产线汇总过去三个月的故障根因」，就会反复撞到同一堵墙。</p>
+<p>NVIDIA 在 5 月 20 日发的这篇博客，给出的解法不是「再训一个更聪明的 agent」，而是把整条研究流水线抽出来，做成一个可被任意 harness「<strong>委托调用</strong>」的 Skill：AI-Q Deep Research Skill。</p>
+<p>听上去像又一个集成包，但它实际上隐含了一个反主流的判断：<strong>研究质量是独立的工程问题，不应该是编排能力的副产品</strong>。本文就沿着这个判断展开，拆它的四阶段流水线、三种认证模式、数据治理反转，以及一个最容易被忽视但极其重要的「frontier 模型开关」。</p>
+<hr>
+<h2 id="一为什么-harness-亲自做研究会塌房">一、为什么 Harness 亲自做研究会塌房</h2>
+<p>NVIDIA 把这个问题讲得比较克制——「general-purpose agents can do research, but results may be inconsistent」。但放到任何在企业内部跑过 RAG 或 Agent 的人面前，这种「inconsistent」翻译成中文就是四种具体故障：</p>
+<p>
+  <img src="/img/nvidia-ai-q-deep-research-skill/problem.svg" alt="通用 Harness 做研究的四种典型失败">
+
+</p>
+<p><strong>多源结果不一致</strong>。同一个问题，今天问得到 A 答案，明天问得到 B 答案。原因是 harness 把检索、综合、判定都丢给同一段松散的循环，每一次跑的状态机不一样。</p>
+<p><strong>引文链路缺失</strong>。你拿到一段结论，但无法回答「这话出自哪份文件的哪一段」。在金融、法务、合规场景里，这条等同于直接不可用。</p>
+<p><strong>长周期规划崩坏</strong>。十几步以上的研究链路，harness 容易在中途丢掉最初的目标——你以为它在帮你查 Q3 季度数据，它跑着跑着去翻 Q2 了。</p>
+<p><strong>敏感数据外泄风险</strong>。要让 harness 直接接入企业数据，意味着 harness 进程本身要持有数据 token。一旦这个 harness 是云端托管的，治理团队基本会一票否决。</p>
+<p>这四条不是某个 harness 的 bug，而是「让一个为编排设计的通用 agent 顺手做研究」这件事本身的结构性问题。NVIDIA 给的方案是：<strong>别让 harness 做。把研究委托给一个专门的后端</strong>。</p>
+<hr>
+<h2 id="二ai-q-到底是什么一个可移植的研究后端">二、AI-Q 到底是什么：一个可移植的「研究后端」</h2>
+<p>形式上 AI-Q Deep Research Skill 极简——一个目录，两个文件：</p>
+<ul>
+<li><code>SKILL.md</code>：告诉 harness「我是谁、能做什么、怎么调」</li>
+<li><code>scripts/aiq.py</code>：辅助脚本，负责把任务提交到 AI-Q 服务器、轮询、拉结果</li>
+</ul>
+<p>仓库路径是 <code>.agents/skills/aiq-research/</code>，默认连接 <code>http://localhost:8000</code>，可以用 <code>AIQ_SERVER_URL</code> 覆盖。安装方式就是软链或拷贝到对应 harness 的 skills 目录：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Claude Code:  ~/.claude/skills/  或项目内 .claude/skills/
+</span></span><span style="display:flex;"><span>Codex:        harness 配置指向的 skills 目录
+</span></span><span style="display:flex;"><span>OpenCode:     ~/.config/opencode/skills/
+</span></span></code></pre></div><p>技术上没什么稀奇，<strong>重点是它代表的产品姿态</strong>：AI-Q 不与 Claude Code 竞争，也不试图取代 harness 的编排能力。它只解决一件事——当 harness 收到「这个任务需要做研究」的判断后，把整个研究任务作为一个<strong>异步 job</strong> 扔给 AI-Q，等它出报告。</p>
+<p>这是一种典型的「<strong>关注点分离</strong>」：harness 决定「问什么」，AI-Q 决定「怎么研究」，数据决定「在哪研究」。三方解耦后，每一方都可以独立演进、独立评测、独立扩缩容。</p>
+<hr>
+<h2 id="三四阶段研究流水线为什么要拆这么细">三、四阶段研究流水线：为什么要拆这么细</h2>
+<p>AI-Q 的核心是一条专门为研究设计的流水线，分四阶段：</p>
+<p>
+  <img src="/img/nvidia-ai-q-deep-research-skill/pipeline.svg" alt="AI-Q 研究流水线 · 四阶段独立调优">
+
+</p>
+<h3 id="-intent-classifier--别拿大炮打蚊子">① Intent Classifier · 别拿大炮打蚊子</h3>
+<p>最先跑的是意图分类器，判断这个问题「需要多深」。一句「我们公司的 PTO 政策是几天」根本不需要走 deep research——查一次 Wiki 就够了；而「过去 5 年我们在亚太地区的合规事件有什么共性」必须深挖。</p>
+<p>这一步的工程价值在于<strong>避免把所有问题都送进最贵的链路</strong>。Deep Researcher 用的是 Nemotron 推理模型 + 跨源综合，单次任务可能消耗几分钟和大量 token；让 Intent Classifier 在入口处筛掉 60–80% 的浅查询，是流水线能跑得起的前提。</p>
+<h3 id="-clarifier--检索前消除歧义">② Clarifier · 检索前消除歧义</h3>
+<p>第二阶段是「人机澄清」环节。注意它的位置——<strong>在检索开始之前</strong>，而不是给完答案让用户挑错。</p>
+<p>这是一个很容易被忽视的设计取舍。绝大多数「让用户澄清」的 agent 实现是写完一稿之后请用户改，本质上是把澄清成本推给读完答案的人。AI-Q 反过来：先确认问题边界，再花算力。对 deep research 这种动辄分钟级的任务，把「跑错方向 5 分钟」前置成「问 1 个澄清问题」是值回票价的。</p>
+<h3 id="-shallow-researcher--给浅查询留快车道">③ Shallow Researcher · 给浅查询留快车道</h3>
+<p>范围明确、可以几秒返回的查询走这一支。它存在的意义不是性能优化，而是<strong>质量隔离</strong>——浅查询的失败模式（关键词没命中）和深研究的失败模式（综合判断错）完全不同，混在一条链路里调优会顾此失彼。</p>
+<h3 id="-deep-researcher--长周期综合的主战场">④ Deep Researcher · 长周期综合的主战场</h3>
+<p>这才是 AI-Q 的招牌：跨企业数据源、长周期、多文档综合，Nemotron 推理模型负责规划与综合。输出是带引文的结构化报告，附带每段结论的 source attribution。</p>
+<p><strong>这四个阶段「独立调优、独立评测」的工程价值，比阶段本身重要</strong>。FreshQA、Deep Research Bench、DeepSearchQA 三个公开基准可以分别针对不同阶段打分；合规收紧时可以单独关掉 Deep 阶段对 frontier model 的路由，而不影响 Shallow 浅查体验。这种「可分别下电」的能力，是端到端黑盒 agent 拿不到的。</p>
+<hr>
+<h2 id="四mcp-三种认证模式决定治理边界">四、MCP 三种认证模式：决定治理边界</h2>
+<p>AI-Q 通过 MCP（Model Context Protocol）function group 接入企业数据源。听起来标准，但<strong>到底用谁的身份去查数据</strong>，决定了完全不同的治理边界。</p>
+<p>
+  <img src="/img/nvidia-ai-q-deep-research-skill/auth.svg" alt="MCP 三种认证模式 · 场景决策表">
+
+</p>
+<h3 id="模式-amcp_client-直连">模式 A：<code>mcp_client</code> 直连</h3>
+<p>适合：MCP 服务器本身就不要求用户认证，比如内网开放的搜索、公共文档。</p>
+<p>特点是上手最快，但<strong>不要在任何含 PII、客户数据的源上用</strong>——AI-Q 直接「裸连」MCP，等于把鉴权下推到 MCP 服务器自己。</p>
+<p>注意一个生产细节：MCP 推荐用 <code>streamable-http</code> 传输，受保护的 MCP 服务器必须用这个。</p>
+<h3 id="模式-bmcp_client--mcp_service_account">模式 B：<code>mcp_client + mcp_service_account</code></h3>
+<p>这是<strong>生产场景的首选</strong>。AI-Q 用一个服务账号去查 MCP，身份是「这个研究服务」而不是「某个用户」。</p>
+<p>它的两个隐性好处：<strong>长任务不会因为用户 token 过期而中断</strong>；<strong>审计在 service account 维度聚合</strong>，运维团队能拿到清楚的「谁/什么时候/为什么访问了这份数据」。CI、批处理、共享数据集场景几乎只能选它。</p>
+<h3 id="模式-c自定义-aiq-工具--get_auth_token">模式 C：自定义 AIQ 工具 + <code>get_auth_token()</code></h3>
+<p>这是行级权限场景的解法——下游 API 信任 AIQ 用户的 bearer token，每个用户「以自己的身份」查自己的项目数据。</p>
+<p><strong>但这里有一个必须知道的当前限制</strong>：用户身份在 Dask 异步 worker 中是保留的，但 <strong>token 不会在任务中途刷新</strong>。NVIDIA 说下个版本会支持，目前你要做的是——如果一个研究任务可能超过 token 有效期，要么换用模式 B，要么把任务拆短。</p>
+<blockquote>
+<p><strong>决策清单（直接抄）</strong></p>
+<ul>
+<li>实验/原型/无认证数据源 → 模式 A</li>
+<li>生产/CI/批处理/共享数据 → 模式 B（<strong>默认首选</strong>）</li>
+<li>行级权限/「以本人身份查我的数据」→ 模式 C，但注意短任务化</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="五数据治理反转少给权限结果更扎实">五、数据治理反转：少给权限，结果更扎实</h2>
+<p>这是整篇文章最容易被忽略、但工程价值最高的部分。</p>
+<p>
+  <img src="/img/nvidia-ai-q-deep-research-skill/governance.svg" alt="数据治理模式反转 · 三层边界">
+
+</p>
+<p>传统思路是：要让 agent 答得准，就得让 agent 看到所有原始数据。AI-Q 反过来：<strong>harness 越远离原始数据，反而越能拿到扎实结果</strong>。</p>
+<p>为什么？因为：</p>
+<ol>
+<li><strong>harness 不持有数据 token</strong> → 治理审计大幅简化，云端 harness 也能合规接入企业数据；</li>
+<li><strong>harness 看到的是带引文的结构化报告</strong> → 它没有自己「重新综合」的机会，自然不会产生幻觉式答案；</li>
+<li><strong>AI-Q 在受控环境（本地、企业 K8s、甚至 air-gapped 数据中心）做检索与综合</strong> → 数据从不离开企业边界；</li>
+<li><strong>OpenTelemetry trace 与 source attribution 是默认开启的</strong> → 合规可审计性是流水线原生属性，不是事后补丁。</li>
+</ol>
+<p>这套模式对应的部署形态也是「就地展开」：Docker Compose 跑笔记本验证，Helm chart 上 K8s，整张 Blueprint 已经在 Dell AI Factory（Dell-NVIDIA AI-Q 2.0 Reference Architecture）上跑通了金融、公共部门、制造业场景。</p>
+<p>工程化的判断是：<strong>敏感数据场景不要让 harness 直连任何东西</strong>。让 AI-Q 站在数据这一侧，harness 站在用户这一侧，两侧只通过结构化报告通信。</p>
+<hr>
+<h2 id="六模型策略frontier-是开关不是必选">六、模型策略：Frontier 是开关，不是必选</h2>
+<p>很多人没注意到原文里这段话的分量——AI-Q 采用「混合模型」策略：</p>
+<ul>
+<li><strong>Nemotron 推理模型</strong>：负责规划与综合（默认主力）</li>
+<li><strong>Frontier-model router</strong>：可配置，处理需要额外能力的任务</li>
+<li><strong>完全禁用 frontier model</strong>：合规严格的场景一键开关</li>
+</ul>
+<p>把这三档放到一起读，就能看出 NVIDIA 给合规团队设计的「开关」是真的可拨：</p>
+<ul>
+<li>默认走自托管的 Nemotron（可作为 NVIDIA NIM 在本地部署），数据全在域内；</li>
+<li>需要更强能力时启用 frontier router，但这部分流量是 AI-Q 显式路由出去的，可观察、可审计；</li>
+<li>严合规场景（金融核心、政府、医疗）直接关掉 frontier 路由，整套流水线变成「全自托管」。</li>
+</ul>
+<p><strong>这跟主流「agent 必须配上最强 frontier 模型」的叙事是反着的</strong>。AI-Q 押注的是：研究质量来自流水线设计（清晰的阶段、好的检索、可靠的综合），而不是来自更大的模型。这给了合规团队一个真正可用的「降级路径」，而不是「不用就废」。</p>
+<hr>
+<h2 id="七给开发者的落地清单">七、给开发者的落地清单</h2>
+<p>如果你现在就要给手上的 harness 加研究能力，按这几步走：</p>
+<ol>
+<li><strong>先起服务器</strong>：拉 <a href="https://github.com/NVIDIA-AI-Blueprints">NVIDIA-AI-Blueprints/aiq</a> v2.1.0，Docker Compose 跑本地验证，Helm chart 上 K8s。先决条件：Python 3.10+。</li>
+<li><strong>接数据源</strong>：通过 MCP function group 把现有 Wiki、数仓、CRM 接进来；<strong>优先用 service account 模式</strong>（模式 B）。</li>
+<li><strong>装 Skill</strong>：把 <code>.agents/skills/aiq-research/</code> 拷或软链到你 harness 的 skills 目录。</li>
+<li><strong>跑评测</strong>：用流水线带的评测工具，在自己数据上跑 FreshQA / Deep Research Bench / DeepSearchQA，建立基线。</li>
+<li><strong>决定 frontier 策略</strong>：合规宽松场景留 frontier router 开着，严合规场景直接关掉，全走 Nemotron。</li>
+<li><strong>观察长任务</strong>：如果用模式 C（用户身份），监控有没有任务因 token 过期失败；目前没有中途刷新机制，下一个版本可能会补。</li>
+</ol>
+<hr>
+<h2 id="总结三条带走的判断">总结：三条带走的判断</h2>
+<p>
+  <img src="/img/nvidia-ai-q-deep-research-skill/takeaway.svg" alt="三条带走的判断">
+
+</p>
+<p>回到开头那个反主流的判断：<strong>研究质量是独立的工程问题，不应该是编排能力的副产品</strong>。</p>
+<p>如果你下次给 harness 加研究能力时只能记住三件事，让它们是：</p>
+<ol>
+<li><strong>委托 ≠ 拥有</strong>——harness 别在内部手写检索循环，把研究当成一个独立后端调用；</li>
+<li><strong>数据治理反转</strong>——少给 harness 权限，反而能拿到更扎实的结果，因为 harness 没机会自己「重新综合」；</li>
+<li><strong>Frontier 是开关</strong>——别假设一切场景都需要最强模型，给合规团队一个真正可用的降级路径。</li>
+</ol>
+<p>AI-Q 不是一个新模型、也不是一个新 harness。它是一个<strong>关于「研究该由谁做」的产品判断</strong>——把这件事从 harness 的能力清单里拿出来，做成可独立演进、可独立审计、可本地部署的服务。这个判断本身，比它选择的任何技术栈细节都更值得借鉴。</p>
+<hr>
+<p><strong>参考资源</strong></p>
+<ul>
+<li>原文：<a href="https://developer.nvidia.com/blog/add-a-specialized-deep-research-skill-to-agent-harnesses/">Add a Specialized Deep Research Skill to Agent Harnesses</a></li>
+<li>GitHub: <a href="https://github.com/NVIDIA-AI-Blueprints">NVIDIA-AI-Blueprints/aiq</a> (v2.1.0)</li>
+<li>AI-Q Blueprint 文档：docs.nvidia.com/aiq-blueprint/2.0.0</li>
+<li>Dell-NVIDIA 参考架构：infohub.delltechnologies.com</li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/24/hermes-agent-architecture-execution-flow/" data-toggle="tooltip" data-placement="top" title="Hermes Agent 源码深潜：从 CLI 入口到工具循环、状态库与上下文压缩的执行原理">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/24/mastering-ai-agent-evaluation/" data-toggle="tooltip" data-placement="top" title="AI Agent 评估指南：从模型分数到轨迹质量的范式迁移">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

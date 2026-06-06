@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="OpenAI 内部数据 Agent 深读：上下文工程，比换更大的模型更重要" />
+    <meta property="og:title" content="OpenAI 内部数据 Agent 深读：上下文工程，比换更大的模型更重要" />
+    <meta property="twitter:title" content="OpenAI 内部数据 Agent 深读：上下文工程，比换更大的模型更重要" />
+    
+
+    
+    <meta name="description" content="OpenAI 在 2026 年 1 月公开了内部数据 Agent 的设计原理：3,500 名员工、7 万张表、600PB 数据，单条查询动辄 180 行 SQL —— 它解决问题的方式不是换更大的模型，而是把上下文工程做扎实。本文基于 OpenAI 官方博客《Inside our in-house data agent》，深拆其六层上下文体系、Codex 增强、RAG 管道、Evals 闭环、严格透传权限模型，并提炼三条 Lessons Learned 对自建数据 Agent 团队的迁移启示。">
+    <meta property="og:description" content="OpenAI 在 2026 年 1 月公开了内部数据 Agent 的设计原理：3,500 名员工、7 万张表、600PB 数据，单条查询动辄 180 行 SQL —— 它解决问题的方式不是换更大的模型，而是把上下文工程做扎实。本文基于 OpenAI 官方博客《Inside our in-house data agent》，深拆其六层上下文体系、Codex 增强、RAG 管道、Evals 闭环、严格透传权限模型，并提炼三条 Lessons Learned 对自建数据 Agent 团队的迁移启示。" />
+    <meta property="twitter:description" content="OpenAI 在 2026 年 1 月公开了内部数据 Agent 的设计原理：3,500 名员工、7 万张表、600PB 数据，单条查询动辄 180 行 SQL —— 它解决问题的方式不是换更大的模型，而是把上下文工程做扎实。本文基于 OpenAI 官方博客《Inside our in-house data agent》，深拆其六层上下文体系、Codex 增强、RAG 管道、Evals 闭环、严格透传权限模型，并提炼三条 Lessons Learned 对自建数据 Agent 团队的迁移启示。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>OpenAI 内部数据 Agent 深读：上下文工程，比换更大的模型更重要 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/25/openai-in-house-data-agent/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        <li>
+                            <a href="/categories/ai/">ai</a>
+                        </li>
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/openai" title="OpenAI">
+                            OpenAI
+                        </a>
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E6%95%B0%E6%8D%AE%E5%B9%B3%E5%8F%B0" title="数据平台">
+                            数据平台
+                        </a>
+                        
+                        <a class="tag" href="/tags/rag" title="RAG">
+                            RAG
+                        </a>
+                        
+                        <a class="tag" href="/tags/text-to-sql" title="Text-to-SQL">
+                            Text-to-SQL
+                        </a>
+                        
+                        <a class="tag" href="/tags/gpt-5" title="GPT-5">
+                            GPT-5
+                        </a>
+                        
+                    </div>
+                    <h1>OpenAI 内部数据 Agent 深读：上下文工程，比换更大的模型更重要</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Monday, May 25, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>原文：<a href="https://openai.com/index/inside-our-in-house-data-agent/">Inside our in-house data agent — OpenAI</a> · 2026-01-29 · Bonnie Xu, Aravind Suresh, Emma Tang</p>
+<p>一句话导读：当数据规模达到 600PB 和 7 万张表，&ldquo;找对表格&quot;本身就是一份全职工作。OpenAI 的解法不是更聪明的模型，而是一套以 <strong>六层上下文 + Codex 代码语义 + 透传权限</strong> 为核心的内部数据 Agent —— 这套设计的真正价值，在于它把&quot;上下文工程&quot;从一句口号变成了可工程化的产品形态。</p>
+</blockquote>
+<p>
+  <img src="/img/openai-in-house-data-agent/cover.svg" alt="图：OpenAI 内部数据 Agent 概览 — 600PB / 7 万张表 / 单条 180 行 SQL">
+
+</p>
+<h2 id="一引言当一条-sql-长到-180-行">一、引言：当一条 SQL 长到 180 行</h2>
+<p>先看几个让人头皮发麻的数字。</p>
+<p>OpenAI 内部数据平台支撑着 <strong>3,500 名员工</strong>（工程、产品、研究三条战线全在内），仓库里趴着 <strong>7 万张表</strong>，总量 <strong>600PB</strong>。在这样的体量下，分析师真正花时间的地方，往往不是写 SQL，而是 <strong>找对那张表</strong>：</p>
+<blockquote>
+<p>&ldquo;我们有很多非常相似的表格，我曾耗费大量时间去厘清它们的不同之处，以及具体应选择哪一个表格。有的表格包括已注销用户，有的则不包括这些用户。有的表格存在重叠字段，很难分辨具体内容。&rdquo; —— OpenAI 内部用户原话</p>
+</blockquote>
+<p>即便选对了表，分析师还要在多对多 JOIN、谓词下推错误、未处理的 NULL 之间挣扎，<strong>单条查询动辄 180 行以上</strong>。OpenAI 团队把这个状态总结得很直接：分析师本应专注于&quot;定义指标、验证假设、做数据驱动决策&rdquo;，结果一半时间都在调试 SQL 语义。</p>
+<p>于是他们做了一件值得行业借鉴的事——不是采购更贵的 BI，不是给员工开 SQL 培训，而是<strong>自建一个数据 Agent</strong>，由 GPT-5.2 驱动，目标是把&quot;分析要花一天&quot;压到&quot;分钟级回答&quot;。</p>
+<p>下面拆开看，这套系统真正稳的地方在哪。</p>
+<h2 id="二设计动机传统-bi-为什么撑不住-openai-的规模">二、设计动机：传统 BI 为什么撑不住 OpenAI 的规模</h2>
+<p>传统 BI 的隐含假设是&quot;表格数量可控、语义稳定、用户懂 SQL&quot;。在 600PB / 7 万张表的体量下，这三条假设全部破产：</p>
+<ul>
+<li><strong>可控？</strong>——表格沿袭复杂到分析师自己都说不清&quot;用户活跃数&quot;该走哪一张事实表。</li>
+<li><strong>稳定？</strong>——每天有新表上线、字段语义随产品迭代漂移。</li>
+<li><strong>懂 SQL？</strong>——研究员、PM、GTM 都要看数据，但他们不该被迫成为 DBA。</li>
+</ul>
+<p>更糟的是，<strong>传统 Text-to-SQL 工具的失败模式高度集中在&quot;上下文不够&quot;</strong>：模型看不到字段是不是包含已注销用户、看不到这张表是不是只来自第一方 ChatGPT 流量、看不到上周事故让某指标定义临时改过——这些信息都不在 schema 里，但分析师每天靠它做判断。</p>
+<p>OpenAI 团队由此得出一个并不性感、却极其重要的判断：</p>
+<blockquote>
+<p><strong>数据 Agent 的核心不是更聪明的模型，而是更准确、更新鲜、更可信的上下文。</strong></p>
+</blockquote>
+<p>落到产品上，这个 Agent 由 GPT-5.2 驱动，并通过 OpenAI 自家的工具栈（Codex、GPT‑5 旗舰模型、Evals API、Embeddings API）构建。多端接入：Slack 智能体、Web 界面、IDE 嵌入、通过 MCP 接入 Codex CLI、再经 MCP connector 接入内部 ChatGPT。</p>
+<p>它能回答的提问长这样：</p>
+<blockquote>
+<p>&ldquo;For NYC taxi trips, which pickup-to-dropoff ZIP pairs are the most unreliable, with the largest gap between typical and worst-case travel times, and when does that variability occur?&rdquo;</p>
+</blockquote>
+<p>不是单步 SQL，而是 <strong>理解问题 → 探索数据 → 运行查询 → 汇总结果</strong> 的端到端分析；如果中间结果异常，它会自我调试并重试——已经接近&quot;和一位资深分析师协作&quot;的体验。</p>
+<h2 id="三架构深拆六层上下文体系">三、架构深拆：六层上下文体系</h2>
+<p>OpenAI 把这套上下文做成了一个<strong>分层栈</strong>，从最稳定的底座，一路叠到最易变的运行时校准。理解了这张图，就理解了为什么&quot;加 description&quot;远远不够。</p>
+<p>
+  <img src="/img/openai-in-house-data-agent/six-layer-context.svg" alt="图：六层上下文体系总览">
+
+</p>
+<h3 id="第-1-层--表格使用情况">第 1 层 · 表格使用情况</h3>
+<p>最朴素的一层：模式元数据（列名、类型）、表格沿袭（上下游关系）、历史查询采集。这是行业标配，但在 7 万张表的规模下，<strong>仅靠这层，模型甚至选不对表</strong>。</p>
+<h3 id="第-2-层--人工注释">第 2 层 · 人工注释</h3>
+<p>领域专家撰写的表格 / 列描述：意图、语义、业务含义、注意事项。<strong>信噪比最高</strong>——但成本也最高、最容易过期，注定无法穷举。</p>
+<h3 id="第-3-层--codex-增强关键创新">第 3 层 · Codex 增强（关键创新）</h3>
+<p>这是整个体系里<strong>最反常识、也最值得学的一层</strong>。</p>
+<p>OpenAI 让 Codex 去爬整个代码库，从生成数据的代码本身去推导：</p>
+<ul>
+<li>这一列是否唯一？</li>
+<li>这张表多久更新一次？</li>
+<li>数据范围 / 粒度是什么？</li>
+<li>它在 SQL 之外还被怎么用？（Spark、Python、notebook ……）</li>
+</ul>
+<p>举一个原文里的例子：通过读代码，Agent 可以判断<strong>某张表是否仅包含第一方 ChatGPT 流量</strong>——这个事实在 schema 和 description 里都不会写明，但写代码的人显然知道。</p>
+<blockquote>
+<p><strong>&ldquo;Meaning lives in code.&rdquo;</strong></p>
+</blockquote>
+<p>这句话是整篇官方博客最值钱的一句。它意味着：</p>
+<ul>
+<li>schema 只描述形状（shape）；</li>
+<li>查询历史只描述用法（usage）；</li>
+<li>真正的语义（meaning）藏在生成数据的代码里。</li>
+</ul>
+<p>如果你正在自建数据 Agent，<strong>把代码仓库当作一等公民</strong>——这是从 OpenAI 这套设计能学到的最反直觉、也最有迁移价值的判断。</p>
+<h3 id="第-4-层--机构知识">第 4 层 · 机构知识</h3>
+<p>接入 Slack、Google Docs、Notion，把&quot;产品发布、可靠性事件、内部代号、关键指标定义&quot;全部喂进来。每条文档被采集后会嵌入并和元数据 / 权限一起存储，<strong>检索时 runtime 处理访问控制</strong>——非常重要，下一节会再回到这里。</p>
+<h3 id="第-5-层--memory-记忆">第 5 层 · Memory 记忆</h3>
+<p>保存更正信息、过滤约束。范围分<strong>全局</strong>（整个团队共享）和<strong>个人</strong>（针对个人偏好）。<strong>用户可以手动创建 / 编辑记忆</strong>——这点在产品哲学上很关键：它把数据 Agent 的可靠性，从&quot;开发团队单方面打磨&quot;转变为&quot;和用户共建&quot;。</p>
+<p>原文给了一个例子：Agent 最初不知道如何筛选某个分析实验（要匹配实验门里的特定字符串），通过用户加入一条记忆解决了——这是个非常具体的&quot;用户教 Agent 学业务&quot;场景。</p>
+<h3 id="第-6-层--运行时上下文">第 6 层 · 运行时上下文</h3>
+<p>最后一层是兜底校准：直接对数据仓库发实时查询，验证 schema 没漂；可以与元数据服务、Airflow、Spark 对话拿当下的真实状态。前 5 层是&quot;知识&quot;，第 6 层是&quot;事实&quot;。</p>
+<blockquote>
+<p><strong>底座 ① ② 提供&quot;形状&quot;，③ Codex 揭示&quot;含义&quot;，④ ⑤ 沉淀团队知识，⑥ 兜底校准——这是这套上下文体系最完整的一句话总结。</strong></p>
+</blockquote>
+<h3 id="它们怎么进-rag--离线管道--运行时检索">它们怎么进 RAG —— 离线管道 + 运行时检索</h3>
+<p>注意一个工程细节：<strong>这些上下文不会全部塞进 prompt 常驻</strong>。</p>
+<p>OpenAI 跑了一条<strong>每日离线管道</strong>：聚合表格使用情况、人工注释、Codex 增强 → 经 OpenAI Embeddings API 向量化 → 入向量库。运行时通过 RAG 仅拉取<strong>最相关</strong>的那一小段上下文，保证延迟。</p>
+<p>
+  <img src="/img/openai-in-house-data-agent/rag-pipeline-runtime.svg" alt="图：离线管道 &#43; 运行时 RAG 数据流">
+
+</p>
+<p>这套设计有两个非常容易被忽略的工程价值：</p>
+<ol>
+<li><strong>token 预算可控</strong>：上下文虽然有 6 层，但每次只&quot;按需取&quot;，不会因为知识库变大而拖慢任何一次问答。</li>
+<li><strong>权限可被严格执行</strong>：检索服务自带访问控制层，<strong>用户检索不到的内容，模型也读不到</strong>——这是数据 Agent 真正能在企业落地的前提。</li>
+</ol>
+<h2 id="四像团队成员一样工作与传统-bi-的差异">四、像团队成员一样工作：与传统 BI 的差异</h2>
+<p>光有上下文还不够，产品形态本身决定了 Agent 是&quot;工具&quot;还是&quot;同事&quot;。OpenAI 在这一层做了几个关键选择：</p>
+<ul>
+<li><strong>多轮对话</strong>：跨轮次保留完整上下文，可以追问、改方向。</li>
+<li><strong>可中断（interruptible）</strong>：用户可以在分析中途打断并重新指定方向——和真人协作一样。</li>
+<li><strong>主动澄清</strong>：指令不明确时会主动反问；如果用户没回应，则采用合理默认值（例如&quot;业务增长&quot;默认最近 7 或 30 天）。</li>
+<li><strong>双模式胜任</strong>：既能干&quot;已知问法&quot;（&ldquo;Tell me about this table&rdquo;），也能陪你做开放探索（&ldquo;I&rsquo;m seeing a dip here, can we break this down by customer type and timeframe?&quot;）。</li>
+<li><strong>Workflows（工作流）</strong>：把&quot;周报、表格校验&quot;这种重复性分析打包成可复用指令集——本质上是把团队 SOP 数字化进 Agent。</li>
+</ul>
+<blockquote>
+<p>这套交互的关键不在&quot;模型能力&rdquo;，而在<strong>产品愿不愿意承认 Agent 是个会犯错的同事，而不是一个永远正确的查询接口</strong>。多轮、可中断、主动澄清，全是这个判断的衍生物。</p>
+</blockquote>
+<h2 id="五质量与安全把-agent-当作持续部署的服务">五、质量与安全：把 Agent 当作持续部署的服务</h2>
+<p>数据 Agent 在企业落地，最大的风险有两个：<strong>胡说八道（hallucinated SQL）</strong> 和 <strong>越权读数（permission leak）</strong>。OpenAI 在这两条上都做了硬约束。</p>
+<h3 id="evals-闭环防止能力漂移">Evals 闭环：防止能力漂移</h3>
+<p>Agent 不是上线一次就完事。模型升级、prompt 调整、工具变化，任何一个改动都可能让它在某些问题上悄悄退步。OpenAI 用 Evals API 做了一套类似单元测试的回归体系：</p>
+<ul>
+<li>维护一份精选的<strong>问题—答案对</strong>；</li>
+<li>每个问题配一条<strong>手工编写的 golden SQL</strong>；</li>
+<li>跑流程：自然语言 → Agent 生成 SQL → 执行 → 与期望结果比较；</li>
+<li><strong>不依赖朴素字符串匹配</strong>——同一问题往往有多种正确写法，所以 grader 同时看 SQL 文本和实际结果，再由模型给出最终评分 + 可读理由。</li>
+</ul>
+<p>这套体系<strong>开发期</strong>当作单元测试用，<strong>生产期</strong>当作 canaries 持续抽样跑——指标一掉就告警，提早发现回归。</p>
+<p>
+  <img src="/img/openai-in-house-data-agent/evals-loop.svg" alt="图：Evals 闭环：问题 → 候选 SQL → 双路执行 → grader 评分">
+
+</p>
+<blockquote>
+<p>把数据 Agent 当成持续部署的服务来对待——这是非常工程化的态度。绝大多数团队上线 Text-to-SQL 后就停止了 evaluation，<strong>只是因为它&quot;看上去能用&quot;</strong>。OpenAI 的做法提供了一份可复制的纪律。</p>
+</blockquote>
+<h3 id="严格透传的权限模型">严格透传的权限模型</h3>
+<blockquote>
+<p><strong>&ldquo;All access is strictly pass-through.&rdquo;</strong></p>
+</blockquote>
+<p>这一句话是这套系统能在企业落地的根本保证：<strong>用户只能查询自己已经有权限的表格</strong>。Agent 不绕权、不缓存权限、不走自己的服务账号——它就是用户身份的延伸。</p>
+<p>如果某次分析需要的某张表用户无权访问，Agent 会标记或回退到用户授权范围内的替代数据集，而不是默默失败或越权读取。</p>
+<p>加上&quot;公开推理过程、汇总假设与执行步骤、查询结果直链原始数据&quot;的透明性约束，整个系统的信任锚点不在&quot;模型有多准&quot;，而在&quot;过程可核验、权限可追溯&quot;。</p>
+<h2 id="六lessons-learned写给自建数据-agent-团队的三条经验">六、Lessons Learned：写给自建数据 Agent 团队的三条经验</h2>
+<p>这一节是整篇博客<strong>最具迁移价值的部分</strong>——不论你用不用 GPT-5.2，下面三条都成立。</p>
+<p>
+  <img src="/img/openai-in-house-data-agent/lessons-learned.svg" alt="图：三条 Lessons Learned · 写给所有要做数据 Agent 的团队">
+
+</p>
+<h3 id="1-less-is-more--工具集越大agent-越糊涂">#1 Less is More — 工具集越大，Agent 越糊涂</h3>
+<p>早期 OpenAI 团队把&quot;完整工具集&quot;暴露给模型，结果功能重叠让 Agent 频繁选错。<strong>精简和合并工具调用之后</strong>，可靠性反而提升。</p>
+<p><strong>我们能学什么</strong>：不要&quot;以防万一&quot;加工具。每加一个工具，模型每次推理的搜索空间都会变大、决策成本都会上升。<strong>先砍到最小工具集再扩</strong>——这条原则同样适用于通用 AI Agent。</p>
+<h3 id="2-guide-the-goal-not-the-path--prompt-是目标书不是流程图">#2 Guide the Goal, Not the Path — prompt 是目标书，不是流程图</h3>
+<p>OpenAI 团队发现：<strong>高度规定性的 prompt 反而降低效果</strong>。改为&quot;高层级指引 + 让 GPT-5 自己决定路径&quot;之后，结果更稳健。</p>
+<p><strong>我们能学什么</strong>：写 prompt 时区分&quot;What&quot;和&quot;How&quot;——你应该清晰描述<strong>什么样算成功</strong>，但不该规定<strong>先做 A 再做 B</strong>。前者让模型发挥推理能力，后者把它降级成一个执行器。这条经验和 OpenAI 在 GPT-5 上的整体设计取向是一致的：模型在&quot;目标对齐&quot;下表现最佳，而不是在&quot;步骤受控&quot;下。</p>
+<h3 id="3-meaning-lives-in-code--意义存在于代码中">#3 Meaning Lives in Code — 意义存在于代码中</h3>
+<p>这是最反常识、也是最值得搬到任何企业的一条。</p>
+<p><strong>我们能学什么</strong>：当你在做数据 Agent / 数据 Copilot / 内部 Text-to-SQL 时——</p>
+<ul>
+<li>不要只接元数据服务和查询历史；</li>
+<li><strong>要把代码仓库（ETL / dbt / Spark / Airflow / 业务后端）也作为上下文源头</strong>；</li>
+<li>用代码静态分析或 Codex 类工具去推导列含义、表的真实粒度、字段是否经过业务过滤。</li>
+</ul>
+<p>如果你的数据 Agent 现在只看 schema 和 description，你看到的只是&quot;形状&quot;，<strong>真正的语义你还没看到</strong>。</p>
+<blockquote>
+<p>三条经验共同指向同一件事：<strong>把&quot;上下文工程&quot;做扎实，比换更大的模型重要</strong>。</p>
+</blockquote>
+<h2 id="七总结给自建数据-agent-团队的可执行清单">七、总结：给自建数据 Agent 团队的可执行清单</h2>
+<p>OpenAI 这篇博客在工程层面给了非常具体的可迁移信号。如果你正在或即将做一套企业数据 Agent，下面是一份基于这篇文章压出来的执行清单——按重要性排序：</p>
+<ol>
+<li><strong>先建上下文体系，再选模型</strong>。模型是变量，上下文是常量；你今天选 GPT-5.2，半年后可能换 Claude，但上下文体系一旦做好就持续吃复利。</li>
+<li><strong>强制把代码仓库纳入上下文源头</strong>。ETL / dbt / Spark / Airflow 任务的代码，比 schema 更接近字段真正的含义。Codex / 代码静态分析在这里是杠杆。</li>
+<li><strong>离线管道 + RAG，不要 prompt 常驻知识</strong>。前者保证 token 预算与权限边界，后者注定崩塌在大库上。</li>
+<li><strong>权限严格透传</strong>。Agent 是用户身份的延伸，不是新的服务账号。这是企业落地的不可妥协项。</li>
+<li><strong>维护一份 golden SQL 评测集</strong>，开发期当单元测试，生产期当 canaries——双信号 grader（SQL + 结果）比朴素字符串匹配可靠得多。</li>
+<li><strong>承认 Agent 是个会犯错的同事</strong>。多轮、可中断、主动澄清、Workflow 化——这些产品决策远比&quot;再训一版模型&quot;更影响落地体验。</li>
+<li><strong>共建式 Memory</strong>。让用户能写记忆、改记忆、管理记忆，不要把可靠性绑在你自己一个团队身上。</li>
+<li><strong>从最小工具集起步</strong>。功能重叠是 Agent 失败的主要来源之一，每加一个工具都要给出删除候选。</li>
+</ol>
+<p>OpenAI 团队为这套系统设定的使命非常朴素：</p>
+<blockquote>
+<p><strong>&ldquo;在 OpenAI 数据生态中无缝交付快速、可信的数据分析。&rdquo;</strong></p>
+</blockquote>
+<p>这背后真正的判断是：在企业内部，<strong>数据分析的瓶颈早已不是 SQL 能力，而是上下文获取效率</strong>。谁能把上下文工程做扎实——把人、表、代码、文档、权限、记忆一层层组织好——谁就能让自家的数据生产力跨上一个量级。</p>
+<p>模型会一代代变，但这个判断，在可见的未来都不会过时。</p>
+<hr>
+<p><strong>延伸阅读</strong></p>
+<ul>
+<li>原文：<a href="https://openai.com/index/inside-our-in-house-data-agent/">Inside our in-house data agent</a> — OpenAI Engineering, 2026-01-29</li>
+<li>关联：本仓库已有的 <a href="/2026/05/24/hermes-agent-architecture-execution-flow/">Hermes Agent 源码深潜</a> 也展示了一套&quot;运行时内核 + 工具系统 + 状态库&quot;的 Agent OS 思路，可对照阅读。</li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/24/mastering-ai-agent-evaluation/" data-toggle="tooltip" data-placement="top" title="AI Agent 评估指南：从模型分数到轨迹质量的范式迁移">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/29/rag-dead-llm-wiki-karpathy/" data-toggle="tooltip" data-placement="top" title="RAG 已死，LLM Wiki 接棒：Andrej Karpathy 的理念与四大开源实现">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

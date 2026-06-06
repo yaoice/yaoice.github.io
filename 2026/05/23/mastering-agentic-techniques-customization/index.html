@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="9 种技术、3 个梯度、1 张选型表：NVIDIA 这篇 Agent 定制化指南到底在讲什么" />
+    <meta property="og:title" content="9 种技术、3 个梯度、1 张选型表：NVIDIA 这篇 Agent 定制化指南到底在讲什么" />
+    <meta property="twitter:title" content="9 种技术、3 个梯度、1 张选型表：NVIDIA 这篇 Agent 定制化指南到底在讲什么" />
+    
+
+    
+    <meta name="description" content="NVIDIA 把 Agent 定制化拆成 9 种技术，但真正值钱的是它们背后的 3 个梯度——推理时、训练时、对齐与强化。本文按这条骨架重构原文：每种技术给一句话定位 &#43; 工作机制 &#43; 适用场景 &#43; 边界；把 SKILL.md、RLVR 验证函数、GRPO 组内归一化拎出来配硬核解读；用三轴决策矩阵告诉一线工程师&#34;如果你处在 X 阶段就走 Y 路径&#34;，并给出可在两周内启动的最小行动清单。">
+    <meta property="og:description" content="NVIDIA 把 Agent 定制化拆成 9 种技术，但真正值钱的是它们背后的 3 个梯度——推理时、训练时、对齐与强化。本文按这条骨架重构原文：每种技术给一句话定位 &#43; 工作机制 &#43; 适用场景 &#43; 边界；把 SKILL.md、RLVR 验证函数、GRPO 组内归一化拎出来配硬核解读；用三轴决策矩阵告诉一线工程师&#34;如果你处在 X 阶段就走 Y 路径&#34;，并给出可在两周内启动的最小行动清单。" />
+    <meta property="twitter:description" content="NVIDIA 把 Agent 定制化拆成 9 种技术，但真正值钱的是它们背后的 3 个梯度——推理时、训练时、对齐与强化。本文按这条骨架重构原文：每种技术给一句话定位 &#43; 工作机制 &#43; 适用场景 &#43; 边界；把 SKILL.md、RLVR 验证函数、GRPO 组内归一化拎出来配硬核解读；用三轴决策矩阵告诉一线工程师&#34;如果你处在 X 阶段就走 Y 路径&#34;，并给出可在两周内启动的最小行动清单。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>9 种技术、3 个梯度、1 张选型表：NVIDIA 这篇 Agent 定制化指南到底在讲什么 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/23/mastering-agentic-techniques-customization/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        <li>
+                            <a href="/categories/ai/">ai</a>
+                        </li>
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/lora" title="LoRA">
+                            LoRA
+                        </a>
+                        
+                    </div>
+                    <h1>9 种技术、3 个梯度、1 张选型表：NVIDIA 这篇 Agent 定制化指南到底在讲什么</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Saturday, May 23, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>原文：<a href="https://developer.nvidia.com/blog/mastering-agentic-techniques-ai-agent-customization/">Mastering Agentic Techniques: AI Agent Customization</a> · NVIDIA Technical Blog · 2026-05-20
+作者：Edward Li · Vanessa Bellotti · Rebecca Kao（NVIDIA Enterprise Computing / Product Marketing）</p>
+</blockquote>
+<blockquote>
+<p>一句话导读：把通用基模直接接到业务上的时代结束了。这篇 NVIDIA 官方导读把&quot;如何让 Agent 真正听话&quot;拆成了 9 种技术，但<strong>真正值钱的不是 9 种技术，而是它们背后的 3 个梯度——推理时、训练时、对齐与强化</strong>。本文按这条骨架重构原文，每一节回答同一个问题：「在我们的业务里，应该走到哪个梯度，再不要往下了？」</p>
+</blockquote>
+<p>
+  <img src="/img/mastering-agentic-techniques-customization/01-cover.svg" alt="Agent 定制化的三梯度地图：从 Prompt 到 RLVR">
+
+</p>
+<h2 id="引言为什么定制化是-agent-从-demo-到生产的分水岭">引言：为什么定制化是 Agent 从 Demo 到生产的分水岭</h2>
+<p>如果你现在维护一个企业内部的 Agent 系统——客服工单分级、研发知识库问答、运维事件诊断、合规材料初审——大概率都遇到过同一类问题：</p>
+<blockquote>
+<p>Demo 时表现惊艳，一上灰度就开始胡说八道；调一版 Prompt 解决了三个 case，又冒出来五个新的；模型一换厂商，所有&quot;调好的话术&quot;全得重写一遍。</p>
+</blockquote>
+<p>NVIDIA 这篇文章给出的判断很直接：<strong>通用基础模型在垂直业务上&quot;一定会&quot;达到能力天花板</strong>。它的训练目标是&quot;对所有人都还行&quot;，但你的业务要的是&quot;对这一类工单的判断准确率到 95%&quot;。从前者到后者，靠的不是再写一段更长的 System Prompt，而是<strong>沿着一条定制化的梯度向下走</strong>——能在浅层解决就不要往深里挖，浅层挖不动了再换工具。</p>
+<p>原文列了 9 种技术，但真正可操作的认知是这 3 个梯度：</p>
+<ul>
+<li><strong>推理时（Inference-time）</strong>：不动模型权重，只改 Context。Prompt、RAG、Tool / Skill 都属于这一档。</li>
+<li><strong>训练时（Training-time）</strong>：动权重，但只是教模型「模仿」。SFT 与 PEFT（LoRA / QLoRA）属于这一档。</li>
+<li><strong>对齐与强化（Alignment / RL）</strong>：动权重 + 改奖励，教模型「分辨好坏」或「逼近正确」。DPO、RLHF、RLVR、GRPO 都属于这一档。</li>
+</ul>
+<p><strong>梯度的方向就是改造深度</strong>——越往下，可塑性越高，但所需的数据、算力、评测基础设施也呈数量级增长。<strong>任何健康的 Agent 工程化，都应该自上而下走，而不是反过来。</strong></p>
+<hr>
+<h2 id="一定制化的三梯度地图从推理时到强化对齐">一、定制化的三梯度地图：从推理时到强化对齐</h2>
+<p>先不展开技术细节，先看这张全景：</p>
+<p>
+  <img src="/img/mastering-agentic-techniques-customization/02-three-tiers-matrix.svg" alt="三梯度 · 9 种技术全景：成本、改造深度、能力上限">
+
+</p>
+<p>读这张图有三个角度：</p>
+<ol>
+<li><strong>从左到右是改造深度</strong>：Prompt 改的是模型的&quot;任务说明书&quot;，RAG 改的是&quot;知识来源&quot;，Tool / Skill 改的是&quot;动手能力&quot;，到 SFT 才开始动模型本身的&quot;反射&quot;，再到 DPO / RLVR 已经是在改&quot;价值判断&quot;。</li>
+<li><strong>从上到下是技术债</strong>：上面三档的技术债是 Prompt 蔓延、Skill 维护成本；下面四档的技术债是数据集治理、训练 pipeline、奖励函数失真。两类技术债的解法完全不同。</li>
+<li><strong>天花板不是叠加的</strong>：只做 Prompt + RAG，能力上限大概率卡在「输出格式不稳、复杂多步推理掉链」；只有进入 SFT / RLVR 这一层才有质变。但反过来，<strong>没有 Stage 1 沉淀下来的评测集和 Skill 边界，下面的训练就是在黑盒里打靶</strong>。</li>
+</ol>
+<blockquote>
+<p>关键判断：定制化的本质是&quot;让 Context 和权重协同生效&quot;，而不是&quot;用更深的技术替代浅技术&quot;。</p>
+</blockquote>
+<hr>
+<h2 id="二推理时三技promptragtool--skill">二、推理时三技：Prompt、RAG、Tool &amp; Skill</h2>
+<h3 id="21-prompt--system-prompt被低估的任务说明书">2.1 Prompt &amp; System Prompt：被低估的&quot;任务说明书&quot;</h3>
+<p>最便宜、收益最快的一档。一个写得好的 System Prompt 至少要回答四件事——<strong>Agent 的角色 / 可用的工具 / 输出格式 / 行为约束</strong>。NVIDIA 给的极简例子：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>You are an expert CLI assistant. Translate user requests into structured JSON tool
+</span></span><span style="display:flex;"><span>calls. Respond with ONLY a JSON object. Set unused flags to null.
+</span></span></code></pre></div><p>这条 Prompt 看起来平平无奇，但它在四个维度上都有约束：「角色 = CLI 助手」「行为 = 翻译为结构化调用」「输出格式 = 唯一 JSON」「边界 = 未用字段须为 null」。<strong>这是工业级 System Prompt 与玩具级 Prompt 的分水岭</strong>——后者只写&quot;请帮我处理 CLI 请求&quot;。</p>
+<p>适用场景：业务边界清晰、可用自然语言描述完整、原型阶段需要快速迭代。</p>
+<p>边界 / 反模式：</p>
+<ul>
+<li><strong>复杂推理链一定会掉</strong>：Prompt 越长，模型越倾向于&quot;漏看&quot;中间步骤。</li>
+<li><strong>格式稳定性差</strong>：再多的 &ldquo;ONLY a JSON object&rdquo; 也压不住偶发的解释性前缀。</li>
+<li><strong>绑定模型</strong>：换一个厂商或新版本，几乎所有效果数据要重测。</li>
+</ul>
+<blockquote>
+<p>如果你的团队连 System Prompt 都还没沉淀成版本化文件，先把这个做完，再谈训练。</p>
+</blockquote>
+<h3 id="22-rag解决知识问题不解决推理问题">2.2 RAG：解决&quot;知识&quot;问题，不解决&quot;推理&quot;问题</h3>
+<p>RAG 的常见误读是把它当万能补丁——&ldquo;模型不会就喂资料&rdquo;。原文给的定位很冷静：<strong>RAG 加的是新信息，不是新推理能力</strong>。它解决的是基模训练截止日之后的、私有的、变化频繁的知识，不解决&quot;模型读了资料但读不懂资料&quot;的问题。</p>
+<p>正在发生的演进是 <strong>Agentic RAG</strong>——让 Agent 自己决定检索什么、什么时候要重新表述查询、信息够了没有。这等于把 RAG 从&quot;管道&quot;升级成&quot;小循环&quot;，配套的代价是延迟和上下文窗口压力。</p>
+<p>适用场景：</p>
+<ul>
+<li>知识库变化快（产品手册、政策法规、内部 wiki）</li>
+<li>需要降低幻觉、要求来源可追溯</li>
+<li>不接受为知识更新去训练的成本</li>
+</ul>
+<p>边界：检索延迟、上下文窗口约束、推理短板补不上。</p>
+<h3 id="23-tool--skill-injection让-agent-真正动手">2.3 Tool &amp; Skill Injection：让 Agent 真正&quot;动手&quot;</h3>
+<p>到这里就开始触及 NVIDIA 这篇文章里最值得划重点的工程构件——<strong>Skill</strong>。</p>
+<p>把一个 Skill 看作 Agent 的&quot;领域说明书 + 配套工具包&quot;：里面有指令、脚本、模板、范例。它和 Tool 的区别是：Tool 是函数调用，Skill 是一整套关于&quot;什么时候、怎么、按什么顺序用工具&quot;的领域知识。</p>
+<p>下面这张图把 SKILL.md 的结构和一次完整调用流拆了开：</p>
+<p>
+  <img src="/img/mastering-agentic-techniques-customization/03-skill-anatomy.svg" alt="Skill 解剖：从目录结构到一次调用">
+
+</p>
+<p>原文给的事故分诊（incident-triage）Skill 长这样：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>skills/
+</span></span><span style="display:flex;"><span>  incident-triage/
+</span></span><span style="display:flex;"><span>    SKILL.md            ← 入口：Purpose / When to Use / Inputs / Outputs / Workflow
+</span></span><span style="display:flex;"><span>    README.md
+</span></span><span style="display:flex;"><span>    scripts/
+</span></span><span style="display:flex;"><span>      collect_logs.sh
+</span></span><span style="display:flex;"><span>      parse_logs.py
+</span></span><span style="display:flex;"><span>      summarize_findings.py
+</span></span><span style="display:flex;"><span>    templates/
+</span></span><span style="display:flex;"><span>      triage_report.md
+</span></span><span style="display:flex;"><span>    examples/
+</span></span><span style="display:flex;"><span>      sample_incident.json
+</span></span></code></pre></div><p>这种结构化的好处不在&quot;代码组织得整齐&quot;，而在三件事：</p>
+<ol>
+<li><strong>Skill 是上下文里的一段说明书，但实际执行落在脚本上</strong>——避免把整段日志塞进 Prompt。</li>
+<li><strong>Skill 可被 Agent 自己挑选</strong>——多个 Skill 共存，模型按照 SKILL.md 的「When to Use」决定调用哪个。</li>
+<li><strong>Skill 是可分享的对象</strong>——团队 / 公司内部能像沉淀代码库一样沉淀 Agent 能力。</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>bash scripts/collect_logs.sh <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --service payments-api <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --start <span style="color:#f1fa8c">&#34;2026-03-05T10:00:00Z&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --end <span style="color:#f1fa8c">&#34;2026-03-05T11:00:00Z&#34;</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --env prod <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --out ./out/raw_logs.txt
+</span></span></code></pre></div><p>边界：模型本身要具备 tool-calling 能力；复杂编排（多步、回滚、错误处理）只靠 Skill 描述会脆弱，往往得配合下一档的 SFT 才能稳定。</p>
+<blockquote>
+<p>经验法则：<strong>Tool 决定能做什么，Skill 决定怎么做对</strong>。能用 Skill 解决的，先不要去训。</p>
+</blockquote>
+<hr>
+<h2 id="三训练时双柱sft-与-peft">三、训练时双柱：SFT 与 PEFT</h2>
+<p>走到这里，才真正开始动模型本身。</p>
+<h3 id="31-sft教模仿不教判断">3.1 SFT：教模仿，不教判断</h3>
+<p>SFT 的逻辑很朴素——给模型看一堆「输入 → 理想输出」配对，让它学会复刻这种映射。常见数据形态是「自然语言请求 → 结构化 JSON 工具调用」。</p>
+<p>原文反复强调的一点：<strong>低资源领域可以用合成数据生成（SDG, Synthetic Data Generation）启动</strong>。NVIDIA NeMo Data Designer 这类工具让团队定义 schema 后用 LLM 批量生成多样化训练对。这意味着 <strong>&ldquo;我们没有标注数据&quot;已经不是不能做 SFT 的理由</strong>——但合成数据本身也会带来分布偏移和判断偏置，必须配抽样人审。</p>
+<p>适用场景：任务定义清晰、有可枚举的输入输出范式、追求结构化输出稳定性。</p>
+<p>边界：</p>
+<ul>
+<li>数据质量是天花板——SFT 学不到比训练数据更好的判断；</li>
+<li>易过拟合 / 灾难性遗忘——数据多样性不够时，模型在通用能力上会反向退步；</li>
+<li>重训练即需多卡，全参 SFT 单次成本不小。</li>
+</ul>
+<blockquote>
+<p>SFT 通常是定制化流水线的<strong>第一个训练动作</strong>——它建基线，下面更精细的对齐方法在它的基础上微调。</p>
+</blockquote>
+<h3 id="32-peft基模做底外挂可换">3.2 PEFT：基模做底，外挂可换</h3>
+<p>参数高效微调（PEFT, Parameter-Efficient Fine-Tuning）是过去两年工程取舍上的最大红利。最常见的是 <strong>LoRA / QLoRA</strong>：</p>
+<ul>
+<li><strong>LoRA</strong> 在 Attention / FFN 层注入小规模可训矩阵，冻结原始权重，只训这部分。形象点说，<strong>它是给基模做了一个可插拔的外挂</strong>——同一个基模上挂不同的 LoRA 适配器，就能服务不同的客户、不同的任务、不同的领域。</li>
+<li><strong>QLoRA</strong> 在 LoRA 之上把基模量化到 4-bit，让原本要多张高端卡的微调缩成单卡可跑。</li>
+</ul>
+<p>原文给的例子很直观：NVIDIA Nemotron 3 Nano 总参 30B、激活参数约 3.5B，在 LoRA 加持下，业务方不需要管理多份 30B 模型副本，只需要管理多份小适配器文件。</p>
+<p>适用场景：</p>
+<ul>
+<li>GPU 资源受限的中小团队</li>
+<li>需要为多种业务 / 多种客户维护多版本模型</li>
+<li>快速迭代实验</li>
+</ul>
+<p>边界：可塑性的天花板低于全参微调——只能改一小撮权重，所以&quot;行为变化幅度&quot;是受限的。</p>
+<blockquote>
+<p>实战上的判断：<strong>先用 LoRA 验证「能不能学」，再决定要不要上全参 SFT</strong>。多数业务任务上，LoRA + 高质量数据已经够好。</p>
+</blockquote>
+<hr>
+<h2 id="四对齐与强化四件套dporlhfrlvrgrpo">四、对齐与强化四件套：DPO、RLHF、RLVR、GRPO</h2>
+<p>进入这一档，意味着你的目标已经不只是&quot;输出格式正确&rdquo;，而是&quot;在多个合法答案之间，模型挑得是不是最好的那个&quot;或&quot;模型的推理能不能逼近客观正确&quot;。</p>
+<h3 id="41-dpo用偏好对取代奖励模型">4.1 DPO：用偏好对取代奖励模型</h3>
+<p>直接偏好优化（DPO, Direct Preference Optimization）的核心创新是<strong>不再训一个独立的奖励模型</strong>。它的训练数据是一组组<strong>偏好对</strong>——同一个输入下，「更好的回答」与「更差的回答」配对。损失函数是 pairwise contrastive loss，目标是最大化 preferred 相对 rejected 的对数概率。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#6272a4"># 伪代码示意：DPO 损失（核心）</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">dpo_loss</span>(policy, ref_policy, batch, beta<span style="color:#ff79c6">=</span><span style="color:#bd93f9">0.1</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># batch: (prompt, chosen, rejected)</span>
+</span></span><span style="display:flex;"><span>    log_pi_chosen   <span style="color:#ff79c6">=</span> log_prob(policy,     batch<span style="color:#ff79c6">.</span>prompt, batch<span style="color:#ff79c6">.</span>chosen)
+</span></span><span style="display:flex;"><span>    log_pi_rejected <span style="color:#ff79c6">=</span> log_prob(policy,     batch<span style="color:#ff79c6">.</span>prompt, batch<span style="color:#ff79c6">.</span>rejected)
+</span></span><span style="display:flex;"><span>    log_ref_chosen   <span style="color:#ff79c6">=</span> log_prob(ref_policy, batch<span style="color:#ff79c6">.</span>prompt, batch<span style="color:#ff79c6">.</span>chosen)
+</span></span><span style="display:flex;"><span>    log_ref_rejected <span style="color:#ff79c6">=</span> log_prob(ref_policy, batch<span style="color:#ff79c6">.</span>prompt, batch<span style="color:#ff79c6">.</span>rejected)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 关键：相对于参考策略的偏好优势</span>
+</span></span><span style="display:flex;"><span>    chosen_advantage   <span style="color:#ff79c6">=</span> log_pi_chosen   <span style="color:#ff79c6">-</span> log_ref_chosen
+</span></span><span style="display:flex;"><span>    rejected_advantage <span style="color:#ff79c6">=</span> log_pi_rejected <span style="color:#ff79c6">-</span> log_ref_rejected
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">-</span>F<span style="color:#ff79c6">.</span>logsigmoid(beta <span style="color:#ff79c6">*</span> (chosen_advantage <span style="color:#ff79c6">-</span> rejected_advantage))<span style="color:#ff79c6">.</span>mean()
+</span></span></code></pre></div><p>为什么这样算？因为这等价于优化一个隐式奖励——只要 preferred 在策略下相对于 ref 的&quot;得分&quot;涨幅高于 rejected，损失就在下降。<strong>不需要显式训练一个奖励模型</strong>，省下了 RLHF 里最重的一坨基础设施。</p>
+<p>适用场景：质量是主观的（语气、风格、helpfulness、safety）；多个合法输出但确有优劣；在 SFT 之后做风格 / 安全微调。</p>
+<p>边界：</p>
+<ul>
+<li>偏好对的质量决定了一切——LLM-as-judge 生成的偏好数据容易把 judge 的偏置直接焊进模型；</li>
+<li>对&quot;客观正确性&quot;任务（比如 JSON schema、代码执行）效果不如下面的 RLVR。</li>
+</ul>
+<h3 id="42-rlhf经典但越来越重">4.2 RLHF：经典但越来越重</h3>
+<p>RLHF 是上一代的&quot;准答案&quot;——人类标注偏好 → 训奖励模型 → 用 RL 让策略最大化奖励，同时通过 KL 项防止偏离原行为。</p>
+<p>原文给的态度很务实：<strong>复杂、训练不稳、奖励黑客风险高、人工标注昂贵</strong>。在多数业务场景里，DPO 已经能拿到 70% 的效果，把剩下的 30% 交给 RLHF 通常不划算。</p>
+<blockquote>
+<p>一线判断：<strong>默认不要碰 RLHF</strong>。除非你有大公司级别的标注预算 + 训练稳定性团队。</p>
+</blockquote>
+<h3 id="43-rlvr给-agent-装单元测试">4.3 RLVR：给 Agent 装&quot;单元测试&quot;</h3>
+<p>可验证奖励的强化学习（RLVR, Reinforcement Learning with Verifiable Rewards）这个名字写得朴实，但理念是这一代 Agent RL 里最关键的一跳——<strong>当任务的正确性可以用代码判定时，奖励信号就不再需要从模型里学，而可以直接由验证函数确定性地给出</strong>。</p>
+<p>最典型的例子：把自然语言翻成 CLI 命令。原文给的验证函数大致是这种结构：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">def</span> <span style="color:#50fa7b">cli_verify</span>(model_output: <span style="color:#8be9fd;font-style:italic">str</span>, ground_truth: <span style="color:#8be9fd;font-style:italic">dict</span>) <span style="color:#ff79c6">-&gt;</span> <span style="color:#8be9fd;font-style:italic">float</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">try</span>:
+</span></span><span style="display:flex;"><span>        pred <span style="color:#ff79c6">=</span> json<span style="color:#ff79c6">.</span>loads(model_output)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">except</span> json<span style="color:#ff79c6">.</span>JSONDecodeError:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">-</span><span style="color:#bd93f9">1.0</span>                               <span style="color:#6272a4"># 非法 JSON：直接惩罚</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> pred<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;command&#34;</span>) <span style="color:#ff79c6">!=</span> ground_truth[<span style="color:#f1fa8c">&#34;command&#34;</span>]:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">-</span><span style="color:#bd93f9">1.0</span>                               <span style="color:#6272a4"># 命令不对：直接惩罚</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># 命令对了，按 flag 命中比例给部分分</span>
+</span></span><span style="display:flex;"><span>    expected <span style="color:#ff79c6">=</span> ground_truth[<span style="color:#f1fa8c">&#34;flags&#34;</span>]
+</span></span><span style="display:flex;"><span>    matched  <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">sum</span>(<span style="color:#bd93f9">1</span> <span style="color:#ff79c6">for</span> k, v <span style="color:#ff79c6">in</span> expected<span style="color:#ff79c6">.</span>items()
+</span></span><span style="display:flex;"><span>                     <span style="color:#ff79c6">if</span> pred<span style="color:#ff79c6">.</span>get(<span style="color:#f1fa8c">&#34;flags&#34;</span>, {})<span style="color:#ff79c6">.</span>get(k) <span style="color:#ff79c6">==</span> v)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> matched <span style="color:#ff79c6">==</span> <span style="color:#8be9fd;font-style:italic">len</span>(expected):
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#bd93f9">1.0</span>                                <span style="color:#6272a4"># 完全匹配</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> matched <span style="color:#ff79c6">/</span> <span style="color:#8be9fd;font-style:italic">max</span>(<span style="color:#8be9fd;font-style:italic">len</span>(expected), <span style="color:#bd93f9">1</span>) <span style="color:#ff79c6">*</span> <span style="color:#bd93f9">0.8</span>  <span style="color:#6272a4"># 部分匹配</span>
+</span></span></code></pre></div><p>为什么 RLVR 是质变而不是量变？<strong>因为它把&quot;评测&quot;和&quot;训练&quot;合二为一了</strong>——同一个 Verifier，离线时算指标，在线时给奖励。模型不再靠&quot;模仿好回答&quot;提升，而是被持续推向&quot;通过验证&quot;。这正是 DeepSeek-R1 在数学和代码推理上拿到突破的核心机制——<strong>有些时候甚至不需要 SFT 起步，直接用 RLVR 就能从零教出思维链</strong>。</p>
+<p>NVIDIA 这边对应的工具栈是 <strong>NeMo Gym</strong>（提供验证端点）+ <strong>NeMo RL</strong>（大规模 RL 训练），把&quot;写 Verifier→挂端点→训练&quot;这条链路做成了能跑大模型的基础设施。</p>
+<p>适用场景：输出客观可验证（JSON schema、CLI、代码、数学题、tool-calling）；需要可审计、可重复的奖励信号；想让推理深度跨越式提升。</p>
+<p>边界：</p>
+<ul>
+<li>任务必须有确定性的对错——不适合开放式生成、内容创作；</li>
+<li>验证函数本身设计得不好，模型会找到&quot;看起来对但实际错&quot;的捷径（reward hacking 的另一种形态）；</li>
+<li>验证基础设施本身的工程量不小。</li>
+</ul>
+<blockquote>
+<p>反常识结论之一：<strong>对一个垂直业务来说，&ldquo;能不能写出 Verifier&quot;几乎等价于&quot;能不能从 RLVR 里拿到红利&rdquo;</strong>。先评估这个，再决定要不要走 RL 路线。</p>
+</blockquote>
+<h3 id="44-grpo用组内归一化取代-critic-网络">4.4 GRPO：用&quot;组内归一化&quot;取代 critic 网络</h3>
+<p>群体相对策略优化（GRPO, Group Relative Policy Optimization）和 RLVR 是天作之合。它的核心创新是把 PPO 里的 critic 网络扔了，用一种更朴素的方式计算 advantage——<strong>对同一个 prompt 采 N 个回答（典型 4–64 个），把每个回答的奖励减去组内均值，再除以组内标准差</strong>。高于平均的拉上去，低于平均的压下来。</p>
+<p>
+  <img src="/img/mastering-agentic-techniques-customization/04-grpo-group-baseline.svg" alt="GRPO：用&amp;quot;组内归一化&amp;quot;取代 Critic 网络">
+
+</p>
+<p>为什么这样算？</p>
+<ol>
+<li><strong>PPO 的 critic 自身要学，本身是不稳定来源</strong>——critic 估错，advantage 就估错，整个训练就漂。GRPO 用同一个 prompt 下其它样本的实际奖励作为 baseline，<strong>baseline 不再来自一个学习中的模型</strong>，而来自当前 batch 的统计量，稳。</li>
+<li><strong>离散 / 稀疏奖励下 critic 难学</strong>——RLVR 给的是 +1 / 部分分 / -1 这种离散信号，本来就不适合让 critic 拟合。组内归一化天然避开了这个问题。</li>
+<li><strong>天然的 variance reduction</strong>——减均值除标准差，本身就是经典的方差缩减技巧。</li>
+</ol>
+<p>代价也很直白：每个训练 step 都要采 N 个样本，单步计算量比 SFT 之类高一个数量级；组太小（N=2/3）时 baseline 会很噪。<strong>GRPO 的组大小不是默认参数，是要调的</strong>——这是不少团队第一次跑 GRPO 时踩的最大的坑。</p>
+<blockquote>
+<p>反常识结论之二：<strong>SFT → DPO → RLVR 这条经典管线，并不是固定配方</strong>。原文明确说「ordering is a design choice, not a fixed recipe」。如果你的任务一开始就高度可验证（比如代码生成 + 单元测试反馈），完全可以跳过 SFT，直接 RLVR + GRPO，DeepSeek-R1 就是这样做的。</p>
+</blockquote>
+<hr>
+<h2 id="五多阶段流水线sft--dpo--rlvr-的真实组合拳">五、多阶段流水线：SFT → DPO → RLVR 的真实组合拳</h2>
+<p>把上面的所有技术按时间线串起来，就是 NVIDIA 推荐的 5 阶段流水线：</p>
+<p>
+  <img src="/img/mastering-agentic-techniques-customization/05-pipeline.svg" alt="多阶段流水线：从 Prompt 起步，按需爬到 RLVR">
+
+</p>
+<p>每一阶段都有自己的&quot;投入 / 产出 / 风险&quot;三联表。这里挑几条容易被忽略的工程经验：</p>
+<ol>
+<li><strong>Stage 1 是评测集的产出阶段</strong>，不是只产出&quot;能跑通的 Agent&quot;。如果 Stage 1 走完没沉淀出版本化的 Prompt、Skill 库和评测集，后面所有训练都在盲打。</li>
+<li><strong>Stage 2 的 SDG 不是免费午餐</strong>。LLM 生成的训练对会带 judge 偏置和分布偏移，<strong>抽样 5%–10% 做人工审核</strong>几乎是必选项；预算不允许就别上 SDG，老老实实用真实数据 + 主动学习。</li>
+<li><strong>Stage 3 的 SFT 优先用 LoRA</strong>。除非你真的要教模型一种全新的输出范式（比如新的 DSL），全参 SFT 在性价比上往往不如 LoRA + 数据扩增。</li>
+<li><strong>Stage 4 的 DPO 与 RLVR 不是二选一</strong>。常见模式是「DPO 先把风格 / 安全 / 格式稳住，RLVR 再去啃硬推理」；但<strong>也常见到反着做的</strong>——先 RLVR 让模型学会&quot;做对&quot;，再 DPO 让模型学会&quot;做得人看着舒服&quot;。顺序看你的瓶颈在哪。</li>
+<li><strong>Stage 5 不是&quot;做完才做&quot;</strong>。评测集应当从 Stage 1 就开始攒，每个阶段都跑完整套指标——否则你不知道是 SFT 提升了还是 DPO 提升了，进而不知道下次该加深哪一步。</li>
+</ol>
+<blockquote>
+<p>NVIDIA 给的指导原则一句话总结：<strong>&ldquo;Start lightweight, measure rigorously, add complexity only where data shows it&rsquo;s needed.&rdquo;</strong> 翻译成工程语言——<strong>没有评测就不要训，能用 Prompt 解决就不要做 SFT，能用 SFT 解决就不要做 RLVR</strong>。</p>
+</blockquote>
+<hr>
+<h2 id="六三轴选型决策任务资源成熟度">六、三轴选型决策：任务、资源、成熟度</h2>
+<p>到这里，我们终于可以回答开头那个问题：<strong>&ldquo;在我的业务里，应该走到哪个梯度，再不要往下了？&rdquo;</strong></p>
+<p>NVIDIA 给了三个判断轴——任务可验证性、可用资源、项目成熟度。把它们交叉成 4 个象限，每个象限给出推荐技术组合：</p>
+<p>
+  <img src="/img/mastering-agentic-techniques-customization/06-decision-matrix.svg" alt="三轴选型决策矩阵">
+
+</p>
+<p>读这张图的方法：</p>
+<ul>
+<li><strong>象限 A（早期 + 主观）</strong>：你正在做一个内容生成 / 客户沟通类 Agent，没几张 GPU、还没沉淀评测。<strong>别想着搞 DPO</strong>——先把 Prompt + Skill + RAG 搞稳，把评测集和 Trajectory 日志先建起来。这一阶段做训练就是在赌，赌赢了也不知道为什么。</li>
+<li><strong>象限 B（早期 + 可验证）</strong>：业务任务是结构化输出（JSON、CLI、代码、SQL），<strong>首要动作是写 Verifier</strong>——不管你最终走不走 RLVR，Verifier 本身就是最好的离线评测器，是未来一切训练的入场券。</li>
+<li><strong>象限 C（成熟 + 主观）</strong>：评测稳了、有偏好对（来自人审或 LLM judge + 抽样），就走 LoRA-SFT → DPO 这条线。<strong>重点不是技术选型，而是偏好对的质量治理</strong>——judge 提示词、抽样比例、对抗样本比例都要管。</li>
+<li><strong>象限 D（成熟 + 可验证）</strong>：可以走完整管线 LoRA-SFT → DPO → RLVR + GRPO，配 NeMo Gym 类的验证基础设施。<strong>这个象限里最大的风险不是技术不会用，而是 GRPO 组大小、KL 系数、奖励函数设计这些&quot;小细节&quot;调不对</strong>——同一份代码，组大小从 8 调到 32，效果可能差一倍。</li>
+</ul>
+<blockquote>
+<p>一句话决策启发：<strong>任务能不能写 Verifier，比&quot;团队有几张卡&quot;更能决定你的技术路线</strong>。</p>
+</blockquote>
+<hr>
+<h2 id="七给一线工程师的两周行动清单">七、给一线工程师的两周行动清单</h2>
+<p>这一节是给&quot;明天就要开始干&quot;的人准备的。<strong>五个动作，每一个都能在两周内启动，且彼此独立</strong>——做完任意一个都能拿到信号，不用等到全做完才看效果。</p>
+<ol>
+<li>
+<p><strong>建一份 100 条规模的 Trajectory 评测集</strong>（Day 1–3）<br>
+不是问答对，是「用户输入 + 期望工具调用序列 + 期望最终输出」三元组。100 条的体量足够你做 A/B，太多反而拖慢迭代。来源：线上日志抽样 + 人工补全 + 反例挖掘。</p>
+</li>
+<li>
+<p><strong>挑一个&quot;可写 Verifier 的&quot;小任务做 LoRA 试点</strong>（Day 4–8）<br>
+优先选输出是 JSON / CLI / SQL 的任务。先写 Verifier（哪怕只有 30 行 Python），跑一遍当前模型的离线得分；再用 Verifier 自动构造训练对（接受 = 高分样本，拒绝 = 低分样本），上 LoRA 跑一轮 SFT，看离线得分能不能涨 10 分以上。涨不了就回去检查 Verifier。</p>
+</li>
+<li>
+<p><strong>沉淀 1–2 个 Skill 模板</strong>（Day 5–10）<br>
+选你团队里复用频率最高的 Agent 任务（事件分诊、需求拆解、代码 review、合规初审都可以），按 NVIDIA 给的 SKILL.md 结构（Purpose / When to Use / Inputs / Outputs / Workflow + scripts / templates / examples）整理成一份目录。<strong>关键不是模板长什么样，而是把&quot;这类任务怎么做对&quot;的隐性知识显性化</strong>。</p>
+</li>
+<li>
+<p><strong>跑一次 SFT vs DPO 对照实验</strong>（Day 8–12）<br>
+同一个 LoRA 基线，用同一份训练数据：一份 SFT，一份 DPO（用 Verifier 或 LLM judge 生成偏好对）。在你 Day 1–3 建的评测集上对比。如果 DPO 没有显著优势，说明你的偏好对质量有问题；如果差距很大，说明业务任务确实是&quot;主观质量&quot;型，下一步就该投资 judge 治理。</p>
+</li>
+<li>
+<p><strong>把上面 4 步的产物挂到 CI</strong>（Day 13–14）<br>
+评测集、Verifier、Skill 模板都进版本库；每次 Prompt / 模型 / Skill 更新，CI 自动跑一遍评测；指标回退就阻断合入。<strong>这是把&quot;AI 工程&quot;变成&quot;软件工程&quot;的关键一步</strong>——没有这一步，前面所有努力都会被下一次紧急上线吞噬掉。</p>
+</li>
+</ol>
+<hr>
+<h2 id="结语你无法改进无法度量的东西">结语：你无法改进无法度量的东西</h2>
+<p>这篇 NVIDIA 的导读最大的克制之处，是它没有把 9 种技术包装成&quot;必走的一条路&quot;，而是反复强调一句话：</p>
+<blockquote>
+<p><strong>&ldquo;You can&rsquo;t improve what you can&rsquo;t measure.&rdquo;</strong></p>
+</blockquote>
+<p>定制化是一段梯度，不是一道选择题。<strong>绝大多数业务团队的现实约束不是&quot;该选 DPO 还是 RLVR&quot;，而是&quot;我的 Agent 现在到底好不好，我都说不清&quot;</strong>。所以最贵、最容易被低估的那个动作，从来都是同一个——把评测做对。</p>
+<p>剩下的 9 种技术，都是评测体系起来之后的工程选型。Prompt 和 Skill 是地基，SFT 和 LoRA 是承重墙，DPO 和 RLVR 是装修。地基没打就上承重墙，再昂贵的装修也救不回来。</p>
+<p>如果你只能从这篇文章里带走一句话，那就是：<strong>先建评测，再选技术；从最浅的梯度开始，让数据告诉你下一步该往哪走</strong>。</p>
+<hr>
+<blockquote>
+<p>延伸阅读：</p>
+<ul>
+<li>配套博文：<a href="https://developer.nvidia.com/blog/">Mastering Agentic Techniques: AI Agent Evaluation</a> 把这里跳过的&quot;评测&quot;那一半补上。</li>
+<li>NVIDIA NeMo 开源工具链（NeMo Data Designer / NeMo RL / NeMo Gym / NeMo Agent Toolkit）是落地这条管线的现成工具。</li>
+<li>DeepSeek-R1 的论文是理解 RLVR + GRPO 不可绕过的一篇。</li>
+</ul>
+</blockquote>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/23/devs-guide-production-ready-ai-agents/" data-toggle="tooltip" data-placement="top" title="把 Agent 真正发上线：Google Cloud《生产级 AI Agent 开发者指南》深读">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/24/hermes-agent-architecture-execution-flow/" data-toggle="tooltip" data-placement="top" title="Hermes Agent 源码深潜：从 CLI 入口到工具循环、状态库与上下文压缩的执行原理">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="RAG 已死，LLM Wiki 接棒：Andrej Karpathy 的理念与四大开源实现" />
+    <meta property="og:title" content="RAG 已死，LLM Wiki 接棒：Andrej Karpathy 的理念与四大开源实现" />
+    <meta property="twitter:title" content="RAG 已死，LLM Wiki 接棒：Andrej Karpathy 的理念与四大开源实现" />
+    
+
+    
+    <meta name="description" content="Andrej Karpathy 提出 LLM Wiki 概念，将 AI 从一次性回答工具升级为持续构建知识库的智能体。本文解读其核心论证，横评四大开源实现方案，并给出基于 Ollama / vLLM 的本地部署实践建议。">
+    <meta property="og:description" content="Andrej Karpathy 提出 LLM Wiki 概念，将 AI 从一次性回答工具升级为持续构建知识库的智能体。本文解读其核心论证，横评四大开源实现方案，并给出基于 Ollama / vLLM 的本地部署实践建议。" />
+    <meta property="twitter:description" content="Andrej Karpathy 提出 LLM Wiki 概念，将 AI 从一次性回答工具升级为持续构建知识库的智能体。本文解读其核心论证，横评四大开源实现方案，并给出基于 Ollama / vLLM 的本地部署实践建议。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>RAG 已死，LLM Wiki 接棒：Andrej Karpathy 的理念与四大开源实现 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/29/rag-dead-llm-wiki-karpathy/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        <li>
+                            <a href="/categories/ai/">ai</a>
+                        </li>
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/rag" title="RAG">
+                            RAG
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm-wiki" title="LLM Wiki">
+                            LLM Wiki
+                        </a>
+                        
+                    </div>
+                    <h1>RAG 已死，LLM Wiki 接棒：Andrej Karpathy 的理念与四大开源实现</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Friday, May 29, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>原文：<a href="https://blog.stackademic.com/rag-is-dead-llm-wiki-andrej-karpathys-idea-is-what-comes-next-a71fa3c414a4">RAG Is Dead. LLM Wiki — Andrej Karpathy&rsquo;s Idea — Is What Comes Next</a> by Jahangir · 2026-05-08</p>
+</blockquote>
+<blockquote>
+<p>一句话导读：RAG 擅长&quot;一次性回答&quot;，但知识无法沉淀；LLM Wiki 让模型像图书管理员一样持续整理知识库，每一次交互都产生复利。本文梳理其核心理念、四大开源实现，以及本地部署的选型与实操。</p>
+</blockquote>
+<p>
+  <img src="/img/rag-dead-llm-wiki-karpathy/cover.svg" alt="封面：RAG vs LLM Wiki 概念对比">
+
+</p>
+<h2 id="引言为什么-rag-不够用了">引言：为什么 RAG 不够用了？</h2>
+<p>所有用过 AI 聊天工具的人都会遇到同一个问题：<strong>对话结束，一切归零</strong>。</p>
+<p>你花半小时向 Claude 或 ChatGPT 解释你的项目背景、代码风格、业务约束，模型给出了精彩的回答。但关掉窗口再打开，它又变回&quot;不认识你的陌生人&quot;。你之前所有的上下文注入、背景铺垫、研究成果——全部丢失。</p>
+<p>这是 RAG（检索增强生成）也无法根本解决的问题。RAG 的本质是：<strong>在单次对话中临时检索相关片段，拼进上下文，生成一次回答</strong>。它解决的是&quot;模型不知道最新信息&quot;的问题，却没有解决&quot;知识无法跨会话积累&quot;的问题。</p>
+<p>Andrej Karpathy（特斯拉 Autopilot 前负责人、OpenAI 创始成员）提出了一个更根本的思路：<strong>让 LLM 不只是回答者，而是知识库的构建者</strong>。这就是 <strong>LLM Wiki</strong>。</p>
+<hr>
+<h2 id="一llm-wiki-是什么从回答问题到整理图书馆">一、LLM Wiki 是什么：从&quot;回答问题&quot;到&quot;整理图书馆&quot;</h2>
+<p>Karpathy 的类比非常直观：</p>
+<blockquote>
+<p>RAG 像是<strong>向图书管理员提一个问题</strong>，管理员翻几本书，给你一个答案，然后立刻忘记你问过什么。</p>
+<p>LLM Wiki 像是<strong>雇了一个管理员，不仅回答问题，还会把每次学到的东西整理成卡片目录、更新书架、建立索引</strong>，下次你来，图书馆已经比你上次来时更完善。</p>
+</blockquote>
+<p>具体来说，LLM Wiki 的工作模式是：</p>
+<ol>
+<li><strong>读取多源文档</strong>（PDF、网页、代码、笔记）</li>
+<li><strong>为每个实体/概念生成独立的 Markdown 页面</strong>（如 <code>transformer-architecture.md</code>、<code>rag-limitations.md</code>）</li>
+<li><strong>页面间通过 wiki 链接互相关联</strong>（<code>[[rag-limitations]]</code> 指向相关页面）</li>
+<li><strong>新增文档时，更新已有页面</strong>，而不是生成孤立内容</li>
+<li><strong>最终形成一个可浏览、可搜索、可生长的&quot;活知识库&quot;</strong></li>
+</ol>
+<p>
+  <img src="/img/rag-dead-llm-wiki-karpathy/rag-vs-wiki.svg" alt="图：RAG 一次性模式 vs LLM Wiki 积累模式对比">
+
+</p>
+<p>与 RAG 的核心差异：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>RAG</th>
+<th>LLM Wiki</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>知识持久化</td>
+<td>❌ 对话结束即丢失</td>
+<td>✅ 沉淀为可复用页面</td>
+</tr>
+<tr>
+<td>跨会话积累</td>
+<td>❌ 每次从零开始</td>
+<td>✅ 知识库持续生长</td>
+</tr>
+<tr>
+<td>知识关联</td>
+<td>❌ 孤立的检索片段</td>
+<td>✅ wiki 链接形成知识图谱</td>
+</tr>
+<tr>
+<td>适合场景</td>
+<td>一次性问答</td>
+<td>长期研究、知识管理</td>
+</tr>
+<tr>
+<td>新文档处理</td>
+<td>重新检索</td>
+<td>更新已有页面</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="二四大开源实现横评">二、四大开源实现横评</h2>
+<p>目前已有四个定位不同的开源 LLM Wiki 实现，均可用、可本地部署。</p>
+<h3 id="21-nashsullm_wiki--可视化-gui-桌面应用">2.1 nashsu/llm_wiki — 可视化 GUI 桌面应用</h3>
+<p><strong>适合</strong>：需要图形界面、多格式文档摄入的普通用户</p>
+<ul>
+<li>基于 Tauri + React 19，跨平台桌面应用（支持 macOS/Windows/Linux）</li>
+<li><strong>三栏布局</strong>：左侧知识树、中间聊天、右侧实时预览</li>
+<li>支持 PDF、DOCX、PPTX、图片、视频、网页等多源输入</li>
+<li><strong>知识图谱可视化</strong>：社区检测 + 关联度评分展示概念关联</li>
+<li>两步摄入流程（先分析源文件，再生成内容），所有声明可追溯至原始文档</li>
+<li>内置 Lint 工具检测断链、过期页面、知识缺口</li>
+<li>支持 OpenAI / Anthropic / Google / Ollama / 自定义端点</li>
+</ul>
+<p>
+  <img src="/img/rag-dead-llm-wiki-karpathy/four-solutions.svg" alt="图：四大 LLM Wiki 方案功能对比表">
+
+</p>
+<h3 id="22-nvkllm-wiki--claude-code--codex-插件">2.2 nvk/llm-wiki — Claude Code / Codex 插件</h3>
+<p><strong>适合</strong>：已在使用 Claude Code、OpenAI Codex 等 AI 编程智能体的开发者</p>
+<ul>
+<li>无额外运行时依赖，复用宿主智能体的文件读写、网页抓取能力</li>
+<li><strong>并行多智能体研究</strong>：单次启动 5–10 个智能体从不同角度调研同一主题，生成带正反论证的交叉引用 wiki 页</li>
+<li>无需额外 API key（复用已有 Claude/Codex 订阅）</li>
+<li>除 wiki 页外还可生成报告、slides、学习指南</li>
+<li>通过通用 <code>AGENTS.md</code> 文件支持任意 LLM（包括本地模型）</li>
+<li>核心命令：<code>/wiki init</code>、<code>/wiki:research &quot;主题&quot; --sources 10</code>、<code>/wiki query</code>、<code>/wiki audit</code></li>
+</ul>
+<h3 id="23-pratiyushllm-wiki--对话历史转录转静态-wiki">2.3 Pratiyush/llm-wiki — 对话历史转录转静态 Wiki</h3>
+<p><strong>适合</strong>：有大量已有 AI 对话历史、需要离线浏览的用户</p>
+<ul>
+<li><strong>无需运行时 LLM</strong>：读取 Claude Code、Cursor、Gemini CLI 等生成的 <code>.jsonl</code> 对话转录文件，生成静态 HTML 知识库</li>
+<li>支持页面生命周期管理（草稿 → 已验证 → 过期 → 归档）</li>
+<li>自动脱敏转录文件中的 API key、用户名</li>
+<li>提供带 12 个工具的 MCP 服务，支持其他智能体查询 wiki 内容</li>
+<li>支持导出 <code>llms.txt</code>、JSON-LD、RSS 格式供 AI 消费</li>
+<li>适配 Obsidian</li>
+</ul>
+<h3 id="24-lucasastorianllmwiki--mcp-驱动的自动维护-wiki">2.4 lucasastorian/llmwiki — MCP 驱动的自动维护 Wiki</h3>
+<p><strong>适合</strong>：有大量本地研究文档、不想手动维护 wiki 的用户</p>
+<ul>
+<li>指定本地文件夹后，通过 Claude 自动完成文档索引、wiki 页生成</li>
+<li>文件变更时<strong>自动更新</strong> wiki 内容</li>
+<li>以本地文件系统为真理源，wiki 仅为生成层，不会替换原始文件</li>
+<li>内置本地 SQLite 索引，无需云搜索服务</li>
+<li>可选集成 Mistral 实现 PDF、扫描件 OCR</li>
+<li>后端 Python API + 前端 React</li>
+</ul>
+<h3 id="25-选型指南">2.5 选型指南</h3>
+<table>
+<thead>
+<tr>
+<th>你的场景</th>
+<th>推荐方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>需要 GUI、知识图谱、多格式文档支持</td>
+<td><code>nashsu/llm_wiki</code></td>
+</tr>
+<tr>
+<td>已用 Claude Code/Codex，需要并行深度研究</td>
+<td><code>nvk/llm-wiki</code></td>
+</tr>
+<tr>
+<td>需要挖掘已有 AI 对话历史</td>
+<td><code>Pratiyush/llm-wiki</code></td>
+</tr>
+<tr>
+<td>有大量本地研究文档，需要自动维护</td>
+<td><code>lucasastorian/llmwiki</code></td>
+</tr>
+</tbody>
+</table>
+<p>四个方案可配合使用：用 <code>nashsu/llm_wiki</code> 作为主浏览入口，用 <code>nvk/llm-wiki</code> 做深度研究，用 <code>Pratiyush/llm-wiki</code> 定期吸收对话历史。</p>
+<hr>
+<h2 id="三本地部署实践ollama-vs-vllm-选型">三、本地部署实践：Ollama vs vLLM 选型</h2>
+<p>LLM Wiki 的文档摄入和页面生成涉及大量 LLM 调用，依赖云端 API 既贵又涉及隐私。本地部署是更优选择。</p>
+<h3 id="31-ollama简单至上">3.1 Ollama：简单至上</h3>
+<p><strong>适合</strong>：新手入门、单用户原型验证</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 一条命令拉取模型</span>
+</span></span><span style="display:flex;"><span>ollama pull qwen2.5:14b
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 默认 API 端点：http://localhost:11434/v1（OpenAI 兼容）</span>
+</span></span></code></pre></div><p>Ollama 的核心优势是<strong>零配置上手</strong>，但并发性能有限，适合轻量使用。</p>
+<h3 id="32-vllm高吞吐生产级">3.2 vLLM：高吞吐生产级</h3>
+<p><strong>适合</strong>：批量文档摄入、多智能体并行运行</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>pip install vllm
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 通用场景</span>
+</span></span><span style="display:flex;"><span>vllm serve Qwen/Qwen2.5-14B-Instruct <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-model-len <span style="color:#bd93f9">131072</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --host 0.0.0.0 <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --port <span style="color:#bd93f9">8000</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># API 端点：http://localhost:8000/v1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 超长上下文场景（全书、大型语料）</span>
+</span></span><span style="display:flex;"><span>vllm serve Qwen/Qwen2.5-1M <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --enable-chunked-prefill <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span>  --max-model-len <span style="color:#bd93f9">1000000</span>
+</span></span></code></pre></div><p>vLLM 采用 PagedAttention 优化，并发场景下吞吐为 Ollama 的 <strong>3 倍</strong>，延迟低 <strong>6 倍</strong>。</p>
+<p>
+  <img src="/img/rag-dead-llm-wiki-karpathy/deployment-decision.svg" alt="图：Ollama vs vLLM 部署选型决策流">
+
+</p>
+<h3 id="33-模型推荐清单">3.3 模型推荐清单</h3>
+<table>
+<thead>
+<tr>
+<th>使用场景</th>
+<th>推荐模型</th>
+<th>上下文长度</th>
+<th>部署工具</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>全能入门（大部分场景）</td>
+<td>Qwen2.5-14B-Instruct</td>
+<td>128K</td>
+<td>Ollama / vLLM</td>
+</tr>
+<tr>
+<td>强推理、高输出质量要求</td>
+<td>Llama-3.1-70B-Instruct</td>
+<td>128K</td>
+<td>vLLM</td>
+</tr>
+<tr>
+<td>超长文档（全书、大型语料）</td>
+<td>Qwen2.5-1M</td>
+<td>1M</td>
+<td>vLLM（需开启分块预填充）</td>
+</tr>
+<tr>
+<td>低显存（8GB GPU）</td>
+<td>Llama-3.1-8B</td>
+<td>128K</td>
+<td>Ollama</td>
+</tr>
+<tr>
+<td>中等显存（16GB GPU）</td>
+<td>Qwen2.5-14B-Instruct</td>
+<td>128K</td>
+<td>Ollama</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="四快速上手从零启动你的第一个-llm-wiki">四、快速上手：从零启动你的第一个 LLM Wiki</h2>
+<p>如果你现在就想试试，按这个 checklist 操作：</p>
+<ol>
+<li>
+<p><strong>安装 Ollama 并拉取模型</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>brew install ollama
+</span></span><span style="display:flex;"><span>ollama pull qwen2.5:14b
+</span></span></code></pre></div></li>
+<li>
+<p><strong>选择方案</strong>：新手推荐从 <code>nashsu/llm_wiki</code> 桌面应用开始，<a href="https://github.com/nashsu/llm_wiki/releases">下载对应系统的预编译包</a></p>
+</li>
+<li>
+<p><strong>准备 5–10 份聚焦同一主题的文档</strong>（如你研究领域的相关论文、技术博客、官方文档）</p>
+</li>
+<li>
+<p><strong>导入文档，观察 wiki 自动生成</strong>：第一次摄入后，你会看到知识库从 0 到 1 的过程</p>
+</li>
+<li>
+<p><strong>追加新文档，观察已有页面如何更新</strong>：这是 LLM Wiki 知识复利的核心体验</p>
+</li>
+</ol>
+<p>正如原文所说：</p>
+<blockquote>
+<p>&ldquo;启动构建你自己的 wiki 的最好时间是 6 个月前，其次是现在。&rdquo;</p>
+</blockquote>
+<hr>
+<h2 id="总结">总结</h2>
+<table>
+<thead>
+<tr>
+<th>核心判断</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RAG 未死，但不够</td>
+<td>RAG 解决&quot;知识获取&quot;，LLM Wiki 解决&quot;知识积累&quot;</td>
+</tr>
+<tr>
+<td>LLM Wiki 的核心价值</td>
+<td>将 AI 交互从&quot;一次性消耗&quot;转变为&quot;知识资产积累&quot;</td>
+</tr>
+<tr>
+<td>落地成熟度</td>
+<td>四大开源方案覆盖全场景，均可本地部署</td>
+</tr>
+<tr>
+<td>起步门槛</td>
+<td>Ollama + Qwen2.5-14B，30 分钟内可跑通</td>
+</tr>
+</tbody>
+</table>
+<p>LLM Wiki 不是要完全替代 RAG（RAG 在实时问答场景仍有价值），而是提供了一个<strong>更长期的记忆层</strong>。当你的 AI 工具不仅能回答你的问题，还能记住、连接、演化它学到的所有知识时，才是真正的&quot;AI 知识伙伴&quot;。</p>
+<p><strong>参考资源</strong></p>
+<ul>
+<li>原文：<a href="https://blog.stackademic.com/rag-is-dead-llm-wiki-andrej-karpathys-idea-is-what-comes-next-a71fa3c414a4">RAG Is Dead. LLM Wiki — Andrej Karpathy&rsquo;s Idea — Is What Comes Next</a></li>
+<li>实现方案集合：https://github.com/jahangir842/llm-wiki-implementations</li>
+<li>nashsu/llm_wiki：https://github.com/nashsu/llm_wiki</li>
+<li>nvk/llm-wiki：https://github.com/nvk/llm-wiki</li>
+<li>Pratiyush/llm-wiki：https://github.com/Pratiyush/llm-wiki</li>
+<li>lucasastorian/llmwiki：https://github.com/lucasastorian/llmwiki</li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/25/openai-in-house-data-agent/" data-toggle="tooltip" data-placement="top" title="OpenAI 内部数据 Agent 深读：上下文工程，比换更大的模型更重要">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2026-06-02-using-llms-secure-source-code/" data-toggle="tooltip" data-placement="top" title="用 LLM 保护源代码安全：Anthropic 六步闭环实战指南">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

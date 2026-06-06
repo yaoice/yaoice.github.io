@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="用 LLM 保护源代码安全：Anthropic 六步闭环实战指南" />
+    <meta property="og:title" content="用 LLM 保护源代码安全：Anthropic 六步闭环实战指南" />
+    <meta property="twitter:title" content="用 LLM 保护源代码安全：Anthropic 六步闭环实战指南" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>用 LLM 保护源代码安全：Anthropic 六步闭环实战指南 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-06-02-using-llms-secure-source-code/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        <li>
+                            <a href="/categories/ai/">ai</a>
+                        </li>
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/security" title="Security">
+                            Security
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                    </div>
+                    <h1>用 LLM 保护源代码安全：Anthropic 六步闭环实战指南</h1>
+                    <h2 class="subheading">从威胁建模到自动修复，瓶颈已从发现转移到验证与修复</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Tuesday, June 2, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="引言">引言</h2>
+<p>模型能力正在快速且不均匀地进化。Anthropic 安全团队在与多个企业合作扫描开源软件的过程中，截至 2026 年 5 月 22 日已披露 <strong>1,596 个漏洞</strong>，但其中仅 <strong>97 个被修复</strong>。这组数据揭示了一个关键洞察：</p>
+<blockquote>
+<p><strong>发现已经可以轻松并行化，瓶颈已经转移到验证、分类和修复。</strong></p>
+</blockquote>
+<p>本文基于 Anthropic 官方博客 <a href="https://claude.com/blog/using-llms-to-secure-source-code">Using LLMs to secure source code</a> 的核心内容，面向安全工程师与平台架构师，提炼其&quot;防御者闭环&quot;六步方法论的关键策略与实践洞察。</p>
+<p>
+  <img src="/img/using-llms-secure-source-code/defender-loop.svg" alt="防御者闭环">
+
+</p>
+<hr>
+<h2 id="防御者闭环六步方法论">防御者闭环：六步方法论</h2>
+<p>那些找到并修复最多漏洞的团队，最终收敛到一套六步流程的变体：</p>
+<ol>
+<li><strong>威胁建模</strong> — 在扫描前定义什么算漏洞</li>
+<li><strong>沙箱</strong> — 构建隔离环境以安全运行代理并验证可利用性</li>
+<li><strong>发现</strong> — 让模型在源码中寻找漏洞</li>
+<li><strong>验证</strong> — 独立确认发现是否真正可利用</li>
+<li><strong>分类</strong> — 去重、定级、排序修复优先级</li>
+<li><strong>修复</strong> — 应用补丁、确认漏洞失效、搜索变体</li>
+</ol>
+<p>前两步是一次性基建投入（威胁建模+沙箱），后四步构成持续循环。首次扫描产出最多，后续轮次发现更少但更复杂的漏洞。</p>
+<p>
+  <img src="/img/using-llms-secure-source-code/six-steps-flow.svg" alt="六步闭环流程">
+
+</p>
+<hr>
+<h2 id="第一步威胁建模--定义什么算漏洞">第一步：威胁建模 — 定义什么算漏洞</h2>
+<p><strong>为什么重要</strong>：误报最常见的原因是模型缺乏对信任边界的理解。模型可能将受信配置文件标记为攻击面，也可能将面向互联网的服务误认为内部服务而漏报。</p>
+<h3 id="两步构建威胁模型">两步构建威胁模型</h3>
+<p><strong>1. 从代码、文档和漏洞历史中引导</strong></p>
+<p>把你交给新安全工程师第一天的全部资料喂给模型：架构文档、Wiki、入口点、Git 历史、历史漏洞。让模型创建包含系统上下文、资产、入口点和信任边界的威胁模型。</p>
+<blockquote>
+<p>一个团队回顾了数百个历史 CVE 和安全修复提交，提炼为&quot;bug 形状&quot;提示，问了模型两个问题：修复是否完整？是否在其他地方也应用了？<strong>他们在一小时内发现了三个可利用的问题。</strong></p>
+</blockquote>
+<p><strong>2. 让模型采访系统专家</strong></p>
+<p>参考 Shostack 四问框架：<em>我们在构建什么？什么可能出错？我们在做什么应对？我们做得好吗？</em> 先运行引导步骤生成草稿，让受访者从草稿开始而非从零构建。</p>
+<h3 id="关键实践">关键实践</h3>
+<ul>
+<li><strong>考虑依赖项的安全策略</strong> — 如 vLLM 的 <code>security.md</code>、SQLite 的&quot;黑魔法防御&quot;</li>
+<li><strong>明确声明什么是受信的</strong> — 如果你信任配置文件或已认证客户端，在威胁模型中记录</li>
+<li><strong>在代码仓库中放置 <code>THREAT_MODEL.md</code></strong> — 发现代理在扫描前可以读取它，跳过已知非问题</li>
+</ul>
+<blockquote>
+<p>一个团队扫描大型项目时有 40% 的误报率。深入分析后发现：发现是可复现的、PoC 也证明了可利用性，但代码负责团队拒绝承认，因为这些 bug 不符合项目的威胁模型。</p>
+</blockquote>
+<hr>
+<h2 id="第二步沙箱--安全运行代理并验证可利用性">第二步：沙箱 — 安全运行代理并验证可利用性</h2>
+<p>沙箱有两个目的：<strong>保护你的系统</strong> + <strong>证明可利用性</strong>。</p>
+<h3 id="保护系统">保护系统</h3>
+<blockquote>
+<p>一个团队告诉模型它没有网络访问——但实际上有——结果模型发现自己可以从 GitHub 拉取内容。另一个团队观察到代理在扫描中途去回答了一个 GitHub Issue。</p>
+</blockquote>
+<p><strong>最佳实践</strong>：</p>
+<ul>
+<li>匹配隔离级别与威胁模型：容器适合发现代理读代码，微虚拟机（如 Firecracker）用于运行目标和 PoC</li>
+<li>仅在设置阶段给网络访问，之后快照并断网</li>
+<li>运行期仅允许通过本地代理路由到模型 API 的流量</li>
+<li>绝不将凭据（<code>~/.aws</code>、<code>~/.ssh</code>、<code>.env</code>）暴露给代理</li>
+</ul>
+<h3 id="证明可利用性">证明可利用性</h3>
+<p>静态扫描时模型只能假设什么可能出错，无法测试路径是否可达。当团队构建了可编译代码、运行测试、引爆 PoC 的沙箱后，不可利用的发现<strong>显著下降</strong>。</p>
+<blockquote>
+<p>一个攻防团队的评估是：&ldquo;最大的效能杠杆是给模型测试床、活系统，以及运行 PoC。&rdquo;</p>
+</blockquote>
+<h3 id="关键原则">关键原则</h3>
+<ul>
+<li><strong>固定一切</strong>：镜像标签、commit SHA、依赖、构建命令</li>
+<li><strong>忠实于生产环境</strong>：排除依赖（如队列/存储）会导致漏报；忽略生产防御（如 WAF）会导致不可利用的误报</li>
+<li>如果构建沙箱不现实，先从纯源码分析的发现步骤开始——前沿模型仅从源码分析就能有效发现漏洞</li>
+</ul>
+<hr>
+<h2 id="第三步发现--丰富上下文简短提示实用工具">第三步：发现 — 丰富上下文、简短提示、实用工具</h2>
+<h3 id="提示策略反直觉">提示策略（反直觉）</h3>
+<p>前沿模型受益于<strong>越来越简单的提示</strong>。过于规范的提示反而降低发现效果——长清单会减少模型的创造性。</p>
+<p><strong>有效做法</strong>：</p>
+<ul>
+<li><strong>提供目标和上下文</strong> — 说明&quot;为什么&quot;和&quot;什么&quot;，把&quot;如何扫描漏洞&quot;留给模型</li>
+<li><strong>尝试指定特定漏洞类别</strong> — 描述漏洞类别、它做什么、通常在哪里出现</li>
+<li><strong>定义输出格式</strong> — 要求结构化报告（理由、发现、影响、严重度），包含弱发现的提前退出机制</li>
+</ul>
+<h3 id="并行化策略">并行化策略</h3>
+<p>让模型先做一次全局扫描将搜索空间分区（按攻击面/端点/组件），然后将分区喂给并行发现代理。最后运行系统级扫描，将分区级发现作为上下文。</p>
+<blockquote>
+<p>暴力横向扩展会快速遇到收益递减。一个团队：&ldquo;我们最初尝试水平扩展派出更多代理，但发现回报递减。&ldquo;另一个团队增加并行代理后得到&quot;大量问题&rdquo;，其中大部分互相重复。</p>
+</blockquote>
+<h3 id="工具支持">工具支持</h3>
+<ul>
+<li>基础：grep、glob 等代码搜索工具</li>
+<li>专业：SAST 扫描器、Fuzzer</li>
+<li>自适应：让模型按需构建自己需要的工具</li>
+</ul>
+<hr>
+<h2 id="第四步验证--过滤不可利用的发现">第四步：验证 — 过滤不可利用的发现</h2>
+<p><strong>核心原则：发现优化召回率，验证优化精确率。</strong> 两者不应混在同一步——混合时模型会自我审查，过滤掉本应确认的真正漏洞。</p>
+<h3 id="独立验证">独立验证</h3>
+<ul>
+<li>验证代理必须独立于发现代理：全新容器、无共享文件系统或对话历史</li>
+<li>仅给验证代理 (1) PoC/书面发现 + (2) 代码库</li>
+<li>提示验证代理<strong>反驳</strong>发现代理的结论——假设每个发现是误报，搜索它错误的原因</li>
+</ul>
+<h3 id="多投票机制">多投票机制</h3>
+<p>如果单次验证仍有太多不可利用的发现通过，尝试多个独立验证者，取多数票。还可以引入独立&quot;裁判&quot;来裁定发现与验证代理的分歧。</p>
+<blockquote>
+<p>跨团队数据表明，添加对抗性验证者大约将不可利用发现率<strong>减半</strong>；要求验证者也构建确认利用的 PoC，误报率接近<strong>零</strong>。</p>
+</blockquote>
+<hr>
+<h2 id="第五步分类--按根因去重按前提条件和影响定级">第五步：分类 — 按根因去重，按前提条件和影响定级</h2>
+<h3 id="为什么关键">为什么关键</h3>
+<blockquote>
+<p>多个团队分享了相同的教训：如果我们发给产品工程师一堆大部分不可利用的发现，他们会失去信任然后放弃阅读——即使其中有需要立即修复的。</p>
+</blockquote>
+<h3 id="去重策略">去重策略</h3>
+<ol>
+<li><strong>廉价确定性通道</strong>：相同文件、相同类别、漏洞行号差在 10 行以内</li>
+<li><strong>模型定性规则</strong>：
+<ul>
+<li>视为重复：同一根因不同措辞；同一漏洞多个调用点；缺少全局保护按端点报告</li>
+<li>视为独立：同文件不同漏洞类别；不同变量到达不同 sink；同一辅助函数中两个独立 bug</li>
+</ul>
+</li>
+</ol>
+<h3 id="定级维度">定级维度</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>关键问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>可达性</td>
+<td>攻击者能否从真实入口到达此代码？</td>
+</tr>
+<tr>
+<td>攻击者控制</td>
+<td>不受信输入是否完整到达 sink？</td>
+</tr>
+<tr>
+<td>前提条件</td>
+<td>需要什么才能触发？非默认设置？特定时间窗口？</td>
+</tr>
+<tr>
+<td>认证</td>
+<td>未认证用户能否触发？</td>
+</tr>
+<tr>
+<td>读 vs 写</td>
+<td>攻击者只能读还是也能修改？</td>
+</tr>
+<tr>
+<td>爆炸半径</td>
+<td>影响一个用户还是整个平台？</td>
+</tr>
+</tbody>
+</table>
+<p><strong>规则</strong>：零前提+未认证远程 = 严重/高；1-2 个前提或需认证 = 中；3+ 前提或仅本地 = 低。</p>
+<hr>
+<h2 id="第六步修复--闭环并改善下一轮上下文">第六步：修复 — 闭环并改善下一轮上下文</h2>
+<h3 id="tdd-修复流程">TDD 修复流程</h3>
+<ol>
+<li><strong>写测试</strong>：在修复前写一个会失败的新测试</li>
+<li><strong>实现修复</strong>：确认测试通过且不破坏其他功能</li>
+<li><strong>搜索变体</strong>：(1) 同模式——其他调用点或相同 bug 代码的副本；(2) 同类别——有一个 SQL 注入的代码库往往有更多</li>
+</ol>
+<h3 id="验证阶梯">验证阶梯</h3>
+<table>
+<thead>
+<tr>
+<th>层级</th>
+<th>检查</th>
+<th>目的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>① 构建</td>
+<td>补丁编译通过、新测试通过</td>
+<td>基本正确性</td>
+</tr>
+<tr>
+<td>② 复现</td>
+<td>原始 PoC 停止工作</td>
+<td>捕获无效补丁</td>
+</tr>
+<tr>
+<td>③ 回归</td>
+<td>原始测试套件仍通过</td>
+<td>捕获破坏性/过度限制补丁</td>
+</tr>
+<tr>
+<td>④ 反攻</td>
+<td>新发现代理做对抗性检查</td>
+<td>捕获不完整补丁</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>一个渗透测试团队发现生成的补丁质量参差不齐——直到他们告诉模型通过重新运行 PoC 来验证补丁。给模型反馈来迭代后，补丁质量飞跃提升。</p>
+</blockquote>
+<h3 id="常见陷阱">常见陷阱</h3>
+<ul>
+<li>模型倾向于在特定调用点窄范围修复，而非根因</li>
+<li>推荐的补丁往往过度限制，可能打断与其他服务的连接</li>
+<li>解决方案：提示&quot;最小化修改修复根因——不重构、不顺手清理、不重格式化&rdquo;</li>
+</ul>
+<hr>
+<h2 id="实践启示">实践启示</h2>
+<h3 id="1-首次扫描后的投资顺序">1. 首次扫描后的投资顺序</h3>
+<p>你的第一次扫描会产出比预期更多的发现。大部分需要验证和分类。<strong>先为扫描之后的管道预算，再为更多扫描预算。</strong></p>
+<h3 id="2-持续扫描节奏">2. 持续扫描节奏</h3>
+<ul>
+<li>首次迭代：多次运行循环，根据新发现数量和风险容忍度决定何时停止</li>
+<li>之后：(1) 定期扫描 或 (2) 每次代码有重大变更时扫描</li>
+</ul>
+<h3 id="3-事件驱动集成">3. 事件驱动集成</h3>
+<p>领先团队已将漏洞扫描连接到事件流：</p>
+<ul>
+<li>Bug 赏金报告触发自动变体分析</li>
+<li>安全评审触发扫描并附上候选发现</li>
+<li>已验证漏洞更新静态分析工具以防止未来出现</li>
+</ul>
+<h3 id="4-配套资源">4. 配套资源</h3>
+<ul>
+<li><a href="https://github.com/anthropics/defending-code-reference-harness">defending-code-reference-harness</a> — 交互式工作流 Skills + 自主扫描演示</li>
+<li><a href="https://github.com/anthropics/claude-code-security-review">claude-code-security-review action</a> — 每个 PR 的 Claude 安全审查</li>
+<li><a href="https://www.anthropic.com/product/security">Claude Security</a> — Anthropic 托管的代理式漏洞检测与修复产品</li>
+</ul>
+<hr>
+<h2 id="总结">总结</h2>
+<p>模型找到并利用代码漏洞正变得越来越容易。防御者的工作是<strong>在攻击者利用之前找到并修复漏洞</strong>。六步闭环方法论——威胁建模、沙箱、发现、验证、分类、修复——提供了一套可重复、可扩展的实践框架。</p>
+<p>关键记住：<strong>瓶颈不再是发现，而是之后的一切。</strong> 投资在验证流水线、信任边界文档和对抗性检查上，收益远大于单纯增加扫描并行度。</p>
+<hr>
+<p><em>参考来源：<a href="https://claude.com/blog/using-llms-to-secure-source-code">Using LLMs to secure source code</a>，Anthropic，2026-05-27</em></p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/29/rag-dead-llm-wiki-karpathy/" data-toggle="tooltip" data-placement="top" title="RAG 已死，LLM Wiki 接棒：Andrej Karpathy 的理念与四大开源实现">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/06/02/coderabbit-agent-orchestration-system/" data-toggle="tooltip" data-placement="top" title="CodeRabbit 如何用 Claude 构建 Agent 编排系统：从隐性知识鸿沟到规划驱动的代码生成">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

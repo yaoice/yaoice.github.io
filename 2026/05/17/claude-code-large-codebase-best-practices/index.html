@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="百万行 monorepo 里的 Claude Code：Anthropic 官方拆解的 7 个扩展点与 3 大部署模式" />
+    <meta property="og:title" content="百万行 monorepo 里的 Claude Code：Anthropic 官方拆解的 7 个扩展点与 3 大部署模式" />
+    <meta property="twitter:title" content="百万行 monorepo 里的 Claude Code：Anthropic 官方拆解的 7 个扩展点与 3 大部署模式" />
+    
+
+    
+    <meta name="description" content="Anthropic 5/14 发布的《How Claude Code works in large codebases》给工程效能团队提了一个被严重低估的判断：Claude Code 在大代码库里的上限不是模型决定的，而是 Harness 决定的。本文按『是什么 → 为什么这么设计 → 怎么落地 → 别踩的坑』重新组织，逐一解读 CLAUDE.md / Hooks / Skills / Plugins / LSP / MCP / Subagents 七个扩展点，三大配置模式，以及一份 10 步起步路线图。">
+    <meta property="og:description" content="Anthropic 5/14 发布的《How Claude Code works in large codebases》给工程效能团队提了一个被严重低估的判断：Claude Code 在大代码库里的上限不是模型决定的，而是 Harness 决定的。本文按『是什么 → 为什么这么设计 → 怎么落地 → 别踩的坑』重新组织，逐一解读 CLAUDE.md / Hooks / Skills / Plugins / LSP / MCP / Subagents 七个扩展点，三大配置模式，以及一份 10 步起步路线图。" />
+    <meta property="twitter:description" content="Anthropic 5/14 发布的《How Claude Code works in large codebases》给工程效能团队提了一个被严重低估的判断：Claude Code 在大代码库里的上限不是模型决定的，而是 Harness 决定的。本文按『是什么 → 为什么这么设计 → 怎么落地 → 别踩的坑』重新组织，逐一解读 CLAUDE.md / Hooks / Skills / Plugins / LSP / MCP / Subagents 七个扩展点，三大配置模式，以及一份 10 步起步路线图。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>百万行 monorepo 里的 Claude Code：Anthropic 官方拆解的 7 个扩展点与 3 大部署模式 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/17/claude-code-large-codebase-best-practices/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        <li>
+                            <a href="/categories/ai/">ai</a>
+                        </li>
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                        <a class="tag" href="/tags/devtools" title="DevTools">
+                            DevTools
+                        </a>
+                        
+                    </div>
+                    <h1>百万行 monorepo 里的 Claude Code：Anthropic 官方拆解的 7 个扩展点与 3 大部署模式</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Sunday, May 17, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>原文：<a href="https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start">How Claude Code works in large codebases: Best practices and where to start</a> · Anthropic · 2026-05-14</p>
+<p>一句话导读：模型只是底座；真正决定 Claude Code 在大代码库里能跑多远的是它的 <strong>harness</strong>——CLAUDE.md、Hooks、Skills、Plugins、LSP、MCP、Subagents 这一整套扩展层。这篇按&quot;是什么 → 为什么这么设计 → 怎么落地 → 别踩的坑&quot;重新组织 Anthropic 官方文章，并补上对&quot;DRI / Agent Manager 这一新岗位&quot;和&quot;3–6 个月配置审查节奏&quot;两点反常识判断的解读。</p>
+</blockquote>
+<p>
+  <img src="/img/claude-code-large-codebase-best-practices/cover.svg" alt="百万行代码库里的 Claude Code 全景">
+
+</p>
+<h2 id="引言百万行-monorepo-里那只索引追不上的兔子">引言：百万行 monorepo 里，那只索引追不上的兔子</h2>
+<p>如果你所在的工程组织已经迈过了 &ldquo;demo 演示&quot;阶段，开始把 AI 编码工具放进<strong>几百万行的 monorepo、跨数十个仓库的微服务、还有几十年没人敢动的 legacy 系统</strong>，会很快撞上同一个问题：</p>
+<blockquote>
+<p>我接入的那个&quot;代码助手&rdquo;，每次给我的答案都像是上周的代码。</p>
+</blockquote>
+<p>熟悉这种痛感的人都知道下一句是什么——<strong>RAG 索引追不上活跃团队的 commit 速度</strong>。Anthropic 在原文里直接点破了这个失败模式：&ldquo;embedding pipelines can&rsquo;t keep up with active engineering teams&rdquo;，索引一旦滞后，工具就会&quot;返回团队两周前刚改名的函数，引用上个 sprint 已经删掉的模块，并且不会告诉你这条结果其实已经过期&quot;。</p>
+<p>这就是为什么 Claude Code 走了一条<strong>完全相反</strong>的路——<strong>不建索引，每次都让模型像工程师一样在本地仓库里 grep / read / 跟引用</strong>。这条路看起来朴素到反直觉，却恰恰是它能撑起百万行 monorepo 的原因。</p>
+<p>读完这篇你应该能回答三个问题：</p>
+<ol>
+<li>**为什么 Claude Code 不用 RAG？**这条路径的优势和代价分别是什么？</li>
+<li>**Harness 的七个扩展点怎么配合？**每一个该装多少，过载了会怎样？</li>
+<li>**大组织怎么落地？**从个人工具到团队标准，中间需要哪些角色和节奏？</li>
+</ol>
+<p>下面按这三层往下走。</p>
+<hr>
+<h2 id="一claude-code-怎么在大代码库里导航agentic-search-vs-rag">一、Claude Code 怎么在大代码库里&quot;导航&quot;——Agentic Search vs RAG</h2>
+<p>
+  <img src="/img/claude-code-large-codebase-best-practices/agentic-vs-rag.svg" alt="Agentic Search vs RAG 索引：两种检索范式的代价对比">
+
+</p>
+<h3 id="它到底做了什么">它到底做了什么</h3>
+<p>Claude Code 在你机器上启动之后，处理一个任务时做的事情其实和一名靠谱工程师一模一样：</p>
+<ul>
+<li><strong>traverses the file system</strong>：在文件树里走一遍</li>
+<li><strong>reads files</strong>：打开它觉得相关的文件</li>
+<li><strong>uses grep to find exactly what it needs</strong>：用 grep 精确定位</li>
+<li><strong>follows references across the codebase</strong>：顺着引用跳到下一个相关位置</li>
+</ul>
+<p>这套行为模式 Anthropic 把它叫做 <strong>agentic search</strong>——&ldquo;agentic&quot;的意思是：<strong>检索由 agent 当场发起，而不是事先建好的索引</strong>。</p>
+<p>它的两个关键属性是：</p>
+<ul>
+<li><strong>本地运行</strong>：&ldquo;operates locally on the developer&rsquo;s machine&rdquo;——你机器上的 Claude Code 直接读你机器上的代码</li>
+<li><strong>不需要索引</strong>：&ldquo;doesn&rsquo;t require a codebase index to be built, maintained, or uploaded to a server&rdquo;——既不需要构建，也不需要上传到服务器维护</li>
+</ul>
+<h3 id="为什么这么设计rag-在快速迭代团队里的结构性失效">为什么这么设计：RAG 在快速迭代团队里的结构性失效</h3>
+<p>把 RAG 工具搬进活跃工程团队，<strong>问题不在精度，而在时效</strong>。原文给了非常直白的描述：</p>
+<blockquote>
+<p>An indexed search returns a function the team renamed two weeks ago, or references a module that was deleted in the last sprint, with no indication that either is out of date.</p>
+</blockquote>
+<p>中心化索引是<strong>一张昨天的快照</strong>，而工程团队<strong>今天还在改代码</strong>。两者之间天然有时间差，且这种过时<strong>不会主动告诉你</strong>——这是最致命的一点。</p>
+<p>Agentic search 的代价也清楚地写在那里：<strong>它高度依赖你给它的初始 context 是不是足够窄、足够准</strong>。Anthropic 给了一句很值得抄下来的警告：</p>
+<blockquote>
+<p>If you ask it to find all instances of a vague pattern across a billion-line codebase, you&rsquo;ll hit context-window limits before the work begins.</p>
+</blockquote>
+<p>也就是说，<strong>面对十亿行级别 + 模糊描述，agentic search 会先撞上 context 上限，再开始干活</strong>。所以代价就是把一部分认知工作从&quot;建索引&quot;前移到了&quot;喂 context&rdquo;——这正是 CLAUDE.md 和 skills 的角色。</p>
+<h3 id="怎么落地">怎么落地</h3>
+<p>记住一条心法：<strong>给 Claude Code 一个尽量小的&quot;工作子树&quot;</strong>。这件事原文用了一个反直觉的词：在 monorepo 里<strong>不要在仓库根目录初始化 Claude Code</strong>，要<strong>在子目录初始化</strong>。具体见后面&quot;模式 1&quot;。</p>
+<h3 id="别踩的坑">别踩的坑</h3>
+<ul>
+<li>把&quot;过时的命中&quot;当成&quot;工具不准&quot;——不是它不准，是 RAG 索引天然滞后。</li>
+<li>给 Claude Code 一个<strong>无范围</strong>的任务（&ldquo;找出整个仓库所有用到 logger 的地方&rdquo;），还希望它给你完整答案——这种任务必须先做范围收窄。</li>
+</ul>
+<hr>
+<h2 id="二harness-比模型更重要七个扩展点的全景">二、Harness 比模型更重要：七个扩展点的全景</h2>
+<blockquote>
+<p>关键判断：Claude Code 的能力不只由模型决定，<strong>真正的上限是包在模型外面的 harness</strong>——CLAUDE.md、Hooks、Skills、Plugins、LSP、MCP、Subagents 共同构成的扩展层。</p>
+</blockquote>
+<p>很多团队只盯着模型 benchmark 选工具，这是一个<strong>结构性误解</strong>。原文用了非常直接的表述：&ldquo;the ecosystem built around the model—the harness—determines how Claude Code performs more than the model alone&rdquo;。</p>
+<p>下面这张图把七个扩展点按&quot;加载时机&quot;和&quot;职责定位&quot;一次性铺平。<strong>理解每个扩展点最重要的一刀，是问自己：它在什么时刻进入 Claude 的视野？</strong></p>
+<p>
+  <img src="/img/claude-code-large-codebase-best-practices/harness-seven.svg" alt="Harness 七大扩展点全景图">
+
+</p>
+<h3 id="1-claudemd每次必加载的项目记忆">1. CLAUDE.md：每次必加载的&quot;项目记忆&quot;</h3>
+<ul>
+<li><strong>是什么</strong>：放在仓库里的上下文文件，<strong>每个 session 自动读入</strong>。</li>
+<li><strong>怎么落地</strong>：根目录文件写大局观（架构指针 + critical gotchas），子目录文件写局部约定。Claude 在工作时会<strong>自动一路向上遍历目录树</strong>，把沿途的所有 CLAUDE.md 都拼进 context。</li>
+<li><strong>别踩的坑</strong>：把它当百科塞——&ldquo;keeping them focused on what applies broadly will prevent them from becoming a drag on performance&rdquo;。一句话：<strong>CLAUDE.md 是项目专属，不是可复用专长</strong>。可复用的东西应该是 skill。</li>
+</ul>
+<h3 id="2-hooks让配置自我改进的钩子">2. Hooks：让配置自我改进的钩子</h3>
+<ul>
+<li><strong>是什么</strong>：在关键事件触发的脚本（start / stop / pre-tool / post-tool 等）。</li>
+<li><strong>反直觉点</strong>：很多人一提 hooks 想到的是&quot;防止 Claude 干蠢事的拦截器&quot;。原文给出了一个更高价值的用法——<strong>continuous improvement</strong>：
+<ul>
+<li><strong>stop hook</strong>：在 session 结束时让 Claude 自己回顾过程，<strong>当 context 还热的时候直接给 CLAUDE.md 提改进建议</strong>。</li>
+<li><strong>start hook</strong>：根据当前模块自动加载团队特定上下文，让&quot;每个开发者都拿到对的初始配置&quot;这件事不用人手动点。</li>
+</ul>
+</li>
+<li><strong>怎么落地</strong>：把 lint / format 等可机器确定的检查统统交给 hook，<strong>不要交给 Claude 去记</strong>——确定性脚本比&quot;提示词里写的提醒&quot;更稳。</li>
+</ul>
+<h3 id="3-skills渐进式专长">3. Skills：渐进式专长</h3>
+<ul>
+<li><strong>是什么</strong>：打包好的&quot;特定任务专长&quot;，<strong>按需加载</strong>而非每次都进 context（progressive disclosure）。</li>
+<li><strong>怎么落地</strong>：原文两个例子说得很清楚——<strong>安全审查 skill</strong> 在评估漏洞时被加载，<strong>文档处理 skill</strong> 在代码改动需要同步更新文档时被加载。可以把 skill <strong>绑定到 path</strong>：负责支付服务的团队可以把部署 skill 绑定在那个目录下，<strong>别的目录不会触发它</strong>。</li>
+<li><strong>别踩的坑</strong>：把&quot;可复用专长&quot;硬塞进 CLAUDE.md。CLAUDE.md 是项目级、每次必加载；skill 是横向复用、按需触发。两者职责不能混。</li>
+</ul>
+<h3 id="4-plugins让部落知识变成组织标准">4. Plugins：让&quot;部落知识&quot;变成组织标准</h3>
+<ul>
+<li><strong>是什么</strong>：把 skills + hooks + MCP 配置打包成的可分发单元，通过 <strong>managed marketplaces</strong> 推送更新。</li>
+<li><strong>典型案例</strong>：原文里那家<strong>大型零售公司</strong>的做法值得抄——他们的工程团队先做了一个连接内部 analytics 平台的 skill，<strong>先打成 plugin 在小范围跑通</strong>，确认体验稳定后再向业务全面推广。这是把&quot;个人级好实践&quot;升级为&quot;组织级能力&quot;的标准做法。</li>
+<li><strong>别踩的坑</strong>：让一两个工程师做出的好配置一直停留在他们自己机器上——原文称之为 &ldquo;good setups can stay tribal&rdquo;。</li>
+</ul>
+<h3 id="5-lsplanguage-server-protocol把-grep-升级成按符号搜">5. LSP（Language Server Protocol）：把 grep 升级成&quot;按符号搜&quot;</h3>
+<ul>
+<li><strong>是什么</strong>：让 Claude 能调用 IDE 级的&quot;跳转到定义&quot;和&quot;查找所有引用&quot;。</li>
+<li><strong>为什么关键</strong>：在大代码库里，grep 一个常见函数名可能命中<strong>几千个匹配</strong>，Claude 会逐个打开文件去判断哪个才是它要的——<strong>context 就这样烧光了</strong>。LSP 反过来，<strong>只返回真正指向同一个符号的引用</strong>，过滤发生在 Claude 读文件之前。</li>
+<li><strong>典型案例</strong>：一家<strong>企业软件公司</strong>在 Claude Code 全员铺开<strong>之前</strong>，先组织级部署了 LSP，<strong>专门为了 C/C++ 在大规模下的导航可靠性</strong>。在多语言代码库里这是 &ldquo;one of the highest-value investments&rdquo;。</li>
+<li><strong>别踩的坑</strong>：默认 LSP 自动启用——它<strong>不会</strong>。需要装 code intelligence plugin + 对应语言的 language server binary。</li>
+</ul>
+<h3 id="6-mcp-servers把外部世界接进来">6. MCP servers：把外部世界接进来</h3>
+<ul>
+<li><strong>是什么</strong>：让 Claude 能调用外部工具、数据源、API 的标准协议层。</li>
+<li><strong>进阶用法</strong>：原文里那句很好——&ldquo;The most sophisticated teams built MCP servers exposing structured search as a tool Claude can call directly&rdquo;。比起把检索丢给 grep，<strong>结构化检索 MCP 让 Claude 有更好的&quot;问问题的姿势&quot;</strong>。</li>
+<li><strong>别踩的坑</strong>：&ldquo;before the basics are working&rdquo; 就先冲 MCP。MCP 是放大器，不是补救手段——基础（CLAUDE.md / hooks / LSP）没稳之前先做 MCP，等于在沙地上叠塔。</li>
+</ul>
+<h3 id="7-subagents把探索和编辑切开">7. Subagents：把&quot;探索&quot;和&quot;编辑&quot;切开</h3>
+<ul>
+<li><strong>是什么</strong>：一个独立的 Claude 实例，<strong>有自己独立的 context window</strong>，接到子任务后干完只把最终结果回传给父 agent。</li>
+<li><strong>为什么关键</strong>：在同一个 session 里<strong>又探索又改代码</strong>，会让 context 被&quot;扫码 + 思考 + 改动&quot;三件事同时占用，效率和稳定性都受影响。原文给的范式是：<strong>先派一个只读 subagent 扫子系统并把发现写到文件里，再让主 agent 读完那份文件统一改</strong>。</li>
+<li><strong>别踩的坑</strong>：把它当线程池滥用——这是<strong>委派能力</strong>，不是&quot;可配置的扩展点&quot;，<strong>只在确实需要拆分上下文时用</strong>。</li>
+</ul>
+<blockquote>
+<p>关键判断：七个扩展点的真正区别是<strong>加载时机</strong>——CLAUDE.md 是&quot;每次必加载&quot;，skills 是&quot;按需触发&quot;，subagents 是&quot;显式调用&quot;。把任何一个用错了它的加载时机，都会得到反向效果。</p>
+</blockquote>
+<hr>
+<h2 id="三三大配置模式从代码可导航到组织可落地">三、三大配置模式：从代码可导航到组织可落地</h2>
+<p>
+  <img src="/img/claude-code-large-codebase-best-practices/three-patterns.svg" alt="三大成功部署模式：纵深三层">
+
+</p>
+<h3 id="模式-1--让代码库在规模下仍然可导航">模式 1 · 让代码库在规模下仍然可导航</h3>
+<p>这一层处理的是<strong>最朴素的痛点</strong>：代码库太大，Claude 看一眼就被信息淹没。</p>
+<p>原文怎么说：</p>
+<blockquote>
+<p>Too much context loaded into every session degrades performance, while too little context leaves Claude to navigate blind.</p>
+</blockquote>
+<p>为什么有效：<strong>Agentic search 的代价是依赖初始 context</strong>。这层做的所有事情都在围绕同一件事——<strong>为模型收窄视野</strong>。</p>
+<p>落地清单：</p>
+<ul>
+<li><strong>CLAUDE.md 分层</strong>：根目录写大局观（pointers + critical gotchas），子目录写局部约定，<strong>其它一切就是噪音</strong>。</li>
+<li><strong>在子目录初始化 Claude Code</strong>：&ldquo;Claude works best when it&rsquo;s scoped to the part of the codebase that&rsquo;s actually relevant to the task&rdquo;。在 monorepo 里这一步反直觉——很多工具假设要在仓库根上跑——但 Claude 会<strong>自动向上遍历，沿途加载所有 CLAUDE.md</strong>，根级上下文不会丢。</li>
+<li><strong>test/lint 命令按子目录绑定</strong>：服务化代码库里这件事容易；编译型语言、跨目录强依赖的 monorepo 会更难，需要项目级的构建配置。</li>
+<li><strong><code>.ignore</code> 文件 + <code>permissions.deny</code></strong>：在 <code>.claude/settings.json</code> 里把生成代码、构建产物、第三方代码统统排除——<strong>这份配置版本化，所有人共享同一份降噪规则</strong>。例外情况（如开发 code generator 的人需要看那些目录）走 local settings 覆盖。</li>
+<li><strong>codebase map</strong>：当目录结构本身说不清架构时，在仓库根写一份<strong>轻量 markdown</strong> 列出顶层目录与一行说明。<strong>有几百个顶层目录</strong>的代码库走分层方式：根目录文件只写最高一层，下一级写在子目录的 CLAUDE.md 里。</li>
+<li><strong>跑 LSP 让 grep 升级成按符号搜</strong>：见前一节。</li>
+</ul>
+<h3 id="模式-2--跟随模型迭代主动维护-claudemd">模式 2 · 跟随模型迭代主动维护 CLAUDE.md</h3>
+<p>这一层处理的是<strong>时间维度的损耗</strong>：曾经有用的指令，会在新模型下变成束缚。</p>
+<p>原文给了两个非常具体的反例：</p>
+<ul>
+<li>旧 CLAUDE.md 里&quot;<strong>每次重构只改一个文件</strong>&ldquo;的指令——这条曾经帮老模型<strong>保持专注</strong>，但会<strong>阻止新模型做协调式跨文件编辑</strong>，而新模型本来很擅长这件事。</li>
+<li>Perforce 仓库里那个<strong>拦截写操作以强制 <code>p4 edit</code></strong> 的 hook——它在某次 Claude Code 加上 <strong>native Perforce mode</strong> 之后<strong>就完全冗余了</strong>，但许多团队仍然留着它。</li>
+</ul>
+<blockquote>
+<p>关键判断：Anthropic 给的节奏是 <strong>&ldquo;a meaningful configuration review every three to six months&rdquo;</strong>——3 到 6 个月做一次有意义的配置审查，并在<strong>每个模型大版本发布之后再补一次</strong>。这是反直觉的：模型在变强，旧配置在贬值，<strong>不主动减负就是在主动降级</strong>。</p>
+</blockquote>
+<p>很多团队会把 CLAUDE.md 当一份&quot;只增不删&quot;的项目说明书，这是规模化阶段最常见的隐形负债。<strong>配置审查不是 nice-to-have，是定期还债</strong>。</p>
+<h3 id="模式-3--给-claude-code-指定专人团队负责">模式 3 · 给 Claude Code 指定专人/团队负责</h3>
+<p>这一层处理的是<strong>组织传播问题</strong>：技术配置再好，没有人统筹也会碎片化。</p>
+<p>原文的两个组织样本很值得看：</p>
+<ol>
+<li>一家公司：<strong>两位工程师</strong>在工具上线前先搭了一套 plugins + MCPs，<strong>首日即可用</strong>。</li>
+<li>另一家公司：<strong>一支专注管理 AI 编码工具的团队</strong>，在工具铺开<strong>之前</strong>基础设施就已经就位。</li>
+</ol>
+<p>归属一般在 <strong>developer experience / developer productivity</strong> 团队下面。原文还点出了一个<strong>正在出现的新岗位</strong>——<strong>Agent Manager</strong>：</p>
+<blockquote>
+<p>A hybrid PM/engineer function dedicated to managing the Claude Code ecosystem.</p>
+</blockquote>
+<p>这个 PM/工程混合岗的职责是<strong>管 Claude Code 这个生态本身</strong>，不是用它写代码——这是 AI 工具规模化以后<strong>第一个原生衍生岗位</strong>，值得各家工程效能团队提前看一眼。</p>
+<p>最小可行版本叫 <strong>DRI（Directly Responsible Individual）</strong>：一个人直接拥有 Claude Code 配置、settings、permissions policy、plugin marketplace、CLAUDE.md 规范的<strong>决策权</strong>。</p>
+<blockquote>
+<p>关键判断：自下而上的采纳能制造热情，但<strong>没有中心化所有权就会碎片化</strong>。在受监管行业（金融、医疗、政府）必须更早做治理：在工具进入工程组织之前就把工程 / 信息安全 / 治理三方拉进<strong>跨职能工作组</strong>，一起定义&quot;哪些 skills/plugins 可用、AI 生成代码走什么 review 流程&rdquo;。先小范围放开，再逐步扩展。</p>
+</blockquote>
+<hr>
+<h2 id="四十五条反模式逐句点破">四、十五条反模式，逐句点破</h2>
+<p>下面这份清单从原文里<strong>逐条提取</strong>，按&quot;踩中代价&quot;从高到低排，方便对照自查。</p>
+<ol>
+<li><strong>把 RAG 索引返回的过时函数当成&quot;工具不准&quot;</strong>——不是工具不准，是索引天然落后。</li>
+<li><strong>只盯模型 benchmark 选工具，忽视 harness</strong>——harness 的影响超过模型本身。</li>
+<li><strong>把可复用专长塞进 CLAUDE.md</strong>——它该是一个 skill。</li>
+<li><strong>用提示词去做本该自动化的事</strong>——该是 hook。</li>
+<li><strong>把所有内容堆进 CLAUDE.md，让它变成项目百科</strong>——会拖累每个 session 的性能。</li>
+<li><strong>让好的配置一直停在&quot;两个工程师机器上&quot;</strong>——它该被打成 plugin 分发。</li>
+<li><strong>默认 LSP 自动启用</strong>——它不会，需要显式装。</li>
+<li><strong>基础（CLAUDE.md / hooks / LSP）还没稳就先冲 MCP</strong>——MCP 是放大器，不是补救。</li>
+<li><strong>在同一个 session 里又探索又编辑</strong>——该用 subagent 拆分。</li>
+<li><strong>在 monorepo 根目录初始化 Claude Code</strong>——该在子目录初始化。</li>
+<li><strong>对单个服务的改动跑全套测试</strong>——会超时并烧 context。</li>
+<li><strong>让旧 CLAUDE.md 的过时规则限制新模型</strong>（如&quot;每次只改一个文件&quot;）。</li>
+<li><strong>保留已被原生支持取代的 hooks</strong>（如 Perforce 已支持 <code>native mode</code> 后还留着 p4 edit 拦截）。</li>
+<li><strong>完全自下而上推广，没有中心化所有权</strong>——会迅速碎片化。</li>
+<li><strong>在受监管环境跳过早期治理与跨职能工作组</strong>——后期补做代价倍增。</li>
+</ol>
+<hr>
+<h2 id="五起步路线图10-步从个人能用到组织能规模化">五、起步路线图：10 步从&quot;个人能用&quot;到&quot;组织能规模化&quot;</h2>
+<p>把上面所有的内容浓缩成一张落地图，以及一段清单。<strong>前 5 步是&quot;为模型清场&quot;，6–7 步是&quot;复用沉淀&quot;，8–10 步是&quot;组织复制&quot;</strong>——绝大部分团队走着走着掉链子，都是因为<strong>跳过了清场阶段直接做集成</strong>。</p>
+<p>
+  <img src="/img/claude-code-large-codebase-best-practices/where-to-start.svg" alt="10 步起步路线图">
+
+</p>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>动作</th>
+<th>关键产物</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>写好仓库根 <code>CLAUDE.md</code></td>
+<td>大局观 + critical gotchas（pointers only）</td>
+</tr>
+<tr>
+<td>2</td>
+<td>写好关键子目录 <code>CLAUDE.md</code></td>
+<td>局部约定，分层叠加</td>
+</tr>
+<tr>
+<td>3</td>
+<td>配 <code>.ignore</code> + <code>permissions.deny</code></td>
+<td><code>.claude/settings.json</code> 版本化、共享</td>
+</tr>
+<tr>
+<td>4</td>
+<td>装 LSP + code intelligence plugin</td>
+<td>让 Claude 按符号搜</td>
+</tr>
+<tr>
+<td>5</td>
+<td>test/lint 命令按子目录绑定</td>
+<td>单服务变更不跑全量</td>
+</tr>
+<tr>
+<td>6</td>
+<td>配 hooks（含 stop hook 自反馈）</td>
+<td>用 stop hook 让 CLAUDE.md 自己进化</td>
+</tr>
+<tr>
+<td>7</td>
+<td>抽出 skills，按 path 绑定</td>
+<td>把横向专长从 CLAUDE.md 卸载出来</td>
+</tr>
+<tr>
+<td>8</td>
+<td>打成 plugins，通过 marketplace 分发</td>
+<td>把&quot;部落知识&quot;变成组织标准</td>
+</tr>
+<tr>
+<td>9</td>
+<td>配 MCP servers + 用 subagents 委派</td>
+<td>接外部工具 + 拆探索/编辑</td>
+</tr>
+<tr>
+<td>10</td>
+<td>指定 DRI / Agent Manager + 3–6 个月审查</td>
+<td>治理 + 防止配置贬值</td>
+</tr>
+</tbody>
+</table>
+<p>如果你的团队规模不大，<strong>可以把 8–9 合并、10 步浓缩为一个 DRI 角色</strong>；但顺序不能跳——尤其是 1–5 步，是给后面所有事情打底。</p>
+<hr>
+<h2 id="六claude-code-不是为所有代码库设计的">六、Claude Code 不是为所有代码库设计的</h2>
+<p>原文最后留了一个很坦诚的<strong>适用边界</strong>，值得在落地决策前认真看一眼：</p>
+<p>Claude Code 的内置假设是：</p>
+<ul>
+<li>工程师是代码库的<strong>主要贡献者</strong></li>
+<li>仓库<strong>用 Git</strong></li>
+<li>代码<strong>遵循标准目录结构</strong></li>
+</ul>
+<p>下面这些场景<strong>需要额外配置或并不在当前最佳实践覆盖范围</strong>：</p>
+<ul>
+<li>含有大量二进制资产的<strong>游戏引擎仓库</strong></li>
+<li>用<strong>非传统版本控制系统</strong>（Perforce 之类，虽然已加 native 模式但仍有约束；或更小众的）</li>
+<li><strong>非工程师</strong>也在贡献代码的代码库</li>
+<li>几十万级别文件夹、上百万级别文件的<strong>超巨代码库</strong></li>
+</ul>
+<p>不是说这些场景不能用，是<strong>默认配置不能直接套</strong>。Anthropic 自己也明确说，会在系列后续文章里专门讲。</p>
+<hr>
+<h2 id="七三句话带走的判断">七、三句话带走的判断</h2>
+<p>如果你只能记三句话，建议是这三句：</p>
+<ol>
+<li><strong>决定 Claude Code 在大代码库里能跑多远的，不是模型，是 harness</strong>——CLAUDE.md / Hooks / Skills / Plugins / LSP / MCP / Subagents 这一整层；评估工具时把眼光从&quot;模型分数&quot;挪到&quot;扩展层&quot;上。</li>
+<li><strong>大代码库里最重要的动作不是&quot;加 context&quot;，而是&quot;为模型收窄视野&quot;</strong>——子目录初始化、分层 CLAUDE.md、<code>.ignore</code>、LSP 按符号搜，所有这些都在给同一件事服务。</li>
+<li><strong>AI 编码工具的规模化是一个组织问题</strong>——一个 DRI 或一个 Agent Manager 的有无，比技术配置更能决定 1000 个工程师 6 个月之后的状态。<strong>3–6 个月一次的配置审查不是 nice-to-have，是给配置定期还债</strong>。</li>
+</ol>
+<hr>
+<blockquote>
+<p>原文链接：<a href="https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start">How Claude Code works in large codebases: Best practices and where to start</a> · Anthropic · 2026-05-14</p>
+<p>本文图片均为重新设计的 SVG 信息图，遵循本站<a href="/.codebuddy/svg-design-spec.md">博客配图 SVG 设计规范</a>。</p>
+</blockquote>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/16/prompt-optimizer-skill-evaluation/" data-toggle="tooltip" data-placement="top" title="把『基于 URL 写一篇博文』这条 prompt 救回来：一个 Claude Skill 的设计、打造与三轮评测实录">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/22/claude-code-html-stay-in-the-loop/" data-toggle="tooltip" data-placement="top" title="把 HTML 当画布：Anthropic 内部如何用一份单页文件，把 Claude Code 从「自动写」拉回「同步在线」">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

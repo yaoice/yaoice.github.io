@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="把 HTML 当画布：Anthropic 内部如何用一份单页文件，把 Claude Code 从「自动写」拉回「同步在线」" />
+    <meta property="og:title" content="把 HTML 当画布：Anthropic 内部如何用一份单页文件，把 Claude Code 从「自动写」拉回「同步在线」" />
+    <meta property="twitter:title" content="把 HTML 当画布：Anthropic 内部如何用一份单页文件，把 Claude Code 从「自动写」拉回「同步在线」" />
+    
+
+    
+    <meta name="description" content="Thariq Shihipar 在 Anthropic 官方博客的最新一篇《The unreasonable effectiveness of HTML》给出了一个反常识的工作流：当 Agent 越来越能自主跑完一切，他反而几乎完全停用 Markdown，所有产物——规划、评审、原型、报告、一次性编辑器——一律走 HTML。本文把原文压成五大能力维度 &#43; 五类工作流场景矩阵，再延伸出三条不那么舒服的判断：一次性编辑器打破了软件必须复用的工程直觉、「总是以导出结束」是反馈循环收紧的关键、token 不是 HTML 的成本，注意力才是。">
+    <meta property="og:description" content="Thariq Shihipar 在 Anthropic 官方博客的最新一篇《The unreasonable effectiveness of HTML》给出了一个反常识的工作流：当 Agent 越来越能自主跑完一切，他反而几乎完全停用 Markdown，所有产物——规划、评审、原型、报告、一次性编辑器——一律走 HTML。本文把原文压成五大能力维度 &#43; 五类工作流场景矩阵，再延伸出三条不那么舒服的判断：一次性编辑器打破了软件必须复用的工程直觉、「总是以导出结束」是反馈循环收紧的关键、token 不是 HTML 的成本，注意力才是。" />
+    <meta property="twitter:description" content="Thariq Shihipar 在 Anthropic 官方博客的最新一篇《The unreasonable effectiveness of HTML》给出了一个反常识的工作流：当 Agent 越来越能自主跑完一切，他反而几乎完全停用 Markdown，所有产物——规划、评审、原型、报告、一次性编辑器——一律走 HTML。本文把原文压成五大能力维度 &#43; 五类工作流场景矩阵，再延伸出三条不那么舒服的判断：一次性编辑器打破了软件必须复用的工程直觉、「总是以导出结束」是反馈循环收紧的关键、token 不是 HTML 的成本，注意力才是。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>把 HTML 当画布：Anthropic 内部如何用一份单页文件，把 Claude Code 从「自动写」拉回「同步在线」 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/05/22/claude-code-html-stay-in-the-loop/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        <li>
+                            <a href="/categories/ai/">ai</a>
+                        </li>
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                        <a class="tag" href="/tags/html" title="HTML">
+                            HTML
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent" title="Agent">
+                            Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/ai" title="AI">
+                            AI
+                        </a>
+                        
+                    </div>
+                    <h1>把 HTML 当画布：Anthropic 内部如何用一份单页文件，把 Claude Code 从「自动写」拉回「同步在线」</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Friday, May 22, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>原文：<a href="https://claude.com/blog/using-claude-code-the-unreasonable-effectiveness-of-html">Using Claude Code: The unreasonable effectiveness of HTML</a> · Thariq Shihipar · Anthropic Blog · 2026-05-20</p>
+<p>一句话导读：当 Agent 已经能自动把活干完，工程师不再需要&quot;输出更聪明的文字&quot;，而需要&quot;输出能站进去的画布&quot;。HTML 是 Anthropic 内部找到的、几乎唯一能同时承载<strong>多源摄入 / 视觉决策 / 双向回灌</strong>的 Agent 输出格式。</p>
+</blockquote>
+<p>
+  <img src="/img/claude-code-html-stay-in-the-loop/cover.svg" alt="把 HTML 当画布：Claude Code 与工程师之间的同步在线装置">
+
+</p>
+<h2 id="引言跑得越快的-agent越需要一块能站进去的画布">引言：跑得越快的 Agent，越需要一块能&quot;站进去&quot;的画布</h2>
+<p>如果你最近用过 Claude Code、Cursor 或者任何一个把&quot;自主&quot;开到比较大的 Coding Agent，会有一个不算愉快的感受：</p>
+<p><strong>Agent 跑得越快，你越不知道它在干什么。</strong></p>
+<p>PR 描述秒生成、5 个文件同时改、测试自己跑、自己回滚、自己重写——你打开 IDE 时面对的不是&quot;未完成的代码&quot;，而是&quot;已经被悄悄完成的一整个分支&quot;。然后你照例往下翻 plan.md，翻到一半就放弃了，因为：</p>
+<ul>
+<li>这是一份<strong>线性的、扁平的、没人会读完的 Markdown</strong>。</li>
+<li>它把&quot;6 种入职界面方案&quot;压成 6 段文字。</li>
+<li>它把数据流图压成一句&quot;前端 → 后端 → 队列&quot;。</li>
+<li>它把 30 张需要你重排优先级的 ticket 压成一个有序列表。</li>
+</ul>
+<p>Thariq Shihipar 在 Anthropic 5 月 20 日发的这篇《<a href="https://claude.com/blog/using-claude-code-the-unreasonable-effectiveness-of-html">The unreasonable effectiveness of HTML</a>》给出了一个看起来&quot;很美式工程师&quot;的回答：<strong>几乎完全停用 Markdown，所有产物一律走 HTML 单页文件。</strong></p>
+<p>他自称&quot;HTML 极端主义者&quot;。读完原文你会发现，这不是审美偏好——是一种<strong>保住人类参与感的工程选择</strong>。当 Agent 自主性继续上升时，&ldquo;在循环里&quot;和&quot;被踢出循环&quot;之间，差的可能就是一种愿意承载交互的输出格式。</p>
+<blockquote>
+<p>「我使用 HTML 而非 Markdown 的真正原因，是它让我感觉与 Claude 的协作过程更加&rsquo;同步在线&rsquo;（in the loop）。」</p>
+<p>—— Thariq Shihipar</p>
+</blockquote>
+<p>本仓库 <a href="/2026/05/13/html-vs-markdown-agent-output/">2026-05-13《HTML 对 Agent 的不合理有效》</a> 已经基于 Thariq 的 demo 合集解释了&quot;为什么 Markdown 把空间信息压扁了&rdquo;。这一篇换一个角度——<strong>不谈 demo 集合，谈作者本人在 Anthropic 内部实际怎么用 HTML 重构日常工作流</strong>——并把它的工程含义推到三条不那么舒服的判断上。</p>
+<hr>
+<h2 id="一五大能力维度html-相对-markdown-多做了什么">一、五大能力维度：HTML 相对 Markdown 多做了什么</h2>
+<p>原文给出 HTML 的五个优势：信息密度、视觉清晰度、易于分享、双向交互、数据摄入。这五条不是并列的——它们是<strong>层层递进</strong>的：</p>
+<ol>
+<li>信息密度让 HTML <strong>能装下</strong> Markdown 装不下的东西；</li>
+<li>视觉清晰让它<strong>真的会被读完</strong>；</li>
+<li>易于分享让它<strong>走出 IDE</strong>；</li>
+<li>双向交互让它<strong>回头影响决策</strong>；</li>
+<li>数据摄入让 Agent <strong>承接得了</strong>多源输入。</li>
+</ol>
+<p>把这五条铺开看，就能解释为什么&quot;换一种格式&quot;在工程上是个有杠杆的动作：</p>
+<p>
+  <img src="/img/claude-code-html-stay-in-the-loop/five-capabilities.svg" alt="HTML 相对 Markdown 的五大能力维度对比">
+
+</p>
+<h3 id="1-信息密度先解决装不下的问题">1. 信息密度：先解决&quot;装不下&quot;的问题</h3>
+<p>Markdown 有一个非常粗暴的失败模式——<strong>一旦遇到表格 / 设计 / SVG / 代码片段同时存在的场景，它会触发&quot;低维兜底&quot;</strong>。原文有一句话很尖刻：</p>
+<blockquote>
+<p>「如果做不到这点，模型可能会在 Markdown 中做一些低效的事情，比如 ASCII 图示，或者我最&rsquo;喜欢&rsquo;的——用 Unicode 字符来估算颜色。」</p>
+</blockquote>
+<p>我猜大多数人都见过：让 Claude 画一张系统架构图，结果给你一堆 <code>┌──┐ ──&gt; ┌──┐</code> 的 box drawing；让它出一组配色，结果出来一串 <code>■ #3b82f6（蓝色）</code> 的 emoji 块。这不是模型笨，是格式本身把它逼到了&quot;哑词&quot;上。</p>
+<p>HTML 一旦上场，模型立刻有了真画板：表格、SVG、<code>&lt;canvas&gt;</code>、<code>&lt;input&gt;</code>、<code>&lt;style&gt;</code>、绝对定位——表达力维度完全不在一个量级。</p>
+<h3 id="2-视觉清晰100-行-markdown-没人读完">2. 视觉清晰：100 行 Markdown 没人读完</h3>
+<p>这一点不是审美问题，是<strong>生理问题</strong>。</p>
+<p>任何超过 80~100 行的 Markdown 文件，用户都会从读变成扫，从扫变成关掉。HTML 可以做 Tab、可以做侧栏、可以做折叠、可以分块——这些都不是炫技，这些是<strong>让你愿意读完它</strong>的最后防线。</p>
+<blockquote>
+<p>Markdown 是流，HTML 是版面。流里面藏不住结构。</p>
+</blockquote>
+<h3 id="3-易于分享让产物走出-ide">3. 易于分享：让产物走出 IDE</h3>
+<p>Markdown 出了 IDE 就开始变形：终端里 emoji 错位、Slack 里表格炸裂、复制到飞书表格丢失。Claude 给你写的&quot;评审报告&quot;，<strong>真正传到下游评审者眼里时，已经不是它当初的样子。</strong></p>
+<p>HTML 解决得很粗暴：上传 → 链接 → 浏览器原生打开。Thariq 用了一句很工程师的话：</p>
+<blockquote>
+<p>「你的规格说明、报告或 PR 文档<strong>被真正阅读的概率</strong>会高得多。」</p>
+</blockquote>
+<p>注意是&quot;概率&quot;——这是一个<strong>被低估的指标</strong>。一份没被读的 PR 描述等于零，一份被读完的 PR 描述顶得上半场会议。</p>
+<h3 id="4-双向交互让画布能写回去">4. 双向交互：让画布能&quot;写回去&quot;</h3>
+<p>到这里 HTML 才真正甩开 Markdown 一个量级——<code>&lt;input&gt;</code>、<code>&lt;button&gt;</code>、<code>onclick</code>、<code>navigator.clipboard.writeText</code> 这些原生能力让产物<strong>可以承担决策</strong>：</p>
+<ul>
+<li>拖动滑块预览动画曲线 → 复制参数；</li>
+<li>拖拽 ticket 重排优先级 → 复制 Markdown；</li>
+<li>在 prompt 上左右分栏调样本 → 复制最终模板。</li>
+</ul>
+<p>Markdown 的世界里，这一步只能&quot;再写一段 prompt 让 Claude 帮我做 X&quot;——交互在嘴里，决策在脑子里，循环始终断在键盘和屏幕之间。</p>
+<h3 id="5-数据摄入输入的丰度需要等量丰度的输出">5. 数据摄入：输入的丰度需要等量丰度的输出</h3>
+<p>最后一条最容易被略读，但其实是这五条里最有杠杆的一条：</p>
+<blockquote>
+<p>Claude Code 的输入端正在快速变厚——文件系统、MCP（Slack / Linear / Jira）、浏览器（Claude in Chrome）、Git 历史。</p>
+</blockquote>
+<p>输入侧拓宽了多少，输出侧就要被迫拓宽多少。否则 Agent 会把&quot;我从五个数据源汇总出来的洞察&quot;压缩成一段 Markdown 摘要——<strong>带宽差就在这里被卡死</strong>。HTML 是目前唯一能匹配输入丰度的标准输出格式。</p>
+<hr>
+<h2 id="二五类工作流--五大能力场景矩阵">二、五类工作流 × 五大能力：场景矩阵</h2>
+<p>光知道 HTML 能力强还不够，要知道<strong>每一类任务该撬动哪几条能力</strong>——这决定了 prompt 怎么写。</p>
+<p>把原文给的五类工作流（规划探索 / 代码评审 / 设计原型 / 报告学习 / 一次性编辑器）和上面五大能力交叉，得到一张矩阵：</p>
+<p>
+  <img src="/img/claude-code-html-stay-in-the-loop/scenario-matrix.svg" alt="五类工作流 × 五大能力的场景矩阵">
+
+</p>
+<p>读这张矩阵的方法是<strong>纵看 vs 横看</strong>：</p>
+<ul>
+<li><strong>纵看</strong>——同一种能力在不同任务里值多少。比如&quot;双向交互&quot;在&quot;一次性编辑器&quot;里是核心能力，但在&quot;报告学习&quot;里完全可以没有；</li>
+<li><strong>横看</strong>——为这一类任务该写哪些 HTML 元素。这能直接翻译成 prompt 模板。</li>
+</ul>
+<p>下面用最值得展开的两类聊一下，剩下三类写在小节末。</p>
+<h3 id="a-规划--探索从单计划到文件网络">A. 规划 / 探索：从单计划到文件网络</h3>
+<p>原文这段最反直觉的一句：</p>
+<blockquote>
+<p>「我不再用单一计划，而是为计划的不同阶段/部分维护多个 HTML 文件。」</p>
+</blockquote>
+<p>这是一种<strong>对 plan.md 信仰的公开决裂</strong>——在过去两年的 Agent 工程实践里，&ldquo;维护一份 plan.md，agent 边读边干&quot;几乎是默认范式。Thariq 直接把它换掉了：</p>
+<p>
+  <img src="/img/claude-code-html-stay-in-the-loop/plan-vs-network.svg" alt="单文件 Markdown 计划 vs HTML 文件网络的工作模式对比">
+
+</p>
+<p>为什么？因为<strong>单文件 Markdown 在第三章往后就开始失真</strong>——UI 探索、数据流、设计 token 这些天然多维的内容，被强行压成线性段落，越往下越糊。</p>
+<p>HTML 文件网络的解法是承认<strong>计划的不同部分需要不同维度</strong>：UI 探索需要二维并排，数据流需要 SVG，设计 token 需要色块，风险盘点需要勾选框。各自一个 HTML 文件，互相链接，下次新 session 一起喂给新 agent。</p>
+<p>这种做法的代价是文件数变多——但好处是<strong>每一份都能被读完、被点开、被改动</strong>。</p>
+<h3 id="e-一次性编辑器最反工程直觉的一类">E. 一次性编辑器：最反工程直觉的一类</h3>
+<p>这一类是原文最让我停下来想了 5 分钟的部分：</p>
+<blockquote>
+<p>「构建&rsquo;一次性编辑器&rsquo;——不是产品，不是可复用工具，而是为某一份数据专门打造的单个 HTML 文件。」</p>
+</blockquote>
+<p>注意&quot;不是产品，不是可复用工具&quot;这句。</p>
+<p>每个<strong>有点工程素养的人</strong>听到这话都会本能不适：那不是浪费吗？写完用一次扔了？后面同事再排优先级又得让 Claude 重写一遍？</p>
+<p>但这正是 HTML × Agent 的杠杆所在——<strong>当 Agent 写代码的边际成本接近零时，&ldquo;必须复用&quot;这条工程直觉就开始崩</strong>。Thariq 给了七个值得你做一次性编辑器的场景：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>一次性编辑器的形态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>重排 / 分诊 / 归类</td>
+<td>30 张可拖拽 ticket × 4 列（Now/Next/Later/Cut）</td>
+</tr>
+<tr>
+<td>编辑结构化配置</td>
+<td>按区域分组的 feature flag 表单，依赖关系警告</td>
+</tr>
+<tr>
+<td>调优 prompt / 模板</td>
+<td>左右分栏：可编辑模板 + 实时填充的样本输出</td>
+</tr>
+<tr>
+<td>数据集策展</td>
+<td>批准 / 拒绝 / 打标签按钮 + 选择导出</td>
+</tr>
+<tr>
+<td>标注文档 / diff</td>
+<td>边距批注 + 严重度颜色 + 导出标注</td>
+</tr>
+<tr>
+<td>选择难以文字化的值</td>
+<td>颜色 / 缓动曲线 / 裁剪区域 / cron / 正则</td>
+</tr>
+<tr>
+<td>feature 配置审查</td>
+<td>全表预览 + &ldquo;复制 diff&quot;按钮</td>
+</tr>
+</tbody>
+</table>
+<p>每一类都满足一个共同特征：<strong>这件事需要的是空间感、不是文字</strong>——而 Markdown 偏偏只能给文字。</p>
+<h3 id="b--c--d-三类的关键-prompt-词">B / C / D 三类的关键 prompt 词</h3>
+<p>再补充其他三类，每类附作者原文的关键 prompt 句式（粘贴可用）：</p>
+<ul>
+<li><strong>B. 代码评审</strong>：&ldquo;帮我审查这个 PR，创建一个描述性的 HTML 制品，渲染实际 diff 并加边距注释，按严重度颜色编码。&rdquo;</li>
+<li><strong>C. 设计原型</strong>：&ldquo;为新的结账按钮做原型——创建一个带多个滑块和选项的 HTML 文件供我尝试不同动画参数，并提供一个&rsquo;复制参数&rsquo;按钮。&rdquo;</li>
+<li><strong>D. 报告 / 学习</strong>：&ldquo;阅读限流器代码并生成单页 HTML 讲解：令牌桶流程图、3-4 个关键代码片段（附注释）、底部加&rsquo;陷阱&rsquo;小节。<strong>优化为&rsquo;读一次就懂&rsquo;的体验。</strong>&rdquo;</li>
+</ul>
+<p>最后一句&quot;读一次就懂&quot;是关键约束词——它直接告诉模型不要把内容铺开成一万字 Markdown。</p>
+<hr>
+<h2 id="三把反馈循环画清楚一次性编辑器为什么是关键">三、把&quot;反馈循环&quot;画清楚：一次性编辑器为什么是关键</h2>
+<p>上面第 E 类（一次性编辑器）单独拎出来讲，是因为它把这套工作流的<strong>真正引擎</strong>暴露了：</p>
+<p>
+  <img src="/img/claude-code-html-stay-in-the-loop/feedback-loop.svg" alt="视觉决策 → 导出 → 回灌 prompt 的反馈循环">
+
+</p>
+<p>四步循环里，最容易被忽略的是 ③ 导出。原文有一条非常硬的规则：</p>
+<blockquote>
+<p>「<strong>总是以导出结束</strong>——&lsquo;复制为 JSON&rsquo;或&rsquo;复制为 prompt&rsquo;按钮，让 UI 中的操作能粘贴回 Claude Code。」</p>
+</blockquote>
+<p>为什么这一句这么硬？因为如果没有导出按钮，前两步再漂亮，循环也会断在第三步。工程师在 HTML 上做了一堆决策——拖了 30 张卡片、勾了 12 个 flag、调了 8 个滑块——然后呢？</p>
+<ul>
+<li>没有导出按钮：他得<strong>用嘴把这些决策再描述一遍给 Claude</strong>。决策密度被 Markdown 重新压扁，前面所有工作白做。</li>
+<li>有导出按钮：一键拷贝，粘贴回 Claude Code，<strong>Claude 拿到的是和工程师在画布上看到的同一份结构化结果</strong>。</li>
+</ul>
+<p>这是整套思路里<strong>最值钱的一句设计原则</strong>，没有之一。它让&quot;在 HTML 里点鼠标&quot;和&quot;写 prompt&quot;这两件事<strong>本质上等价</strong>，循环就此闭合。</p>
+<hr>
+<h2 id="四三条不那么舒服的判断">四、三条不那么舒服的判断</h2>
+<p>读到这里，把作者的工作流总结成&quot;用 HTML 替代 Markdown&quot;是不够的。这套实践背后有三条<strong>不那么舒服、但工程含义更深</strong>的判断，值得各自说清。</p>
+<h3 id="判断-1一次性编辑器打破了软件必须复用的工程直觉">判断 1：「一次性编辑器」打破了&quot;软件必须复用&quot;的工程直觉</h3>
+<p>过去十年的工程哲学是&quot;DRY、抽象、复用&rdquo;。它假设<strong>写代码很贵</strong>——所以同样的事不能做两次。</p>
+<p>LLM 把这个前提改了。当 Claude 能在 30 秒里给你写一个针对<strong>这 30 张特定 ticket</strong> 的拖拽编辑器时，&ldquo;这次用一次扔了&rdquo; 第一次成为<strong>比&quot;做成可复用工具&quot;更划算</strong>的选项。</p>
+<p>这件事的难处不在技术，在心理：你需要允许自己<strong>接受&quot;写完就扔&quot;是合法的工程产物</strong>。它和过去十年所有工程价值观背道而驰，但在 Agent 时代，它是对的。</p>
+<p>类似地，你也会发现&quot;模板沉淀&quot;这种事变得没那么重要——<strong>因为生成成本低于维护成本</strong>。这对工具链团队是个值得警惕的信号。</p>
+<h3 id="判断-2总是以导出结束是反馈循环收紧的关键">判断 2：「总是以导出结束」是反馈循环收紧的关键</h3>
+<p>第三章已经说过了，这里加一句负向论证：</p>
+<p><strong>如果你给 LLM 写过任何&quot;看起来很 fancy 但用过一次就不再用&quot;的产物，回头去看，几乎都是因为它没有清晰的导出路径。</strong></p>
+<ul>
+<li>一个让你滑动调整的设计 demo，调完了<strong>没有&quot;复制 token&quot;按钮</strong> → 调了等于白调；</li>
+<li>一个让你勾选的 feature flag 配置面板，勾完了<strong>没有&quot;复制 diff&quot;按钮</strong> → 勾了等于白勾；</li>
+<li>一个让你打分的数据策展 UI，打完分<strong>没有&quot;导出选择&quot;按钮</strong> → 等于在玩一个浪费生命的小游戏。</li>
+</ul>
+<p>所以下次写 prompt 让 Claude 做交互式产物时，<strong>默认在最后追加一句&quot;附&rsquo;复制为 X&rsquo;按钮&rdquo;</strong>——把它当成铁律，不当成可选项。</p>
+<h3 id="判断-3token-不是-html-的成本注意力才是">判断 3：token 不是 HTML 的成本，注意力才是</h3>
+<p>最容易被反驳的点：HTML 比 Markdown 多很多 token，难道不是更贵？</p>
+<p>原文给的回答是从模型经济学角度切的：<strong>Opus 4.7 已经是 1M token 上下文，HTML 多出来的 token 占比小到可以忽略。</strong></p>
+<p>但更深的回答是：<strong>真正稀缺的不是 token，是注意力。</strong></p>
+<ul>
+<li>100 行扁平 Markdown 的 token 比一份结构化 HTML 少，但读它要花的注意力是 10x 起步；</li>
+<li>一份没人读完的 PR 描述，不论它多少 token，<strong>信息传递效率为零</strong>；</li>
+<li>而一份<strong>被实际打开、被读完、被点击</strong>的 HTML 工件，效率从零变成正数。</li>
+</ul>
+<p>注意力是数量级稀缺资源，token 不是——这一点在 1M context 时代更成立。所以&quot;HTML 太啰嗦&quot;这种 2024 年的反驳，在 2026 年已经不太成立。</p>
+<hr>
+<h2 id="五落地路线从一份-mockup-到组织级工件库">五、落地路线：从一份 mockup 到组织级工件库</h2>
+<p>三条判断说完，接下来是工程上怎么走。下面这张三阶段路线图，把&quot;个人尝试 → 团队约定 → 组织沉淀&quot;分开看，避免一上来就规划&quot;内部 HTML 工件平台&rdquo;——那是反模式：</p>
+<p>
+  <img src="/img/claude-code-html-stay-in-the-loop/adoption-roadmap.svg" alt="从单文件 mockup 起步到组织级 HTML 工件库的三阶段落地路线">
+
+</p>
+<h3 id="阶段-1第-1-周-个人">阶段 1（第 1 周）· 个人</h3>
+<p>最低成本的起步只有一个动作——<strong>在你日常给 Claude 的 prompt 末尾加一句</strong>：</p>
+<blockquote>
+<p>&ldquo;把它做成一个单页 HTML 文件，本地浏览器打开就能用。&rdquo;</p>
+</blockquote>
+<p>先在三类任务里试：</p>
+<ol>
+<li><strong>下次需要规划方案时</strong>，让它做一份&quot;6 种方案并排&quot;的 HTML，而不是 plan.md；</li>
+<li><strong>下次评审 PR 时</strong>，让它生成一份带边距注释的 review.html；</li>
+<li><strong>下次想搞懂一段陌生代码时</strong>，让它做一份&quot;读一次就懂&quot;的 explainer.html。</li>
+</ol>
+<p>这三件事跑顺之前，不要急着进阶段 2。</p>
+<h3 id="阶段-2第-26-周-小组">阶段 2（第 2~6 周）· 小组</h3>
+<p>当组里有 2~3 个人都开始用 HTML 工件后，先<strong>约定一件事</strong>：</p>
+<blockquote>
+<p>每一份产物末尾都必须有一个&quot;复制为 ___&ldquo;按钮。</p>
+</blockquote>
+<p>把这条写进 CLAUDE.md 或者团队 prompt 模板里。这一条就够了——它把&quot;反馈循环收紧&quot;从个人习惯变成团队共识。</p>
+<h3 id="阶段-33-个月-组织">阶段 3（3 个月+）· 组织</h3>
+<p>到这一步才适合谈<strong>模板 / 设计 token / Skill</strong>：</p>
+<ul>
+<li>沉淀一份&quot;评审报告 HTML 模板&rdquo;、一份&quot;PR Review 模板&quot;、一份&quot;原型设计模板&quot;；</li>
+<li>在 CLAUDE.md 或 Skills 里收口&quot;什么任务用什么 HTML 工件结构&quot;；</li>
+<li>让组织里 N 个人写出来的 HTML 工件<strong>长得一致</strong>，方便互相 review。</li>
+</ul>
+<h3 id="反模式重要">反模式（重要）</h3>
+<p>不要从&quot;搭一个内部 HTML 工件平台&quot;起步。</p>
+<p>那等于把&quot;一次性编辑器&quot;变成&quot;必须复用的产品&quot;。沉没成本会逼着你向后兼容、修 bug、做版本管理，<strong>反而失去 HTML 在 Agent 协作里最值钱的那点东西——便宜、可丢弃、随用随生成。</strong></p>
+<hr>
+<h2 id="结语循环没有断循环更紧了">结语：循环没有断，循环更紧了</h2>
+<p>回到 Thariq 那句最值得抄走的金句：</p>
+<blockquote>
+<p><strong>You stay in the loop, but the loop gets much tighter.</strong></p>
+<p>「你保持在循环中，但循环变得更紧密。」</p>
+</blockquote>
+<p>过去两年关于 Agent 的讨论一直围绕&quot;自主性 vs 控制感&quot;这个伪二元——好像 Agent 越自主，人就越被踢出循环。</p>
+<p>而 HTML 这件事说明的是另一件事：<strong>循环没有断的必然性，循环可以同时变紧 &amp; 变自动</strong>。Agent 跑得多快、做得多自主，并不直接决定人是否在循环里——<strong>输出格式才是</strong>。</p>
+<p>如果你正在搭一套 Agent 工作流（不论是 Claude Code、CodeBuddy 还是自研的 Coding Agent 平台），值得问的不是&quot;我们的 Agent 自主性能不能再高一档&quot;，而是：</p>
+<ul>
+<li><strong>它的输出能让我点开吗？</strong></li>
+<li><strong>它的输出能让我改吗？</strong></li>
+<li><strong>它的输出能让我把改动一键回灌成下一轮 prompt 吗？</strong></li>
+</ul>
+<p>三个问题里少一个，循环就会断在那一个环节。三个都有，HTML 就成了那块&quot;能让你站进去的画布&quot;。</p>
+<hr>
+<p><strong>延伸阅读</strong>：</p>
+<ul>
+<li><a href="/2026/05/13/html-vs-markdown-agent-output/">HTML 对 Agent 的不合理有效：从文字墙到可操作工件的输出格式革命</a> · 本仓库 2026-05-13 · 基于 Thariq 的 demo 合集，给出 Agent 输出格式选型决策树</li>
+<li><a href="/2026/05/17/claude-code-large-codebase-best-practices/">百万行 monorepo 里的 Claude Code：Anthropic 官方拆解的 7 个扩展点与 3 大部署模式</a> · 本仓库 2026-05-17 · CLAUDE.md / Hooks / Skills / Plugins 这一整套 harness 的扩展点解读</li>
+<li><a href="https://thariqs.github.io/html-effectiveness/">The unreasonable effectiveness of HTML — examples</a> · Thariq 的原始 9 大类 × 20 个 demo 集合</li>
+<li><a href="https://github.com/anthropics/html-effectiveness">GitHub: anthropics/html-effectiveness</a> · 官方示例库</li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/05/17/claude-code-large-codebase-best-practices/" data-toggle="tooltip" data-placement="top" title="百万行 monorepo 里的 Claude Code：Anthropic 官方拆解的 7 个扩展点与 3 大部署模式">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/05/23/devs-guide-production-ready-ai-agents/" data-toggle="tooltip" data-placement="top" title="把 Agent 真正发上线：Google Cloud《生产级 AI Agent 开发者指南》深读">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
