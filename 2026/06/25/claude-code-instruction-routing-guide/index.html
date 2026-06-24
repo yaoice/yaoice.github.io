@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Claude Code 指令路由指南：CLAUDE.md、Rules、Skills、Subagents 与 Hooks 怎么选" />
+    <meta property="og:title" content="Claude Code 指令路由指南：CLAUDE.md、Rules、Skills、Subagents 与 Hooks 怎么选" />
+    <meta property="twitter:title" content="Claude Code 指令路由指南：CLAUDE.md、Rules、Skills、Subagents 与 Hooks 怎么选" />
+    
+
+    
+    <meta name="description" content="基于 Anthropic 官方文章 Steering Claude Code 的中文技术解读。文章以加载时机、上下文压缩后的存续方式和执行权威为三条主轴，对比 CLAUDE.md、Rules、Skills、Subagents、Hooks、Output styles 与 append-system-prompt，并通过一个臃肿 CLAUDE.md 的迁移案例给出团队可落地的选型方法。">
+    <meta property="og:description" content="基于 Anthropic 官方文章 Steering Claude Code 的中文技术解读。文章以加载时机、上下文压缩后的存续方式和执行权威为三条主轴，对比 CLAUDE.md、Rules、Skills、Subagents、Hooks、Output styles 与 append-system-prompt，并通过一个臃肿 CLAUDE.md 的迁移案例给出团队可落地的选型方法。" />
+    <meta property="twitter:description" content="基于 Anthropic 官方文章 Steering Claude Code 的中文技术解读。文章以加载时机、上下文压缩后的存续方式和执行权威为三条主轴，对比 CLAUDE.md、Rules、Skills、Subagents、Hooks、Output styles 与 append-system-prompt，并通过一个臃肿 CLAUDE.md 的迁移案例给出团队可落地的选型方法。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Claude Code 指令路由指南：CLAUDE.md、Rules、Skills、Subagents 与 Hooks 怎么选 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/06/25/claude-code-instruction-routing-guide/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                        <a class="tag" href="/tags/skills" title="Skills">
+                            Skills
+                        </a>
+                        
+                        <a class="tag" href="/tags/hooks" title="Hooks">
+                            Hooks
+                        </a>
+                        
+                    </div>
+                    <h1>Claude Code 指令路由指南：CLAUDE.md、Rules、Skills、Subagents 与 Hooks 怎么选</h1>
+                    <h2 class="subheading">别再把所有要求都塞进 CLAUDE.md：用加载时机、压缩存续与执行权威设计可维护的 Agent 配置</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Thursday, June 25, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言问题不是指令怎么写而是指令放哪里">一、引言：问题不是“指令怎么写”，而是“指令放哪里”</h2>
+<blockquote>
+<p>原文链接：<a href="https://claude.com/blog/steering-claude-code-skills-hooks-rules-subagents-and-more">Steering Claude Code: CLAUDE.md files, skills, hooks, rules, subagents and more</a><br>
+来源：Claude Blog / Anthropic<br>
+发布时间：2026 年 6 月 18 日</p>
+</blockquote>
+<p>团队刚开始使用 Claude Code 时，最自然的做法是建一个 <code>CLAUDE.md</code>：写上构建命令、目录结构、编码规范，再补一句“每次改完都运行测试”和一句“永远不要碰生产配置”。短期内它很有效，几周后却往往变成一份没人敢删的指令仓库。</p>
+<p>问题不在于这些要求写错了，而在于它们属于不同的控制机制：</p>
+<ul>
+<li>仓库结构是每次会话都需要的背景事实；</li>
+<li>API 校验只在读取 API 文件时才相关；</li>
+<li>发布检查是一套按需执行的流程；</li>
+<li>依赖审计适合放到独立上下文中运行；</li>
+<li>禁止危险命令不是“提醒”，而应该是执行前的硬拦截；</li>
+<li>回答语气只是本次启动参数，不必永久写入项目文件。</li>
+</ul>
+<p>Anthropic 的原文把 Claude Code 的七种定制方式放进同一张表中。比功能列表更重要的，是它揭示了一个配置设计原则：<strong>每条指令都应该被路由到与其生命周期和权威等级匹配的位置。</strong></p>
+<p>
+  <img src="/img/claude-code-instruction-routing/seven-methods-overview.svg" alt="Claude Code 七种指令机制总览">
+
+</p>
+<p>本文不重复介绍每个功能的完整配置语法，而是回答一个更实用的问题：当手里有一条具体要求时，应该把它放进 <code>CLAUDE.md</code>、Rule、Skill、Subagent、Hook、Output style，还是启动参数？</p>
+<hr>
+<h2 id="二先看三条轴加载时机压缩存续执行权威">二、先看三条轴：加载时机、压缩存续、执行权威</h2>
+<p>给 Claude Code 的指令并不是放进文件就结束了。它最终会在某个时刻进入模型上下文，在长会话中经历压缩，并以不同强度影响行为。选型前先问三个问题。</p>
+<h3 id="21-它什么时候需要进入上下文">2.1 它什么时候需要进入上下文？</h3>
+<p>指令加载得越早、驻留得越久，使用越方便，但固定 Token 成本也越高。</p>
+<ul>
+<li>根目录 <code>CLAUDE.md</code> 在会话开始时加载，适合全局背景；</li>
+<li>无路径限定的 Rule 同样是常驻指令；</li>
+<li>子目录 <code>CLAUDE.md</code> 和带 <code>paths</code> 的 Rule 在相关文件被触及时才加载；</li>
+<li>Skill 在会话开始时只暴露名称和描述，正文被调用时才进入上下文；</li>
+<li>Subagent 的完整提示词运行在独立上下文中，父会话只接收最终结果；</li>
+<li>Hook 的配置主要由 Claude Code 运行时执行，通常不占主上下文。</li>
+</ul>
+<p>这意味着“按需加载”并不是单纯省 Token。它还减少了无关约束之间的竞争，让当前真正相关的指令更容易被遵循。</p>
+<h3 id="22-长会话压缩后它还在吗">2.2 长会话压缩后，它还在吗？</h3>
+<p>Claude Code 会对过长的会话进行 compaction。不同机制在压缩后有不同命运：</p>
+<ul>
+<li>根目录 <code>CLAUDE.md</code> 会被重新读取；</li>
+<li>Rule 会被重新注入，但路径限定 Rule 仍要再次触及相关路径；</li>
+<li>已调用 Skill 会在共享预算内重新注入，调用过多时较早的 Skill 可能被丢弃；</li>
+<li>子目录 <code>CLAUDE.md</code> 在压缩后暂时消失，直到对应目录再次被触及；</li>
+<li>Subagent 的中间过程本就不进入父上下文，只有最终消息和元数据返回；</li>
+<li>Hook 挂在运行时事件上，不依赖主对话是否被压缩；</li>
+<li>Output style 和追加的系统提示位于系统提示层，不会被 compaction 移除。</li>
+</ul>
+<p>所以“最初告诉过 Claude”不等于“长会话后它仍以相同方式存在”。如果某条要求关系到安全或合规，依赖上下文记忆本身就是错误的实现方式。</p>
+<h3 id="23-它是在表达意图还是在强制执行">2.3 它是在表达意图，还是在强制执行？</h3>
+<p>这是七种机制之间最关键的分界线。</p>
+<p><code>CLAUDE.md</code>、Rules、Skills 和系统提示本质上都在告诉模型“应该怎么做”。模型通常会遵守，但它们仍属于概率性控制：会话过长、约束冲突、任务含糊或外部文件含有提示注入时，都可能降低遵循率。</p>
+<p>Hook 与权限系统则可以把要求变成执行路径的一部分。例如 <code>PreToolUse</code> Hook 可以检查工具调用，并以退出码 2 拒绝执行。此时不是模型“记住不要做”，而是运行时真的不让它做。</p>
+<p>
+  <img src="/img/claude-code-instruction-routing/three-routing-axes.svg" alt="指令选型的三条主轴">
+
+</p>
+<p>一句话概括这三条轴：</p>
+<blockquote>
+<p><strong>背景事实看相关性，流程看复用性，安全边界看确定性。</strong></p>
+</blockquote>
+<hr>
+<h2 id="三七种机制分别负责什么">三、七种机制分别负责什么</h2>
+<h3 id="31-claudemd让-claude-始终知道这是一个怎样的仓库">3.1 CLAUDE.md：让 Claude 始终知道“这是一个怎样的仓库”</h3>
+<p>根目录 <code>CLAUDE.md</code> 适合放每次任务都可能需要的稳定事实：</p>
+<ul>
+<li>常用构建、测试和格式化命令；</li>
+<li>顶层目录结构与模块边界；</li>
+<li>monorepo 中各工作区的关系；</li>
+<li>团队级编码约定；</li>
+<li>指向更详细文档、Rules 和 Skills 的索引。</li>
+</ul>
+<p>原文给出的经验值很具体：<strong>尽量把根 <code>CLAUDE.md</code> 控制在 200 行以内，指定维护者，并像审查代码一样审查它的变更。</strong> 这不是对 Markdown 长度的审美偏好，而是上下文预算问题：根文件中的每一行都会进入每位工程师的每次会话，无论当前任务是否需要。</p>
+<p>子目录 <code>CLAUDE.md</code> 的行为不同。它只在 Claude 读取该目录下的文件时加载，适合一个目录内相对完整、局部生效的背景说明。monorepo 中可以让每个团队维护自己的子目录文件，避免所有人都背着整座仓库的规则工作。</p>
+<p>判断标准可以这样记：</p>
+<ul>
+<li><strong>全仓库的地图与共同语言</strong>：根 <code>CLAUDE.md</code>；</li>
+<li><strong>一个目录自己的局部地图</strong>：子目录 <code>CLAUDE.md</code>；</li>
+<li><strong>跨多个目录、按文件模式生效的约束</strong>：优先用 path-scoped Rule。</li>
+</ul>
+<h3 id="32-rules给特定文件附加精确约束">3.2 Rules：给特定文件附加精确约束</h3>
+<p>Rules 位于 <code>.claude/rules/</code>。不带作用域的 Rule 在会话开始时加载，与把内容直接写进根 <code>CLAUDE.md</code> 的上下文成本接近；真正有区分度的是带 <code>paths</code> 的 Rule。</p>
+<p>例如，只有 API Handler 需要 Zod 入参校验：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>paths:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">-</span> &#34;src/api/**&#34;
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">-</span> &#34;**/*.handler.ts&#34;
+</span></span><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>所有 API Handler 在处理请求前必须使用 Zod 校验输入。
+</span></span></code></pre></div><p>当 Claude 只修改文档时，这条规则不进入上下文；读取 <code>src/api/</code> 或 <code>*.handler.ts</code> 后才会加载。数据库 migration 只增不改、前端组件必须满足无障碍属性、Terraform 文件需要特定标签，都属于类似场景。</p>
+<p>Rule 最适合回答的是：<strong>“处理这一类文件时，有哪些必须遵守的局部约束？”</strong></p>
+<h3 id="33-skills把流程从背景说明中拆出来">3.3 Skills：把流程从背景说明中拆出来</h3>
+<p>Skill 是包含 <code>SKILL.md</code>、脚本和参考资料的目录。会话开始时只加载名称和描述，完整正文在显式调用或语义匹配后才进入上下文。</p>
+<p>适合 Skill 的内容通常带有顺序和完成条件：</p>
+<ul>
+<li>发布前检查清单；</li>
+<li>数据库迁移流程；</li>
+<li>安全审查步骤；</li>
+<li>文档生成与渲染验证；</li>
+<li>事故复盘模板。</li>
+</ul>
+<p>如果一条指令中出现“先……再……最后检查……”，它大概率不是仓库背景，而是一套 procedure，应该进入 Skill。Skill 的好处不仅是按需加载，还在于它可以携带脚本、模板和示例，让同一流程在不同会话中稳定复用。</p>
+<p>需要注意的是，已调用 Skill 在 compaction 后的重新注入受共享预算限制。一个会话同时调用许多大型 Skill 时，较早的 Skill 可能先被丢弃。因此 Skill 仍应保持入口简洁，通过引用文件渐进加载细节，而不是把整本手册塞进一个 <code>SKILL.md</code>。</p>
+<h3 id="34-subagents隔离不值得留在主线里的过程">3.4 Subagents：隔离不值得留在主线里的过程</h3>
+<p>Subagent 定义在 <code>.claude/agents/</code>，拥有自己的提示词、工具权限和独立上下文。父会话在开始时只知道它的名称、描述和工具列表；调用后，完整工作过程发生在子代理窗口中，最终只把结果摘要和元数据带回主会话。</p>
+<p>它适合两类任务：</p>
+<ol>
+<li>可以并行的侧线工作，例如同时审计依赖、搜索日志、梳理不同模块；</li>
+<li>会产生大量中间噪音，但主线只需要结论的工作，例如深度检索和全仓库静态分析。</li>
+</ol>
+<p>Skill 与 Subagent 经常被混淆。一个简单判断是：</p>
+<ul>
+<li>希望流程在主会话里展开，用户能逐步观察和调整：用 Skill；</li>
+<li>希望过程隔离，只把压缩后的结果带回来：用 Subagent。</li>
+</ul>
+<p>两者也可以组合：一个代码审查 Skill 并行启动安全、性能和风格三个 Subagent，最后在主会话综合结论。</p>
+<h3 id="35-hooks把应该执行升级为必然触发">3.5 Hooks：把“应该执行”升级为“必然触发”</h3>
+<p>Hook 在会话开始、工具调用前后、压缩前或代理停止等生命周期事件上触发。它可以运行 command、HTTP、MCP 工具，也可以启动独立的 prompt 或 agent 判断。</p>
+<p>原文对“确定性”做了一个值得保留的细分：<strong>所有 Hook 都会在匹配事件上确定性触发，但不同处理器的结果并不都确定。</strong> command、HTTP 和 <code>mcp_tool</code> 执行固定逻辑；prompt 与 agent Hook 虽然必然被调用，其输出仍由模型判断。</p>
+<p>典型用法包括：</p>
+<ul>
+<li><code>PostToolUse</code>：文件修改后自动运行 formatter；</li>
+<li><code>PreToolUse</code>：执行前拦截危险命令或敏感路径；</li>
+<li><code>SessionStart</code>：注入当前分支和任务状态；</li>
+<li><code>PreCompact</code>：压缩前备份会话记录；</li>
+<li><code>Stop</code>：结束前检查测试是否真正通过。</li>
+</ul>
+<p>“每次修改后都格式化”如果写在 <code>CLAUDE.md</code> 中，只是希望模型每次记得；放进 Hook，才是每次事件真的触发。对于“绝不允许读取密钥”之类的边界，还应结合 permissions 与组织级 managed settings，而不是仅靠自然语言禁令。</p>
+<h3 id="36-output-styles谨慎修改-claude-的角色">3.6 Output styles：谨慎修改 Claude 的角色</h3>
+<p>Output style 会注入系统提示，权威高、不会被 compaction 移除，也会占据持续的上下文。它适合显著的角色变化，例如把代码助手切换为教学型或通用协作助手。</p>
+<p>风险在于，自定义 Output style 默认会替换 Claude Code 原有的输出风格，其中包含变更范围、安全处理、注释习惯和完成前验证等工程行为。除非在 front matter 中设置 <code>keep-coding-instructions: true</code>，否则一次看似只改语气的定制，可能顺手移除了代码助手的重要默认约束。</p>
+<p>因此优先检查内置的 Proactive、Explanatory 和 Learning 风格。只有真正需要改变角色时，才维护自定义 Output style。</p>
+<h3 id="37-append-system-prompt一次启动中的增量偏好">3.7 append-system-prompt：一次启动中的增量偏好</h3>
+<p><code>--append-system-prompt</code> 不替换默认系统提示，只在本次启动中追加内容。它适合临时的语气、长度、输出格式或领域背景要求。</p>
+<p>它比 Output style 安全，因为是增量而非替换；但上下文成本仍高于按需加载机制，而且指令越多，边际遵循效果越弱。把一长串团队规范塞进启动参数，既难维护，也不会因为权威层级更高就自动消除冲突。</p>
+<p>
+  <img src="/img/claude-code-instruction-routing/context-lifecycle.svg" alt="七种机制在会话生命周期中的位置">
+
+</p>
+<hr>
+<h2 id="四一张选型表从要求的性质反推存放位置">四、一张选型表：从要求的性质反推存放位置</h2>
+<table>
+<thead>
+<tr>
+<th>需求</th>
+<th>首选机制</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>每次任务都要知道的仓库事实</td>
+<td>根 <code>CLAUDE.md</code></td>
+<td>会话开始加载，压缩后重读</td>
+</tr>
+<tr>
+<td>某个目录的局部背景</td>
+<td>子目录 <code>CLAUDE.md</code></td>
+<td>触及目录时按需加载</td>
+</tr>
+<tr>
+<td>只对一类路径生效的约束</td>
+<td>path-scoped Rule</td>
+<td>作用域精确，避免无关上下文成本</td>
+</tr>
+<tr>
+<td>有步骤、模板和验收条件的流程</td>
+<td>Skill</td>
+<td>正文按需加载，可携带脚本与资源</td>
+</tr>
+<tr>
+<td>产生大量中间信息的侧线任务</td>
+<td>Subagent</td>
+<td>独立上下文，只返回最终结果</td>
+</tr>
+<tr>
+<td>必须在事件上自动发生的动作</td>
+<td>Hook</td>
+<td>由运行时触发，不依赖模型记忆</td>
+</tr>
+<tr>
+<td>不允许绕过的组织级边界</td>
+<td>Hook + permissions + managed settings</td>
+<td>用确定性执行与不可覆盖策略落地</td>
+</tr>
+<tr>
+<td>显著改变助手角色</td>
+<td>Output style</td>
+<td>位于系统提示层，影响持续且强</td>
+</tr>
+<tr>
+<td>仅对本次启动生效的语气或格式</td>
+<td><code>--append-system-prompt</code></td>
+<td>增量、临时、不改项目文件</td>
+</tr>
+</tbody>
+</table>
+<p>实际判断时，可以按下面的顺序缩小范围：</p>
+<ol>
+<li><strong>是否必须 100% 执行或禁止？</strong> 是，就先考虑 Hook、permissions 或 managed settings，不要止步于提示词。</li>
+<li><strong>是否每次任务都相关？</strong> 是，再考虑根 <code>CLAUDE.md</code> 或无作用域 Rule；否则继续缩小加载范围。</li>
+<li><strong>是否由文件路径决定相关性？</strong> 是，用 path-scoped Rule 或子目录 <code>CLAUDE.md</code>。</li>
+<li><strong>是否是一套可重复流程？</strong> 是，用 Skill。</li>
+<li><strong>是否应该隔离过程，只返回结论？</strong> 是，用 Subagent。</li>
+<li><strong>是否只是在改变角色、语气或单次输出？</strong> 再考虑 Output style 或追加系统提示。</li>
+</ol>
+<p>这套顺序有意把“确定性”放在第一问。因为安全要求一旦被误放进概率性指令层，后面无论怎样优化文案，都没有解决根本问题。</p>
+<hr>
+<h2 id="五实战把一个臃肿-claudemd-拆成五层">五、实战：把一个臃肿 CLAUDE.md 拆成五层</h2>
+<p>假设一个团队的根 <code>CLAUDE.md</code> 已经积累了以下内容：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="font-weight:bold"># Project instructions
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 使用 pnpm，运行 pnpm test 验证改动。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 所有 API Handler 必须使用 Zod 校验输入。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 发布时先更新版本，再生成 changelog，运行完整测试并创建 tag。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 每次修改 TypeScript 后都运行 prettier。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 永远不要读取 .env 或执行 git push --force。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 审计依赖时扫描所有 workspace，并只返回高危问题摘要。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> 回答尽量简短。
+</span></span></code></pre></div><p>这些句子都合理，但混在一个文件里会产生三个问题：API 规则在文档任务中浪费上下文；发布流程每次加载却很少执行；安全禁令仍然只是软约束。</p>
+<p>更合适的拆法如下。</p>
+<h3 id="51-根-claudemd只保留项目地图">5.1 根 CLAUDE.md：只保留项目地图</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="font-weight:bold"># Repository overview
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Package manager: pnpm.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Run <span style="color:#f1fa8c">`pnpm test`</span> to verify changes.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Workspaces live under <span style="color:#f1fa8c">`apps/`</span> and <span style="color:#f1fa8c">`packages/`</span>.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Path-specific constraints live in <span style="color:#f1fa8c">`.claude/rules/`</span>.
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> Reusable workflows live in <span style="color:#f1fa8c">`.claude/skills/`</span>.
+</span></span></code></pre></div><h3 id="52-rule把-api-约束绑定到路径">5.2 Rule：把 API 约束绑定到路径</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>paths:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">-</span> &#34;apps/api/src/**&#34;
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">-</span> &#34;**/*.handler.ts&#34;
+</span></span><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>所有 API Handler 在处理请求前必须使用 Zod 校验输入。
+</span></span></code></pre></div><h3 id="53-skill把发布步骤变成可验证流程">5.3 Skill：把发布步骤变成可验证流程</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>name: release
+</span></span><span style="display:flex;"><span>description: 执行正式版本发布。用于更新版本、生成 changelog、运行发布检查并创建 tag。
+</span></span><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> 检查工作区是否干净并确认目标版本。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> 更新版本与 changelog。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> 运行完整测试和构建。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">4.</span> 展示待创建的 tag，得到用户确认后再执行。
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">5.</span> 汇总版本、提交、测试和构建结果。
+</span></span></code></pre></div><h3 id="54-subagent隔离依赖审计噪音">5.4 Subagent：隔离依赖审计噪音</h3>
+<p>为 dependency auditor 只开放读取与搜索工具，让它在独立上下文扫描所有 workspace，最终只返回高危依赖、影响范围和修复建议。主会话不需要保留数百条包清单和搜索过程。</p>
+<h3 id="55-hook-与启动参数分别处理硬边界和个人偏好">5.5 Hook 与启动参数：分别处理硬边界和个人偏好</h3>
+<ul>
+<li>用 <code>PostToolUse</code> Hook 在 TypeScript 修改后运行 Prettier；</li>
+<li>用 <code>PreToolUse</code> Hook 与 permissions 阻止读取 <code>.env</code> 和强推；</li>
+<li>“回答尽量简短”作为个人用户配置或本次 <code>--append-system-prompt</code>，不要提交到团队项目文件。</li>
+</ul>
+<p>
+  <img src="/img/claude-code-instruction-routing/claude-md-migration.svg" alt="从臃肿 CLAUDE.md 迁移到分层配置">
+
+</p>
+<p>拆分后的收益不是文件数量变多，而是每条信息获得了正确的生命周期：该常驻的常驻、该按需的按需、该隔离的隔离、该强制的强制。</p>
+<hr>
+<h2 id="六五个高频反模式">六、五个高频反模式</h2>
+<h3 id="61-在-claudemd-写每次-x-都做-y">6.1 在 CLAUDE.md 写“每次 X 都做 Y”</h3>
+<p>如果“每次”是真的每次，就使用 Hook。例如每次编辑后格式化、任务完成后通知、压缩前备份。这些动作不应该依赖模型主动想起。</p>
+<h3 id="62-在-claudemd-写永远不要做-x">6.2 在 CLAUDE.md 写“永远不要做 X”</h3>
+<p>禁令仍然是提示词，不是护栏。危险命令、敏感文件和组织合规边界应该用 <code>PreToolUse</code>、permissions 和 managed settings 强制执行。</p>
+<h3 id="63-把三十行操作步骤常驻在根文件">6.3 把三十行操作步骤常驻在根文件</h3>
+<p>部署、发布和审查清单并非每次任务都需要。把它们变成 Skill，只在调用时加载完整流程。</p>
+<h3 id="64-写了-api-规则却没有-paths">6.4 写了 API 规则，却没有 paths</h3>
+<p>无作用域 Rule 与把内容放进根 <code>CLAUDE.md</code> 一样会常驻上下文。能由文件模式判断相关性的约束，应尽量声明 <code>paths</code>。</p>
+<h3 id="65-把个人偏好提交到项目级文件">6.5 把个人偏好提交到项目级文件</h3>
+<p>“总是用语义化提交”“回答短一点”可能只是个人工作方式。个人偏好放用户级配置，项目文件只承载团队共同约定；机器相关的实验配置则放本地项目级文件。</p>
+<hr>
+<h2 id="七团队落地把指令当作代码治理">七、团队落地：把指令当作代码治理</h2>
+<p>从这套机制还能推出四条工程实践。以下是基于原文机制做出的落地归纳，而不是 Claude Code 的额外产品约束。</p>
+<h3 id="71-每条规则只保留一个权威来源">7.1 每条规则只保留一个权威来源</h3>
+<p>同一要求不要同时写进 <code>CLAUDE.md</code>、Rule、Skill 和 Hook。重复不会简单地增强遵循，反而会带来版本漂移和冲突。可以在根文件中做索引，但正文只保留在最合适的机制里。</p>
+<h3 id="72-为常驻上下文设置预算">7.2 为常驻上下文设置预算</h3>
+<p>定期统计根 <code>CLAUDE.md</code> 和无作用域 Rules 的行数。新增常驻指令时，评审者应该追问：“这条内容真的与大多数任务相关吗？” 如果答案是否定的，就为它寻找按需加载的位置。</p>
+<h3 id="73-为机制指定所有者与测试方式">7.3 为机制指定所有者与测试方式</h3>
+<ul>
+<li><code>CLAUDE.md</code>：由仓库维护者审查准确性和长度；</li>
+<li>Rules：用匹配路径与不匹配路径分别测试加载边界；</li>
+<li>Skills：覆盖正常触发、边界输入和不应触发的请求；</li>
+<li>Subagents：验证最小工具权限与返回摘要质量；</li>
+<li>Hooks：测试允许、拒绝和处理器失败三条路径。</li>
+</ul>
+<h3 id="74-先把硬边界下沉再优化提示词">7.4 先把硬边界下沉，再优化提示词</h3>
+<p>很多团队花大量时间打磨“不要删除文件”的措辞，却没有配置工具权限。优先把能由代码和策略表达的约束下沉到确定性层，再让模型指令负责需要语义判断的部分。</p>
+<p>
+  <img src="/img/claude-code-instruction-routing/decision-flow.svg" alt="Claude Code 指令机制选择流程">
+
+</p>
+<hr>
+<h2 id="八总结配置的质量取决于边界而不取决于数量">八、总结：配置的质量，取决于边界而不取决于数量</h2>
+<p>Claude Code 的七种定制方式并不是七套互相竞争的配置语法，而是一组不同生命周期、不同上下文成本、不同权威等级的控制面。</p>
+<p>可以把选型压缩成六句话：</p>
+<ol>
+<li>仓库地图和共同事实放 <code>CLAUDE.md</code>；</li>
+<li>路径相关约束放 path-scoped Rules；</li>
+<li>可复用的多步骤流程放 Skills；</li>
+<li>需要隔离中间过程的侧线工作交给 Subagents；</li>
+<li>必须自动发生或绝不允许发生的行为交给 Hooks、permissions 和 managed settings；</li>
+<li>角色变化用 Output styles，单次语气和格式用追加系统提示。</li>
+</ol>
+<p>真正成熟的 Agent 配置，不是让模型在会话开始时读到更多，而是让每条指令在<strong>最相关的时刻</strong>出现，以<strong>最低必要成本</strong>存在，并用与风险相称的方式执行。</p>
+<p>当 <code>CLAUDE.md</code> 又开始膨胀时，不妨逐条问：这是背景、局部约束、流程、侧任务、自动化，还是安全边界？答案会自然指向它该去的地方。</p>
+<hr>
+<h2 id="参考资料">参考资料</h2>
+<ul>
+<li><a href="https://claude.com/blog/steering-claude-code-skills-hooks-rules-subagents-and-more">Steering Claude Code: CLAUDE.md files, skills, hooks, rules, subagents and more</a></li>
+<li><a href="https://code.claude.com/docs/en/skills">Claude Code Skills</a></li>
+<li><a href="https://code.claude.com/docs/en/sub-agents">Claude Code Subagents</a></li>
+<li><a href="https://code.claude.com/docs/en/hooks-guide">Claude Code Hooks guide</a></li>
+<li><a href="https://code.claude.com/docs/en/memory">Claude Code memory and rules</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-06-10-wechat-miniprogram-ai-best-practices/" data-toggle="tooltip" data-placement="top" title="微信小程序 AI 开发最佳实践：让模型行为可预测的 5 层规范">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
