@@ -1,0 +1,1845 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="WorkBuddy 飞书套件 lark-unified vs 官方 larksuite/cli skills：两种飞书 Skill 实现的完整对比" />
+    <meta property="og:title" content="WorkBuddy 飞书套件 lark-unified vs 官方 larksuite/cli skills：两种飞书 Skill 实现的完整对比" />
+    <meta property="twitter:title" content="WorkBuddy 飞书套件 lark-unified vs 官方 larksuite/cli skills：两种飞书 Skill 实现的完整对比" />
+    
+
+    
+    <meta name="description" content="对比 WorkBuddy 内置的飞书套件 lark-unified（单体聚合型 Skill）与 larksuite/cli 官方 27 个领域 Skill（领域拆分 &#43; go:embed 内嵌），从架构拓扑、功能模块、代码实现、配置认证、安全模型到扩展性逐维拆解，并给出 8 处实测契约漂移证据与 Skill 设计的通用选型判据。">
+    <meta property="og:description" content="对比 WorkBuddy 内置的飞书套件 lark-unified（单体聚合型 Skill）与 larksuite/cli 官方 27 个领域 Skill（领域拆分 &#43; go:embed 内嵌），从架构拓扑、功能模块、代码实现、配置认证、安全模型到扩展性逐维拆解，并给出 8 处实测契约漂移证据与 Skill 设计的通用选型判据。" />
+    <meta property="twitter:description" content="对比 WorkBuddy 内置的飞书套件 lark-unified（单体聚合型 Skill）与 larksuite/cli 官方 27 个领域 Skill（领域拆分 &#43; go:embed 内嵌），从架构拓扑、功能模块、代码实现、配置认证、安全模型到扩展性逐维拆解，并给出 8 处实测契约漂移证据与 Skill 设计的通用选型判据。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>WorkBuddy 飞书套件 lark-unified vs 官方 larksuite/cli skills：两种飞书 Skill 实现的完整对比 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/08/01/lark-skill-implementation-comparison/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent-skills" title="Agent Skills">
+                            Agent Skills
+                        </a>
+                        
+                        <a class="tag" href="/tags/workbuddy" title="WorkBuddy">
+                            WorkBuddy
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E9%A3%9E%E4%B9%A6" title="飞书">
+                            飞书
+                        </a>
+                        
+                        <a class="tag" href="/tags/lark-cli" title="Lark CLI">
+                            Lark CLI
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E6%9E%B6%E6%9E%84%E5%AF%B9%E6%AF%94" title="架构对比">
+                            架构对比
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                    </div>
+                    <h1>WorkBuddy 飞书套件 lark-unified vs 官方 larksuite/cli skills：两种飞书 Skill 实现的完整对比</h1>
+                    <h2 class="subheading">从单体聚合到领域拆分，从市场分发快照到 go:embed 编译内嵌，一次贴着源码的 Agent Skill 范式对账</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Saturday, August 1, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p><strong>对账基线</strong>：本文对比的两个对象是 ——</p>
+<p><strong>A 侧</strong>：<strong>WorkBuddy 内置的飞书套件 <code>lark-unified</code></strong>。它是从 Skill 市场安装到本地的一个 Skill 包，<code>_skillhub_meta.json</code> 标注 <code>name: 飞书套件</code>、<code>version: 1.0.0</code>、<code>source: marketplace</code>、<code>skillId: skill_2053082253572640768</code>。它面向 WorkBuddy 这类 Agent 运行时设计——这一点在它自己的文档里有直接痕迹：setup 脚本用 <code>find ~/.workbuddy/skills -name lark_setup.py</code> 定位，禁令的理由写着&quot;在 WorkBuddy 里会输出坏掉的二维码&quot;，脚本 docstring 也点名 <code>works in non-TTY environments (e.g. WorkBuddy, CI, headless shells)</code>。</p>
+<p><strong>B 侧</strong>：GitHub 仓库 <a href="https://github.com/larksuite/cli">larksuite/cli</a> <code>main</code> 分支下的 <code>skills/</code> 目录（27 个 Skill，快照抓取于 2026-08-01）。</p>
+<p>文中所有&quot;上游真实情况&quot;的判定，均以该仓库的 Go 源码为准（<code>cmd/config/</code>、<code>shortcuts/*/</code>、<code>internal/core/workspace.go</code>、<code>content_embed.go</code>），而非以文档描述为准。</p>
+</blockquote>
+<p>
+  <img src="/img/lark-skill-implementation-comparison/cover.svg" alt="两种飞书 Skill 实现全景对比">
+
+</p>
+<h2 id="为什么这个对比值得写">为什么这个对比值得写</h2>
+<p>这两个东西表面上做同一件事：教 AI Agent 怎么用 <code>lark-cli</code> 操作飞书。它们甚至封装的是<strong>同一个 CLI 二进制</strong>——WorkBuddy 的飞书套件在 setup 里跑的就是 <code>npm install -g @larksuite/cli</code>，也就是 B 侧那个仓库的发行版。</p>
+<p>区别在于：<strong>B 侧是 CLI 作者自己写的 Skill，A 侧是第三方（WorkBuddy 侧）为同一个 CLI 重新封装的一层 Skill。</strong> 一个是原产地随货附带的说明书，一个是转售方自己重写的使用手册。</p>
+<p>把两边的文件摊开数一下，差距是量级的：<code>lark-unified</code> 是 16 个文件、约 1.3k 行 Markdown、1 个 Skill 单元；<code>larksuite/cli/skills</code> 是 458 个文件、57.5k 行 Markdown、27 个 Skill 单元。<strong>43 倍的内容体量差</strong>。</p>
+<p>如果只看这个数字，很容易得出&quot;官方更全面&quot;这种没营养的结论。真正有意思的问题是：这 43 倍的差距花在哪了？如果我只想让 Agent 能发条消息、读个表格，那 1.3k 行是不是就够了？</p>
+<p>我把两边逐文件读完、并把 <code>lark-unified</code> 声称的命令拿去和上游 Go 源码逐条对账之后，答案比预想的更明确：<strong>这不是&quot;详细程度&quot;的差别，是&quot;契约由谁保证&quot;的架构差别</strong>。而且 A 侧已经出现了 8 处可验证的命令漂移——WorkBuddy 飞书套件文档里写的命令，在现在的 <code>lark-cli</code> 上跑不出来。</p>
+<p>这个结论对 WorkBuddy 的使用者是有实际影响的：当 Agent 按套件文档去跑 <code>lark-cli config view</code> 而失败时，它很可能把原因归到&quot;没配置好&quot;或&quot;权限不足&quot;，然后开始一轮无效重试——而真实原因只是这个子命令从来没存在过。</p>
+<p>下面按架构设计、功能模块、代码实现、配置方式、安全模型、扩展性六个维度展开。</p>
+<hr>
+<h2 id="一架构设计一次扇出-vs-逐级路由">一、架构设计：一次扇出 vs 逐级路由</h2>
+<p>
+  <img src="/img/lark-skill-implementation-comparison/architecture.svg" alt="架构分层对比">
+
+</p>
+<h3 id="a-侧workbuddy-飞书套件单入口扇出扁平两层">A 侧：WorkBuddy 飞书套件——单入口扇出，扁平两层</h3>
+<p>WorkBuddy 装完这个套件后，落到磁盘上的结构非常简单：</p>
+<pre tabindex="0"><code>lark-unified/                 # 安装于 ~/.workbuddy/skills/（或 ~/.aimea/skills/）
+├── SKILL.md              # 296 行，唯一入口，收口 11 个业务域
+├── references/           # 扁平一层，12 份分域文档
+│   ├── lark-im.md        # 112 行
+│   ├── lark-base.md      # 118 行
+│   ├── lark-shared.md    # 230 行（认证与权限）
+│   └── ...
+├── scripts/
+│   └── lark_setup.py     # 215 行，自带认证脚本
+├── _skillhub_meta.json   # 市场元信息：skillId / installedAt / examples_zh
+└── _icon.svg
+</code></pre><p><code>_skillhub_meta.json</code> 里还带了三条中英文触发示例，这是市场型 Skill 特有的字段：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;name&#34;</span>: <span style="color:#f1fa8c">&#34;飞书套件&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;source&#34;</span>: <span style="color:#f1fa8c">&#34;marketplace&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;examples_zh&#34;</span>: [
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;用飞书给团队群发一条消息&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;在飞书云文档新建一篇文档&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;查询飞书多维表格里的记录&#34;</span>
+</span></span><span style="display:flex;"><span>  ]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>入口 <code>SKILL.md</code> 承担了三件事：全域能力索引、全局约定（身份、分页、输出格式）、以及一段前置的 setup 规则。11 个域的介绍在里面依次排开，每个域给出「一句话职责 + 常用 shortcut 列表 + 一个 references 跳转」。</p>
+<p>这个结构的好处是<strong>心智负担极低</strong>：一个文件读完就知道这套 Skill 能干什么。坏处在下面几节会逐个暴露。</p>
+<h3 id="b-侧领域路由网络三层披露">B 侧：领域路由网络，三层披露</h3>
+<p>官方的组织方式是完全不同的思路：</p>
+<pre tabindex="0"><code>skills/
+├── lark-shared/          # 认证基座，253 行，被 27 个 skill 强制引用
+├── lark-im/              # 59 文件 / 5.6k 行
+│   ├── SKILL.md
+│   └── references/
+│       ├── lark-im-messages-send.md     # 一个 shortcut 一份文档
+│       └── card/
+│           ├── card-2.0-schema.md
+│           └── components/              # 29 个卡片组件各一份
+│               ├── button.md
+│               ├── table.md
+│               └── ...
+├── lark-whiteboard/      # 30 文件 / 4.9k 行
+│   ├── routes/           # 按输入形态分流：dsl / mermaid / svg / svg-edit
+│   ├── scenes/           # 15 种图表场景各一份：泳道、漏斗、鱼骨、飞轮…
+│   └── elements/         # 元素级 schema：连接线、排版、样式
+├── lark-base/            # 27 文件 / 8.0k 行，26 份专题 references
+└── ... 共 27 个
+</code></pre><p>三个关键设计：</p>
+<p><strong>1. 共享基座强制前置</strong>。几乎每个 SKILL.md 的第一行正文都是同一句硬话：</p>
+<blockquote>
+<p><strong>CRITICAL — 开始前 MUST 先用 Read 工具读取 <a href="../lark-shared/SKILL.md"><code>../lark-shared/SKILL.md</code></a>，其中包含认证、权限处理</strong></p>
+</blockquote>
+<p>认证、身份选择、scope 处理、JSON 契约、风险门禁协议——这些跨域共性只在一处实现，27 个 Skill 共享。改一次，全部生效。</p>
+<p><strong>2. description 承担负向路由</strong>。这是我认为官方实现里最见功力的一点。frontmatter 的 <code>description</code> 不只写&quot;我能干什么&quot;，还明确写&quot;我不干什么、该去哪&quot;：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#6272a4"># lark-calendar</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">description</span>: <span style="color:#f1fa8c">&#34;飞书日历：管理日历日程和会议室。……当用户需要查看日程安排、创建/修改会议、
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">  查询/预定会议室时使用。不负责：查询过去的视频会议记录（走 lark-vc）、待办任务（走 lark-task）。&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># lark-vc</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">description</span>: <span style="color:#f1fa8c">&#34;飞书视频会议：搜索历史会议记录、查询会议纪要……查询未来日程走 lark-calendar。
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">  不负责：Agent 真实入会/离会、会中实时事件（走 lark-vc-agent）。&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># lark-approval</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">description</span>: <span style="color:#f1fa8c">&#34;飞书审批：……审批待办不是飞书任务；非审批类待办走 lark-task。
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">  不负责创建审批定义；三方审批定义不走原生提单。&#34;</span>
+</span></span></code></pre></div><p>这是在用 description 做<strong>可判定的转诊规则</strong>。日历和视频会议在语义上高度接近（都是&quot;会&quot;），Agent 极容易走错域；官方的处理不是靠模型自己悟，而是在两个 Skill 的描述里互相指路。<code>lark-unified</code> 的单体结构里没有这个概念——因为所有域都在一个文件里，压根不存在&quot;路由到哪个 Skill&quot;的问题，但也就失去了&quot;这件事我不该做&quot;的边界感。</p>
+<p><strong>3. 版本各自演进</strong>。<code>lark-sheets</code> 已到 <code>3.0.2</code>，<code>lark-doc</code> 是 <code>2.0.0</code>，<code>lark-base</code> 是 <code>1.2.3</code>，<code>lark-approval</code> 是 <code>1.2.0</code>，<code>lark-attendance</code> 还是 <code>1.0.0</code>。表格域迭代最快，考勤域几乎不动——这是符合真实演进节奏的。<code>lark-unified</code> 整包只有一个 <code>1.0.0</code>，任何一个域的修订都是全量变更，也就无法表达&quot;哪个域在快速迭代&quot;这个信息。</p>
+<hr>
+<h2 id="二内容分发链路谁保证文档写的等于cli-能跑的">二、内容分发链路：谁保证「文档写的」等于「CLI 能跑的」</h2>
+<p>
+  <img src="/img/lark-skill-implementation-comparison/distribution.svg" alt="内容分发链路对比">
+
+</p>
+<p>这是两种实现最本质的工程差异，也是我认为最值得单独拎出来讲的一节。</p>
+<h3 id="a-侧workbuddy-侧内容与飞书侧二进制解耦">A 侧：WorkBuddy 侧内容与飞书侧二进制解耦</h3>
+<p><code>lark-unified</code> 的链路横跨两个组织：<strong>WorkBuddy 侧</strong>人工读上游 → 提炼成 Markdown → 发布到 Skill 市场 → 用户安装到 <code>~/.workbuddy/skills/</code>；<strong>飞书侧</strong>则通过 npm 独立发布 CLI，用户再用 <code>npm install -g @larksuite/cli</code> 装上。</p>
+<p>注意这个跨组织的裂缝：<strong>Skill 内容和 CLI 二进制是两条独立的分发线，且分属两个团队</strong>。Skill 的内容冻结在写作那一天，CLI 由飞书团队通过 npm 一直往前走。中间没有任何机制校验两者是否还对得上——WorkBuddy 侧没有渠道感知上游改了什么，上游也不知道有人在外面维护着一份自己的说明书。</p>
+<p><code>SKILL.md</code> 里 setup 步骤写的是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>lark-cli --version 2&gt;/dev/null <span style="color:#ff79c6">||</span> npm install -g @larksuite/cli
+</span></span></code></pre></div><p>拉的是 latest，版本不锁。</p>
+<h3 id="b-侧goembed-编译期锁定">B 侧：go:embed 编译期锁定</h3>
+<p>官方的做法是把 Skill 内容<strong>编译进 CLI 二进制</strong>。<code>content_embed.go</code> 是这套机制的全部：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#6272a4">// embeddedContentFS bundles the agent-readable content that must ship in lockstep
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// with the binary: each skill&#39;s docs (SKILL.md + references/, plus whiteboard&#39;s
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// routes/ and scenes/) and the per-domain affordance guidance (affordance/*.md).
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// Machine-resource skill dirs (assets/, scripts/) are excluded. It&#39;s a whitelist —
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// a new content type is omitted until added to the embed list.
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">//
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">//go:embed skills/*/SKILL.md skills/*/references skills/*/routes skills/*/scenes affordance/*.md
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">var</span> embeddedContentFS embed.FS
+</span></span></code></pre></div><p>三个细节值得注意：</p>
+<p><strong>白名单而非黑名单</strong>。注释明确写了 &ldquo;It&rsquo;s a whitelist — a new content type is omitted until added to the embed list&rdquo;。新增内容类型如果不登记，默认不下发。<code>assets/</code> 和 <code>scripts/</code> 被刻意排除——机器资源不该进模型上下文。</p>
+<p><strong>降级而非崩溃</strong>。装配失败只 warning，不 panic：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">if</span> sub, err <span style="color:#ff79c6">:=</span> fs.<span style="color:#50fa7b">Sub</span>(embeddedContentFS, <span style="color:#f1fa8c">&#34;skills&#34;</span>); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>    fmt.<span style="color:#50fa7b">Fprintln</span>(os.Stderr, <span style="color:#f1fa8c">&#34;warning: skills embed assembly failed, skills commands disabled:&#34;</span>, err)
+</span></span><span style="display:flex;"><span>} <span style="color:#ff79c6">else</span> {
+</span></span><span style="display:flex;"><span>    cmd.<span style="color:#50fa7b">SetEmbeddedSkillContent</span>(sub)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>注释里的原话是 &ldquo;embedded content is nice-to-have, not load-bearing&rdquo;。内容缺失时 CLI 主体功能照常可用。</p>
+<p><strong>Agent 通过命令读内容，而非猜文件路径</strong>。<code>cmd/skill/skill.go</code> 提供了 <code>lark-cli skills list</code> 和 <code>lark-cli skills read</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>lark-cli skills list                                    <span style="color:#6272a4"># 所有 skill 的 name/description/version</span>
+</span></span><span style="display:flex;"><span>lark-cli skills list lark-doc/references                <span style="color:#6272a4"># 像 ls 一样列一层</span>
+</span></span><span style="display:flex;"><span>lark-cli skills <span style="color:#8be9fd;font-style:italic">read</span> lark-doc                           <span style="color:#6272a4"># 读 SKILL.md（原始 markdown）</span>
+</span></span><span style="display:flex;"><span>lark-cli skills <span style="color:#8be9fd;font-style:italic">read</span> lark-doc references/lark-doc-fetch.md
+</span></span><span style="display:flex;"><span>lark-cli skills <span style="color:#8be9fd;font-style:italic">read</span> lark-doc --json                    <span style="color:#6272a4"># JSON 信封</span>
+</span></span></code></pre></div><p>而且 <code>readGuidance()</code> 还处理了一个很实际的细节——跨 skill 引用的路径改写：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">readGuidance</span>(name <span style="color:#8be9fd">string</span>) <span style="color:#8be9fd">string</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> fmt.<span style="color:#50fa7b">Sprintf</span>(<span style="color:#f1fa8c">&#34;&gt; Tip: read this skill&#39;s own files (e.g. `references/...`) with &#34;</span><span style="color:#ff79c6">+</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;`lark-cli skills read %s &lt;relative-path&gt;` to keep them in sync with this CLI version. &#34;</span><span style="color:#ff79c6">+</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;A reference to another skill (`../lark-foo/...`) uses the same command with the &#34;</span><span style="color:#ff79c6">+</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;leading `../` removed: `lark-cli skills read lark-foo/...`.&#34;</span>, name)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>因为路径守卫会拒绝字面量 <code>../</code>，所以文档里的 <code>../lark-shared/SKILL.md</code> 需要被改写成 <code>skills read lark-shared/SKILL.md</code>。这段 guidance 走 stderr，stdout 保持与文件字节一致——不污染管道输出。</p>
+<p><strong>还有一层漂移哨兵</strong>。<code>internal/skillscheck/</code> 维护 <code>skills-state.json</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">type</span> SkillsState <span style="color:#8be9fd;font-style:italic">struct</span> {
+</span></span><span style="display:flex;"><span>    Version              <span style="color:#8be9fd">string</span>   <span style="color:#f1fa8c">`json:&#34;version&#34;`</span>
+</span></span><span style="display:flex;"><span>    OfficialSkills       []<span style="color:#8be9fd">string</span> <span style="color:#f1fa8c">`json:&#34;official_skills&#34;`</span>
+</span></span><span style="display:flex;"><span>    UpdatedSkills        []<span style="color:#8be9fd">string</span> <span style="color:#f1fa8c">`json:&#34;updated_skills&#34;`</span>
+</span></span><span style="display:flex;"><span>    AddedOfficialSkills  []<span style="color:#8be9fd">string</span> <span style="color:#f1fa8c">`json:&#34;added_official_skills&#34;`</span>
+</span></span><span style="display:flex;"><span>    SkippedDeletedSkills []<span style="color:#8be9fd">string</span> <span style="color:#f1fa8c">`json:&#34;skipped_deleted_skills&#34;`</span>
+</span></span><span style="display:flex;"><span>    UpdatedAt            <span style="color:#8be9fd">string</span>   <span style="color:#f1fa8c">`json:&#34;updated_at&#34;`</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>当本地安装的 skill 版本与正在运行的二进制版本不一致时，CLI 会在 JSON 输出里挂上 <code>_notice.skills</code>，提示跑 <code>lark-cli update</code>。<code>AGENTS.md</code> 里对这个字段的语义有明确定义：冷启动（从未同步过）时 <code>current</code> 为空串，漂移时是版本号字符串。</p>
+<hr>
+<h2 id="三契约漂移实测把文档拿去和源码对账">三、契约漂移实测：把文档拿去和源码对账</h2>
+<p>
+  <img src="/img/lark-skill-implementation-comparison/drift-audit.svg" alt="契约漂移实测">
+
+</p>
+<p>上一节说的&quot;没有机制保证同步&quot;不是理论风险。我把 <code>lark-unified</code> 里出现的每一条命令都拿去和上游 <code>main</code> 分支源码核对，结果如下。</p>
+<h3 id="31-config-子命令5-处失效">3.1 config 子命令：5 处失效</h3>
+<p><code>lark-unified</code> 的 <code>references/lark-shared.md</code> 和 <code>SKILL.md</code> 里出现了这些命令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>lark-cli config show          <span style="color:#6272a4"># SKILL.md setup 步骤用它检测是否已配置</span>
+</span></span><span style="display:flex;"><span>lark-cli config view          <span style="color:#6272a4"># &#34;Verify setup is complete&#34;</span>
+</span></span><span style="display:flex;"><span>lark-cli config use-config dev <span style="color:#6272a4"># &#34;Switch between configs&#34;</span>
+</span></span><span style="display:flex;"><span>lark-cli config set-default   <span style="color:#6272a4"># 被列入 FORBIDDEN 清单</span>
+</span></span><span style="display:flex;"><span>lark-cli config import-env    <span style="color:#6272a4"># 安全最佳实践段落</span>
+</span></span></code></pre></div><p>对照 <code>cmd/config/</code> 目录下真实注册的子命令（从各文件的 <code>Use:</code> 字段提取）：</p>
+<table>
+<thead>
+<tr>
+<th>文档写的</th>
+<th>上游真实情况</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>config show</code></td>
+<td>✅ 存在</td>
+</tr>
+<tr>
+<td><code>config view</code></td>
+<td>❌ 未注册</td>
+</tr>
+<tr>
+<td><code>config use-config &lt;name&gt;</code></td>
+<td>❌ 不存在；多环境走全局 <code>--profile</code></td>
+</tr>
+<tr>
+<td><code>config set-default</code></td>
+<td>❌ 已更名为 <code>config default-as [user|bot|auto]</code></td>
+</tr>
+<tr>
+<td><code>config import-env</code></td>
+<td>❌ 未找到</td>
+</tr>
+</tbody>
+</table>
+<p>其中 <code>config set-default</code> 这条特别有意思——它被 <code>lark-unified</code> 郑重列入 <code>FORBIDDEN — never run these commands under any circumstances</code>。<strong>一条禁令指向了一个已经不存在的命令</strong>。这恰好说明这份文档是某个历史时点的快照。</p>
+<p><code>config default-as</code> 的实现在 <code>cmd/config/default_as.go</code>，语义也变了——现在支持 <code>auto</code> 这个第三态：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>cmd <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">&amp;</span>cobra.Command{
+</span></span><span style="display:flex;"><span>    Use:   <span style="color:#f1fa8c">&#34;default-as [user|bot|auto]&#34;</span>,
+</span></span><span style="display:flex;"><span>    Short: <span style="color:#f1fa8c">&#34;View or set default identity type&#34;</span>,
+</span></span><span style="display:flex;"><span>    Long:  <span style="color:#f1fa8c">&#34;Without arguments, shows the current default identity. Pass user, bot, or auto to set a new default.&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>而 <code>lark-unified</code> 的 <code>SKILL.md</code> 里写的是 <code>**Default identity**: --as bot</code>。上游现在的默认是 <code>auto</code>——由 CLI 按命令语义自动选身份。这个差异会直接导致 Agent 对权限失败的归因走偏。</p>
+<h3 id="32-配置文件路径与格式双错">3.2 配置文件路径与格式：双错</h3>
+<p><code>references/lark-shared.md</code> 有这么一段：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>Lark CLI stores configuration in <span style="color:#f1fa8c">`~/.lark/config.toml`</span>:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>[default]
+</span></span><span style="display:flex;"><span>tenant_key = &#34;xxxxxxx&#34;
+</span></span><span style="display:flex;"><span>app_id = &#34;xxxxxxx&#34;
+</span></span><span style="display:flex;"><span>app_secret = &#34;xxxxxxx&#34;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>[dev]
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>Switch between configs: <span style="color:#f1fa8c">`lark-cli config use-config dev`</span>
+</span></span></code></pre></div><p>上游 <code>internal/core/workspace.go</code> 的真实实现：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#6272a4">// Priority: LARKSUITE_CLI_CONFIG_DIR env → ~/.lark-cli.
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">return</span> filepath.<span style="color:#50fa7b">Join</span>(home, <span style="color:#f1fa8c">&#34;.lark-cli&#34;</span>)
+</span></span></code></pre></div><p>目录名是 <code>.lark-cli</code> 不是 <code>.lark</code>；我在 <code>internal/core/</code> 和 <code>internal/registry/</code> 里都没搜到 <code>config.toml</code> 或 <code>.toml</code> 的引用。文档给出的 TOML 片段和 <code>use-config</code> 用法都无法落地。排障时按这个路径去找文件，只会更困惑。</p>
+<h3 id="33-shortcut-名称多个域集体失配">3.3 Shortcut 名称：多个域集体失配</h3>
+<p><code>lark-unified</code> 在各域介绍里列了大量 shortcut。我把 <code>shortcuts/*/</code> 下所有 <code>&quot;+xxx&quot;</code> 字面量提取出来做对照，问题集中在这几个域：</p>
+<table>
+<thead>
+<tr>
+<th>文档写的</th>
+<th>上游真实的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>contact +me</code></td>
+<td><code>contact +get-user</code></td>
+</tr>
+<tr>
+<td><code>contact +users-search</code></td>
+<td><code>contact +search-user</code></td>
+</tr>
+<tr>
+<td><code>contact +departments-list</code></td>
+<td>不存在（contact 只有 <code>+get-user</code> / <code>+search-user</code> / <code>+search-bot</code>）</td>
+</tr>
+<tr>
+<td><code>sheets +spreadsheets-read</code></td>
+<td><code>sheets +cells-get</code></td>
+</tr>
+<tr>
+<td><code>sheets +spreadsheets-append</code></td>
+<td><code>sheets +cells-set</code></td>
+</tr>
+<tr>
+<td><code>sheets +spreadsheets-create</code></td>
+<td><code>sheets +workbook-create</code></td>
+</tr>
+<tr>
+<td><code>sheets +spreadsheets-find</code></td>
+<td><code>sheets +cells-search</code></td>
+</tr>
+<tr>
+<td><code>base +tables-records-list</code></td>
+<td><code>base +record-list</code></td>
+</tr>
+<tr>
+<td><code>base +tables-records-create</code></td>
+<td><code>base +record-batch-create</code></td>
+</tr>
+<tr>
+<td><code>base +fields-list</code></td>
+<td><code>base +field-list</code></td>
+</tr>
+<tr>
+<td><code>wiki +spaces-create</code></td>
+<td><code>wiki +space-create</code></td>
+</tr>
+<tr>
+<td><code>wiki +wiki-pages-create</code></td>
+<td><code>wiki +node-create</code></td>
+</tr>
+<tr>
+<td><code>task +tasks-create</code> / <code>+tasks-list</code></td>
+<td><code>task +create</code> / <code>+get-my-tasks</code></td>
+</tr>
+<tr>
+<td><code>doc +documents-create</code> / <code>+documents-list</code></td>
+<td><code>docs +create</code> / <code>+search</code></td>
+</tr>
+<tr>
+<td><code>drive +files-upload</code> / <code>+files-download</code></td>
+<td><code>drive +upload</code> / <code>+download</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>lark-unified</code> 的命名普遍带复数资源前缀（<code>+spreadsheets-read</code>、<code>+tables-records-list</code>），而上游实际收敛成了单数领域词 + 动作（<code>+cells-get</code>、<code>+record-list</code>）。这看起来像是上游做过一轮命名规范化，而 Skill 快照留在了规范化之前。</p>
+<p>顺带一提，<code>lark-unified</code> 里 <code>SKILL.md</code> 的&quot;Quick Example&quot;章节四个示例——发消息、搜消息、建表格加数据、查 base 记录——除了 <code>im +messages-send</code> 和 <code>im +messages-search</code> 之外，其余全部无法直接执行。</p>
+<h3 id="34-输出格式参数形态已变">3.4 输出格式参数：形态已变</h3>
+<p>文档写的是四个独立开关：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="color:#ff79c6">-</span> <span style="color:#f1fa8c">`--table`</span>: Format output as ASCII table
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> <span style="color:#f1fa8c">`--csv`</span>: Export as CSV
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> <span style="color:#f1fa8c">`--yaml`</span>: YAML format
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> <span style="color:#f1fa8c">`--raw`</span>: Unformatted raw output
+</span></span></code></pre></div><p>上游统一收敛为单个 <code>--format</code> 参数（见 <code>internal/output/format_type.go</code>）：</p>
+<pre tabindex="0"><code>--format json      # 默认，完整 JSON 信封
+--format pretty    # 人类可读
+--format table     # 表格
+--format ndjson    # 换行分隔 JSON，便于管道
+--format csv       # CSV
+</code></pre><p>没有 <code>yaml</code>，没有 <code>raw</code>，且四个 bool flag 变成了一个 string flag。</p>
+<h3 id="35-引用断链616">3.5 引用断链：6/16</h3>
+<p>这条不需要对照上游，在 Skill 内部就能验证。<code>SKILL.md</code> 里一共引用了 16 个 <code>references/*.md</code>，实际存在 12 个：</p>
+<pre tabindex="0"><code>MISS references/events.md          ← &#34;Event Subscriptions&#34; 章节指向它
+MISS references/lark-contact.md    ← 通讯录域的&#34;full reference&#34;
+MISS references/lark-vc.md         ← 视频会议域的&#34;full reference&#34;
+MISS references/openapi.md         ← &#34;OpenAPI Discovery&#34; 章节
+MISS references/skill-maker.md     ← &#34;Custom Skills &amp; Integrations&#34; 章节
+MISS references/workflows.md       ← &#34;Workflows&#34; 章节
+</code></pre><p>而实际存在的 12 份里，还有一份是<strong>模板占位符没删</strong>——<code>references/api_reference.md</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="font-weight:bold"># Reference Documentation for Lark Unified
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold"></span>
+</span></span><span style="display:flex;"><span>This is a placeholder for detailed reference documentation.
+</span></span><span style="display:flex;"><span>Replace with actual reference content or delete if not needed.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Example real reference docs from other skills:
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> product-management/references/communication.md - ...
+</span></span></code></pre></div><p>这份文件没有被 <code>SKILL.md</code> 引用，是脚手架残留。加上 6 个断链，<code>references/</code> 目录的有效率是 11/13。</p>
+<p><strong>这些漂移说明什么？</strong> 不是&quot;谁写得不认真&quot;。<code>lark_setup.py</code> 里对 <code>slow_down</code> 做退避、把 HTTP 400 当 OAuth 正常态解析这些细节，说明作者是懂行的。问题是范式本身：<strong>把上游能力抄成独立快照，就必然要为同步付出持续人力，而持续人力不会发生</strong>。官方用 <code>go:embed</code> 把内容钉在二进制上，本质是用编译期约束替代了&quot;记得更新文档&quot;这条注定失效的人类流程。</p>
+<hr>
+<h2 id="四上下文预算与渐进式披露">四、上下文预算与渐进式披露</h2>
+<p>
+  <img src="/img/lark-skill-implementation-comparison/context-budget.svg" alt="上下文预算与渐进式披露">
+
+</p>
+<p>Skill 设计的真实约束不是&quot;写得全不全&quot;，而是<strong>每一次任务要为多少无关内容付费</strong>。</p>
+<h3 id="a-侧的死结">A 侧的死结</h3>
+<p><code>lark-unified</code> 的入口是 296 行，覆盖 11 个域，平均每域约 20 行余量。这个余量只够写「有哪些 shortcut」的目录级信息，写不下「参数怎么填、什么时候会踩坑、失败了怎么退避」。</p>
+<p>而后者恰恰是 Agent 真正会失败的地方。</p>
+<p>于是就形成一个死结：要补细节就得加长入口 → 每次任务都为无关内容付费；不加就只能靠模型猜 → 猜错了没有兜底。而且无论发消息还是配 Base 工作流，入口成本都是恒定的 296 行——这个成本与任务复杂度完全无关。</p>
+<h3 id="b-侧把成本转成条件成本">B 侧：把成本转成条件成本</h3>
+<p>官方的解法是<strong>必读清单</strong>。看 <code>lark-doc/SKILL.md</code> 的&quot;前置条件&quot;章节，它不讲细节，只给一张判定表：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>**CRITICAL — 执行对应操作前，MUST 先用 Read 工具读取以下文件，缺一不可：**
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">1.</span> <span style="color:#f1fa8c">`../lark-shared/SKILL.md`</span> — 认证、权限处理、全局参数（所有操作通用）
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">2.</span> **读取文档（docs +fetch）** → 必读 lark-doc-fetch.md
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">3.</span> **创建或编辑文档内容** → 必读 lark-doc-xml.md 和 lark-doc-style.md；
+</span></span><span style="display:flex;"><span>   从零创建时加读 lark-doc-create-workflow.md；
+</span></span><span style="display:flex;"><span>   编辑已有文档时加读 lark-doc-update.md 和 lark-doc-update-workflow.md
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>**未读完以上文件就执行相应操作会导致参数选择错误或格式错误。**
+</span></span></code></pre></div><p>三个特征：<strong>条件化</strong>（做 X 才读 Y）、<strong>可判定</strong>（不需要模型主观判断&quot;够不够了&quot;）、<strong>带后果说明</strong>（说清不读会出什么错，而不是空喊&quot;请阅读&quot;）。</p>
+<p>三层披露以 <code>lark-whiteboard</code> 为例最清楚：</p>
+<ul>
+<li><strong>L1 <code>SKILL.md</code></strong>：只做路由，判断该走 DSL、Mermaid 还是 SVG，以及是否要隔离到 SubAgent。这是唯一常驻上下文的一层。</li>
+<li><strong>L2 <code>routes/</code></strong>：按输入形态分流成 <code>dsl.md</code> / <code>mermaid.md</code> / <code>svg.md</code> / <code>svg-edit.md</code>，确定路线后才加载对应一份。</li>
+<li><strong>L3 <code>scenes/</code> + <code>elements/</code></strong>：15 个图表场景各一文件（泳道、漏斗、鱼骨、飞轮、树图、里程碑、组织架构……），画什么才读什么。</li>
+</ul>
+<p><code>lark-im</code> 的 59 个文件只有 5.6k 行，平均每文件不到 100 行——因为它把 29 个卡片组件各拆一份。Agent 要画一个按钮，就只读 <code>button.md</code>，不必把整套 Card 2.0 Schema 拖进上下文。</p>
+<p>
+  <img src="/img/lark-skill-implementation-comparison/scale-distribution.svg" alt="官方 27 个 Skill 的规模分布">
+
+</p>
+<p>规模分布本身也有信息量：</p>
+<ul>
+<li><strong>头部两域吃掉 28% 内容</strong>。<code>lark-drive</code>（8127 行）和 <code>lark-base</code>（8033 行）各占 8k 行，因为它们是&quot;结构最复杂、参数最容易填错&quot;的域：字段类型、公式、lookup、权限角色、导入导出格式。复杂度没有被抽象掉，而是被显式沉淀。</li>
+<li><strong>最重要的 Skill 反而最薄</strong>。<code>lark-shared</code> 只 253 行，却被 27 个 Skill 强制引用。它薄是<strong>必须</strong>薄——这是每次任务都要付的固定成本，多写一行就是给所有域的所有调用都加一行税。</li>
+<li><strong>简单域就该简单</strong>。<code>lark-attendance</code> 只有 57 行 1 个文件。没有为了架构一致性而强行拆分。</li>
+</ul>
+<hr>
+<h2 id="五配置与认证都在解-tty-问题解法层次不同">五、配置与认证：都在解 TTY 问题，解法层次不同</h2>
+<p>
+  <img src="/img/lark-skill-implementation-comparison/auth-flow.svg" alt="认证链路对比">
+
+</p>
+<p>Agent 运行环境没有 TTY，而飞书应用注册和登录都是 device flow（需要用户在浏览器里点确认）。两边都在解这个问题。</p>
+<p>这一节也是最能看出 A 侧真实处境的地方：WorkBuddy 侧遇到的是一个具体而紧迫的工程障碍（在自家运行时里二维码会渲染坏、交互式命令会挂住），而它手上只有&quot;改 Skill 内容&quot;这一个杠杆——改不了 CLI。于是只能把整个协议在 Skill 里重写一遍。</p>
+<h3 id="a-侧在-skill-里复刻整个协议因为改不了-cli">A 侧：在 Skill 里复刻整个协议（因为改不了 CLI）</h3>
+<p><code>scripts/lark_setup.py</code> 215 行，文件头的 docstring 直接点名了 WorkBuddy：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f1fa8c">&#34;&#34;&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">lark_setup.py - Lark CLI auto-setup script
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">Implements the same device flow as `lark-cli config init --new` but
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">works in non-TTY environments (e.g. WorkBuddy, CI, headless shells).
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">&#34;&#34;&#34;</span>
+</span></span></code></pre></div><p>它直接打 <code>accounts.feishu.cn/oauth/v1/app/registration</code>，<code>begin</code> 拿 device_code，然后循环 <code>poll</code>。有两处写得确实到位：</p>
+<p><strong>把 HTTP 400 当正常态</strong>。飞书用 400 承载 OAuth 语义错误，脚本在 <code>HTTPError</code> 分支里解析 body 而不是直接抛：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">except</span> urllib<span style="color:#ff79c6">.</span>error<span style="color:#ff79c6">.</span>HTTPError <span style="color:#ff79c6">as</span> e:
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4"># Feishu returns OAuth errors (e.g. authorization_pending) as HTTP 400</span>
+</span></span><span style="display:flex;"><span>    raw <span style="color:#ff79c6">=</span> e<span style="color:#ff79c6">.</span>read()
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">try</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> json<span style="color:#ff79c6">.</span>loads(raw)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">except</span> Exception:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">raise</span> RuntimeError(<span style="color:#f1fa8c">f</span><span style="color:#f1fa8c">&#34;HTTP </span><span style="color:#f1fa8c">{</span>e<span style="color:#ff79c6">.</span>code<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">: </span><span style="color:#f1fa8c">{</span>raw<span style="color:#ff79c6">.</span>decode(errors<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#39;replace&#39;</span>)<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&#34;</span>)
+</span></span></code></pre></div><p><strong>对 slow_down 做退避</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">elif</span> err <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;slow_down&#34;</span>:
+</span></span><span style="display:flex;"><span>    current_interval <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">min</span>(current_interval <span style="color:#ff79c6">+</span> <span style="color:#bd93f9">5</span>, <span style="color:#bd93f9">60</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">continue</span>
+</span></span></code></pre></div><p><code>SKILL.md</code> 里还专门写了一段告诉 Agent「400 是正常的，别重跑 begin，复用已有 device_code」——这是踩过坑才会写的话。</p>
+<p>但这个方案的隐患是结构性的：endpoint 常量、跟踪参数（<code>lpv</code> / <code>ocv</code> / <code>from=cli</code>）、Lark 国际版的品牌重试逻辑，全都是对 Go 侧实现的<strong>手工复刻</strong>。注释自称 &ldquo;mirrors internal/core/endpoints.go&rdquo;——mirror 这个词本身就说明它是副本。上游改一次，这份副本就静默失效。</p>
+<p>对交互式命令，<code>lark-unified</code> 用的是纯文本禁令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span>**FORBIDDEN — never run these commands under any circumstances:**
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> <span style="color:#f1fa8c">`lark-cli config init --new`</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> <span style="color:#f1fa8c">`lark-cli config init`</span> (interactive)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> <span style="color:#f1fa8c">`lark-cli config set-default`</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>These require a TTY, output a broken QR code in WorkBuddy, and must never be used.
+</span></span></code></pre></div><p>理由写得很实在（在 WorkBuddy 里会输出坏掉的二维码），但如前所述，第三条指向的命令已不存在。</p>
+<h3 id="b-侧把不阻塞做成-cli-一等能力">B 侧：把&quot;不阻塞&quot;做成 CLI 一等能力</h3>
+<p>官方的解法是 <strong>split-flow</strong>：CLI 原生支持把 device flow 拆成两次调用。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 第 1 轮：发起，立即返回，不阻塞</span>
+</span></span><span style="display:flex;"><span>lark-cli auth login --scope <span style="color:#f1fa8c">&#34;calendar:calendar:readonly&#34;</span> --no-wait --json
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># → 返回 verification_url + device_code</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 生成二维码给用户</span>
+</span></span><span style="display:flex;"><span>lark-cli auth qrcode &lt;verification_url&gt; --output <span style="color:#f1fa8c">&#34;x.png&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># ——本轮结束，交还控制权，等用户回复——</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 第 2 轮：由 Agent 亲自执行收口</span>
+</span></span><span style="display:flex;"><span>lark-cli auth login --device-code &lt;device_code&gt;
+</span></span></code></pre></div><p>Skill 不实现协议，只负责教 Agent 正确编排两个已有子命令。而 <code>lark-shared/SKILL.md</code> 对这个流程的解释，揭示了一个比&quot;没有 TTY&quot;更深一层的问题：</p>
+<blockquote>
+<p>拿到 <code>verification_url</code> 后，将它原样作为本轮最终消息发给用户，并结束本轮/交还控制权。<strong>不要在同一轮中展示 URL 后立刻执行 <code>--device-code</code> 阻塞轮询；在不透传中间输出的 agent harness 里，这会导致用户永远看不到 URL。</strong></p>
+</blockquote>
+<p>这不是协议问题，是 <strong>Agent 运行时的信息可见性问题</strong>。很多 harness 不会把工具调用的中间输出实时展示给用户，只呈现最终回复。如果 Agent 打印完 URL 就进入阻塞轮询，用户在超时前根本看不到那个 URL。<code>lark-unified</code> 的脚本是单进程阻塞式的，没有处理这个场景。</p>
+<p>配套的硬规则也很密：</p>
+<ul>
+<li><strong>你必须亲自执行 <code>--device-code</code></strong>，不要指示用户自己跑</li>
+<li><strong>禁止缓存 <code>verification_url</code> / <code>device_code</code></strong>，每次都重新生成</li>
+<li><strong>bot 身份禁止跑 <code>auth login</code></strong>，缺权限就把错误里的 <code>console_url</code> 原样交给用户去开发者后台开 scope</li>
+</ul>
+<p>最后一条是身份纠错护栏。bot 的权限来自应用 scope（后台配置），user 的权限需要后台 scope + 用户授权两层。这两条路径完全不同，Agent 很容易在两种身份间盲目重试。官方直接把这条写成禁令。</p>
+<h3 id="配置方式对照表">配置方式对照表</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>WorkBuddy 飞书套件 lark-unified</th>
+<th>larksuite/cli 官方 skills</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>配置目录</td>
+<td>文档写 <code>~/.lark/config.toml</code>（错误）</td>
+<td><code>~/.lark-cli</code>，可用 <code>LARKSUITE_CLI_CONFIG_DIR</code> 覆盖</td>
+</tr>
+<tr>
+<td>多环境切换</td>
+<td><code>config use-config &lt;name&gt;</code>（不存在）</td>
+<td>全局 <code>--profile</code></td>
+</tr>
+<tr>
+<td>默认身份</td>
+<td>文档写死 <code>--as bot</code></td>
+<td><code>config default-as [user|bot|auto]</code>，默认 <code>auto</code></td>
+</tr>
+<tr>
+<td>应用注册</td>
+<td>自带 Python 脚本复刻 device flow</td>
+<td><code>config init --new</code>（后台运行提取 URL）</td>
+</tr>
+<tr>
+<td>登录授权</td>
+<td>未涉及 <code>auth login</code> 系列</td>
+<td><code>auth login --domain / --scope / --recommend / --no-wait / --device-code</code></td>
+</tr>
+<tr>
+<td>授权范围</td>
+<td>手工维护一张 15 行 scope 表</td>
+<td><code>auth scopes</code> 列全量；<code>auth check</code> 单 scope 校验（exit 0/1）</td>
+</tr>
+<tr>
+<td>登录态查询</td>
+<td><code>config view</code></td>
+<td><code>auth status --json --verify</code>、<code>whoami</code></td>
+</tr>
+<tr>
+<td>二维码</td>
+<td>脚本里 <code>open</code> / <code>xdg-open</code> 打开浏览器</td>
+<td><code>auth qrcode</code>（PNG / ASCII），Skill 里强制要求生成</td>
+</tr>
+<tr>
+<td>噪声抑制</td>
+<td>未涉及</td>
+<td><code>LARKSUITE_CLI_NO_UPDATE_NOTIFIER=1</code> / <code>..._NO_SKILLS_NOTIFIER=1</code></td>
+</tr>
+</tbody>
+</table>
+<p>最后一行值得说一句。官方 CLI 会在 JSON 输出里挂 <code>_notice</code>（更新提示、skills 漂移提示），这对机器解析是噪声。<code>lark-shared</code> 给出了两个环境变量来抑制，并配了一条行为规则：</p>
+<blockquote>
+<p>除非用户正在询问更新、版本或 notice，否则不要把 <code>_notice</code> 原样复制为当前任务的主要答案，也不要为了 notice 中断当前任务去反复查 help。</p>
+</blockquote>
+<p>这是很典型的&quot;为 Agent 写文档&quot;的思路——预判模型会被无关信息带偏，提前给出处理规则。</p>
+<hr>
+<h2 id="六安全模型文本劝导-vs-运行时门禁">六、安全模型：文本劝导 vs 运行时门禁</h2>
+<p>
+  <img src="/img/lark-skill-implementation-comparison/security-model.svg" alt="安全模型对比">
+
+</p>
+<p><code>lark-unified</code> 的 <code>references/lark-shared.md</code> 有一节 &ldquo;Security Best Practices&rdquo;，内容是对的：不提交凭据、用环境变量、最小 scope、轮换密钥、校验不可信输入。但<strong>全部是文本层面的建议</strong>。</p>
+<p>官方实现在这一维上多了一整套运行时约束。</p>
+<h3 id="exit-10-强制确认门禁">exit 10 强制确认门禁</h3>
+<p>对高风险写操作（<code>risk: &quot;high-risk-write&quot;</code>），不带 <code>--yes</code> 调用时 CLI <strong>直接以退出码 10 拒绝执行</strong>，并在 stderr 返回结构化信封：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;ok&#34;</span>: <span style="color:#ff79c6">false</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;identity&#34;</span>: <span style="color:#f1fa8c">&#34;bot&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;error&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;type&#34;</span>: <span style="color:#f1fa8c">&#34;confirmation&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;subtype&#34;</span>: <span style="color:#f1fa8c">&#34;confirmation_required&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;message&#34;</span>: <span style="color:#f1fa8c">&#34;drive +delete requires confirmation&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;hint&#34;</span>: <span style="color:#f1fa8c">&#34;add --yes to confirm&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;risk&#34;</span>: <span style="color:#f1fa8c">&#34;high-risk-write&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;action&#34;</span>: <span style="color:#f1fa8c">&#34;drive +delete&#34;</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>lark-shared/SKILL.md</code> 给出了完整的四步处理协议：</p>
+<ol>
+<li><strong>识别</strong>：exit code = 10 且 <code>error.type == &quot;confirmation&quot;</code> → 这不是普通错误，不许当失败放弃</li>
+<li><strong>上报</strong>：把 <code>error.action</code>、<code>error.risk</code> 和关键参数摊给用户，明确说&quot;这是高风险操作&quot;，等显式同意</li>
+<li><strong>同意</strong> → 在<strong>原始 argv 末尾追加 <code>--yes</code></strong> 重试</li>
+<li><strong>拒绝</strong> → 终止，不得改写参数绕过</li>
+</ol>
+<p>以及一份&quot;绝对不允许&quot;清单：</p>
+<blockquote>
+<ul>
+<li>看到 exit 10 就默认加 <code>--yes</code> 静默重试（这等于禁用门禁）</li>
+<li>把 <code>confirmation_required</code> 当网络错误/权限错误处理</li>
+<li>在用户没明确同意的前提下追加 <code>--yes</code> 重试</li>
+<li>用 <code>sh -c</code> 等 shell 方式拼接命令重试——用 <code>exec.Command(argv...)</code> 参数数组形式，避免 shell 解析把用户参数当作语法</li>
+</ul>
+</blockquote>
+<p>最后一条是防命令注入。Agent 拼 shell 字符串重试时，用户参数里的引号、分号、反引号都可能被 shell 解析。官方直接把&quot;用 argv 数组&quot;写成硬要求。</p>
+<p><code>lark-unified</code> 里完全没提 exit 10 的存在。这是个实质缺口：Agent 遇到会当成普通失败——要么放弃任务，要么盲加 <code>--yes</code> 重试。</p>
+<h3 id="其余几层均为官方独有">其余几层（均为官方独有）</h3>
+<p><strong>路径逃逸拦截</strong>：</p>
+<blockquote>
+<p><code>--file</code>、<code>--output</code>、<code>--output-dir</code>、<code>@file</code> 等路径参数<strong>只接受 cwd 下的相对路径</strong>，传绝对路径会报 <code>unsafe file path</code>。数据输入（<code>@file</code>、大 JSON）优先用 stdin 传入。</p>
+</blockquote>
+<p>这条同时解决了两个问题：限制 Agent 的文件系统触达范围，以及避免路径转义问题。</p>
+<p><strong>成功判定契约</strong>。这条很容易被忽略但后果严重：</p>
+<blockquote>
+<p><strong>判断成功必须用 <code>ok == true</code>（或进程退出码 0），不要用 <code>code == 0</code></strong>：成功信封没有顶层 <code>code</code> / <code>msg</code> 字段，<code>code</code> 只出现在错误信封的 <code>error</code> 内。按 OpenAPI 老格式 <code>{&quot;code&quot;: 0, &quot;msg&quot;: &quot;ok&quot;}</code> 判断会把所有成功调用误判为失败；封装写入类命令（如 <code>task +create</code>）时尤其危险，<strong>误判会绕过幂等逻辑导致重复创建</strong>。</p>
+</blockquote>
+<p>熟悉飞书 OpenAPI 的人会条件反射去看 <code>code == 0</code>，而 CLI 换了信封格式。这段文档就是专门拦这个坑的。</p>
+<p><strong>风控信号与开关</strong>。默认随 OpenAPI 请求上报最小风控信号（OS 类型 + 机型）用于识别异常调用，可按工作区关闭：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>lark-cli config risk-control off      <span style="color:#6272a4"># 关闭</span>
+</span></span><span style="display:flex;"><span>lark-cli config risk-control on       <span style="color:#6272a4"># 开启</span>
+</span></span><span style="display:flex;"><span>lark-cli config risk-control default  <span style="color:#6272a4"># 恢复默认</span>
+</span></span></code></pre></div><p>README 的风险声明也写得很直接：&ldquo;我们强烈建议你不要主动修改任何默认安全设置；一旦放宽相关限制，风险将显著增加，后果由你承担&rdquo;，以及&quot;建议把这个机器人当私人助手用，不要拉进群，避免权限滥用或数据泄露&quot;。</p>
+<hr>
+<h2 id="七扩展性加一个新能力要动几处">七、扩展性：加一个新能力要动几处</h2>
+<p>
+  <img src="/img/lark-skill-implementation-comparison/extensibility.svg" alt="扩展性与选型决策">
+
+</p>
+<h3 id="a-侧唯一扩展点是加长入口">A 侧：唯一扩展点是加长入口</h3>
+<p>给 <code>lark-unified</code> 加一个域，能做的只有：往 <code>SKILL.md</code> 再加一节 + 往扁平的 <code>references/</code> 再放一个文件 + 整包 version 一起动。</p>
+<p>缺失的扩展设施：</p>
+<ul>
+<li>没有 Skill 之间的依赖声明（无 <code>requires</code> / <code>siblings</code> 语义）</li>
+<li>没有 <code>cliHelp</code> 之类的&quot;能力自查入口&quot;，Agent 无法自行核对命令是否存在</li>
+<li>没有第三层目录约定，重型知识（卡片组件、图表场景）无处安放</li>
+<li>没有构建期检查，新增引用写错也不会有人知道（现有 6 个断链就是证据）</li>
+</ul>
+<h3 id="b-侧一条有配套设施的流水线">B 侧：一条有配套设施的流水线</h3>
+<p>官方提供了三个&quot;元 Skill&quot;来支撑扩展：</p>
+<p><strong><code>lark-skill-maker</code></strong> 给的不只是模板，还是一条优先级铁律：</p>
+<pre tabindex="0"><code>Shortcut &gt; 已注册 API &gt; lark-cli api 裸调
+</code></pre><p>先查 <code>--help</code> 和 <code>schema</code>，确实没有封装才允许打穿到原生 OpenAPI。避免每个新 Skill 都重造轮子。它给出的 SKILL.md 模板还带 frontmatter 规范：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">name</span>: lark-&lt;name&gt;
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">version</span>: <span style="color:#bd93f9">1.0.0</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">description</span>: <span style="color:#f1fa8c">&#34;&lt;功能描述&gt;。当用户需要&lt;触发场景&gt;时使用。&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">metadata</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">requires</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">bins</span>: [<span style="color:#f1fa8c">&#34;lark-cli&#34;</span>]
+</span></span><span style="display:flex;"><span>---
+</span></span></code></pre></div><p>并明确&quot;<strong>description 决定触发</strong> — 包含功能关键词 + &lsquo;当用户需要…时使用&rsquo;&quot;。</p>
+<p><strong><code>lark-openapi-explorer</code></strong> 负责在现有封装不够用时，从官方文档库逐层挖原生 OpenAPI 接口，拿到完整方法、路径、参数和权限，再用 <code>lark-cli api</code> 裸调。</p>
+<p><strong><code>skill-template/</code></strong> 目录还有 13 个域模板 + 一份 master template，是给贡献者的起手式。</p>
+<p>frontmatter 的 <code>metadata</code> 也是可扩展的依赖声明位：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#6272a4"># lark-sheets</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">metadata</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">requires</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">bins</span>: [<span style="color:#f1fa8c">&#34;lark-cli&#34;</span>]
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">siblings</span>: [<span style="color:#f1fa8c">&#34;lark-shared&#34;</span>]     <span style="color:#6272a4"># 声明依赖的兄弟 skill</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">cliHelp</span>: <span style="color:#f1fa8c">&#34;lark-cli sheets --help&#34;</span>   <span style="color:#6272a4"># 给 Agent 的自查入口</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># lark-apps</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">metadata</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">requires</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">bins</span>: [<span style="color:#f1fa8c">&#34;lark-cli&#34;</span>]
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">cliHelp</span>: <span style="color:#f1fa8c">&#34;lark-cli apps --help; lark-cli apps +&lt;cmd&gt; --help&#34;</span>
+</span></span></code></pre></div><p><code>cliHelp</code> 这个字段挺妙——它让 Agent 在文档和现实不一致时<strong>有办法自行核对</strong>。这正是 <code>lark-unified</code> 缺的那道保险。</p>
+<p><strong>还有两个工作流 Skill 作为编排范例</strong>：<code>lark-workflow-meeting-summary</code> 和 <code>lark-workflow-standup-report</code>。后者只有 122 行，但把编排该写什么示范得很完整：</p>
+<pre tabindex="0"><code>{date} ─┬─► calendar +agenda [--start/--end]                ──► 日程列表
+        └─► task +get-my-tasks --complete=false [--due-end]  ──► 未完成待办
+                    │
+                    ▼
+              AI 汇总（时间转换 + 冲突检测 + 排序）──► 摘要
+</code></pre><p>里面有一条特别典型的&quot;gotcha 沉淀&quot;：</p>
+<blockquote>
+<p><code>+get-my-tasks</code> 不带 <code>--complete</code> 时会<strong>同时返回已完成和未完成任务</strong>，会把已完成任务当成&quot;待办&quot;展示进摘要里。站会/日报这种 pending 汇总场景<strong>必须</strong>显式带上 <code>--complete=false</code>，不要省略。</p>
+</blockquote>
+<p>以及 <code>--start</code> / <code>--end</code> 只吃 ISO 8601，不认 <code>&quot;tomorrow&quot;</code> / <code>&quot;next monday&quot;</code>，需要 Agent 自己算日期。这些都是&quot;跑过才知道&quot;的知识，写进 Skill 才有价值。</p>
+<h3 id="重型脚本随-skill-下发">重型脚本随 Skill 下发</h3>
+<p>官方 Skill 里的 <code>scripts/</code> 目录规模值得单独提一下：</p>
+<table>
+<thead>
+<tr>
+<th>脚本</th>
+<th>体积</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lark-slides/scripts/xml_text_overlap_lint.py</code></td>
+<td>108 KB</td>
+<td>幻灯片文字重叠检测</td>
+</tr>
+<tr>
+<td><code>lark-slides/scripts/sxsd_validator.py</code></td>
+<td>33 KB</td>
+<td>幻灯片 XML 结构校验</td>
+</tr>
+<tr>
+<td><code>lark-doc/scripts/doc_word_stat.py</code></td>
+<td>39 KB</td>
+<td>文档字数统计（统一口径）</td>
+</tr>
+<tr>
+<td><code>lark-slides/scripts/iconpark_tool.py</code></td>
+<td>12 KB</td>
+<td>图标检索</td>
+</tr>
+<tr>
+<td><code>lark-sheets/scripts/sheets_df.py</code></td>
+<td>1 KB</td>
+<td>表格转 DataFrame</td>
+</tr>
+</tbody>
+</table>
+<p>这些脚本被 <code>go:embed</code> <strong>刻意排除</strong>——不进上下文，但随发行版落到磁盘供 Agent 调用。这是很清晰的分层：<strong>知识进上下文，工具进文件系统</strong>。</p>
+<p><code>lark-doc</code> 对 <code>doc_word_stat.py</code> 的用法说明也体现了这个思路：</p>
+<blockquote>
+<p>用户需要统计文档的总字数时，先读 <code>lark-doc-word-stat.md</code>，并按其中流程调用 <code>scripts/doc_word_stat.py</code>；<strong>统计口径以该脚本为准，不要改用其他方式自行计算。</strong></p>
+</blockquote>
+<p>把&quot;口径一致性&quot;这种要求交给确定性脚本，而不是让模型每次自己数。这是把 Agent 不擅长的事外包出去的正确姿势。</p>
+<hr>
+<h2 id="八六维对比总表">八、六维对比总表</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>WorkBuddy 飞书套件 lark-unified<!-- raw HTML omitted -->（第三方封装 · 单体聚合）</th>
+<th>larksuite/cli skills<!-- raw HTML omitted -->（CLI 作者自维护 · 领域拆分 + 内嵌）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Skill 单元数</strong></td>
+<td>1</td>
+<td>27</td>
+</tr>
+<tr>
+<td><strong>文件数 / MD 行数</strong></td>
+<td>16 / ~1.3k</td>
+<td>458 / 57.5k</td>
+</tr>
+<tr>
+<td><strong>拓扑</strong></td>
+<td>单入口 + 扁平 references（2 层）</td>
+<td>领域路由网络 + 三层披露</td>
+</tr>
+<tr>
+<td><strong>入口成本</strong></td>
+<td>恒定 296 行，与任务无关</td>
+<td>253 行共享基座 + 命中域按需加载</td>
+</tr>
+<tr>
+<td><strong>域间路由</strong></td>
+<td>无（全在一个文件里）</td>
+<td>description 负向路由 + 显式转诊</td>
+</tr>
+<tr>
+<td><strong>版本管理</strong></td>
+<td>整包单一 <code>1.0.0</code></td>
+<td>每域独立演进（1.0.0 ~ 3.0.2）</td>
+</tr>
+<tr>
+<td><strong>内容分发</strong></td>
+<td>市场安装到本地目录</td>
+<td><code>go:embed</code> 编译进二进制</td>
+</tr>
+<tr>
+<td><strong>契约同步</strong></td>
+<td>人工，无校验 → 实测 8 处漂移</td>
+<td>编译期锁定 + <code>skills-state.json</code> 哨兵</td>
+</tr>
+<tr>
+<td><strong>内容读取</strong></td>
+<td>宿主 Read 工具读文件路径</td>
+<td><code>lark-cli skills list / read</code></td>
+</tr>
+<tr>
+<td><strong>认证实现</strong></td>
+<td>Skill 内 215 行 Python 复刻 device flow</td>
+<td>CLI 原生 split-flow（<code>--no-wait</code> / <code>--device-code</code>）</td>
+</tr>
+<tr>
+<td><strong>harness 感知</strong></td>
+<td>无（单进程阻塞轮询）</td>
+<td>有（明确要求分轮交还控制权）</td>
+</tr>
+<tr>
+<td><strong>配置命令准确度</strong></td>
+<td>5/6 失效</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>默认身份</strong></td>
+<td>文档写死 <code>--as bot</code></td>
+<td><code>default-as auto</code>（CLI 自动选）</td>
+</tr>
+<tr>
+<td><strong>高危操作约束</strong></td>
+<td>文本建议&quot;请确认&quot;</td>
+<td>exit 10 硬门禁 + 四步协议 + 禁令清单</td>
+</tr>
+<tr>
+<td><strong>路径安全</strong></td>
+<td>未涉及</td>
+<td>只接受 cwd 相对路径，绝对路径报错</td>
+</tr>
+<tr>
+<td><strong>成功判定契约</strong></td>
+<td>未涉及</td>
+<td>强制 <code>ok == true</code>，禁用 <code>code == 0</code></td>
+</tr>
+<tr>
+<td><strong>引用完整性</strong></td>
+<td>6/16 断链 + 1 份模板残留</td>
+<td>交叉引用受 embed 与 CI 约束</td>
+</tr>
+<tr>
+<td><strong>扩展设施</strong></td>
+<td>无（只能加长入口）</td>
+<td>skill-maker + openapi-explorer + 13 个域模板</td>
+</tr>
+<tr>
+<td><strong>依赖声明</strong></td>
+<td>无</td>
+<td><code>metadata.requires.bins / siblings</code> + <code>cliHelp</code></td>
+</tr>
+<tr>
+<td><strong>重型工具</strong></td>
+<td>1 个脚本（认证）</td>
+<td>5+ 脚本随发行版下发，排除出上下文</td>
+</tr>
+<tr>
+<td><strong>启动成本</strong></td>
+<td>极低，一个目录拷进去就能用</td>
+<td>需要完整构建链路 / 装官方发行版</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="九给实践者的判据">九、给实践者的判据</h2>
+<p>抛开这两个具体对象，把它抽象成通用的 Skill 设计问题，我认为有三个必答问题。</p>
+<h3 id="问题一你能控制被封装的那个-cli--api-吗">问题一：你能控制被封装的那个 CLI / API 吗？</h3>
+<p><strong>能控制</strong> → 同仓 + 编译期内嵌。让 CI 保证契约，别靠人记得改。这是官方实现最值得抄的一点，且这个模式不限于 Go：Python 可以用 <code>importlib.resources</code>，Node 可以打进 package 并做版本断言。核心是让&quot;文档与实现不一致&quot;变成一个<strong>构建期或运行期能被发现的错误</strong>，而不是一个只有用户踩坑时才暴露的问题。</p>
+<p><strong>不能控制</strong>（比如你在封装第三方 SaaS）→ 必须建对账机制。可选路径：</p>
+<ul>
+<li>钉死被封装工具的版本（<code>npm install -g @larksuite/cli@1.2.3</code>），而不是 latest</li>
+<li>在 Skill 里放一条自查命令（学官方的 <code>cliHelp</code>），让 Agent 在失败时能自行核对命令是否存在</li>
+<li>定期跑 <code>--help</code> diff，把输出与文档做机械比对</li>
+<li>至少在 Skill 里写明&quot;本文档基于 X 版本编写&quot;，让漂移可归因</li>
+</ul>
+<p>WorkBuddy 的飞书套件正好处在&quot;不能控制&quot;这一类——它封装的是飞书团队独立发布的 CLI，却四条都没做，所以漂移无声无息地累积了。</p>
+<h3 id="问题二覆盖面超过-3-个业务域了吗">问题二：覆盖面超过 3 个业务域了吗？</h3>
+<p><strong>超过</strong> → 拆域 + 共享基座。认证只写一份，域间用负向描述互相转诊。判断标准是：如果你发现自己在入口文件里为每个域只能挤出 20 行，那就是该拆了。</p>
+<p><strong>没超过</strong> → 单文件反而更好。别为了架构而架构，拆分本身有心智成本和维护成本。官方 <code>lark-attendance</code> 只有 57 行 1 个文件就是这个道理——简单域就该简单。</p>
+<h3 id="问题三这个-skill-会触发不可逆操作吗">问题三：这个 Skill 会触发不可逆操作吗？</h3>
+<p><strong>会</strong> → 约束必须落到运行时。退出码门禁、路径校验、确认协议，都要在被调用的那一侧实现。文档里的&quot;请谨慎&quot;只能作为补充说明，不能作为唯一防线。</p>
+<p>理由很简单：<strong>Agent 的行为是概率性的</strong>。任何依赖&quot;模型会自觉遵守&quot;的安全设计，在足够多次调用后都会失效一次。而不可逆操作只需要失效一次。</p>
+<p><code>lark-unified</code> 写了&quot;写入/删除操作前必须确认用户意图&quot;，这句话是对的，但它是<strong>建议</strong>。官方的 exit 10 是<strong>过不去</strong>。这两者在一次调用里看不出区别，在一万次调用里区别就是有没有出过事故。</p>
+<hr>
+<h2 id="十如果你现在正在用-workbuddy-的飞书套件">十、如果你现在正在用 WorkBuddy 的飞书套件</h2>
+<p>上面的分析对 WorkBuddy 使用者有几条可以直接落地的推论。</p>
+<p><strong>1. 遇到命令报&quot;不存在&quot;，先怀疑文档而不是环境。</strong> 本文第三节列出的 8 类漂移都可以直接对照：<code>config view</code>、<code>config use-config</code>、<code>config import-env</code>、<code>contact +me</code>、<code>sheets +spreadsheets-read</code>、<code>base +tables-records-list</code>、<code>--yaml</code> / <code>--raw</code>、以及 <code>~/.lark/config.toml</code> 这个路径。碰到这些别去反复调环境。</p>
+<p><strong>2. 用官方发行版自带的 Skill 覆盖套件文档。</strong> 装完 CLI 后可以直接问它自己：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>lark-cli skills list                 <span style="color:#6272a4"># 现网真实有哪些 skill、什么版本</span>
+</span></span><span style="display:flex;"><span>lark-cli skills <span style="color:#8be9fd;font-style:italic">read</span> lark-shared     <span style="color:#6272a4"># 认证与权限的权威版本</span>
+</span></span><span style="display:flex;"><span>lark-cli skills <span style="color:#8be9fd;font-style:italic">read</span> lark-sheets     <span style="color:#6272a4"># 表格域真实的 shortcut 清单</span>
+</span></span><span style="display:flex;"><span>lark-cli &lt;service&gt; --help            <span style="color:#6272a4"># 单域 shortcut 自查</span>
+</span></span><span style="display:flex;"><span>lark-cli schema &lt;service&gt;.&lt;resource&gt;.&lt;method&gt;   <span style="color:#6272a4"># 参数结构自查</span>
+</span></span></code></pre></div><p>这几条命令读出来的内容和二进制同版本，永远不会漂。把它们当作事实来源，套件文档当作导航目录，是当前最省事的用法。</p>
+<p><strong>3. 补上套件没教的两条硬约束。</strong> 一是高危写操作的 exit 10 协议——看到退出码 10 且 <code>error.type == &quot;confirmation&quot;</code> 时要向用户确认后再追加 <code>--yes</code>，不能静默重试也不能当失败放弃；二是成功判定必须看 <code>ok == true</code> 而不是 <code>code == 0</code>，否则封装写入类命令时会误判失败并重复创建。</p>
+<p><strong>4. 认证优先走 CLI 原生的 split-flow。</strong> 套件自带的 <code>lark_setup.py</code> 是单进程阻塞式的，在不透传中间输出的运行时里用户可能看不到授权链接。改用 <code>auth login --no-wait --json</code> 拿 URL、结束本轮、下一轮再用 <code>--device-code</code> 收口，成功率更高。</p>
+<p><strong>5. 如果你在维护这类第三方套件</strong>，最小成本的改造是给每个域加一个 <code>cliHelp</code> 字段和一句&quot;本文档基于 CLI vX 编写&quot;。这两条不需要架构改动，但能把&quot;文档骗了 Agent&quot;变成&quot;Agent 能自己发现文档过时了&quot;。</p>
+<hr>
+<h2 id="十一最后几个可以直接借走的细节">十一、最后：几个可以直接借走的细节</h2>
+<p>不论你在写什么领域的 Skill，官方实现里有几个做法是通用的：</p>
+<p><strong>1. description 写负向路由，不只写正向能力。</strong> &ldquo;不负责 X，走 Y&rdquo; 这句话的信息量往往比&quot;我能做 A B C&quot;更大——它直接阻止了一类错误行为。</p>
+<p><strong>2. 必读清单要条件化 + 带后果。</strong> 不要写&quot;请阅读参考文档&quot;，要写&quot;做 X 之前必读 Y，不读会导致 Z 错误&quot;。前者是礼貌用语，后者是可判定规则。</p>
+<p><strong>3. 把 gotcha 当一等内容写。</strong> <code>+get-my-tasks</code> 不带 <code>--complete</code> 会混入已完成任务、<code>code == 0</code> 判定会误判成功、<code>--start</code> 不认自然语言日期——这些都是跑过才知道的知识，也是 Skill 相比 API 文档唯一的增量价值。</p>
+<p><strong>4. 区分「知识」与「工具」。</strong> 需要模型理解的进上下文，需要确定性执行的进脚本。官方把 108KB 的排版 lint 脚本排除出 embed 而随发行版下发，就是这个分界。</p>
+<p><strong>5. 预判 harness 的信息可见性。</strong> &ldquo;不要在同一轮里展示 URL 后立刻阻塞轮询&quot;这条，只有真正在多种 Agent 运行时里跑过才写得出来。任何涉及&quot;等用户在别处操作&quot;的流程，都要考虑分轮交还控制权。</p>
+<p><strong>6. 给 Agent 留一条自查后路。</strong> <code>cliHelp</code> 字段是个小设计，但它承认了一个事实：文档一定会有和现实不符的时候，那就至少让 Agent 知道去哪核对。</p>
+<hr>
+<p><em>本文所有&quot;上游真实情况&quot;的判定均来自 <a href="https://github.com/larksuite/cli">larksuite/cli</a> <code>main</code> 分支源码，核对时点为 2026-08-01。上游持续迭代，具体命令与实现可能变化——这本身也是本文核心论点的一部分。</em></p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/07/28/workbuddy-bench-source-code-deep-dive/" data-toggle="tooltip" data-placement="top" title="WorkBuddy Bench源码深度解析：如何构建可复现、可审计、可扩展的 Coding Agent 评测系统">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

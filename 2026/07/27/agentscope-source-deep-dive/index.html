@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="AgentScope 2.0 源码深度解析：把 Agent 做成可暂停、可恢复的生产运行时" />
+    <meta property="og:title" content="AgentScope 2.0 源码深度解析：把 Agent 做成可暂停、可恢复的生产运行时" />
+    <meta property="twitter:title" content="AgentScope 2.0 源码深度解析：把 Agent 做成可暂停、可恢复的生产运行时" />
+    
+
+    
+    <meta name="description" content="基于 AgentScope 2.0.5 源码快照，深入分析其 Agent ReAct 状态机、Msg/Event 协议、模型适配、Toolkit 与权限引擎、上下文压缩、中间件、FastAPI 服务层、SSE 事件流和多智能体团队机制。">
+    <meta property="og:description" content="基于 AgentScope 2.0.5 源码快照，深入分析其 Agent ReAct 状态机、Msg/Event 协议、模型适配、Toolkit 与权限引擎、上下文压缩、中间件、FastAPI 服务层、SSE 事件流和多智能体团队机制。" />
+    <meta property="twitter:description" content="基于 AgentScope 2.0.5 源码快照，深入分析其 Agent ReAct 状态机、Msg/Event 协议、模型适配、Toolkit 与权限引擎、上下文压缩、中间件、FastAPI 服务层、SSE 事件流和多智能体团队机制。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>AgentScope 2.0 源码深度解析：把 Agent 做成可暂停、可恢复的生产运行时 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/07/27/agentscope-source-deep-dive/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/agentscope" title="AgentScope">
+                            AgentScope
+                        </a>
+                        
+                        <a class="tag" href="/tags/python" title="Python">
+                            Python
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                    </div>
+                    <h1>AgentScope 2.0 源码深度解析：把 Agent 做成可暂停、可恢复的生产运行时</h1>
+                    <h2 class="subheading">从 ReAct 状态机、事件协议、工具权限到服务化与团队协作，拆解 AgentScope 2.0 的运行时设计</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Monday, July 27, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p>源码基线：本文基于本地 <code>AgentScope</code> <strong>2.0.5</strong>、提交 <a href="https://github.com/agentscope-ai/agentscope/tree/c613a8602c7ff1397339bd76371aca143b41360a"><code>c613a860</code></a> 分析。不同提交的实现可能变化；文中的文件链接固定到该快照。</p>
+</blockquote>
+<p>许多 Agent 框架的最小形态都可以写成：把历史消息和工具 Schema 交给模型，模型返回工具调用就执行，再把结果塞回消息列表。</p>
+<p>这段循环很容易写，难的是把它变成一个可在产品中运行的系统：工具请求需要确认时如何暂停？用户返回确认后如何从原位置继续？流式 token、工具进度和最终回答如何统一给前端？多个进程如何保证同一会话不被并发写坏？子 Agent 的消息怎样唤醒另一个会话？</p>
+<p>AgentScope 2.0 的回答不是把这些能力散落在应用代码中，而是围绕可持久化的 <strong><code>AgentState</code>、<code>Msg</code></strong> 与可序列化的 <strong><code>AgentEvent</code></strong> 协议，建立一个可暂停、可恢复、可观察的 Agent 运行时。<code>Agent</code> 是控制内核；<code>Toolkit</code>、<code>PermissionEngine</code> 和 <code>Workspace</code> 管住能力边界；<code>ChatService</code>、<code>Storage</code>、<code>MessageBus</code> 与 SSE 把同一套内核推到生产环境。</p>
+<p>
+  <img src="/img/agentscope-source-deep-dive/cover.svg" alt="AgentScope 2.0 源码全景">
+
+</p>
+<p>本文的阅读路线：</p>
+<table>
+<thead>
+<tr>
+<th>章节</th>
+<th>要回答的问题</th>
+<th>关键源码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>二</td>
+<td>项目怎样分层，真正的入口在哪里？</td>
+<td><code>agent/_agent.py</code>、<code>app/_app.py</code></td>
+</tr>
+<tr>
+<td>三</td>
+<td>一次 <code>reply_stream()</code> 到底经历了什么？</td>
+<td><code>agent/_agent.py</code>、<code>state/_state.py</code></td>
+</tr>
+<tr>
+<td>四</td>
+<td>为什么消息与事件要分开建模？</td>
+<td><code>message/_base.py</code>、<code>event/_event.py</code></td>
+</tr>
+<tr>
+<td>五</td>
+<td>模型、工具、权限和上下文如何进入循环？</td>
+<td><code>model/_base.py</code>、<code>tool/_toolkit.py</code>、<code>permission/_engine.py</code></td>
+</tr>
+<tr>
+<td>六</td>
+<td>服务端如何做到持久化、SSE 回放和会话串行？</td>
+<td><code>app/_service/_chat.py</code>、<code>app/_router/_session.py</code></td>
+</tr>
+<tr>
+<td>七</td>
+<td>多 Agent 团队如何建立、通信和唤醒？</td>
+<td><code>app/_tool/_team_*.py</code></td>
+</tr>
+<tr>
+<td>八</td>
+<td>这套设计的取舍，以及二次开发应从哪里切入？</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="一先给结论agentscope-20-的核心不是多模型适配">一、先给结论：AgentScope 2.0 的核心不是“多模型适配”</h2>
+<p><code>pyproject.toml</code> 给出的定位是 <em>A Flexible yet Robust Multi-Agent Platform</em>，但从源码看，2.0 最重要的工程选择有四个：</p>
+<ol>
+<li><strong>把一次回复建模为状态机，而不是单次函数调用</strong>：工具进入 <code>ASKING</code> 或 <code>SUBMITTED</code> 后，回复可以安全挂起；确认或外部结果会作为下一次输入恢复同一状态。</li>
+<li><strong>以细粒度事件作为运行时协议</strong>：文本、思考、工具参数、工具结果、确认请求和结束状态都进入统一 <code>AgentEvent</code> 流；前端不必理解每个模型厂商的原始流式格式。</li>
+<li><strong>把副作用置于权限与工作区边界之后</strong>：模型产生 <code>ToolCallBlock</code> 只代表“提议”；Schema 校验、权限决策、人工确认、外部执行和结果回写才决定“发生什么”。</li>
+<li><strong>服务层复用 SDK 内核，而不是另写一套编排器</strong>：<code>ChatService</code> 每次按 session 组装 <code>Agent</code>，事件进入消息总线；HTTP 负责触发，SSE 负责订阅，团队协作也复用 inbox + wakeup。</li>
+</ol>
+<p>因此，它更接近一个 <strong>Agent execution runtime</strong>：模型只是其中一个可替换的推理部件。</p>
+<hr>
+<h2 id="二源码地图从包结构判断设计重心">二、源码地图：从包结构判断设计重心</h2>
+<p>项目要求 Python <code>&gt;=3.11</code>，使用 Pydantic、<code>asyncio</code>、MCP、OpenTelemetry 等依赖；服务、向量库、工作区后端、长记忆被拆为 optional extras。核心代码位于 <a href="https://github.com/agentscope-ai/agentscope/tree/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope"><code>src/agentscope</code></a>。</p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>职责</th>
+<th>设计信号</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>agent/</code></td>
+<td><code>Agent</code>、配置、执行循环</td>
+<td>框架的控制平面</td>
+</tr>
+<tr>
+<td><code>message/</code></td>
+<td><code>Msg</code> 与内容块</td>
+<td>跨模型、跨存储的对话中间表示</td>
+</tr>
+<tr>
+<td><code>event/</code></td>
+<td><code>AgentEvent</code></td>
+<td>流式 UI 与运行记录的协议</td>
+</tr>
+<tr>
+<td><code>model/</code> + <code>formatter/</code></td>
+<td>多厂商模型适配与格式化</td>
+<td>厂商差异被压到边缘</td>
+</tr>
+<tr>
+<td><code>tool/</code>、<code>mcp/</code>、<code>skill/</code></td>
+<td>Python 工具、MCP、技能、工具组</td>
+<td>所有能力统一成工具视图</td>
+</tr>
+<tr>
+<td><code>permission/</code></td>
+<td>规则、模式、决策引擎</td>
+<td>副作用不由模型直接决定</td>
+</tr>
+<tr>
+<td><code>state/</code>、<code>workspace/</code></td>
+<td>可保存状态、沙箱、结果卸载</td>
+<td>长运行与恢复不是附加功能</td>
+</tr>
+<tr>
+<td><code>middleware/</code>、<code>rag/</code></td>
+<td>RAG、记忆、预算、TTS、追踪</td>
+<td>横切能力不污染 <code>Agent</code> 主循环</td>
+</tr>
+<tr>
+<td><code>app/</code></td>
+<td>FastAPI、存储、总线、会话、团队</td>
+<td>SDK 到服务的装配层</td>
+</tr>
+</tbody>
+</table>
+<p>这里有一个容易误判的地方：2.0 源码中没有一个通用 <code>workflow/</code> 或静态 DAG 包作为主心骨。它的“工作流”主要由 <strong>ReAct 状态机、任务工具、后台任务、定时调度与 Team 消息唤醒</strong>组成。换言之，它优先解决动态 Agent 执行，而不是先定义一张固定图再运行。</p>
+<h3 id="21-两个入口sdk-直接跑或装入-fastapi">2.1 两个入口：SDK 直接跑，或装入 FastAPI</h3>
+<p>SDK 使用者直接构造 <a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/agent/_agent.py#L110-L212"><code>Agent</code></a>，调用 <code>reply_stream()</code> 消费事件；只关心最终结果则调用 <code>reply()</code>。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>agent <span style="color:#ff79c6">=</span> Agent(
+</span></span><span style="display:flex;"><span>    name<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;assistant&#34;</span>,
+</span></span><span style="display:flex;"><span>    system_prompt<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;You are a helpful assistant.&#34;</span>,
+</span></span><span style="display:flex;"><span>    model<span style="color:#ff79c6">=</span>model,
+</span></span><span style="display:flex;"><span>    toolkit<span style="color:#ff79c6">=</span>toolkit,
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">async</span> <span style="color:#ff79c6">for</span> event <span style="color:#ff79c6">in</span> agent<span style="color:#ff79c6">.</span>reply_stream(UserMsg(<span style="color:#f1fa8c">&#34;user&#34;</span>, <span style="color:#f1fa8c">&#34;分析这个仓库&#34;</span>)):
+</span></span><span style="display:flex;"><span>    render(event)
+</span></span></code></pre></div><p>服务模式则从 <a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/app/_app.py#L43-L274"><code>create_app()</code></a> 开始。调用者必须提供 <code>StorageBase</code>、<code>MessageBus</code> 与 <code>WorkspaceManagerBase</code>；知识库、额外工具、中间件和子 Agent 模板按需注入。这个参数设计传达了一个事实：生产化 Agent 至少需要 <strong>持久化、传输和受控执行空间</strong>，它们不是可有可无的后缀。</p>
+<hr>
+<h2 id="三核心执行链reply_stream-如何成为可恢复的-react-状态机">三、核心执行链：<code>reply_stream()</code> 如何成为可恢复的 ReAct 状态机</h2>
+<p><code>reply_stream()</code> 本身非常薄：它调用私有 <code>_reply()</code>，默认过滤最终 <code>Msg</code>，把过程中的 <code>AgentEvent</code> 交给消费者。<a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/agent/_agent.py#L250-L341"><code>reply()</code></a> 只是把同一条流消费到底，取回最后的 <code>Msg</code>。</p>
+<p>真正的内核在 <a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/agent/_agent.py#L755-L1011"><code>_reply_impl()</code></a>。它把输入统一为四类：</p>
+<table>
+<thead>
+<tr>
+<th>输入</th>
+<th>含义</th>
+<th>对状态机的影响</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Msg</code> / <code>list[Msg]</code></td>
+<td>新用户消息</td>
+<td>新建 <code>reply_id</code>，从推理开始</td>
+</tr>
+<tr>
+<td><code>UserConfirmResultEvent</code></td>
+<td>用户批准或拒绝工具</td>
+<td>恢复 <code>ASKING</code> 的调用</td>
+</tr>
+<tr>
+<td><code>ExternalExecutionResultEvent</code></td>
+<td>外部执行器回传结果</td>
+<td>恢复 <code>SUBMITTED</code> 的调用</td>
+</tr>
+<tr>
+<td><code>UserInterruptEvent</code></td>
+<td>中断挂起回复</td>
+<td>给未完成调用补 <code>INTERRUPTED</code> 结果并结束</td>
+</tr>
+</tbody>
+</table>
+<p>关键不在于类型很多，而在于 <strong>“恢复”不是重放 prompt</strong>。工具调用及其状态已经写入 <code>AgentState.context</code>；恢复事件只修改对应调用的状态，接着继续原有循环。这避免了模型重新规划、重复调用工具或丢失前序结果。</p>
+<p>
+  <img src="/img/agentscope-source-deep-dive/react-loop.svg" alt="ReAct 执行环">
+
+</p>
+<h3 id="31-_next_action把控制流从执行逻辑中抽离">3.1 <code>_next_action()</code>：把控制流从执行逻辑中抽离</h3>
+<p>每轮循环先调用 <a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/agent/_agent.py#L3016-L3211"><code>_next_action()</code></a>，结果只可能是三个代数状态：</p>
+<ul>
+<li><code>Reasoning</code>：需要调用模型；</li>
+<li><code>Acting(tool_calls)</code>：已有允许执行的工具调用；</li>
+<li><code>Exit</code>：最终消息可返回、结构化输出已经满足，或抵达最大迭代数。</li>
+</ul>
+<p>这比“模型调用后立即执行工具”的直接写法多了一层，但换来两个收益：</p>
+<ul>
+<li><strong>决策可读</strong>：等待确认、继续推理、执行工具、超限退出的优先级集中在一个函数；</li>
+<li><strong>暂停自然</strong>：发现 <code>ASKING</code> 或 <code>SUBMITTED</code> 调用时，返回 <code>Exit</code>，但不将回复标记为完成。后续事件回来后再推进。</li>
+</ul>
+<p>其核心顺序可以概括为：先找可执行工具；再看是否有等待中的工具；然后检查结构化输出；最后才决定用文本最终消息退出或继续推理。工具调用生命周期不再隐含在调用栈里，而显式存在于消息块状态中。</p>
+<h3 id="32-推理前做三件事压缩注入准备模型输入">3.2 推理前做三件事：压缩、注入、准备模型输入</h3>
+<p>在 <code>Reasoning</code> 分支中，框架按顺序执行：</p>
+<ol>
+<li><code>compress_context()</code>：超阈值时压缩历史；</li>
+<li><code>_inject_runtime_state()</code>：把时间、未完成任务、接近上下文上限等变化信息写入 <code>HintBlock</code>；</li>
+<li><code>_reasoning()</code>：准备系统提示、摘要、对话上下文和工具 Schema，调用模型并把模型流转成事件。</li>
+</ol>
+<p>一个很细的设计是：运行时状态不直接拼进 system prompt，而是持久化为 <code>HintBlock</code>。源码明确说明这是为了让固定 system prompt 保持稳定，保留 prompt cache 的机会，同时让 Agent 感知会变化的时间和任务状态。</p>
+<h3 id="33-工具调用为什么有批次而不是全部并发">3.3 工具调用为什么有“批次”而不是全部并发</h3>
+<p>模型可能一次给出多个工具调用。<a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/agent/_agent.py#L1679-L1717"><code>_batch_tool_calls()</code></a> 根据工具的 <code>is_concurrency_safe</code> 属性切成顺序或并发批次；并发细节实现在 <a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/agent/_agent.py#L1769-L1899"><code>_execute_concurrent_tool_calls()</code></a>：</p>
+<ul>
+<li>并发批次通过 <code>asyncio.gather()</code> 执行，每个 worker 的事件进入共享队列；即便一个工具失败，其余工具仍会完成；</li>
+<li>顺序批次遇到确认或外部执行请求会立即停下，避免后续副作用跨过人工 gate；</li>
+<li>取消并发批次时，代码显式取消 worker、冲刷队列中已产生的中断事件，避免 orphan task。</li>
+</ul>
+<p>这说明 AgentScope 不是简单地以“只读=并发”推导调度，而是把并发安全性作为工具作者必须声明的契约。</p>
+<hr>
+<h2 id="四msg-与-agentevent一份状态两种时间尺度">四、<code>Msg</code> 与 <code>AgentEvent</code>：一份状态，两种时间尺度</h2>
+<p>AgentScope 最值得借鉴的抽象是把“消息”和“事件”明确分开。</p>
+<h3 id="41-msg-是可保存的对话中间表示">4.1 <code>Msg</code> 是可保存的对话中间表示</h3>
+<p><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/message/_base.py#L67-L126"><code>Msg</code></a> 包含 <code>name</code>、<code>role</code>、<code>content</code>、<code>metadata</code>、token usage 和最终结束原因。<code>content</code> 不是单一字符串，而是带类型的 block 列表：</p>
+<table>
+<thead>
+<tr>
+<th>Block</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TextBlock</code></td>
+<td>可见文本</td>
+</tr>
+<tr>
+<td><code>ThinkingBlock</code></td>
+<td>推理流</td>
+</tr>
+<tr>
+<td><code>DataBlock</code></td>
+<td>图片、音频等多模态数据</td>
+</tr>
+<tr>
+<td><code>ToolCallBlock</code></td>
+<td>工具名、JSON 输入、调用状态</td>
+</tr>
+<tr>
+<td><code>ToolResultBlock</code></td>
+<td>工具结果和结果状态</td>
+</tr>
+<tr>
+<td><code>HintBlock</code></td>
+<td>时间、团队消息、系统注入等上下文提示</td>
+</tr>
+</tbody>
+</table>
+<p>这种 block 化有两个直接好处：一是模型适配层能把各家的响应归一；二是工具调用与工具结果可以和回答共存于同一轮 assistant message 中，持久化后仍能完整恢复。</p>
+<h3 id="42-agentevent-是流式观察协议">4.2 <code>AgentEvent</code> 是流式观察协议</h3>
+<p><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/event/_event.py#L26-L67"><code>EventType</code></a> 覆盖回复开始结束、模型调用边界、文本/思考/数据 delta、工具调用与结果 delta、确认请求、外部执行请求、用户中断等事件。</p>
+<p>模型适配器只需要产生统一的 <code>ChatResponse</code>；<a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/agent/_agent.py#L3213-L3340"><code>_convert_chat_response_to_event()</code></a> 负责把增量 block 拆成 start/delta/end 事件。于是前端可以独立渲染“正在思考”“正在输入参数”“工具返回增量”这些状态，而无需为 OpenAI、Anthropic、DashScope 分别写一套流式协议。</p>
+<p>反向路径同样重要：<code>Msg.append_event()</code> 可以把事件重新折叠为完整消息。服务端在单次 <code>ChatService.run()</code> 期间把事件写入短期 replay log，供该次运行中晚到的 SSE 客户端补齐；run 返回时持久化的是当前累积的 reply <code>Msg</code> 与 <code>AgentState</code>，并清理这份事件缓冲。工具因 HITL 挂起时也是如此，后续恢复依赖持久化状态而非旧 replay log。这就是“事件用于过程，消息用于状态”的分工。</p>
+<hr>
+<h2 id="五模型工具与权限模型能提议运行时才有权执行">五、模型、工具与权限：模型能提议，运行时才有权执行</h2>
+<h3 id="51-chatmodelbase-将厂商差异压到-_call_api">5.1 <code>ChatModelBase</code> 将厂商差异压到 <code>_call_api()</code></h3>
+<p><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/model/_base.py#L35-L281"><code>ChatModelBase</code></a> 定义统一输入：<code>messages</code>、<code>tools</code>、<code>tool_choice</code>；统一输出：完整 <code>ChatResponse</code> 或异步 <code>ChatResponse</code> 流。</p>
+<p>基类已经处理了可重试异常、取消时转换为 <code>FinishedReason.INTERRUPTED</code>、流式 chunk 的累计。具体 OpenAI、Anthropic、DashScope、Gemini、Ollama 等实现只需要承担 API 请求和格式化差异。<code>Agent._call_model()</code> 还在模型之上加入 Agent 级重试和 fallback model，因此“单厂商短暂故障”不会与 Agent 的 ReAct 逻辑耦合。</p>
+<p>结构化输出的实现也很务实：当底层 API 不提供原生 JSON Schema 输出时，<a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/model/_base.py#L438-L653"><code>generate_structured_output()</code></a> 会构造临时 <code>generate_structured_output</code> 工具并强制 <code>tool_choice</code>，随后解析和校验参数。它复用已有工具调用通道，而非为每个供应商另建一套 schema 协议。</p>
+<h3 id="52-toolkit-统一-python-工具mcp-与-skill">5.2 Toolkit 统一 Python 工具、MCP 与 Skill</h3>
+<p><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/tool/_toolkit.py#L66-L169"><code>Toolkit</code></a> 是工具的唯一门面：注册本地 <code>ToolBase</code>、MCP client、Skill loader 和工具组。</p>
+<p>工具组不是 UI 分类，而是运行时能力边界：默认 <code>basic</code> 组始终存在，其余组必须先激活；未激活工具即使已注册，也会被返回为可供模型理解的错误提示。Skill 也不是一个“可直接调用”的黑盒，它先以名称、描述和目录注入系统提示，再通过 <code>SkillViewer</code> 读取详情。</p>
+<p><code>call_tool()</code> 还统一了 coroutine、同步/异步 generator 三种实现，让工具作者只返回 <code>ToolChunk</code>，框架负责累计为最终 <code>ToolResponse</code>。这使模型侧、工具侧、前端侧都围绕同一流式接口工作。</p>
+<h3 id="53-一次工具调用经过五道关口">5.3 一次工具调用经过五道关口</h3>
+<p><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/agent/_agent.py#L2014-L2268"><code>_execute_tool_call()</code></a> 的顺序非常值得逐项看：</p>
+<ol>
+<li>从 Toolkit 确认工具当前可用；</li>
+<li>用 JSON repair 解析模型输入，再用 <code>jsonschema</code> 验证；</li>
+<li>通过中间件洋葱层和 <code>PermissionEngine</code> 取得决策；</li>
+<li>对 <code>ASK</code> 发出 <code>RequireUserConfirmEvent</code>，对外部工具发出 <code>RequireExternalExecutionEvent</code>；</li>
+<li>只有 <code>ALLOW</code> 才进入 <code>_acting()</code>，获得 <code>ToolChunk</code> 流并写回 <code>ToolResultBlock</code>。</li>
+</ol>
+<p>
+  <img src="/img/agentscope-source-deep-dive/tool-permission.svg" alt="工具与权限闸门">
+
+</p>
+<p>默认权限模式的优先级在 <a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/permission/_engine.py#L117-L212"><code>PermissionEngine._check_default()</code></a> 中写得很清楚：<strong>Deny 规则 → Ask 规则 → 只读快速放行 → 工具自身安全检查 → Allow 规则 → 询问用户</strong>。其中安全性 <code>ASK</code> 可以是 bypass-immune，不能被普通 allow rule 覆盖。</p>
+<p>这套顺序的重要性在于：默认模式不会因为“模型看起来很确定”而跳过副作用确认；<code>EXPLORE</code> 模式则将非只读操作直接拒绝；<code>ACCEPT_EDITS</code> 才允许工作目录内的编辑由工具自身策略自动放行。</p>
+<h3 id="54-中间件有七个明确-hook而不是万能回调">5.4 中间件有七个明确 hook，而不是万能回调</h3>
+<p><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/middleware/_base.py#L13-L31"><code>MiddlewareBase</code></a> 提供六个洋葱式 hook：<code>on_reply</code>、<code>on_reasoning</code>、<code>on_check_permission</code>、<code>on_acting</code>、<code>on_model_call</code>、<code>on_compress_context</code>；另有顺序变换式的 <code>on_system_prompt</code>。</p>
+<p>这种切法让 RAG、长记忆、预算、Tracing、TTS、工具卸载等能力能选择合适的介入点。例如 <code>on_acting</code> 只包裹原始工具 I/O，权限和状态写入在其外部完成，因此后台化工具不会偷偷修改 Agent 上下文。代价是扩展者必须理解 hook 边界：在权限 hook 中返回而不调用 <code>next_handler</code>，等价于接管该次权限决策。</p>
+<hr>
+<h2 id="六上下文管理压缩不是把旧消息删掉">六、上下文管理：压缩不是把旧消息删掉</h2>
+<p>长对话的难点是既要控制 token，又不能破坏工具调用关系。<code>AgentState</code> 把持久化状态拆成：</p>
+<ul>
+<li><code>summary</code>：已压缩历史的摘要；</li>
+<li><code>context</code>：未压缩消息；</li>
+<li><code>reply_context</code>：<code>reply_id</code>、迭代数和结构化输出要求；</li>
+<li><code>permission_context</code>：模式、规则和工作目录；</li>
+<li><code>tool_context</code>：激活工具组与文件读取缓存；</li>
+<li><code>tasks_context</code>：任务状态；</li>
+<li><code>middle_context</code>：中间件跨轮状态。</li>
+</ul>
+<p>源码位置：<a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/state/_state.py#L149-L339"><code>state/_state.py</code></a>。</p>
+<h3 id="61-压缩动作与工作区卸载">6.1 压缩动作与工作区卸载</h3>
+<p>当估算 token 超过 <code>trigger_ratio × context_size</code>，<a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/agent/_agent.py#L404-L626"><code>_compress_context_impl()</code></a> 会保留最近一段上下文，把较早消息连同 system prompt、旧 summary 和压缩指令交给模型生成新的结构化摘要。</p>
+<p>若配置了 <code>Offloader</code>，被压缩的原文还会写入工作区；摘要追加“内容位于某路径”的提醒。工具结果过大时也采用相同策略：上下文保留截断部分和指针，完整结果卸载。这是一个比“丢掉旧上下文”更实用的折中：模型的活跃工作集变小，但必要时仍可通过工具回看原文。</p>
+<h3 id="62-文件读取缓存与上下文一致性">6.2 文件读取缓存与上下文一致性</h3>
+<p><code>ToolContext</code> 内置基于 mtime 的文件读取缓存，并对文件数量和总字节数做 LRU 淘汰。上下文压缩后，<code>clean_file_cache()</code> 还会根据仍保留的 <code>Read</code> 调用清理无关缓存。这种细节说明状态设计并不只关心聊天文本，也考虑了 coding agent 高频文件读取的成本与过期问题。</p>
+<hr>
+<h2 id="七从-sdk-到生产服务事件总线是连接件">七、从 SDK 到生产服务：事件总线是连接件</h2>
+<p><code>create_app()</code> 注册 agent、chat、session、workspace、model、credential、RAG、schedule 等路由，但真正把一次聊天跑起来的是 <a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/app/_service/_chat.py#L165-L699"><code>ChatService.run()</code></a>。</p>
+<p>其组装过程可以压缩为：读取 Agent/Session/Workspace → 补工作目录权限 → 注入 Inbox、状态变更、工具卸载等中间件 → 按 session 追加 RAG/TTS → 组装 Toolkit → 解析模型与 fallback → 恢复 <code>AgentState</code> 并运行 <code>Agent</code>。</p>
+<p>
+  <img src="/img/agentscope-source-deep-dive/service-events.svg" alt="服务层事件架构">
+
+</p>
+<h3 id="71-为什么-post-不直接返回流">7.1 为什么 POST 不直接返回流</h3>
+<p><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/app/_router/_chat.py#L49-L160"><code>POST /chat/</code></a> 只启动任务并立即返回。它不会在 HTTP 响应里承载模型流；持续事件来自 <code>GET /sessions/{session_id}/stream</code>。</p>
+<p>看似多了一跳，实则带来生产上的好处：</p>
+<ul>
+<li>使用 Redis 等共享 <code>MessageBus</code> 后端时，同一 session 的运行由 <code>acquire_lock(MessageBusKeys.session_lock(session_id), ...)</code> 串行化，避免多个进程同时修改一份状态；</li>
+<li>每个事件同时写入本次运行的短期 replay log 和 live Pub/Sub；客户端在运行期间晚连接时，可以先读回放，再订阅实时通道；</li>
+<li>前端可以保持一条长期 SSE 连接，连续接收同一 session 后续的多轮执行；</li>
+<li>HITL 的确认结果通过 wakeup 队列恢复，避免刚挂起的旧 run 与新 run 抢占 session。</li>
+</ul>
+<p><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/app/_router/_session.py#L710-L866"><code>stream_session_events()</code></a> 还每 30 秒发送 SSE 心跳，并使用后台 feeder + queue，而不是直接取消异步生成器的 <code>__anext__()</code>，规避了取消后生成器无法关闭的常见异步陷阱。</p>
+<h3 id="72-资源隔离默认是拒绝跨用户访问">7.2 资源隔离默认是拒绝跨用户访问</h3>
+<p>服务层的 <code>create_app()</code> 默认注入 <code>DenyAllResourceAccessPolicy</code>。这意味着跨 owner 访问 credential、agent、knowledge base 必须显式授权；<code>ChatService</code> 在装配时通过 <code>ResourceAccessService</code> 解析这些可见资源。工作区及其派生工具则按 session/owner 由 <code>WorkspaceManager</code> 管理；接入方注入的自定义工具仍须自行实现认证、授权与租户隔离。对多租户 Agent 平台来说，这比只在路由层做一次 owner 判断更可靠。</p>
+<hr>
+<h2 id="八多智能体团队协作被降解为可观察的会话通信">八、多智能体：团队协作被降解为可观察的会话通信</h2>
+<p>AgentScope 的团队系统不另起一套“多 Agent 引擎”。成员依旧是独立 <code>Agent</code> 与独立 session；团队能力通过几个工具和消息总线组合出来：</p>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>做什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TeamCreate</code></td>
+<td>创建团队记录，并将当前 session 标记为 Leader</td>
+</tr>
+<tr>
+<td><code>AgentCreate</code></td>
+<td>依据 <code>SubAgentTemplate</code> 创建 worker Agent 与 Session，首个 prompt 立即投递执行</td>
+</tr>
+<tr>
+<td><code>TeamSay</code></td>
+<td>向指定成员或全体成员投递消息并唤醒目标会话</td>
+</tr>
+<tr>
+<td><code>TeamDelete</code> / <code>AgentInvite</code></td>
+<td>管理团队生命周期与外部成员</td>
+</tr>
+</tbody>
+</table>
+<p>
+  <img src="/img/agentscope-source-deep-dive/team-runtime.svg" alt="团队智能体运行模型">
+
+</p>
+<h3 id="81-创建-worker-时复制什么不复制什么">8.1 创建 worker 时复制什么，不复制什么</h3>
+<p><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/app/_tool/_agent_create.py#L140-L558"><code>AgentCreate</code></a> 先确认调用者是当前团队 Leader，再选择 <code>SubAgentTemplate</code>。模板携带 system prompt、context/ReAct 配置、权限上下文和任务上下文；Leader 已获得的权限规则和工作目录可按模板策略合并给 worker。</p>
+<p>这是一种“<strong>模板定义角色，Leader 继承有限授权</strong>”的模式。Worker 不是 Leader 的内存副本：它有自己的 <code>AgentState</code> 和 session；但它也不是完全裸奔的新 Agent：团队目标、角色描述、模型配置和必要权限会被明确装配。</p>
+<h3 id="82-teamsay-如何让另一个-agent-醒来">8.2 TeamSay 如何让另一个 Agent 醒来</h3>
+<p><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/app/_tool/_team_say.py#L122-L351"><code>TeamSay</code></a> 先通过存储构造成员名到 <code>(session_id, agent_id)</code> 的目录，再把内容包装成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>&lt;team-message from=&#34;leader&#34;&gt;
+</span></span><span style="display:flex;"><span>  请汇报调研结论和证据。
+</span></span><span style="display:flex;"><span>&lt;/team-message&gt;
+</span></span></code></pre></div><p>这个 <code>HintBlock</code> 被 <code>queue_push</code> 到收件人 inbox，随后 <code>enqueue_run_trigger</code> 唤醒目标 session。<code>InboxMiddleware</code> 在下一轮将收件箱内容带入 Agent 上下文。</p>
+<p>因此，多 Agent 通信不是进程内函数调用，也不是把一段文本塞到共享 memory，而是：<strong>由 MessageBus 后端承载的 inbox 队列 + 可调度的会话唤醒 + 统一事件流</strong>。其默认说明文案鼓励 Leader 分派、成员完成后回报，避免无节制的 peer-to-peer chatter；但底层 <code>TeamSay</code> 仍支持定向发送和广播。</p>
+<h3 id="83-子-agent-的-hitl-如何投影给-leader">8.3 子 Agent 的 HITL 如何投影给 Leader</h3>
+<p>团队中更棘手的情况是：worker 触发了用户确认，但用户前端只盯着 Leader session。服务层的 <code>SubagentHitlProjector</code> 将待确认卡片投影到 Leader 会话；提交确认时，<code>/chat/</code> 会根据 <code>reply_id</code> 解析真正的 worker session，再把恢复事件入队。这样用户看到的是一个团队统一入口，后端恢复的却是正确的子会话状态机。</p>
+<p>这是 AgentScope 团队设计最成熟的部分：协作不只是在“能发消息”，还包括确认请求、会话归属和前端可见性的闭环。</p>
+<hr>
+<h2 id="九二次开发从哪个扩展点切入">九、二次开发：从哪个扩展点切入</h2>
+<table>
+<thead>
+<tr>
+<th>需求</th>
+<th>优先扩展点</th>
+<th>不建议的做法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>接入新模型</td>
+<td>继承 <code>ChatModelBase</code>，实现格式化和 <code>_call_api()</code></td>
+<td>在 <code>Agent</code> 中判断厂商类型</td>
+</tr>
+<tr>
+<td>增加业务能力</td>
+<td>实现 <code>ToolBase</code>，提供严格 Schema 与权限匹配</td>
+<td>直接在 system prompt 中承诺“可以操作”</td>
+</tr>
+<tr>
+<td>用户级 RAG/审计/限流</td>
+<td><code>MiddlewareBase</code> 对应 hook</td>
+<td>修改 ReAct 主循环</td>
+</tr>
+<tr>
+<td>连接企业服务</td>
+<td>MCP client 或工具组</td>
+<td>把全部凭据和工具永久暴露给每轮模型</td>
+</tr>
+<tr>
+<td>加入会话级特性</td>
+<td><code>ChatService</code> 的 <code>extra_agent_middlewares/tools</code> factory</td>
+<td>使用全局单例保存用户状态</td>
+</tr>
+<tr>
+<td>自定义团队角色</td>
+<td><code>SubAgentTemplate</code></td>
+<td>在 worker 创建后再靠长 prompt 修补权限</td>
+</tr>
+<tr>
+<td>自定义前端</td>
+<td>消费 SSE <code>AgentEvent</code>，用事件折叠为视图状态</td>
+<td>解析各模型厂商的原始 chunk</td>
+</tr>
+</tbody>
+</table>
+<p>有两条实践建议尤其重要：</p>
+<ol>
+<li><strong>工具必须把安全语义做成代码</strong>。定义 <code>is_concurrency_safe</code>、<code>is_read_only</code>、输入 Schema、权限建议和 <code>match_rule()</code>，不要只依赖 prompt 约束。</li>
+<li><strong>不要绕开 <code>AgentState</code> 写临时全局状态</strong>。暂停、恢复、服务重启、跨进程调度和团队消息之所以成立，前提是运行事实能落到 session state、存储或消息总线中。</li>
+</ol>
+<hr>
+<h2 id="十设计取舍与局限">十、设计取舍与局限</h2>
+<p>AgentScope 的设计并非没有代价。</p>
+<table>
+<thead>
+<tr>
+<th>选择</th>
+<th>获得</th>
+<th>付出</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>事件细分到 block delta</td>
+<td>流式 UI、运行中回放、观测一致</td>
+<td>事件消费端需维护状态机</td>
+</tr>
+<tr>
+<td>每会话持久化 <code>AgentState</code></td>
+<td>HITL 可恢复；配合共享基础设施可跨进程运行</td>
+<td>Schema 演进与存储成本更高</td>
+</tr>
+<tr>
+<td>Toolkit + 权限引擎</td>
+<td>副作用有明确边界</td>
+<td>自定义工具需要实现更多契约</td>
+</tr>
+<tr>
+<td>Middleware 七个 hook</td>
+<td>横切能力可插拔</td>
+<td>hook 顺序和短路语义需要学习</td>
+</tr>
+<tr>
+<td>总线 + SSE 分离</td>
+<td>可扩展、可回放</td>
+<td>部署至少要考虑存储与消息基础设施</td>
+</tr>
+<tr>
+<td>团队 = 多 session</td>
+<td>独立上下文、可唤醒和可审计</td>
+<td>任务拆分和上下文传递由 Leader 负责</td>
+</tr>
+</tbody>
+</table>
+<p>如果你的需求只是单轮问答，直接用模型 SDK 会更轻。如果你要的是固定、可验证的 DAG，显式工作流引擎可能更直观。但当需求包含工具副作用、人工确认、会话恢复、流式前端、沙箱、RAG、后台任务和团队协作时，AgentScope 的复杂度不是“过度设计”，而是把原本会散落在业务层的工程问题提前收敛到运行时。</p>
+<hr>
+<h2 id="十一总结用状态和事件驯服-agent-的不确定性">十一、总结：用状态和事件驯服 Agent 的不确定性</h2>
+<p>AgentScope 2.0 的源码主线可以浓缩为：</p>
+<blockquote>
+<p><strong>模型负责提出下一步；<code>AgentState</code> 记录已经发生了什么；<code>AgentEvent</code> 把过程交给外部；Toolkit、权限和工作区决定副作用能否发生；服务层则为多会话、多 Agent，以及共享基础设施下的多进程运行提供一致性机制。</strong></p>
+</blockquote>
+<p>从这一视角再看 <code>Agent.reply_stream()</code>，它不是一个“流式聊天 API”，而是整个系统的最小执行接口：新消息、用户确认、外部结果和中断都被投递到同一状态机；无论 SDK、HTTP、SSE 还是团队工具，最终都在推动这台状态机前进。</p>
+<p>这也是构建生产级 Agent 时最值得复用的思路：不要只设计 prompt 和工具列表；先设计 <strong>状态怎样保存、事件怎样传播、权限怎样拦截、暂停后怎样恢复</strong>。当这四件事成立，模型能力变化才不会让系统的控制面失控。</p>
+<h2 id="参考源码">参考源码</h2>
+<ul>
+<li><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/agent/_agent.py"><code>agent/_agent.py</code></a></li>
+<li><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/state/_state.py"><code>state/_state.py</code></a></li>
+<li><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/message/_base.py"><code>message/_base.py</code></a></li>
+<li><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/event/_event.py"><code>event/_event.py</code></a></li>
+<li><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/tool/_toolkit.py"><code>tool/_toolkit.py</code></a></li>
+<li><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/permission/_engine.py"><code>permission/_engine.py</code></a></li>
+<li><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/app/_service/_chat.py"><code>app/_service/_chat.py</code></a></li>
+<li><a href="https://github.com/agentscope-ai/agentscope/blob/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/app/_router/_session.py"><code>app/_router/_session.py</code></a></li>
+<li><a href="https://github.com/agentscope-ai/agentscope/tree/c613a8602c7ff1397339bd76371aca143b41360a/src/agentscope/app/_tool"><code>app/_tool/</code></a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/07/26/workbuddy-efficiency-agent-certification-notes/" data-toggle="tooltip" data-placement="top" title="腾讯 WorkBuddy 效率智能体应用师认证笔记">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/07/28/workbuddy-bench-source-code-deep-dive/" data-toggle="tooltip" data-placement="top" title="WorkBuddy Bench源码深度解析：如何构建可复现、可审计、可扩展的 Coding Agent 评测系统">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

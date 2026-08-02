@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" role="img" aria-label="认证与配置流程对比：脚本复刻 vs CLI 原生 split-flow">
+  <defs>
+    <filter id="sh4" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#1e293b" flood-opacity="0.08"/>
+    </filter>
+    <marker id="c1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      .f{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif}
+      .t{font-size:18px;font-weight:700;fill:#1e293b}
+      .st{font-size:13px;fill:#94a3b8}
+      .h{font-size:14px;font-weight:700}
+      .s{font-size:12px;fill:#334155}
+      .cap{font-size:10.5px;fill:#94a3b8}
+      .code{font-family:'SFMono-Regular',Consolas,monospace;font-size:10.5px;fill:#475569}
+      .lane{font-size:11px;font-weight:700;fill:#64748b}
+    </style>
+  </defs>
+  <rect width="1200" height="640" rx="10" fill="#f8fafc"/>
+  <text class="f t" x="600" y="40" text-anchor="middle">认证链路：都在解「Agent 环境没有 TTY」，解法层次不同</text>
+  <text class="f st" x="600" y="62" text-anchor="middle">device flow 的三方交互（Agent / 用户浏览器 / 飞书服务端）如何被编排</text>
+
+  <!-- A -->
+  <rect x="40" y="86" width="1120" height="248" rx="10" fill="#ffffff" stroke="#fcd34d"/>
+  <rect x="40" y="86" width="1120" height="4" rx="2" fill="#f59e0b"/>
+  <text class="f h" x="64" y="116" fill="#b45309">方案 A · WorkBuddy 飞书套件：在 Skill 里附带 215 行 Python 复刻整个 device flow</text>
+  <text class="f cap" x="64" y="134">scripts/lark_setup.py 直接对 accounts.feishu.cn/oauth/v1/app/registration 做 begin / poll，注释自称「mirrors internal/core/endpoints.go」</text>
+
+  <g class="f">
+    <rect x="64" y="150" width="140" height="58" rx="8" fill="#fffbeb" stroke="#fcd34d"/>
+    <text class="s" x="134" y="172" text-anchor="middle" font-weight="700">1 begin</text>
+    <text class="cap" x="134" y="189" text-anchor="middle">POST action=begin</text>
+    <text class="cap" x="134" y="201" text-anchor="middle">拿 device_code</text>
+
+    <rect x="234" y="150" width="140" height="58" rx="8" fill="#fffbeb" stroke="#fcd34d"/>
+    <text class="s" x="304" y="172" text-anchor="middle" font-weight="700">2 拼 URL</text>
+    <text class="cap" x="304" y="189" text-anchor="middle">手工追加 lpv/ocv</text>
+    <text class="cap" x="304" y="201" text-anchor="middle">&amp;from=cli 跟踪参数</text>
+
+    <rect x="404" y="150" width="140" height="58" rx="8" fill="#fffbeb" stroke="#fcd34d"/>
+    <text class="s" x="474" y="172" text-anchor="middle" font-weight="700">3 开浏览器</text>
+    <text class="cap" x="474" y="189" text-anchor="middle">open → xdg-open</text>
+    <text class="cap" x="474" y="201" text-anchor="middle">失败则打印 URL</text>
+
+    <rect x="574" y="150" width="140" height="58" rx="8" fill="#fffbeb" stroke="#fcd34d"/>
+    <text class="s" x="644" y="172" text-anchor="middle" font-weight="700">4 阻塞轮询</text>
+    <text class="cap" x="644" y="189" text-anchor="middle">while 循环 sleep</text>
+    <text class="cap" x="644" y="201" text-anchor="middle">最多 200 次</text>
+
+    <rect x="744" y="150" width="140" height="58" rx="8" fill="#fffbeb" stroke="#fcd34d"/>
+    <text class="s" x="814" y="172" text-anchor="middle" font-weight="700">5 落盘</text>
+    <text class="cap" x="814" y="189" text-anchor="middle">subprocess 调 CLI</text>
+    <text class="cap" x="814" y="201" text-anchor="middle">--app-secret-stdin</text>
+
+    <rect x="914" y="150" width="222" height="58" rx="8" fill="#fef2f2" stroke="#fca5a5"/>
+    <text class="s" x="1025" y="172" text-anchor="middle" font-weight="700" fill="#b91c1c">隐患：复刻即负债</text>
+    <text class="cap" x="1025" y="189" text-anchor="middle" fill="#b91c1c">endpoint / 参数 / 品牌重试逻辑</text>
+    <text class="cap" x="1025" y="201" text-anchor="middle" fill="#b91c1c">在上游变更时无人同步</text>
+  </g>
+  <g stroke="#94a3b8" fill="none" marker-end="url(#c1)">
+    <path d="M204 179 L230 179"/><path d="M374 179 L400 179"/>
+    <path d="M544 179 L570 179"/><path d="M714 179 L740 179"/>
+    <path d="M884 179 L910 179"/>
+  </g>
+
+  <rect x="64" y="222" width="536" height="98" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text class="f" x="84" y="244" font-size="12.5" font-weight="700" fill="#1e293b">值得肯定的工程细节</text>
+  <text class="f cap" x="84" y="264">把 HTTP 400 当正常态处理：authorization_pending 与 slow_down 是</text>
+  <text class="f cap" x="84" y="280">飞书用 400 承载的 OAuth 语义，脚本在 HTTPError 分支里解析 body 而不是</text>
+  <text class="f cap" x="84" y="296">直接抛错，并对 slow_down 做退避（+5s 上限 60s）。SKILL.md 还专门</text>
+  <text class="f cap" x="84" y="312">写了一段告诉 Agent「400 是正常的，别重跑 begin，复用 device_code」。</text>
+
+  <rect x="616" y="222" width="520" height="98" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text class="f" x="636" y="244" font-size="12.5" font-weight="700" fill="#1e293b">用禁令兜底交互式命令</text>
+  <g class="f code">
+    <text x="636" y="266">FORBIDDEN — never run these commands:</text>
+    <text x="636" y="282">  lark-cli config init --new</text>
+    <text x="636" y="298">  lark-cli config init（交互式）· lark-cli config set-default</text>
+  </g>
+  <text class="f cap" x="636" y="314">理由写得很实在：需要 TTY，在 WorkBuddy 里会输出坏掉的二维码。</text>
+
+  <!-- B -->
+  <rect x="40" y="352" width="1120" height="264" rx="10" fill="#ffffff" stroke="#93c5fd"/>
+  <rect x="40" y="352" width="1120" height="4" rx="2" fill="#3b82f6"/>
+  <text class="f h" x="64" y="382" fill="#1d4ed8">方案 B · larksuite/cli：把「不阻塞」做成 CLI 的一等能力（split-flow）</text>
+  <text class="f cap" x="64" y="400">Skill 不实现协议，只负责教 Agent 正确编排两个已有子命令；协议实现留在 Go 侧</text>
+
+  <!-- swimlane -->
+  <text class="f lane" x="64" y="432">Agent</text>
+  <text class="f lane" x="64" y="500">用户</text>
+  <text class="f lane" x="64" y="562">飞书服务端</text>
+  <line x1="120" y1="440" x2="1136" y2="440" stroke="#e2e8f0"/>
+  <line x1="120" y1="508" x2="1136" y2="508" stroke="#e2e8f0"/>
+  <line x1="120" y1="570" x2="1136" y2="570" stroke="#e2e8f0"/>
+
+  <g class="f">
+    <rect x="132" y="414" width="180" height="42" rx="6" fill="#eff6ff" stroke="#3b82f6"/>
+    <text class="s" x="222" y="431" text-anchor="middle" font-weight="700">第 1 轮：发起</text>
+    <text class="cap" x="222" y="447" text-anchor="middle">auth login --no-wait --json</text>
+
+    <rect x="336" y="414" width="180" height="42" rx="6" fill="#eff6ff" stroke="#3b82f6"/>
+    <text class="s" x="426" y="431" text-anchor="middle" font-weight="700">立即返回，不阻塞</text>
+    <text class="cap" x="426" y="447" text-anchor="middle">拿 verification_url + device_code</text>
+
+    <rect x="540" y="414" width="180" height="42" rx="6" fill="#f5f3ff" stroke="#8b5cf6"/>
+    <text class="s" x="630" y="431" text-anchor="middle" font-weight="700">生成二维码</text>
+    <text class="cap" x="630" y="447" text-anchor="middle">auth qrcode --output x.png</text>
+
+    <rect x="744" y="414" width="180" height="42" rx="6" fill="#fffbeb" stroke="#f59e0b"/>
+    <text class="s" x="834" y="431" text-anchor="middle" font-weight="700">交还控制权</text>
+    <text class="cap" x="834" y="447" text-anchor="middle">本轮结束，URL 作为最终消息</text>
+
+    <rect x="948" y="414" width="188" height="42" rx="6" fill="#eff6ff" stroke="#3b82f6"/>
+    <text class="s" x="1042" y="431" text-anchor="middle" font-weight="700">第 2 轮：收口</text>
+    <text class="cap" x="1042" y="447" text-anchor="middle">auth login --device-code &lt;dc&gt;</text>
+  </g>
+  <g stroke="#3b82f6" fill="none" marker-end="url(#c1)">
+    <path d="M312 435 L332 435"/><path d="M516 435 L536 435"/>
+    <path d="M720 435 L740 435"/><path d="M924 435 L944 435"/>
+  </g>
+
+  <rect x="744" y="484" width="180" height="42" rx="6" fill="#ffffff" stroke="#cbd5e1"/>
+  <text class="f s" x="834" y="501" text-anchor="middle" font-weight="700">扫码 / 点链接授权</text>
+  <text class="f cap" x="834" y="517" text-anchor="middle">在自己浏览器里完成</text>
+  <path d="M834 456 L834 482" stroke="#94a3b8" fill="none" marker-end="url(#c1)" stroke-dasharray="3 3"/>
+
+  <rect x="948" y="546" width="188" height="42" rx="6" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text class="f s" x="1042" y="563" text-anchor="middle" font-weight="700" fill="#047857">增量 scope 累积</text>
+  <text class="f cap" x="1042" y="579" text-anchor="middle" fill="#047857">多次 login 的 scope 叠加</text>
+  <path d="M1042 456 L1042 544" stroke="#94a3b8" fill="none" marker-end="url(#c1)" stroke-dasharray="3 3"/>
+
+  <rect x="132" y="484" width="580" height="104" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text class="f" x="152" y="506" font-size="12.5" font-weight="700" fill="#1e293b">split-flow 真正解决的是 harness 问题</text>
+  <text class="f cap" x="152" y="526">SKILL.md 写得很直白：不要在同一轮里展示完 URL 就立刻跑 --device-code</text>
+  <text class="f cap" x="152" y="542">阻塞轮询。因为在「不透传中间输出」的 agent harness 下，用户永远看不到</text>
+  <text class="f cap" x="152" y="558">那个 URL——这不是协议问题，是 Agent 运行时的信息可见性问题。</text>
+  <text class="f cap" x="152" y="578">配套硬规则：禁止缓存 verification_url / device_code；bot 身份禁跑 auth login。</text>
+</svg>
