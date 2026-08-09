@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="GPT-5.6 提示词最佳实践解读：提示词不是越详细越好" />
+    <meta property="og:title" content="GPT-5.6 提示词最佳实践解读：提示词不是越详细越好" />
+    <meta property="twitter:title" content="GPT-5.6 提示词最佳实践解读：提示词不是越详细越好" />
+    
+
+    
+    <meta name="description" content="基于 OpenAI 官方 Model guidance 文档中 GPT-5.6 Prompting Best Practices 章节的中文深度解读。文章拆解精简提示词、自主性与审批边界、响应长度与风格、Pro 模式、编程工具调用五条实践的核心机制与官方数据，给出三个反常识判断（更精简反而更好、最高推理强度并非最优、缓存写入要付 1.25 倍价），并落地为一份从 GPT-5.5/5.4 迁移的六项检查清单。核心判断：GPT-5.6 时代的提示词优化方向，是从&#39;写得更细&#39;转向&#39;删得更准&#39;。">
+    <meta property="og:description" content="基于 OpenAI 官方 Model guidance 文档中 GPT-5.6 Prompting Best Practices 章节的中文深度解读。文章拆解精简提示词、自主性与审批边界、响应长度与风格、Pro 模式、编程工具调用五条实践的核心机制与官方数据，给出三个反常识判断（更精简反而更好、最高推理强度并非最优、缓存写入要付 1.25 倍价），并落地为一份从 GPT-5.5/5.4 迁移的六项检查清单。核心判断：GPT-5.6 时代的提示词优化方向，是从&#39;写得更细&#39;转向&#39;删得更准&#39;。" />
+    <meta property="twitter:description" content="基于 OpenAI 官方 Model guidance 文档中 GPT-5.6 Prompting Best Practices 章节的中文深度解读。文章拆解精简提示词、自主性与审批边界、响应长度与风格、Pro 模式、编程工具调用五条实践的核心机制与官方数据，给出三个反常识判断（更精简反而更好、最高推理强度并非最优、缓存写入要付 1.25 倍价），并落地为一份从 GPT-5.5/5.4 迁移的六项检查清单。核心判断：GPT-5.6 时代的提示词优化方向，是从&#39;写得更细&#39;转向&#39;删得更准&#39;。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>GPT-5.6 提示词最佳实践解读：提示词不是越详细越好 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/08/09/gpt-5-6-prompting-best-practices/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/openai" title="OpenAI">
+                            OpenAI
+                        </a>
+                        
+                        <a class="tag" href="/tags/prompting" title="Prompting">
+                            Prompting
+                        </a>
+                        
+                        <a class="tag" href="/tags/gpt-5.6" title="GPT-5.6">
+                            GPT-5.6
+                        </a>
+                        
+                    </div>
+                    <h1>GPT-5.6 提示词最佳实践解读：提示词不是越详细越好</h1>
+                    <h2 class="subheading">官方 5 条 Prompting Best Practices 的机制拆解 &#43; 3 个反常识判断 &#43; 一份可直接照抄的迁移清单</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Sunday, August 9, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言gpt-56-把提示词优化方向倒过来了">一、引言：GPT-5.6 把提示词优化方向倒过来了</h2>
+<blockquote>
+<p>原文链接：<a href="https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6">Model guidance | OpenAI API（GPT-5.6 Prompting best practices 章节）</a></p>
+<p>来源：OpenAI API 官方文档 · 无署名 · 无发布日期（开发者文档随模型迭代更新）</p>
+</blockquote>
+<p>过去两年写提示词，大家默认的姿势是&quot;堆料&quot;：把约束、示例、风格要求、工具描述一股脑塞进去，觉得写得多模型就听话。GPT-5.6 的官方文档直接把这个假设顶翻了——<strong>它给出的第一条最佳实践，叫&quot;Favor leaner prompts（偏向更精简的提示词）&quot;</strong>，并且配了一组让人没法无视的数字：在官方编码代理评估样本里，精简后的系统提示词让评估分数提高约 <strong>10–15%</strong>，同时总 token 减少 <strong>41–66%</strong>、成本降低 <strong>33–67%</strong>。</p>
+<p>
+  <img src="/img/gpt-5-6-prompting-best-practices/cover.svg" alt="GPT-5.6 Prompting Best Practices 深度解读">
+
+</p>
+<p>这篇文章想做的不是把官方文档翻译一遍，而是拆三层：<strong>五条实践各自的机制是什么、为什么</strong>；文档里藏着哪几个和直觉相反、但能直接改你代码的判断；以及如果要从 GPT-5.5/5.4 迁移，具体该勾哪几项检查。</p>
+<p>一句话概括全文主线：<strong>GPT-5.6 时代的提示词优化，方向从&quot;写得更细&quot;转向&quot;删得更准&quot;。</strong></p>
+<hr>
+<h2 id="二五条最佳实践总览它们其实是一条主线">二、五条最佳实践总览：它们其实是一条主线</h2>
+<p>官方给出的五条实践，表面是五个独立话题，拆开看都指向同一件事——<strong>把&quot;该模型自己判断的&quot;和&quot;该你规定的&quot;分清楚</strong>：</p>
+<p>
+  <img src="/img/gpt-5-6-prompting-best-practices/overview.svg" alt="GPT-5.6 官方 5 条 Prompting Best Practices 总览">
+
+</p>
+<ul>
+<li><strong>① 精简提示词</strong>：删掉重复的指令、示例和冗余的工具描述，性能不降反升。</li>
+<li><strong>② 定义自主性与审批边界</strong>：告诉模型哪些事直接干、哪些事必须停下来等确认。</li>
+<li><strong>③ 设置响应长度与风格</strong>：用 <code>text.verbosity</code> 管默认详细度，用&quot;结论先行&quot;和具体写作选择管风格。</li>
+<li><strong>④ Pro 模式</strong>：对足够难、值得多花模型工作的任务，开 <code>reasoning.mode:&quot;pro&quot;</code>。</li>
+<li><strong>⑤ 编程工具调用（PTC）</strong>：把有界的、可预测的工具编排交给 JavaScript 程序去跑。</li>
+</ul>
+<p>后四条其实都在回答&quot;精简之后，谁补位&quot;。删掉的是冗余约束，补上的是更精确的边界、风格与执行方式。</p>
+<hr>
+<h2 id="三逐条拆解机制依据与关键细节">三、逐条拆解：机制、依据与关键细节</h2>
+<h3 id="31-精简提示词一次只删一组重跑同一个评估">3.1 精简提示词：一次只删一组，重跑同一个评估</h3>
+<p>官方给的方法论很克制，不像博客文章那么爽快，但非常可执行：</p>
+<ol>
+<li>从一个<strong>已经能正常工作</strong>的提示词和工具集开始；</li>
+<li><strong>每次只删除一组</strong>指令、示例或工具；</li>
+<li>重新运行<strong>相同的评估</strong>；</li>
+<li>删到分数开始掉为止。</li>
+</ol>
+<p>三个值得记的细节：</p>
+<ul>
+<li><strong>每条指令只陈述一次</strong>。重复的约束不会加强约束力，只会稀释 token。</li>
+<li><strong>只暴露与任务相关的工具</strong>，工具描述保持简洁、精确。工具列表本身就是上下文，长会话会把它的影响放大——官方特意提醒&quot;追踪上下文，既包括运行开始时，也包括对话增长后&quot;。</li>
+<li><strong>示例和风格指南不是一律要删</strong>：当它们&quot;编码了产品需求&quot;或&quot;纠正了已测量的差距&quot;时，要保留。这说明精简的对象是噪音，不是内容。</li>
+</ul>
+<h3 id="32-定义自主性与审批边界把要不要问提前规定好">3.2 定义自主性与审批边界：把&quot;要不要问&quot;提前规定好</h3>
+<p>GPT-5.6 更主动、更持久，这是特性也是风险。官方给的策略是一个紧凑的文本模板，核心是三段式：</p>
+<blockquote>
+<p>对于回答 / 解释 / 审查 / 诊断 / 规划类请求 → 检查材料、报告结果，<strong>除非请求同时要求更改，否则不动手</strong>；
+对于更改 / 构建 / 修复类请求 → <strong>直接做范围内改动并跑非破坏性验证，不必先问</strong>；
+对于外部写入、破坏性操作、购买、重大范围扩展 → <strong>必须确认后执行</strong>。</p>
+</blockquote>
+<p>这条实践最容易被忽略的执行要点是：<strong>策略要放在一个地方，每条只说一次</strong>。官方明确警告，反复写&quot;先询问&quot;&ldquo;不要修改&quot;&ldquo;等待批准&rdquo;，反而会导致模型在安全的预期操作上也频繁停下来等审批——你亲手把模型养成了&quot;每步都要问&quot;的样子。</p>
+<h3 id="33-设置响应长度与风格从be-concise到结论先行">3.3 设置响应长度与风格：从&quot;Be concise&quot;到&quot;结论先行&rdquo;</h3>
+<p>GPT-5.6 默认比 GPT-5.5 更简洁，所以迁移时第一件事是<strong>复查那些&quot;Be concise / Keep it short&quot;指令还要不要</strong>——有的任务不需要，有的反而让回答过短。</p>
+<p>官方给了三个层次的工具：</p>
+<ul>
+<li><strong>默认详细度</strong>：<code>text.verbosity</code> 可选 <code>low / medium / high</code>，作为请求默认；任务特定的长度与结构要求仍写进提示词。</li>
+<li><strong>短回答的优先级说明</strong>：&ldquo;以结论开头，包含支撑结论所需的证据、任何重大警示和下一步行动；省略次要细节和重复内容；先删引言、重复、泛泛的安抚和可选背景。&quot;——这比&quot;写短一点&quot;有效得多，因为它给了模型一个<strong>明确的删减优先级</strong>。</li>
+<li><strong>语气定义</strong>：&ldquo;直接陈述答案；用户报告问题时先确认具体问题再给下一步；仅在相关时使用安抚；省略泛泛的赞美和不必要的签名。&quot;——官方特别提醒，<strong>&ldquo;友好&quot;&ldquo;共情&quot;这类宽泛标签是含糊的</strong>，应该描述成具体的写作选择。</li>
+</ul>
+<h3 id="34-pro-模式多花模型工作但别拉满">3.4 Pro 模式：多花模型工作，但别拉满</h3>
+<p>Pro 模式（<code>reasoning.mode:&quot;pro&quot;</code>）在返回单一最终答案前对请求应用更多模型工作。什么时候值得开，官方给了三个前置问题：</p>
+<p>
+  <img src="/img/gpt-5-6-prompting-best-practices/pro-vs-standard.svg" alt="什么时候用 Pro 模式：三问 &#43; 对比实验">
+
+</p>
+<p>三个前置问题（全部为&quot;是&quot;才考虑 Pro）：边际质量提升对结果有实质影响吗？任务足够难吗？评估能证明提升吗？适合复杂优化、高价值编码或审查、有明确评估标准的深度分析；不适合常规、延迟敏感或高吞吐量的工作负载。</p>
+<p>两个反直觉点：</p>
+<ul>
+<li><strong>推理模式与推理强度相互独立</strong>。Pro 模式适用于任何 GPT-5.6 模型及其支持的推理强度，建议从与标准模式相同的模型和强度开始比较。</li>
+<li><strong>提示词不需要写&quot;请更努力思考&rdquo;</strong>。保持与标准模式相同的成果导向——目标、上下文、约束、所需证据、成功标准、输出格式。要求模型&quot;使用专业模式&quot;或&quot;生成多个候选答案&quot;是画蛇添足。</li>
+</ul>
+<h3 id="35-编程工具调用ptc有界阶段交给程序路由指令必须写死">3.5 编程工具调用（PTC）：有界阶段交给程序，路由指令必须写死</h3>
+<p>GPT-5.6 的 PTC 让模型能写 JavaScript 去编排多个工具调用、归并中间结果。官方给出的选择标准非常清晰：</p>
+<p>
+  <img src="/img/gpt-5-6-prompting-best-practices/direct-vs-ptc.svg" alt="直接工具调用 vs 编程工具调用（PTC）">
+
+</p>
+<p>命中任意一条&quot;直接调用优先&quot;的特征（一次调用就够、中间输出很小、每个结果都可能改变下一步决策、需要审批、最终输出要保留引用、程序前无法确定返回形状），就走直接调用；反过来，当任务是有界工作流、处理是可预测的（过滤 / 连接 / 排序 / 去重 / 聚合 / 验证），才考虑 PTC。</p>
+<p>最容易被忽略的一条：<strong>&ldquo;多个、并行或依赖的调用&quot;本身，并不能证明就该用 PTC</strong>。而一旦决定用 PTC，路由指令必须<strong>任务特定化</strong>——明确哪个有界阶段用 PTC、可调哪些工具、精确输出模式、并发 / 重试 / 停止限制、哪些工作保持直接调用（语义判断、审批、最终验证）。只写一句&quot;高效使用 PTC&quot;等于没说。</p>
+<p>评估上还有一个坑：<code>program_output</code> 项和最终的助手 <code>message</code> 是<strong>两个独立的输出</strong>，必须分开测试。程序可能返回了正确的记录，但消息漏掉了必需字段、引用或警示。只有当最终答案通过现有评估，更少的调用 / 轮次才算改进。</p>
+<hr>
+<h2 id="四三个反常识判断文档里最值钱的部分">四、三个反常识判断：文档里最值钱的部分</h2>
+<p>上面五条实践里，藏着三个和直觉相反、但直接决定你迁移效果的关键判断：</p>
+<p>
+  <img src="/img/gpt-5-6-prompting-best-practices/counterintuitive.svg" alt="3 个反常识判断：直觉 vs 事实 vs 正确做法">
+
+</p>
+<p><strong>反常识 1：提示词不是越详细越好，而是越精简越好。</strong> 直觉是&quot;写得更细 → 控制更强&rdquo;，事实是删掉重复指令和冗余工具描述后，评估分数 +10~15%、token −41~66%。正确做法是&quot;一次只删一组、重跑评估&rdquo;，删到分数开始掉为止。</p>
+<p><strong>反常识 2：最高推理强度不是默认答案。</strong> <code>max</code> 只留给最难、质量优先的工作负载，而且要在代表任务上对比选择。迁移的正确姿势是&quot;保留当前强度为基线，再测试低一档&rdquo;，而不是直接拉满。</p>
+<p><strong>反常识 3：提示缓存不是免费午餐。</strong> 显式缓存写入按未缓存输入的 <strong>1.25 倍</strong>计费，读才有折扣，写要付溢价。所以缓存策略的核心不是&quot;能开就开&rdquo;，而是&quot;只缓存真正复用的前缀&quot;——用显式断点或 <code>mode:&quot;explicit&quot;</code> 避免不必要的写入，并跟踪 <code>cached_tokens</code> 与 <code>cache_write_tokens</code>。</p>
+<p>这三条放在一起，其实是一个更深的判断：<strong>GPT-5.6 的参数空间里，&ldquo;省&quot;和&quot;好&quot;不再矛盾，它们经常是同一个动作的两面。</strong></p>
+<hr>
+<h2 id="五迁移检查清单从-gpt-55--54-过来要勾哪六项">五、迁移检查清单：从 GPT-5.5 / 5.4 过来要勾哪六项</h2>
+<p>如果不想一条条翻文档，下面是可直接照抄的迁移检查清单：</p>
+<p>
+  <img src="/img/gpt-5-6-prompting-best-practices/migration-checklist.svg" alt="从 GPT-5.5 / 5.4 迁移到 GPT-5.6 的六项检查清单">
+
+</p>
+<ol>
+<li><strong>推理强度逐档对比</strong>：保留当前强度为基线，先测低一档；<code>medium</code> 起步，<code>high / xhigh</code> 仅在测出可量化的质量提升时用，<code>max</code> 留给最难任务。</li>
+<li><strong>Pro 模式用参数开</strong>：<code>reasoning.mode:&quot;pro&quot;</code>，不要切到单独的 Pro 模型 slug；省略 <code>reasoning.effort</code> 时默认 <code>medium</code>。</li>
+<li><strong>持久化推理确认默认值</strong>：GPT-5.6 默认 <code>reasoning.context:&quot;all_turns&quot;</code>（此前型号默认 <code>current_turn</code>）；目标 / 假设跨轮次稳定用 <code>all_turns</code>，早期推理不再相关时切回 <code>current_turn</code>。</li>
+<li><strong>提示缓存管住&quot;写&rdquo;</strong>：跟踪 <code>cached_tokens</code> 与 <code>cache_write_tokens</code>；用显式断点或 <code>mode:&quot;explicit&quot;</code> 避免不必要写入；用 <code>prompt_cache_options.ttl</code> 替代 <code>prompt_cache_retention</code>。</li>
+<li><strong>PTC 双输出分开评估</strong>：对比直接调用与编程调用的成功率、答案完整性、所需证据、总 token、延迟、成本；只有通过现有评估才算改进。</li>
+<li><strong>响应风格改用 verbosity</strong>：用 <code>text.verbosity</code> 设默认详细度，逐个复查老提示词里的 &ldquo;Be concise&rdquo; 是否会让回答过短。</li>
+</ol>
+<p>原则只有一条：<strong>先保住基线质量，再用评估验证每一项&quot;省&quot;是否成立</strong>。省下的钱只有当答案没变差时，才真正属于你。</p>
+<hr>
+<h2 id="六总结提示词的增删转折点">六、总结：提示词的&quot;增删&quot;转折点</h2>
+<p>把 GPT-5.6 的这份文档读完，最强烈的感受是：<strong>OpenAI 在教开发者用&quot;评估&quot;而不是&quot;堆料&quot;来优化提示词</strong>。五条最佳实践没有一条要求你写得更多——精简指令、收敛边界、给风格定优先级、选择性开 Pro、把机械编排交给程序，全部是&quot;减少模型要猜的东西，增加模型能判断的东西&quot;。</p>
+<p>三句话带走的结论：</p>
+<ol>
+<li><strong>删比加重要</strong>：从一个能用的提示词出发，一次删一组，用同一套评估衡量，分数上升就是方向对了。</li>
+<li><strong>最强不等于最优</strong>：推理强度、Pro 模式、缓存，所有&quot;性能开关&quot;都要在代表任务上对比之后才动。</li>
+<li><strong>边界比指令重要</strong>：与其反复叮嘱&quot;先询问&quot;，不如把&quot;哪些事直接干、哪些事必须确认&quot;写成一页策略放在一个地方。</li>
+</ol>
+<p>GPT-5.6 的提示词写得越少、边界写得越清楚，输出反而越可控——这可能就是下一代模型给提示词工程最大的范式冲击。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/08/08/claude-design-explore-before-build/" data-toggle="tooltip" data-placement="top" title="在动手之前先把想法跑起来：Claude Design 作者的 10 条工作方法">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/loops" title="loops">
+                            loops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openai" title="openai">
+                            openai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1" title="产品设计">
+                            产品设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
