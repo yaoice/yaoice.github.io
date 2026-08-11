@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Prime Agent 源码深度解析：会自我改进的 RLM 编程智能体是如何构建的" />
+    <meta property="og:title" content="Prime Agent 源码深度解析：会自我改进的 RLM 编程智能体是如何构建的" />
+    <meta property="twitter:title" content="Prime Agent 源码深度解析：会自我改进的 RLM 编程智能体是如何构建的" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Prime Agent 源码深度解析：会自我改进的 RLM 编程智能体是如何构建的 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-08-11-prime-agent-code-analysis/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/prime-agent" title="Prime Agent">
+                            Prime Agent
+                        </a>
+                        
+                    </div>
+                    <h1>Prime Agent 源码深度解析：会自我改进的 RLM 编程智能体是如何构建的</h1>
+                    <h2 class="subheading">从 RLM 编程模型、跨语言 host 桥到 Continual Harness 的 Prime Agent 实现原理解剖</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Tuesday, August 11, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言一个把智能体当编程范式的项目">一、引言：一个&quot;把智能体当编程范式&quot;的项目</h2>
+<p>
+  <img src="/img/prime-agent-code-analysis/cover.svg" alt="Prime Agent：会自我改进的 RLM 编程智能体">
+
+</p>
+<p>如果你用过 ChatGPT Code Interpreter 或 Claude Code，可能已经习惯了&quot;模型在沙箱里跑 Python&quot;这个设定。但绝大多数实现只是把 Python 当作<strong>执行工具</strong>：模型生成代码，环境执行，结果回传，仅此而已。</p>
+<p><a href="https://github.com/PrimeIntellect-ai/prime-agent">Prime Agent</a>（开源，MIT License）走得更远——它把 Python 当作<strong>模型的持久工作环境</strong>，并提出两个核心抽象：</p>
+<ul>
+<li><strong>RLM（Recursive Language Model，递归语言模型）</strong>：把上下文视为变量（<em>prompt-as-a-variable</em>），把工具调用视为函数调用（<em>programmatic tool / sub-agent calling</em>），整个会话是一个持久 REPL。模型可以用 <code>await rlm(&quot;子任务&quot;)</code> 像调用函数一样派生子代理。</li>
+<li><strong>Continual Harness（持续装备）</strong>：把补充提示词、记忆、技能描述、可复用的子代理规格存成<strong>可持久化、可小步改进的状态</strong>，<code>/refine</code> 复盘当前轨迹后，用有证据支撑的小更新沉淀经验——而基础 system prompt 永不重写，快照可回滚。</li>
+</ul>
+<p>一句话概括它的设计目标：<strong>让有用的工作上下文和可复用的操作模式，活过单个聊天窗口。</strong> 长任务在终端断开后继续跑、子代理在后台并行、agent 之间可以直接通信、会话可以 detach 后重新 attach——这些能力在 README 里被反复强调，但真正有趣的是它们如何落到代码上。</p>
+<h3 id="项目概貌">项目概貌</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>数据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>语言</strong></td>
+<td>TypeScript（宿主/CLI/UI）+ Python（内核运行时）</td>
+</tr>
+<tr>
+<td><strong>包结构</strong></td>
+<td>npm workspaces monorepo：<code>ai</code> / <code>agent</code> / <code>coding-agent</code> / <code>tui</code> 四包</td>
+</tr>
+<tr>
+<td><strong>Python 运行时</strong></td>
+<td><code>prime-agent-runtime</code>（独立 wheel，ipykernel 内核）</td>
+</tr>
+<tr>
+<td><strong>版本策略</strong></td>
+<td>全包锁步（lockstep），无 major 版本；patch 为修 bug 和新特性，minor 为破坏性 API 变更</td>
+</tr>
+<tr>
+<td><strong>工具链</strong></td>
+<td>tsgo / Biome / Vitest / esbuild（bundle）/ bun compile（二进制）</td>
+</tr>
+<tr>
+<td><strong>关键依赖</strong></td>
+<td>Jupyter 生态（ZeroMQ / ipykernel / comm）、typebox、zod-to-json-schema、zeromq、photon-node（图像处理）</td>
+</tr>
+<tr>
+<td><strong>基线</strong></td>
+<td>构建在 <a href="https://github.com/earendil-works/pi"><code>pi</code></a>（Earendil Works 的 agent/TUI）之上</td>
+</tr>
+</tbody>
+</table>
+<h3 id="本文导读">本文导读</h3>
+<ul>
+<li><strong>先建全局心智</strong>：第二节用一张总览图串起 TUI → AgentConnection → Daemon → Session Worker → Kernel 五层。</li>
+<li><strong>再看双语言分工</strong>：第三节解释&quot;为什么是 TypeScript + Python 两套栈&quot;以及它们如何协作。</li>
+<li><strong>再抓核心模块</strong>：第四、五节拆解 <code>ai</code> 统一 API 层、<code>AgentSession</code> 主循环、Python 内核桥、RLM 子代理、Harness/refine 与 TUI 差分渲染。</li>
+<li><strong>最后看亮点与落地</strong>：第六节归纳关键设计决策，第七节给出部署运行说明。</li>
+</ul>
+<hr>
+<h2 id="二整体架构概述五层分工各司其职">二、整体架构概述：五层分工，各司其职</h2>
+<p>Prime Agent 的架构可以用一句话概括：<strong>客户端负责渲染，守护进程负责编排，Worker 负责执行，Kernel 负责&quot;被模型驱动&quot;，持久化负责&quot;活过会话&quot;</strong>。</p>
+<p>
+  <img src="/img/prime-agent-code-analysis/architecture-overview.svg" alt="Prime Agent 整体架构">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：左侧从上到下是 Client → AgentConnection → Daemon Supervisor → Session Worker（含 Root AgentSession、Scheduler、IPython Kernel、RLM 子运行）；右侧是 Model Providers 与持久化两列支撑。</p>
+</blockquote>
+<p>逐层来看：</p>
+<ol>
+<li><strong>Client 层</strong>（<code>packages/tui</code> + <code>modes/</code>）：交互式 TUI、print/json/rpc 等 headless 客户端。<strong>客户端不拥有执行权</strong>——它只渲染、接收键盘输入、维护本地 UI 偏好。</li>
+<li><strong>AgentConnection</strong>（<code>agent-connection/types.ts</code>）：客户端侧的<strong>执行边界契约</strong>。TUI 只依赖这个接口，不直接碰 <code>AgentSessionRuntime</code>。架构文档特别强调它&quot;刻意保持为本地客户端契约&quot;，为将来接入远程适配器预留了边界。</li>
+<li><strong>Daemon Supervisor</strong>：负责会话发现、命令路由、附件管理、worker 健康检查和跨 agent 消息投递。Session worker 与 kernel 是<strong>独立进程</strong>——这是生命周期与故障的隔离手段，但 README 明确警示：<strong>这不是安全沙箱</strong>，worker/kernel 与客户端同权限运行。</li>
+<li><strong>Session Worker</strong>：一个 worker 拥有一个根会话树——<code>AgentSessionRuntime</code>（生命周期外壳）、<code>AgentSession</code>（全部执行逻辑）、Scheduler、根 IPython Kernel，以及所有 RLM 子运行。</li>
+<li><strong>持久化</strong>：Session 以 JSONL transcript + 工件存储；harness 状态与 <code>refinements.jsonl</code> 单独管理；<code>session-lease.ts</code> 用文件锁防止多进程并发写同一会话。</li>
+</ol>
+<p>架构文档（<code>docs/architecture.md</code>）里的 prompt 执行链路值得注意：<strong>从会话队列开始，无论 prompt 来自用户、heartbeat、cron 调度、goal 续跑、autonomous 模式还是另一个 agent，走的是同一条执行与持久化路径。</strong> 这是&quot;长任务持续续跑&quot;能成立的基础——输入来源多样，但执行引擎只有一个。</p>
+<hr>
+<h2 id="三技术栈选型为什么是-typescript-宿主--python-内核">三、技术栈选型：为什么是 TypeScript 宿主 + Python 内核？</h2>
+<p>这是整个项目最反直觉、也最值得思考的决策。绝大多数 AI 编程工具（Claude Code、Cursor、OpenAI Codex CLI）都是单一语言栈，而 Prime Agent 选择让<strong>模型直接生活在一个真实的 IPython 内核里</strong>。</p>
+<p>
+  <img src="/img/prime-agent-code-analysis/ts-python-bridge.svg" alt="TS 宿主与 Python 内核协作">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：左列是 TS 宿主职责（策略/凭据/子代理/持久化），右列是 Python 内核（模型可执行的薄封装），中间是 Jupyter comm 桥。</p>
+</blockquote>
+<p>分工原则是：<strong>Python 侧只做&quot;模型可执行的薄封装&quot;，所有重逻辑都在 TypeScript 宿主侧。</strong></p>
+<ul>
+<li><strong>TypeScript 侧</strong>：凭据管理（<code>env-api-keys.ts</code>、<code>auth.json</code>）、子代理执行（<code>rlm-runtime.ts</code> → <code>runRlmChild()</code>）、上下文压缩（<code>compaction/</code>）、目标管理（<code>goals.ts</code>）、harness 状态（<code>refinement/</code>）、transcript 持久化（<code>session-manager.ts</code>）。这些涉及授权、并发、文件系统，TypeScript 有类型系统兜底，适合做&quot;可靠的中枢&quot;。</li>
+<li><strong>Python 侧</strong>（<code>prime-agent-runtime</code>）：<code>rlm</code> 模块让模型可以 <code>await rlm(...)</code>；<code>harness.py</code> 提供 harness 状态 CRUD；<code>mcp_base.py</code> 把 MCP 服务器工具动态绑定成 async 方法；<code>skill.py</code> 用 <code>tyro</code> 让技能 CLI 按类型签名自动生成参数解析。</li>
+</ul>
+<p><code>pyproject.toml</code> 的依赖只有三个，选型理由非常明确：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-toml" data-lang="toml"><span style="display:flex;"><span>dependencies = [<span style="color:#f1fa8c">&#34;ipykernel&#34;</span>, <span style="color:#f1fa8c">&#34;nest-asyncio&#34;</span>, <span style="color:#f1fa8c">&#34;tyro&#34;</span>]
+</span></span></code></pre></div><ul>
+<li><strong><code>ipykernel</code></strong>：内核基石。整个 host 桥基于 Jupyter 的 comm 通道实现，复用 Jupyter 生态（comm、display、kernel 生命周期）而不是自造 IPC。</li>
+<li><strong><code>nest-asyncio</code></strong>：IPython 内核本身跑在一个 asyncio loop 里，而 <code>host_request</code> 需要 <code>asyncio.Future</code> 跨线程等待 comm 回调，需要用 <code>nest_asyncio</code> 允许事件循环嵌套。</li>
+<li><strong><code>tyro</code></strong>：让技能 CLI 用类型签名自动生成参数解析，免去手写 argparse。</li>
+</ul>
+<p>对模型来说，这套设计意味着什么？它可以在 IPython 里直接写：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">import</span> rlm
+</span></span><span style="display:flex;"><span>handle <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> rlm(<span style="color:#f1fa8c">&#34;帮我并行调研三个 API 的定价&#34;</span>, model<span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;anthropic/claude-sonnet-4&#34;</span>)
+</span></span></code></pre></div><p>子代理是<strong>函数调用</strong>，返回值是可编程使用的句柄——这就是 RLM 编程模型的核心体验。</p>
+<hr>
+<h2 id="四核心模块详解">四、核心模块详解</h2>
+<h3 id="41-packagesai统一-llm-api-层">4.1 <code>packages/ai</code>：统一 LLM API 层</h3>
+<p>如果&quot;AgentSession 是执行引擎&quot;，<code>packages/ai</code> 就是&quot;模型的统一插座&quot;。它屏蔽了 31 个 provider 的差异（OpenAI、Anthropic、Google、Bedrock、Mistral、xAI、Groq、OpenRouter、Cloudflare 等）。</p>
+<p>核心抽象定义在 <code>src/types.ts</code>：</p>
+<ul>
+<li><code>KnownApi</code> 有 9 种 API 形态（<code>openai-completions</code>、<code>anthropic-messages</code>、<code>openai-responses</code>、<code>google-generative-ai</code> 等），<code>KnownProvider</code> 有 31 个 provider。</li>
+<li><strong>标准化事件流</strong>：所有 provider 都产出 <code>text</code> / <code>tool_call</code> / <code>thinking</code> / <code>usage</code> / <code>stop</code> 五种粒度的流式事件（<code>AssistantMessageEvent</code>），每个增量事件都携带累计的部分结果 <code>partial: AssistantMessage</code>。</li>
+</ul>
+<p>一个值得称道的设计是<strong>请求失败编码进流，而非抛异常</strong>。<code>types.ts</code> 注释明说这是契约，而底层的 <code>EventStream&lt;T, R&gt;</code>（<code>utils/event-stream.ts</code>）是一个<strong>可 push 的 AsyncIterable</strong>：<code>push()</code> 逐个投递事件，<code>[Symbol.asyncIterator]()</code> 供消费方拉取，<code>result()</code> 返回最终结果的 Promise。消费方可以随时决定&quot;流完了再要结果&quot;，而不是被同步异常打断。</p>
+<p><strong>模型发现</strong>也做得非常工程化：<code>scripts/generate-models.ts</code> 是一个离线构建脚本，运行时从 models.dev、OpenRouter 目录、Vercel AI Gateway、Prime Inference 实时目录抓取模型清单，合并手工元数据覆盖（thinking 级别映射、featured 旗舰标记），生成 533KB 的 <code>models.generated.ts</code>。构建流程里 <code>npm run build</code> 会先跑 <code>generate-models</code> 再编译——<strong>模型目录是构建产物，不是手写维护的</strong>。仓库规则还专门规定：永远不要直接改 <code>models.generated.ts</code>，要改就改生成脚本。</p>
+<h3 id="42-agentsession约-11-万行的主循环">4.2 <code>AgentSession</code>：约 1.1 万行的主循环</h3>
+<p><code>packages/coding-agent/src/core/agent-session.ts</code> 是整个系统的&quot;心脏&quot;，单文件约 11200 行。它的主循环基于 <code>session-action-store</code> 的<strong>状态机队列</strong>：每个输入经历 <code>queued → selected → preparing → committing → running → completed</code>（或 <code>failed/cancelled</code>）。</p>
+<p>关键点：</p>
+<ul>
+<li><strong>admission 入队</strong>：<code>_admitSessionInput()</code> 把输入塞进队列，能立即执行的就标记 <code>starts_when_admitted</code>。</li>
+<li><strong>pump 单飞循环</strong>：<code>_pumpSessionInputs()</code> 用 <code>waitForIdle()</code> 确保一次只跑一个 turn，然后成批启动预处理的 turn。</li>
+<li><strong>transcript 持久化</strong>：每条消息通过 <code>sessionManager</code> 追加为 JSONL entry，turn 的 delivery records 标注消息是否已 durable 落盘。</li>
+<li><strong>自动重试</strong>：<code>_isRetryableError()</code>（约 9971 行）区分&quot;可重试错误&quot;与&quot;上下文溢出&quot;——<strong>溢出不重试，交给 compaction 处理</strong>：</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#6272a4">// agent-session.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">private</span> _isRetryableError(message: <span style="color:#8be9fd">AssistantMessage</span>)<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">boolean</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">if</span> (message.stopReason <span style="color:#ff79c6">!==</span> <span style="color:#f1fa8c">&#34;error&#34;</span> <span style="color:#ff79c6">||</span> <span style="color:#ff79c6">!</span>message.errorMessage) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// Context overflow is handled by compaction, not retry
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>	<span style="color:#ff79c6">const</span> contextWindow <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">this</span>.model<span style="color:#ff79c6">?</span>.contextWindow <span style="color:#ff79c6">??</span> <span style="color:#bd93f9">0</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">if</span> (isContextOverflow(message, contextWindow)) <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>;
+</span></span><span style="display:flex;"><span>	...
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">return</span> <span style="color:#ff79c6">true</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这个&quot;重试 vs 压缩&quot;的分流非常符合直觉：模型超载、限流、服务器 5xx 是暂时性的，重试合理；但上下文塞满不是运气问题，重试只会再浪费一次 token，压缩才是正解。</p>
+<p><code>AgentSessionRuntime</code>（<code>agent-session-runtime.ts</code>）则是生命周期外壳：<code>newSession</code> / <code>switchSession</code> / <code>fork</code> / <code>importFromJsonl</code> 都走同一套&quot;teardown → replace → finish&quot;模式，配合 <code>session-lease.ts</code> 的进程间租约防止多进程并发写同一会话文件。</p>
+<h3 id="43-python-内核与-typed-host-request-桥">4.3 Python 内核与 typed host request 桥</h3>
+<p>这是全项目最精妙的部分。TS 与 Python 之间的通信基于 <strong>Jupyter comm + ZeroMQ</strong>，<code>comm target</code> 固定为 <code>&quot;host.request&quot;</code>。</p>
+<p>
+  <img src="/img/prime-agent-code-analysis/host-request-sequence.svg" alt="typed host request 时序">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：Python 创建 <code>asyncio.Future</code> → 打开 comm → TS 侧 <code>handleHostRequest</code> 按 type 分派 → AgentSession 执行（如 <code>runRlmChild</code>）→ 结果经 <code>comm_msg({status:&quot;ok&quot;, ...})</code> 回传 → Future resolve，模型拿到句柄。</p>
+</blockquote>
+<p>Python 侧实现（<code>prime-agent-runtime/src/rlm/__init__.py:84-140</code>）的 <code>host_request()</code> 有一行非常值得学习的安全细节：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>comm<span style="color:#ff79c6">.</span>on_msg(_on_msg)
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># request_type goes last so a payload &#34;type&#34; key cannot reroute the request.</span>
+</span></span><span style="display:flex;"><span>comm<span style="color:#ff79c6">.</span>open(data<span style="color:#ff79c6">=</span>{<span style="color:#ff79c6">**</span>(payload <span style="color:#ff79c6">or</span> {}), <span style="color:#f1fa8c">&#34;type&#34;</span>: request_type})
+</span></span></code></pre></div><p><strong>请求类型字段放在 payload 的最后，防止 payload 里自带 <code>type</code> 键覆盖请求类型、劫持路由。</strong> 这是&quot;输入不可信&quot;原则在协议层的体现——模型生成的代码可以携带任意 payload，但永远改不掉请求类型。</p>
+<p>错误处理也很有讲究：按 reply 的 <code>status</code> 分派 <code>ok</code> / <code>error</code> / 意外三种情况，用 <code>loop.call_soon_threadsafe</code> 把结果安全写回 asyncio Future（因为 comm 回调可能来自其他线程）。</p>
+<h3 id="44-rlm-子代理rlm-是怎么变成真实子进程的">4.4 RLM 子代理：<code>rlm(...)</code> 是怎么变成真实子进程的</h3>
+<p>从模型视角，<code>await rlm(&quot;子任务&quot;)</code> 是一次函数调用；从实现视角，它是一条从 Python 到 TS 的 host request，触发 <code>AgentSession.runRlmChild()</code>（<code>agent-session.ts:9955</code>），创建一个<strong>拥有独立 session runtime、可选独立 kernel 的子代理</strong>，任务 admit 后立即返回 <code>RLMSpawnHandle</code>（非阻塞）。</p>
+<p>
+  <img src="/img/prime-agent-code-analysis/rlm-subagent-flow.svg" alt="RLM 子代理流程">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：主会话分派多个 RLM Child（可并行/后台），返回的 <code>RLMSpawnHandle</code> 让子代理&quot;可编程地&quot;被观察、attach 与收口。</p>
+</blockquote>
+<p>几个有意思的细节：</p>
+<ul>
+<li><code>RLMSpawnHandle</code> 是 frozen dataclass：<code>rlm_child_id / name / session_dir / model</code>——子代理的&quot;身份卡&quot;。</li>
+<li>子代理创建后会写入会话树，<code>rlm-max-depth</code>（<code>/rlm-max-depth</code> 命令）限制递归深度，防止子代理无限套娃烧钱。</li>
+<li>daemon 断开后子代理<strong>继续运行</strong>，这是&quot;长任务不中断&quot;承诺的一部分；运行中的 agent 之间还可以直接互相发消息（agent-to-agent communication），不必都经用户中转。</li>
+</ul>
+<h3 id="45-continual-harnessrefine-的自我改进闭环">4.5 Continual Harness：<code>/refine</code> 的自我改进闭环</h3>
+<p>Harness 的持久化状态在 Python 侧（<code>harness.py</code> 的 <code>HarnessState</code>），而<strong>校验与应用的策略逻辑在 TS 侧</strong>（<code>refinement/refinement.ts</code>）——又一次体现了&quot;Python 薄封装、TS 重逻辑&quot;的分工。</p>
+<p>
+  <img src="/img/prime-agent-code-analysis/harness-refine-flow.svg" alt="Continual Harness 工作流">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：轨迹 → 模型提议 edits（create/update/delete prompt/memory/skill/subagent）→ 逐条校验（结构合法 + baseline 比对）→ 应用（version +1，记录 refinements）→ 未来会话受益，形成闭环。</p>
+</blockquote>
+<p><code>applyRefinementProposal()</code>（<code>refinement.ts:707</code>）里的并发防护值得一提。refine 是&quot;先规划后应用&quot;的两步操作，规划期间 harness 状态可能被其他进程改动，所以应用前会做 baseline 比对：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">if</span> (
+</span></span><span style="display:flex;"><span>	options.baselineState <span style="color:#ff79c6">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">!</span>proposalModifiedKeys.has(entryKey) <span style="color:#ff79c6">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>	JSON.stringify(before) <span style="color:#ff79c6">!==</span> JSON.stringify(baseline)
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	appliedEdits.push({
+</span></span><span style="display:flex;"><span>		...edit, id, before,
+</span></span><span style="display:flex;"><span>		applied: <span style="color:#8be9fd">false</span>,
+</span></span><span style="display:flex;"><span>		error<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;entry changed during refinement planning&#34;</span>,
+</span></span><span style="display:flex;"><span>	});
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">continue</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>发现&quot;规划期间条目被改过&quot;就拒绝应用这条 edit——<strong>乐观并发控制</strong>。应用成功的条目 <code>version +1</code>，整个 proposal 记录进 <code>refinements.jsonl</code>，harness 快照支持 rollback。每条 edit 还带 <code>evidence</code>（依据），保证改进不是模型拍脑袋。</p>
+<p>另一个细节：<code>harness.py</code> 的 <code>_HarnessProxy</code> 用延迟解析解决 forkserver 预导入时的时序问题——harness 状态在模块 import 时可能还没就绪，所以做成代理，用到才解析。</p>
+<h3 id="46-packagestui为流式输出而生的差分渲染">4.6 <code>packages/tui</code>：为流式输出而生的差分渲染</h3>
+<p>TUI 是整个项目中&quot;性能打磨&quot;最密集的部分。它的核心模型是：<strong>组件声明式渲染成纯文本行数组 <code>render(width): string[]</code>，TUI 统一做逐行差分，输出最小 ANSI patch</strong>——组件不需要知道终端坐标。</p>
+<p>性能优化贯穿三层：</p>
+<ol>
+<li><strong>渲染节流</strong>：<code>requestRender()</code> + 16ms 最小渲染间隔（<code>MIN_RENDER_INTERVAL_MS</code>），高频的流式 token 事件只在每帧末合并重绘一次。</li>
+<li><strong>差分重绘</strong>：对比上一帧与当前帧的行，只重绘 <code>firstChanged → lastChanged</code> 区间；用 <code>\x1b[?2026h/l</code>（synchronized output）包裹整个重绘过程防闪烁。</li>
+<li><strong>保留视口</strong>：长会话流式更新时，如果改动发生在视口上方，走 <code>preserveViewport</code> 路径原地重绘可见窗口，<strong>不触碰终端 scrollback</strong>——否则每帧回放全屏会闪烁跳顶。</li>
+</ol>
+<p><code>markdown.ts</code> 的<strong>按块渲染缓存</strong>尤其聪明：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#6272a4">// Per-block render cache so streaming appends only re-render the changing
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// final block instead of the whole document. Keyed by width/type/nextType/raw;
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">private</span> blockCache <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Map&lt;<span style="color:#ff79c6">string</span>, <span style="color:#50fa7b">string</span>[]&gt;();
+</span></span></code></pre></div><p>每个 Markdown 顶层块以 <code>width|type|nextType|raw</code> 为 key 缓存渲染结果；<strong>末尾块永不缓存</strong>——因为流式追加会改变对它的解释（未闭合的 fence、增长的列表），一旦它不再是最后一块就固定缓存。这让每 token 流式渲染的成本从&quot;全文档&quot;降到&quot;仅末尾块&quot;。</p>
+<p>还有两个细节：<code>CURSOR_MARKER = &quot;\x1b_pi:c\x07&quot;</code>（<code>tui.ts:122-128</code>）用终端忽略的零宽 APC 序列标记硬件光标位置，让 CJK 输入法候选窗口能定位到正确位置；stdin 缓冲层把批量字节按转义序列边界切分，保证组件收到单条完整序列。</p>
+<hr>
+<h2 id="五headless-与协议json--rpc-模式的设计取舍">五、Headless 与协议：JSON / RPC 模式的设计取舍</h2>
+<p><code>modes/</code> 目录下 print / json / rpc / acp / daemon 五种模式<strong>共用同一套 <code>AgentConnection</code> 契约和 <code>session_event</code> 流</strong>，区别只在&quot;如何消费事件&quot;（渲染 UI / 打印文本 / 序列化 JSONL）。这让 headless 集成零额外成本。</p>
+<p>rpc 模式的一个细节很能体现工程严谨性：JSONL 帧解析<strong>刻意不用 Node 的 <code>readline</code></strong>（<code>rpc/jsonl.ts:19-25</code>），因为 readline 会按额外 Unicode 分隔符拆分，破坏严格 JSONL 帧；改用 <code>StringDecoder</code> + <code>indexOf(&quot;\n&quot;)</code> 逐块扫描、跨 chunk 不重复拼接（避免大记录 O(n²)）。RPC 模式下 <code>promptResponsePending</code> 缓冲标志保证 prompt 期间的事件不会在响应前乱序。</p>
+<hr>
+<h2 id="六关键设计决策与亮点">六、关键设计决策与亮点</h2>
+<p>把全文的设计选择收敛成五个可迁移的工程结论：</p>
+<ol>
+<li><strong>双语言分工的边界要清晰</strong>：&ldquo;Python 薄封装，宿主重逻辑&quot;这条线画得干净利落。模型要写的东西必须简单、可 import、可 await；凡是涉及授权/并发/持久化/凭据的逻辑，全部收进 TypeScript 宿主。两边各取所长。</li>
+<li><strong>协议层防劫持</strong>：<code>request_type</code> 放 payload 末尾防路由覆盖（<code>__init__.py:138-139</code>），baseline 比对防 refine 并发覆盖（<code>refinement.ts:737</code>）。<strong>&ldquo;不可信输入&quot;不是一句口号，而是落在每一处边界上。</strong></li>
+<li><strong>错误分类决定策略</strong>：可重试错误 vs 上下文溢出分流——重试解决临时故障，compaction 解决结构性容量问题，绝不混为一谈。</li>
+<li><strong>为流式而生的 UI 引擎</strong>：16ms 合并渲染、差分 patch、保留视口、按块缓存 Markdown——这些不是炫技，而是&quot;每 token 渲染一次&quot;场景下的生存需求。</li>
+<li><strong>进程隔离是生命周期手段，不是安全手段</strong>：Worker/Kernel 独立进程用于故障隔离与恢复，但 README 反复警示它们与客户端同权限、不是沙箱。<strong>诚实标注安全边界</strong>，这个姿态值得所有 agent 项目学习。</li>
+</ol>
+<hr>
+<h2 id="七部署与运行说明">七、部署与运行说明</h2>
+<p>
+  <img src="/img/prime-agent-code-analysis/deployment-flow.svg" alt="安装部署流程">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：一键脚本下载 → SHA-256 校验 → npm 全局安装 → 内核自举 → 启动登录，以及后台会话管理能力。</p>
+</blockquote>
+<p>macOS / Linux 安装：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh
+</span></span></code></pre></div><p>安装器会下载版本化 tarball、校验 SHA-256、安装 <code>prime-agent</code> 命令，并准备 IPython 运行时。首次启动在目标目录运行 <code>prime-agent</code>，然后 <code>/login</code> 选择订阅或 API-key provider。常用运维命令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>prime-agent agents               <span style="color:#6272a4"># 浏览运行中/空闲/已保存的会话</span>
+</span></span><span style="display:flex;"><span>prime-agent attach &lt;agent&gt;       <span style="color:#6272a4"># 重新挂接运行中的会话</span>
+</span></span><span style="display:flex;"><span>prime-agent --resume &lt;path|id&gt;   <span style="color:#6272a4"># 恢复已保存会话</span>
+</span></span><span style="display:flex;"><span>prime-agent status               <span style="color:#6272a4"># 检查后台服务状态</span>
+</span></span><span style="display:flex;"><span>prime-agent doctor <span style="color:#ff79c6">[</span>--fix<span style="color:#ff79c6">]</span>       <span style="color:#6272a4"># 检查或修复后台服务</span>
+</span></span><span style="display:flex;"><span>prime-agent shutdown <span style="color:#ff79c6">[</span>--force<span style="color:#ff79c6">]</span>   <span style="color:#6272a4"># 停止所有 agent/worker/后台服务</span>
+</span></span></code></pre></div><p>分发形态有两种：npm 包（含 tsx 开发模式与 esbuild 预构建 bundle），以及 <code>bun build --compile</code> 产出的<strong>单文件二进制</strong>（启动比 tsx 快约 3 倍）。从源码运行则是 <code>npm install &amp;&amp; ./prime-agent.sh</code>。</p>
+<p>从源码构建会执行 <code>npm run build</code>（按 <code>tui → ai → agent → coding-agent</code> 顺序），<code>coding-agent</code> 的 build 会把 Python 运行时、skills、TUI 主题资源一并拷贝进 <code>dist/</code>——<strong>一个包交付全部运行时</strong>。</p>
+<blockquote>
+<p><strong>安全提醒</strong>：Prime Agent 会用你的用户权限执行模型生成的 Python 和项目命令。请使用可检查/可恢复的克隆或工作区，只信任可信的仓库、指令与技能；不可信代码务必放进外部沙箱。</p>
+</blockquote>
+<hr>
+<h2 id="八总结">八、总结</h2>
+<p>Prime Agent 给我们的最大启发不是某个具体算法，而是一种<strong>工程气质</strong>：把&quot;智能体&quot;从&quot;会调 API 的循环&quot;提升为&quot;可编程、可持久、可自我改进的运行时&rdquo;。</p>
+<ul>
+<li><strong>可编程</strong>：一切皆程序，子代理是函数调用，上下文是变量。</li>
+<li><strong>可持久</strong>：JSONL transcript、harness 状态、快照回滚，让工作上下文活过窗口。</li>
+<li><strong>可自我改进</strong>：<code>/refine</code> 用证据支撑的小更新沉淀经验，不动不可变的基础 prompt。</li>
+</ul>
+<p>当然，它也有明确的取舍：进程隔离不等于安全沙箱，双语言栈带来运维复杂度，约 1.1 万行的 <code>agent-session.ts</code> 也是明显的&quot;上帝类&rdquo;。但瑕不掩瑜——对于一个把&quot;长任务、后台化、自改进&quot;当一等公民的 agent 来说，这套架构是一份极好的工程参考。</p>
+<p>如果你在构建自己的 agent，最值得带走的三个点：<strong>边界清晰的双语言分工、协议层的不可信输入防御、以及&quot;错误分类决定处理策略&quot;的决策框架。</strong></p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/08/09/gpt-5-6-prompting-best-practices/" data-toggle="tooltip" data-placement="top" title="GPT-5.6 提示词最佳实践解读：提示词不是越详细越好">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2026-08-11-pi-agent-harness%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Pi Agent Harness 源码深度技术解析：一个可自扩展编码 Agent 的架构全貌">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/loops" title="loops">
+                            loops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openai" title="openai">
+                            openai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1" title="产品设计">
+                            产品设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

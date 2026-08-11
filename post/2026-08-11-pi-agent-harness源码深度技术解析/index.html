@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Pi Agent Harness 源码深度技术解析：一个可自扩展编码 Agent 的架构全貌" />
+    <meta property="og:title" content="Pi Agent Harness 源码深度技术解析：一个可自扩展编码 Agent 的架构全貌" />
+    <meta property="twitter:title" content="Pi Agent Harness 源码深度技术解析：一个可自扩展编码 Agent 的架构全貌" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Pi Agent Harness 源码深度技术解析：一个可自扩展编码 Agent 的架构全貌 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-08-11-pi-agent-harness%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90" title="源码解析">
+                            源码解析
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/tui" title="TUI">
+                            TUI
+                        </a>
+                        
+                    </div>
+                    <h1>Pi Agent Harness 源码深度技术解析：一个可自扩展编码 Agent 的架构全貌</h1>
+                    <h2 class="subheading">从统一多厂商 LLM 抽象、Agent 运行时到差分渲染 TUI 与扩展生态的实现解剖</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Tuesday, August 11, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言为什么值得读-pi-的源码">一、引言：为什么值得读 Pi 的源码</h2>
+<p>Pi 是 <a href="https://github.com/earendil-works">earendil-works</a>（作者 Mario Zechner，即知名开源人 badlogic）出品的<strong>编码 Agent Harness</strong>——一个从零自研的交互式编程 Agent。与 Claude Code、Codex 等闭源工具不同，Pi 的核心是三个可独立复用、按 MIT 协议开源的 npm 包：</p>
+<ul>
+<li><strong><code>@earendil-works/pi-ai</code></strong>：统一多厂商 LLM API，内置 OpenAI、Anthropic、Google、Bedrock、DeepSeek 等 40+ Provider；</li>
+<li><strong><code>@earendil-works/pi-agent-core</code></strong>：与模型无关的 Agent 运行时，提供工具调用循环、状态管理与 transport 抽象；</li>
+<li><strong><code>@earendil-works/pi-coding-agent</code></strong>：交互式编码 Agent CLI（终端下运行 <code>pi</code>），自带 read / write / edit / bash 工具与完整的扩展系统。</li>
+</ul>
+<p>作为工程研究对象，Pi 的价值在于它把一条编码 Agent 的主链路<strong>全部摊开</strong>给你看：模型抽象怎么做、Agent 循环怎么写、终端 UI 怎么差分渲染、权限边界怎么处理。本文基于 <code>pi</code> 仓库（v0.84.1，源码位于 <code>/tmp/pi</code>）逐层拆解这些实现。</p>
+<h3 id="本文导读">本文导读</h3>
+<ul>
+<li><strong>先建立全局认知</strong>：引言用一张饼图看清代码库构成；第二节用&quot;架构总览 → 依赖 DAG → 各包体量柱状图&quot;三张图递进，把 9 个 npm 包的层次、依赖与规模讲透。</li>
+<li><strong>再抓三条核心链路</strong>：第三节拆 <code>pi-ai</code> 的 Provider 适配器与流式解析；第四节拆 <code>pi-agent-core</code> 的工具调用循环；第五、六节拆 <code>pi-coding-agent</code> 的内置工具、扩展系统与 <code>pi-tui</code> 的差分渲染。</li>
+<li><strong>最后看工程落地</strong>：第七节看 CBOR 协议栈，第八节给出部署与使用方式，第九节用一张表总结全仓的 6 个设计模式亮点。</li>
+</ul>
+<h3 id="项目概貌">项目概貌</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>数据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>语言 / 构建</strong></td>
+<td>TypeScript（tsgo native-preview 编译），npm workspaces 单仓，统一版本号 0.84.1</td>
+</tr>
+<tr>
+<td><strong>运行时</strong></td>
+<td>Node.js ≥ 22.19；standalone 二进制由 Bun <code>build --compile</code> 产出</td>
+</tr>
+<tr>
+<td><strong>模型抽象</strong></td>
+<td>40+ Provider 适配器（OpenAI / Anthropic / Google / Bedrock / DeepSeek …），统一流式接口</td>
+</tr>
+<tr>
+<td><strong>流式解析</strong></td>
+<td>partial-json 增量解析，边收 token 边还原 tool call 参数</td>
+</tr>
+<tr>
+<td><strong>Agent 运行时</strong></td>
+<td>双层工具调用循环（<code>agent-loop.ts</code>），事件流驱动，transport 中立</td>
+</tr>
+<tr>
+<td><strong>终端 UI</strong></td>
+<td>自研差分渲染 TUI 库（含 Darwin / Win32 原生模块）</td>
+</tr>
+<tr>
+<td><strong>进程协议</strong></td>
+<td>CBOR 编码 + 4 字节长度前缀帧（单帧上限 16MB）+ TypeBox schema</td>
+</tr>
+<tr>
+<td><strong>会话持久化</strong></td>
+<td><code>node:sqlite</code> 后端 + JSONL 传输格式</td>
+</tr>
+<tr>
+<td><strong>遥测</strong></td>
+<td>厂商中立遥测契约（兼容 OpenTelemetry 风格 span schema）</td>
+</tr>
+<tr>
+<td><strong>权限模型</strong></td>
+<td>默认以启动用户权限运行；沙箱化可选（Gondolin / Docker / OpenShell）</td>
+</tr>
+<tr>
+<td><strong>授权</strong></td>
+<td>MIT</td>
+</tr>
+</tbody>
+</table>
+<p>从 1388 个文件的构成看，这是一个彻底的&quot;纯 TypeScript 工程&quot;——代码、测试、脚本全部用 TS 编写，文档与配置只占很小比例：</p>
+<p>
+  <img src="/img/pi-agent-harness/codebase-composition.svg" alt="代码库文件构成">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：环形图中心是文件总数，外部按扩展名分层展示占比——TypeScript（含源码与测试）占 80.8%，Markdown 文档 7.1%，JSON 配置 3.4%，构建脚本（.mjs）2.0%，其余为 yml / shell / 原生模块（.c / .node）等。</p>
+</blockquote>
+<hr>
+<h2 id="二整体架构monorepo-五层包依赖">二、整体架构：Monorepo 五层包依赖</h2>
+<p>如果你只想先建立心智模型，先看下面这张总览图。</p>
+<p>
+  <img src="/img/pi-agent-harness/architecture-overview.svg" alt="Pi Agent Harness 整体架构">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：自底向上共五层——基础层（telemetry / tui / protocol）不依赖任何内部包；模型抽象层 <code>pi-ai</code> 负责把异构厂商 API 收敛成统一接口；<code>pi-agent-core</code> 在其上实现与模型无关的 Agent 运行时；协议、客户端、服务端与会话后端构成中间支撑；最顶端是 <code>pi-coding-agent</code> 这个&quot;应用层&quot;。</p>
+</blockquote>
+<h3 id="21-包依赖-dag">2.1 包依赖 DAG</h3>
+<p>根目录 <code>package.json</code> 的 <code>build</code> 脚本按依赖顺序构建各包，这本身就是一张可信的依赖图：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>tui → telemetry → ai → agent → sqlite-node → protocol → client → server → coding-agent
+</span></span></code></pre></div><p>完整依赖关系（内部包之间）：</p>
+<table>
+<thead>
+<tr>
+<th>包</th>
+<th>npm 名称</th>
+<th>依赖的内部包</th>
+<th>核心职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>packages/telemetry</code></td>
+<td><code>@earendil-works/pi-telemetry</code></td>
+<td>无</td>
+<td>厂商中立遥测契约、类型化 span schema、参考适配器、一致性测试</td>
+</tr>
+<tr>
+<td><code>packages/tui</code></td>
+<td><code>@earendil-works/pi-tui</code></td>
+<td>无</td>
+<td>差分渲染终端 UI 库（<code>marked</code> 渲染、原生模块）</td>
+</tr>
+<tr>
+<td><code>packages/protocol</code></td>
+<td><code>@earendil-works/pi-protocol</code></td>
+<td>无</td>
+<td>CBOR 编解码 + 帧封装 + TypeBox schema</td>
+</tr>
+<tr>
+<td><code>packages/ai</code></td>
+<td><code>@earendil-works/pi-ai</code></td>
+<td>telemetry</td>
+<td>统一多厂商 LLM API、模型发现、OAuth、Provider 适配器</td>
+</tr>
+<tr>
+<td><code>packages/agent</code></td>
+<td><code>@earendil-works/pi-agent-core</code></td>
+<td>ai, telemetry</td>
+<td>Agent 运行时、工具调用循环、状态管理、transport 抽象</td>
+</tr>
+<tr>
+<td><code>packages/client</code></td>
+<td><code>@earendil-works/pi-client</code></td>
+<td>protocol</td>
+<td>远端会话的传输中立客户端</td>
+</tr>
+<tr>
+<td><code>packages/server</code></td>
+<td><code>@earendil-works/pi-server</code></td>
+<td>ai, protocol</td>
+<td>远端会话服务端（实验性）</td>
+</tr>
+<tr>
+<td><code>packages/session-backends/sqlite-node</code></td>
+<td><code>@earendil-works/pi-session-backend-sqlite-node</code></td>
+<td>ai, agent-core</td>
+<td>基于 <code>node:sqlite</code> 的会话持久化</td>
+</tr>
+<tr>
+<td><code>packages/coding-agent</code></td>
+<td><code>@earendil-works/pi-coding-agent</code></td>
+<td>agent-core, ai, client, protocol, tui</td>
+<td>CLI / TUI 入口、内置工具、会话管理、扩展系统</td>
+</tr>
+</tbody>
+</table>
+<p>把表格画成 DAG，依赖关系一眼可见：</p>
+<p>
+  <img src="/img/pi-agent-harness/package-dependency-dag.svg" alt="包依赖 DAG">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：四层结构自上而下单向依赖，箭头指向&quot;被依赖方&quot;——基础层（telemetry / protocol / tui）是唯一的依赖源；<code>coding-agent</code> 依赖 5 个包，成为入度最大的汇聚点，但没有任意一层向下依赖形成环。</p>
+</blockquote>
+<p>依赖方向非常克制：<strong>所有包只依赖&quot;下方的&quot;包</strong>，没有任何循环依赖。这种分层带来的直接好处是——想单独研究模型层，跑 <code>npm --prefix packages/ai test</code> 即可，不牵扯任何 Agent 逻辑。</p>
+<h3 id="22-供应链工程化">2.2 供应链工程化</h3>
+<p>仓库把&quot;依赖即代码&quot;贯彻得很彻底：直接外部依赖全部锁定精确版本、<code>.npmrc</code> 开启 <code>save-exact</code>、<code>package-lock.json</code> 作为依赖唯一事实来源、发布包自带 <code>npm-shrinkwrap.json</code> 锁死传递依赖。这些细节说明 Pi 的目标不只是&quot;能跑的 Agent&quot;，而是&quot;可以嵌入别人工程、可以发布给全球 npm 用户的 Agent 基础设施&quot;。</p>
+<h3 id="23-各包体量">2.3 各包体量</h3>
+<p>依赖分层之外，各包的源码规模揭示了工程重心：</p>
+<p>
+  <img src="/img/pi-agent-harness/package-size-bar.svg" alt="各包 TypeScript 源码规模">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：横向条形图按 <code>src/</code> 下 <code>.ts</code> 文件数排列——<code>coding-agent</code>（199）与 <code>ai</code>（174）两个包合计占全仓源码的 ~80%，是体量绝对重心；<code>agent</code>（49）运行时核心反而精简；协议、客户端、遥测都是十几个文件的小而美模块。体量分布与&quot;分层克制&quot;的设计互为印证：<strong>重资产集中在模型抽象与工具生态，运行时与基础层刻意保持轻量</strong>。</p>
+</blockquote>
+<hr>
+<h2 id="三pi-ai统一多厂商-llm-抽象层">三、pi-ai：统一多厂商 LLM 抽象层</h2>
+<p><code>pi-ai</code> 是全仓库最核心的抽象层，只做一件事：<strong>把 40+ 厂商千奇百怪的 API 差异，收敛成一个统一的流式接口</strong>。它刻意保持 <code>src/index.ts</code> 无副作用——核心类型只导出，Provider 工厂与 API 实现通过子路径按需加载（<code>@earendil-works/pi-ai/providers/*</code>、<code>/api/*</code>）。</p>
+<h3 id="31-核心类型体系">3.1 核心类型体系</h3>
+<ul>
+<li><strong><code>Api</code></strong>（<code>src/types.ts</code>）：已知协议集合，如 <code>&quot;openai-completions&quot; | &quot;mistral-conversations&quot; | &quot;openai-responses&quot; | ... | &quot;pi-messages&quot;</code>；</li>
+<li><strong><code>ProviderId</code></strong>：40+ 已知 Provider（<code>anthropic</code>、<code>openai</code>、<code>google</code>、<code>github-copilot</code>、<code>deepseek</code>、<code>xai</code>、<code>moonshotai</code>、<code>qwen-*</code>、<code>xiaomi-*</code> …）；</li>
+<li><strong><code>Model&lt;TApi&gt;</code></strong>：<code>id / name / api / provider / baseUrl / reasoning / input / cost / contextWindow / maxTokens / compat</code>。其中 <strong><code>compat</code> 是差异化配置的关键</strong>——它按 API 类型条件携带兼容性开关（如 <code>supportsDeveloperRole</code>、<code>supportsReasoningEffort</code>、<code>supportsEagerToolInputStreaming</code>），让同一模型在不同 API 协议下启用不同的能力位；</li>
+<li><strong>统一消息模型</strong>：<code>UserMessage</code> / <code>AssistantMessage</code>（内容为 <code>TextContent | ThinkingContent | ToolCall</code> 的数组）/ <code>ToolResultMessage</code>，统一 <code>StopReason</code>（<code>stop | length | toolUse | error | aborted | deferred</code>）与 <code>Usage</code>（含成本拆分）。</li>
+</ul>
+<h3 id="32-provider-适配器模式">3.2 Provider 适配器模式</h3>
+<p>这是全项目最值得抄的设计：<strong>每个厂商就是一个可插拔的运行时单元</strong>。<code>Provider</code> 接口（<code>src/models.ts</code> L97-149）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">interface</span> Provider&lt;<span style="color:#ff79c6">TApi</span> <span style="color:#50fa7b">extends</span> <span style="color:#50fa7b">Api </span><span style="color:#ff79c6">=</span> <span style="color:#50fa7b">Api</span>&gt; {
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">readonly</span> id: <span style="color:#8be9fd">string</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">readonly</span> name: <span style="color:#8be9fd">string</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">readonly</span> baseUrl?: <span style="color:#8be9fd">string</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">readonly</span> headers?: <span style="color:#8be9fd">ProviderHeaders</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">readonly</span> auth: <span style="color:#8be9fd">ProviderAuth</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">/** 当前已知模型列表（静态目录或最近一次 refresh 的结果） */</span>
+</span></span><span style="display:flex;"><span>	getModels()<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">readonly</span> Model&lt;<span style="color:#ff79c6">TApi</span>&gt;[];
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">/** 动态 Provider：刷新远端模型目录 */</span>
+</span></span><span style="display:flex;"><span>	refreshModels<span style="color:#ff79c6">?</span>(context: <span style="color:#8be9fd">RefreshModelsContext</span>)<span style="color:#ff79c6">:</span> Promise&lt;<span style="color:#ff79c6">void</span>&gt;;
+</span></span><span style="display:flex;"><span>	filterModels<span style="color:#ff79c6">?</span>(models: <span style="color:#8be9fd">readonly</span> Model&lt;<span style="color:#ff79c6">TApi</span>&gt;[], credential: <span style="color:#8be9fd">Credential</span> <span style="color:#ff79c6">|</span> <span style="color:#ff79c6">undefined</span>)<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">readonly</span> Model&lt;<span style="color:#ff79c6">TApi</span>&gt;[];
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">/** 流式主接口：模型 + 统一 Context → 事件流 */</span>
+</span></span><span style="display:flex;"><span>	stream&lt;<span style="color:#ff79c6">T</span> <span style="color:#50fa7b">extends</span> <span style="color:#50fa7b">TApi</span>&gt;(model, context, options<span style="color:#ff79c6">?</span>)<span style="color:#ff79c6">:</span> AssistantMessageEventStream;
+</span></span><span style="display:flex;"><span>	streamSimple(model, context, options<span style="color:#ff79c6">?</span>)<span style="color:#ff79c6">:</span> AssistantMessageEventStream;
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// fetchDeferred / cancelDeferred：延迟响应的可选能力
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p>而 <code>createProvider()</code>（<code>src/models.ts</code> L739-792）是一个<strong>把&quot;静态模型目录 + 动态模型拉取 + API 实现&quot;拼装成一个 Provider</strong> 的工厂：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> createProvider&lt;<span style="color:#ff79c6">TApi</span> <span style="color:#50fa7b">extends</span> <span style="color:#50fa7b">Api </span><span style="color:#ff79c6">=</span> <span style="color:#50fa7b">Api</span>&gt;(input: <span style="color:#8be9fd">CreateProviderOptions</span>&lt;<span style="color:#ff79c6">TApi</span>&gt;)<span style="color:#ff79c6">:</span> Provider&lt;<span style="color:#ff79c6">TApi</span>&gt; {
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">const</span> baselineModels <span style="color:#ff79c6">=</span> input.models;
+</span></span><span style="display:flex;"><span>	<span style="color:#8be9fd;font-style:italic">let</span> dynamicModels: <span style="color:#8be9fd">readonly</span> Model&lt;<span style="color:#ff79c6">TApi</span>&gt;[] <span style="color:#ff79c6">=</span> [];
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">const</span> fetchModels <span style="color:#ff79c6">=</span> input.fetchModels;
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">const</span> currentModels <span style="color:#ff79c6">=</span> ()<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">readonly</span> Model&lt;<span style="color:#ff79c6">TApi</span>&gt;[] <span style="color:#ff79c6">=&gt;</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">const</span> merged <span style="color:#ff79c6">=</span> [...baselineModels];
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> model <span style="color:#ff79c6">of</span> dynamicModels) {
+</span></span><span style="display:flex;"><span>			<span style="color:#ff79c6">const</span> index <span style="color:#ff79c6">=</span> merged.findIndex((entry) <span style="color:#ff79c6">=&gt;</span> entry.id <span style="color:#ff79c6">===</span> model.id);
+</span></span><span style="display:flex;"><span>			<span style="color:#ff79c6">if</span> (index <span style="color:#ff79c6">&gt;=</span> <span style="color:#bd93f9">0</span>) merged[index] <span style="color:#ff79c6">=</span> model;
+</span></span><span style="display:flex;"><span>			<span style="color:#ff79c6">else</span> merged.push(model);
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">return</span> merged;
+</span></span><span style="display:flex;"><span>	};
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// 单个实现，或按 model.api 分派的 map（混合 API 的 Provider）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>	<span style="color:#ff79c6">const</span> single <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">typeof</span> (input.api <span style="color:#ff79c6">as</span> ProviderStreams).stream <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#34;function&#34;</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">?</span> (input.api <span style="color:#ff79c6">as</span> ProviderStreams) <span style="color:#ff79c6">:</span> <span style="color:#ff79c6">undefined</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">const</span> byApi <span style="color:#ff79c6">=</span> single <span style="color:#ff79c6">?</span> <span style="color:#ff79c6">undefined</span> <span style="color:#ff79c6">:</span> (input.api <span style="color:#ff79c6">as</span> Partial&lt;<span style="color:#ff79c6">Record</span>&lt;<span style="color:#50fa7b">string</span>, <span style="color:#50fa7b">ProviderStreams</span>&gt;<span style="color:#ff79c6">&gt;</span>);
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">const</span> apiFor <span style="color:#ff79c6">=</span> (model: <span style="color:#8be9fd">Model</span>&lt;<span style="color:#ff79c6">Api</span>&gt;)<span style="color:#ff79c6">:</span> ProviderStreams <span style="color:#ff79c6">|</span> <span style="color:#ff79c6">undefined</span> <span style="color:#ff79c6">=&gt;</span> single <span style="color:#ff79c6">??</span> byApi<span style="color:#ff79c6">?</span>.[model.api];
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// ... 组装 provider 对象
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p>两个细节值得注意：</p>
+<ol>
+<li><strong>混合 API 分派</strong>：一个 Provider 的模型可以横跨多种协议（比如同时有 <code>openai-responses</code> 和 <code>openai-completions</code> 模型），<code>api</code> 传一个 map 即可按 <code>model.api</code> 自动分派到对应实现；</li>
+<li><strong>静态 + 动态叠加</strong>：<code>currentModels()</code> 把 <code>fetchModels()</code> 拉到的远端模型按 id 覆盖/追加到静态目录——订阅类 Provider（Copilot、Claude Pro）的模型列表会随账号状态变化。</li>
+</ol>
+<h3 id="33-流式响应与-partial-json-增量解析">3.3 流式响应与 partial-json 增量解析</h3>
+<p>编码 Agent 最麻烦的工程问题是：<strong>工具参数是 JSON，但它是逐 token 流过来的</strong>。Pi 的解法是给每个 <code>ToolCall</code> 挂一个 <code>partialJson</code> 的 scratch 缓冲，边收边解析。以 Anthropic 适配器为例（<code>src/api/anthropic-messages.ts</code> L654-660）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span>} <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span> (event.delta.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#34;input_json_delta&#34;</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">const</span> index <span style="color:#ff79c6">=</span> blocks.findIndex((b) <span style="color:#ff79c6">=&gt;</span> b.index <span style="color:#ff79c6">===</span> event.index);
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">const</span> block <span style="color:#ff79c6">=</span> blocks[index];
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">if</span> (block <span style="color:#ff79c6">&amp;&amp;</span> block.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#34;toolCall&#34;</span>) {
+</span></span><span style="display:flex;"><span>		block.partialJson <span style="color:#ff79c6">+=</span> event.delta.partial_json;            <span style="color:#6272a4">// 累积
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>		block.arguments <span style="color:#ff79c6">=</span> parseStreamingJson(block.partialJson);   <span style="color:#6272a4">// 增量解析
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>		stream.push({
+</span></span><span style="display:flex;"><span>			<span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;toolcall_delta&#34;</span>,
+</span></span><span style="display:flex;"><span>			contentIndex: <span style="color:#8be9fd">index</span>,
+</span></span><span style="display:flex;"><span>			delta: <span style="color:#8be9fd">event.delta.partial_json</span>,
+</span></span><span style="display:flex;"><span>			partial: <span style="color:#8be9fd">output</span>,
+</span></span><span style="display:flex;"><span>		});
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>
+  <img src="/img/pi-agent-harness/streaming-partial-json.svg" alt="流式 tool call 参数解析">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：左侧是 provider 事件流，中间是 <code>partialJson</code> 缓冲的逐步累积，右侧是 <code>arguments</code> 对象的增量更新——三个字段按行同步推进，<code>toolcall_end</code> 时删掉 scratch 缓冲，保证&quot;回放只携带已解析的参数&quot;。</p>
+</blockquote>
+<p>这套机制配合 <code>stopReason == &quot;length&quot;</code> 有一个精妙的兜底（详见第四节）：<strong>截断响应里的工具调用即使解析、校验都通过了，也可能是&quot;静默不完整&quot;的，必须整批判失败</strong>——宁可让模型重发，也不执行有残缺参数的 <code>bash</code>。</p>
+<h3 id="34-模型发现与认证">3.4 模型发现与认证</h3>
+<p><code>Models</code> 集合（<code>src/models.ts</code> L156+）负责把 Provider 串起来：<code>getAvailable()</code> 只返回&quot;认证已配齐&quot;的模型；<code>getAuth()</code> 负责解析 API Key 或触发 OAuth 刷新；<code>login()</code> 驱动交互式登录并把凭据持久化到本机。环境变量（如 <code>ANTHROPIC_API_KEY</code>）、<code>auth.json</code>、订阅登录（Claude Pro / ChatGPT Plus / Copilot）三套认证通道在此归一。</p>
+<hr>
+<h2 id="四pi-agent-coreagent-运行时与工具调用循环">四、pi-agent-core：Agent 运行时与工具调用循环</h2>
+<p><code>packages/agent</code> 是全仓库的&quot;发动机&quot;。值得先澄清一点：<code>src/harness/agent-harness.ts</code> 里的 <code>AgentHarness</code> 类其实是<strong>接口占位</strong>（<code>prompt</code>/<code>steer</code>/<code>compact</code> 全部抛 <code>HarnessNotImplemented</code>），真正的循环在包根目录的<strong>两个文件</strong>里：</p>
+<ul>
+<li><code>agent-loop.ts</code>：底层<strong>无状态</strong> agent loop（纯函数式，输入 context + config，输出事件流）；</li>
+<li><code>agent.ts</code>：<strong>有状态</strong>的 <code>Agent</code> 封装（持有 transcript、事件订阅、生命周期）。</li>
+</ul>
+<h3 id="41-双层工具调用循环">4.1 双层工具调用循环</h3>
+<p>核心在 <code>agent-loop.ts</code> 的 <code>runLoop()</code>（L155-275）。它是<strong>双层 while 循环</strong>——内层处理工具调用与中途插入的 steering 消息，外层承接 follow-up 消息：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> runLoop(initialContext, newMessages, initialConfig, signal, emit, streamFunction) {
+</span></span><span style="display:flex;"><span>	<span style="color:#8be9fd;font-style:italic">let</span> currentContext <span style="color:#ff79c6">=</span> initialContext;
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// 开局检查用户是否在等待期间输入了 steering 消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>	<span style="color:#8be9fd;font-style:italic">let</span> pendingMessages <span style="color:#ff79c6">=</span> (<span style="color:#ff79c6">await</span> config.getSteeringMessages<span style="color:#ff79c6">?</span>.()) <span style="color:#ff79c6">||</span> [];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// 外层：follow-up 队列可让 agent 在&#34;本该停止&#34;后继续
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>	<span style="color:#ff79c6">while</span> (<span style="color:#ff79c6">true</span>) {
+</span></span><span style="display:flex;"><span>		<span style="color:#8be9fd;font-style:italic">let</span> hasMoreToolCalls <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">true</span>;
+</span></span><span style="display:flex;"><span>		<span style="color:#6272a4">// 内层：处理 tool call 与 steering 消息
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>		<span style="color:#ff79c6">while</span> (hasMoreToolCalls <span style="color:#ff79c6">||</span> pendingMessages.length <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>			<span style="color:#6272a4">// 1. 把 pending（steering）消息注入 context
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>			<span style="color:#ff79c6">if</span> (pendingMessages.length <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>				<span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> message <span style="color:#ff79c6">of</span> pendingMessages) {
+</span></span><span style="display:flex;"><span>					currentContext.messages.push(message);
+</span></span><span style="display:flex;"><span>					newMessages.push(message);
+</span></span><span style="display:flex;"><span>				}
+</span></span><span style="display:flex;"><span>				pendingMessages <span style="color:#ff79c6">=</span> [];
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>			<span style="color:#6272a4">// 2. 调用 LLM（AgentMessage[] → Message[] 的转换边界）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>			<span style="color:#ff79c6">const</span> message <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> streamAssistantResponse(currentContext, config, signal, emit, streamFunction);
+</span></span><span style="display:flex;"><span>			newMessages.push(message);
+</span></span><span style="display:flex;"><span>			<span style="color:#ff79c6">if</span> (message.stopReason <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#34;error&#34;</span> <span style="color:#ff79c6">||</span> message.stopReason <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#34;aborted&#34;</span>) { <span style="color:#6272a4">/* 终止 */</span> }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>			<span style="color:#6272a4">// 3. 解析 tool call 并执行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>			<span style="color:#ff79c6">const</span> toolCalls <span style="color:#ff79c6">=</span> message.content.filter((c) <span style="color:#ff79c6">=&gt;</span> c.<span style="color:#ff79c6">type</span> <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#34;toolCall&#34;</span>);
+</span></span><span style="display:flex;"><span>			<span style="color:#ff79c6">if</span> (toolCalls.length <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>				<span style="color:#ff79c6">const</span> executedToolBatch <span style="color:#ff79c6">=</span>
+</span></span><span style="display:flex;"><span>					message.stopReason <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#34;length&#34;</span>
+</span></span><span style="display:flex;"><span>						<span style="color:#ff79c6">?</span> <span style="color:#ff79c6">await</span> failToolCallsFromTruncatedMessage(toolCalls, emit)  <span style="color:#6272a4">// 截断 → 全部判失败
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>						<span style="color:#ff79c6">:</span> <span style="color:#ff79c6">await</span> executeToolCalls(currentContext, message, config, signal, emit);
+</span></span><span style="display:flex;"><span>				hasMoreToolCalls <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">!</span>executedToolBatch.terminate;
+</span></span><span style="display:flex;"><span>				<span style="color:#6272a4">// 4. tool_result 回灌 context，供下一轮 LLM 调用读取
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>				<span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> result <span style="color:#ff79c6">of</span> executedToolBatch.messages) {
+</span></span><span style="display:flex;"><span>					currentContext.messages.push(result);
+</span></span><span style="display:flex;"><span>					newMessages.push(result);
+</span></span><span style="display:flex;"><span>				}
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>			<span style="color:#6272a4">// 5. 每轮结束询问：是否该停了？
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>			<span style="color:#ff79c6">if</span> (<span style="color:#ff79c6">await</span> config.shouldStopAfterTurn<span style="color:#ff79c6">?</span>.(...)) { <span style="color:#6272a4">/* agent_end */</span> }
+</span></span><span style="display:flex;"><span>			pendingMessages <span style="color:#ff79c6">=</span> (<span style="color:#ff79c6">await</span> config.getSteeringMessages<span style="color:#ff79c6">?</span>.()) <span style="color:#ff79c6">||</span> [];
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#6272a4">// 外层：agent 要停了，但还有 follow-up 排队？
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>		<span style="color:#ff79c6">const</span> followUpMessages <span style="color:#ff79c6">=</span> (<span style="color:#ff79c6">await</span> config.getFollowUpMessages<span style="color:#ff79c6">?</span>.()) <span style="color:#ff79c6">||</span> [];
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">if</span> (followUpMessages.length <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>			pendingMessages <span style="color:#ff79c6">=</span> followUpMessages;
+</span></span><span style="display:flex;"><span>			<span style="color:#ff79c6">continue</span>;
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">break</span>;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>
+  <img src="/img/pi-agent-harness/agent-loop.svg" alt="Agent 工具调用主循环">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：中间蓝色主节点是&quot;LLM 流式调用&quot;，四周六个步骤按 ① 注入 → ② 调用 → ③ 解析 → ④ 截断防御 → ⑤ 执行 → ⑥ 回灌 构成闭环；右侧红色虚线是异常退出路径，左侧紫色虚线是 follow-up 外层循环。</p>
+</blockquote>
+<p>把循环的<strong>控制流视角</strong>换成<strong>事件流视角</strong>，就是下面这张时间线——每个阶段都会发射对应事件，订阅方（TUI / 遥测 / 远端 RPC）据此实时刷新界面：</p>
+<p>
+  <img src="/img/pi-agent-harness/agent-event-timeline.svg" alt="Agent 事件流时间线">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：横轴是时间，9 个节点从 <code>agent_start</code> 走到 <code>agent_end</code>；下方四个阶段色带（准备 / 生成 / 执行 / 收尾）与节点颜色一一对应。注意第 4 节点 <code>assistant stream</code> 会发射 N 次 <code>message_update</code>——这正是 TUI 能&quot;打字机式&quot;刷新的直接原因。</p>
+</blockquote>
+<p>这个循环里有几个很见功力的设计决策：</p>
+<ol>
+<li><strong>steering 与 follow-up 是两个不同阶段</strong>：steering 是&quot;本回合进行中用户插话&quot;，立刻注入；follow-up 是&quot;agent 本该结束，但队列里还有新任务&quot;，由外层循环承接。这使得多轮交互可以&quot;无缝续命&quot;。</li>
+<li><strong><code>stopReason == &quot;length&quot;</code> 的截断防御</strong>：<code>failToolCallsFromTruncatedMessage</code>（L381-406）对每个工具调用直接回灌错误结果，要求模型重新发出完整参数：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">async</span> <span style="color:#8be9fd;font-style:italic">function</span> failToolCallsFromTruncatedMessage(toolCalls, emit) {
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">const</span> messages: <span style="color:#8be9fd">ToolResultMessage</span>[] <span style="color:#ff79c6">=</span> [];
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> toolCall <span style="color:#ff79c6">of</span> toolCalls) {
+</span></span><span style="display:flex;"><span>		<span style="color:#6272a4">// ...
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>		<span style="color:#ff79c6">const</span> finalized <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>			toolCall,
+</span></span><span style="display:flex;"><span>			result: <span style="color:#8be9fd">createErrorToolResult</span>(
+</span></span><span style="display:flex;"><span>				<span style="color:#f1fa8c">`Tool call &#34;</span><span style="color:#f1fa8c">${</span>toolCall.name<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">&#34; was not executed: the response hit the output token limit, `</span> <span style="color:#ff79c6">+</span>
+</span></span><span style="display:flex;"><span>				<span style="color:#f1fa8c">`so its arguments may be truncated. Re-issue the tool call with complete arguments.`</span>,
+</span></span><span style="display:flex;"><span>			),
+</span></span><span style="display:flex;"><span>			isError: <span style="color:#8be9fd">true</span>,
+</span></span><span style="display:flex;"><span>		};
+</span></span><span style="display:flex;"><span>		<span style="color:#6272a4">// 回灌一条 ToolResultMessage，模型看到后会自行纠正
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>		messages.push(createToolResultMessage(finalized));
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">return</span> { messages, terminate: <span style="color:#8be9fd">false</span> };
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><ol start="3">
+<li><strong>循环是事件流驱动的</strong>：整个 <code>runLoop</code> 不直接返回结果，而是通过 <code>emit</code> 逐个派发 <code>agent_start / turn_start / message_start / message_update / tool_execution_start / tool_execution_end / agent_end</code> 等事件。UI、日志、遥测、甚至远程 RPC 都可以订阅同一份事件流——这是&quot;运行时与展示彻底解耦&quot;的根基。</li>
+</ol>
+<h3 id="42-llm-调用边界streamassistantresponse">4.2 LLM 调用边界：streamAssistantResponse</h3>
+<p><code>streamAssistantResponse</code>（L281-372）是 Agent 消息模型与 LLM 消息模型之间唯一的转换点：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#6272a4">// AgentMessage[] → Message[]（可插入 transformContext 钩子做上下文压缩/改写）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> llmMessages <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> config.convertToLlm(messages);
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> llmContext: <span style="color:#8be9fd">Context</span> <span style="color:#ff79c6">=</span> { systemPrompt, messages: <span style="color:#8be9fd">llmMessages</span>, tools };
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 动态解析 API Key（重要：支持过期 token 刷新）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> resolvedApiKey <span style="color:#ff79c6">=</span>
+</span></span><span style="display:flex;"><span>	(config.getApiKey <span style="color:#ff79c6">?</span> <span style="color:#ff79c6">await</span> config.getApiKey(config.model.provider) <span style="color:#ff79c6">:</span> <span style="color:#ff79c6">undefined</span>) <span style="color:#ff79c6">||</span> config.apiKey;
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> response <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> streamFunction(config.model, llmContext, { ...config, apiKey: <span style="color:#8be9fd">resolvedApiKey</span>, signal });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">let</span> partialMessage: <span style="color:#8be9fd">AssistantMessage</span> <span style="color:#ff79c6">|</span> <span style="color:#ff79c6">null</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">null</span>;
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">for</span> <span style="color:#ff79c6">await</span> (<span style="color:#ff79c6">const</span> event <span style="color:#ff79c6">of</span> response) {
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">switch</span> (event.<span style="color:#ff79c6">type</span>) {
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#34;start&#34;</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>			partialMessage <span style="color:#ff79c6">=</span> event.partial;
+</span></span><span style="display:flex;"><span>			context.messages.push(partialMessage);   <span style="color:#6272a4">// 先把&#34;空&#34;assistant 消息占位
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>			<span style="color:#ff79c6">break</span>;
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#34;text_delta&#34;</span><span style="color:#ff79c6">:</span> <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#34;thinking_delta&#34;</span><span style="color:#ff79c6">:</span> <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#34;toolcall_delta&#34;</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>			<span style="color:#6272a4">// 每次 delta 就地更新最后一条消息并 emit message_update
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>			<span style="color:#ff79c6">break</span>;
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#34;done&#34;</span><span style="color:#ff79c6">:</span> <span style="color:#ff79c6">case</span> <span style="color:#f1fa8c">&#34;error&#34;</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>			<span style="color:#6272a4">// 拿到最终消息，替换占位，emit message_end
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>			<span style="color:#ff79c6">break</span>;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>流式事件被逐条转发为 <code>message_start / message_update</code>，TUI 因此能&quot;打字机式&quot;渲染思考与正文；<code>transformContext</code> 钩子则留给上层做上下文压缩（compaction）——Pi 的 <code>packages/agent/src/harness/compaction/</code> 里就实现了完整的压缩策略。</p>
+<h3 id="43-工具执行顺序--并行--钩子">4.3 工具执行：顺序 / 并行 / 钩子</h3>
+<p><code>executeToolCalls</code>（L411-426）决定执行策略：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> hasSequentialToolCall <span style="color:#ff79c6">=</span> toolCalls.some(
+</span></span><span style="display:flex;"><span>	(tc) <span style="color:#ff79c6">=&gt;</span> currentContext.tools<span style="color:#ff79c6">?</span>.find((t) <span style="color:#ff79c6">=&gt;</span> t.name <span style="color:#ff79c6">===</span> tc.name)<span style="color:#ff79c6">?</span>.executionMode <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#34;sequential&#34;</span>,
+</span></span><span style="display:flex;"><span>);
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> (config.toolExecution <span style="color:#ff79c6">===</span> <span style="color:#f1fa8c">&#34;sequential&#34;</span> <span style="color:#ff79c6">||</span> hasSequentialToolCall) {
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">return</span> executeToolCallsSequential(...);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">return</span> executeToolCallsParallel(...);
+</span></span></code></pre></div><ul>
+<li><strong>并行是默认</strong>：多个 tool call 用 <code>Promise.all</code> 并发执行，但<strong>结果仍按原始顺序回灌</strong>（先 <code>finalizedCalls</code> 收集、最后统一 <code>createToolResultMessage</code>）；</li>
+<li><strong>单工具可声明 <code>executionMode: &quot;sequential&quot;</code></strong>：比如 <code>write</code> 多个文件时希望严格按序落盘；</li>
+<li><strong>整批可终止</strong>：当 <code>result.terminate === true</code> 时 <code>shouldTerminateToolBatch</code> 返回 true，循环结束——工具可以主动宣告&quot;我完成了，不用继续&quot;。</li>
+</ul>
+<p>每个工具调用还包裹了 <code>beforeToolCall</code> / <code>afterToolCall</code> 钩子（<code>prepareToolCall</code> L600-668、<code>finalizeExecutedToolCall</code> L713-758）：前者可<strong>拦截</strong>（返回 <code>{ block: true, reason }</code> 即拒绝执行）、后者可<strong>改写结果</strong>（补 usage、追加内容）。权限系统、输出护栏（<code>output-guard.ts</code>）都挂在这两个钩子上。</p>
+<hr>
+<h2 id="五pi-coding-agent编码-agent-cli">五、pi-coding-agent：编码 Agent CLI</h2>
+<p><code>pi-coding-agent</code> 是顶层应用，把 <code>pi-ai</code> + <code>pi-agent-core</code> + <code>pi-tui</code> 组装成可用的产品。它的 <code>src/core/</code> 下有 70+ 个文件，这里挑最有代表性的三块讲。</p>
+<h3 id="51-内置工具与-edit-的-diff-匹配算法">5.1 内置工具与 edit 的 diff 匹配算法</h3>
+<p>默认给模型四个工具：<code>read</code>（读文件）、<code>write</code>（写文件）、<code>edit</code>（精确替换）、<code>bash</code>（执行命令），外加 <code>grep / find / ls</code> 等只读工具（<code>src/core/tools/</code>）。</p>
+<p><code>edit</code> 工具的设计很值得展开。它要求模型给出 <code>path + edits[]</code>，每个 edit 是 <code>oldText / newText</code> 精确替换（<code>src/core/tools/edit.ts</code> L33-53）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> replaceEditSchema <span style="color:#ff79c6">=</span> Type.<span style="color:#8be9fd;font-style:italic">Object</span>({
+</span></span><span style="display:flex;"><span>	oldText: <span style="color:#8be9fd">Type.String</span>({
+</span></span><span style="display:flex;"><span>		description<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;Exact text for one targeted replacement. It must be unique in the original file &#34;</span>
+</span></span><span style="display:flex;"><span>			<span style="color:#ff79c6">+</span> <span style="color:#f1fa8c">&#34;and must not overlap with any other edits[].oldText in the same call.&#34;</span>,
+</span></span><span style="display:flex;"><span>	}),
+</span></span><span style="display:flex;"><span>	newText: <span style="color:#8be9fd">Type.String</span>({ description<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;Replacement text for this targeted edit.&#34;</span> }),
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> editSchema <span style="color:#ff79c6">=</span> Type.<span style="color:#8be9fd;font-style:italic">Object</span>({
+</span></span><span style="display:flex;"><span>	path: <span style="color:#8be9fd">Type.String</span>({ description<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;Path to the file to edit (relative or absolute)&#34;</span> }),
+</span></span><span style="display:flex;"><span>	edits: <span style="color:#8be9fd">Type.Array</span>(replaceEditSchema, {
+</span></span><span style="display:flex;"><span>		description<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;One or more targeted replacements. Each edit is matched against the original file, &#34;</span>
+</span></span><span style="display:flex;"><span>			<span style="color:#ff79c6">+</span> <span style="color:#f1fa8c">&#34;not incrementally. ...&#34;</span>,
+</span></span><span style="display:flex;"><span>	}),
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><p>配套的 <code>edit-diff.ts</code> 实现了一套<strong>模糊匹配归一化</strong>，让&quot;模型写的 oldText 和磁盘上实际内容&quot;即使有标点/引号/空白差异也能对上（L33-54）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> normalizeForFuzzyMatch(text: <span style="color:#8be9fd">string</span>)<span style="color:#ff79c6">:</span> <span style="color:#8be9fd">string</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">return</span> (
+</span></span><span style="display:flex;"><span>		text
+</span></span><span style="display:flex;"><span>			.normalize(<span style="color:#f1fa8c">&#34;NFKC&#34;</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#6272a4">// 每行去掉行尾空白
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>			.split(<span style="color:#f1fa8c">&#34;\n&#34;</span>).map((line) <span style="color:#ff79c6">=&gt;</span> line.trimEnd()).join(<span style="color:#f1fa8c">&#34;\n&#34;</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#6272a4">// 弯引号 → 直引号
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>			.replace(<span style="color:#f1fa8c">/[\u2018\u2019\u201A\u201B]/g</span>, <span style="color:#f1fa8c">&#34;&#39;&#34;</span>)
+</span></span><span style="display:flex;"><span>			.replace(<span style="color:#f1fa8c">/[\u201C\u201D\u201E\u201F]/g</span>, <span style="color:#f1fa8c">&#39;&#34;&#39;</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#6272a4">// 各种连字符 → 半角减号
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>			.replace(<span style="color:#f1fa8c">/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g</span>, <span style="color:#f1fa8c">&#34;-&#34;</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#6272a4">// 各种特殊空格 → 普通空格
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>			.replace(<span style="color:#f1fa8c">/[\u00A0\u2002-\u200A\u202F\u205F\u3000]/g</span>, <span style="color:#f1fa8c">&#34; &#34;</span>)
+</span></span><span style="display:flex;"><span>	);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>再配合&quot;行级 span 定位 + 按变更范围回写原始行&quot;的策略，<code>edit</code> 能精确到&quot;这次改动影响第几行到第几行&quot;，为 TUI 的 diff 预览、IDE 跳转（<code>firstChangedLine</code>）提供数据。</p>
+<h3 id="52-会话管理">5.2 会话管理</h3>
+<p><code>src/core/session-manager.ts</code> + <code>packages/agent/src/harness/session/</code> 构成了会话体系：</p>
+<ul>
+<li><strong>传输格式为 JSONL</strong>（<code>jsonl.ts</code>），每行一条消息事件，天然可追加、可断点续传；</li>
+<li><strong>多会话并存</strong>：<code>~/.pi/agent/</code> 下按项目组织会话文件，<code>pi</code> 启动时可 <code>session-picker</code> 选择历史会话继续；</li>
+<li><strong>持久化后端可插拔</strong>：默认 <code>node:sqlite</code>（<code>packages/session-backends/sqlite-node/</code>，附 <code>.sql</code> schema），<code>memory</code> 后端用于测试，<code>search.ts</code> 提供会话内全文检索；</li>
+<li><strong>compaction 钩子</strong>：上下文超限时按 <code>compaction.md</code> 的策略压缩历史（摘要化 + 截断），把&quot;无限对话&quot;变成可行。</li>
+</ul>
+<h3 id="53-扩展系统pi-的灵魂">5.3 扩展系统：Pi 的灵魂</h3>
+<p><code>examples/extensions/</code> 下躺着 60+ 个示例扩展（自动提交、权限门禁、Git 检查点、甚至终端小游戏 <code>space-invaders.ts</code>）。一个最小自定义工具只有十几行（<code>examples/extensions/hello.ts</code>）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">import</span> { Type } <span style="color:#ff79c6">from</span> <span style="color:#f1fa8c">&#34;@earendil-works/pi-ai&#34;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">import</span> { defineTool, <span style="color:#ff79c6">type</span> ExtensionAPI } <span style="color:#ff79c6">from</span> <span style="color:#f1fa8c">&#34;@earendil-works/pi-coding-agent&#34;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> helloTool <span style="color:#ff79c6">=</span> defineTool({
+</span></span><span style="display:flex;"><span>	name<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;hello&#34;</span>,
+</span></span><span style="display:flex;"><span>	label<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;Hello&#34;</span>,
+</span></span><span style="display:flex;"><span>	description<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;A simple greeting tool&#34;</span>,
+</span></span><span style="display:flex;"><span>	parameters: <span style="color:#8be9fd">Type.Object</span>({
+</span></span><span style="display:flex;"><span>		name: <span style="color:#8be9fd">Type.String</span>({ description<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;Name to greet&#34;</span> }),
+</span></span><span style="display:flex;"><span>	}),
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">async</span> execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">return</span> {
+</span></span><span style="display:flex;"><span>			content<span style="color:#ff79c6">:</span> [{ <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#34;text&#34;</span>, text<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">`Hello, </span><span style="color:#f1fa8c">${</span>params.name<span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">!`</span> }],
+</span></span><span style="display:flex;"><span>			details<span style="color:#ff79c6">:</span> { greeted: <span style="color:#8be9fd">params.name</span> },
+</span></span><span style="display:flex;"><span>		};
+</span></span><span style="display:flex;"><span>	},
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">default</span> <span style="color:#8be9fd;font-style:italic">function</span> (pi: <span style="color:#8be9fd">ExtensionAPI</span>) {
+</span></span><span style="display:flex;"><span>	pi.registerTool(helloTool);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>扩展系统（<code>src/core/extensions/</code>）的能力边界包括：注册工具（<code>registerTool</code>）、挂接事件总线（<code>event-bus.ts</code>）、拦截工具调用（<code>permission-gate.ts</code>、<code>tool-override.ts</code>）、自定义渲染器（<code>message-renderer.ts</code>）、注入系统提示（<code>system-prompt-header.ts</code>）等。<strong>理论上几乎整个 agent 的可见行为都可以被扩展改写</strong>——这正是 README 自述&quot;self extensible coding agent&quot;的含义。</p>
+<h3 id="54-权限与安全边界">5.4 权限与安全边界</h3>
+<p>Pi 的默认策略是<strong>不加内置权限系统</strong>：<code>README.md</code> 明确写了&quot;默认以启动它的用户权限运行&quot;。相应的安全诉求被转移到两个层面：</p>
+<ul>
+<li><strong>工程层</strong>：<code>project-trust.ts</code>（项目信任模型）、<code>output-guard.ts</code>（输出护栏）、<code>protected-paths.ts</code>（保护路径）等扩展提供可选防护；</li>
+<li><strong>部署层</strong>：需要强隔离时用沙箱（见第八节）。<code>containerization.md</code> 提供了三档选择，从&quot;仅工具进微 VM&quot;到&quot;整个进程进策略沙箱&quot;。</li>
+</ul>
+<p>这一决策值得借鉴：<strong>把安全默认值设为&quot;透明&quot;，把强隔离做成可插拔选项</strong>，而不是在核心运行时里硬编码一套可能阻碍高级用法的策略。</p>
+<hr>
+<h2 id="六pi-tui差分渲染终端-ui">六、pi-tui：差分渲染终端 UI</h2>
+<p><code>pi-tui</code> 是一个独立可复用的终端 UI 库（<code>marked</code> 负责 markdown 渲染，<code>native/</code> 下有 Darwin / Win32 的原生键盘与终端模块）。核心机制是<strong>差分渲染</strong>（<code>src/tui-main-screen.ts</code>）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#6272a4">// 差分渲染只能触及上次真正可见的区域。
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">// 如果首个变化行位于上次视口上方，只能全量重绘。
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">if</span> (firstChanged <span style="color:#ff79c6">&lt;</span> prevViewportTop) {
+</span></span><span style="display:flex;"><span>	fullRender(<span style="color:#ff79c6">true</span>);
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">return</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 从首个变化行渲染到末尾，整个更新包在&#34;同步输出&#34;中
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">let</span> buffer <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;\x1b[?2026h&#34;</span>; <span style="color:#6272a4">// Begin synchronized output
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>buffer <span style="color:#ff79c6">+=</span> <span style="color:#ff79c6">this</span>.deleteChangedKittyImages(firstChanged, lastChanged);
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// ... 对每个变化行：光标定位 + 清行 + 写入新内容
+</span></span></span></code></pre></div><p>
+  <img src="/img/pi-agent-harness/tui-diff-render.svg" alt="TUI 差分渲染">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：左右两个缓冲逐行比较，只有变化的行（本例第 4 行）被翻译成 ANSI 序列重写；其余行原样保留，整个更新包用 <code>\x1b[?2026h ... \x1b[?2026l</code>（同步输出）包住，防止终端撕裂。</p>
+</blockquote>
+<p>几个工程细节：</p>
+<ul>
+<li><strong>视口（viewport）追踪</strong>：滚动区域内的行号和硬件光标行号被分开维护，<code>computeLineDiff</code> 只计算&quot;目标行 - 当前屏幕行&quot;的最小光标位移；</li>
+<li><strong>全量重绘的触发条件被刻意收紧</strong>：终端宽度变化（换行重排）必须全量；高度变化在 Termux（软键盘弹出/收起）这类环境会跳过全量重绘，避免每次弹键盘都重放整段历史；</li>
+<li><strong>Kitty 图像协议</strong>：<code>terminal-image.ts</code> 支持在终端里渲染图片，<code>deleteChangedKittyImages</code> 负责清理被覆盖的图块。</li>
+</ul>
+<hr>
+<h2 id="七协议层cbor--帧封装pi-protocol--client--server">七、协议层：CBOR + 帧封装（pi-protocol / client / server）</h2>
+<p><code>pi-protocol</code> 是一个传输中立的 RPC 基础层，用于远端会话（<code>pi-server</code> 实验性服务端 + <code>pi-client</code> 客户端）。它把消息编码为 <strong>CBOR</strong>，外面套一层<strong>4 字节大端长度前缀帧</strong>（<code>src/framing.ts</code>）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#ff79c6">const</span> FRAME_HEADER_LENGTH <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">4</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">/** 在 payload 前加上无符号 32 位大端字节长度 */</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> encodeFrame(payload: <span style="color:#8be9fd">Uint8Array</span>)<span style="color:#ff79c6">:</span> Uint8Array {
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">if</span> (payload.byteLength <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0xffff</span>_ffff) <span style="color:#ff79c6">throw</span> <span style="color:#ff79c6">new</span> RangeError(<span style="color:#f1fa8c">&#34;...&#34;</span>);
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">const</span> frame <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> Uint8Array(FRAME_HEADER_LENGTH <span style="color:#ff79c6">+</span> payload.byteLength);
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">const</span> length <span style="color:#ff79c6">=</span> payload.byteLength;
+</span></span><span style="display:flex;"><span>	frame[<span style="color:#bd93f9">0</span>] <span style="color:#ff79c6">=</span> length <span style="color:#ff79c6">&gt;&gt;&gt;</span> <span style="color:#bd93f9">24</span>; frame[<span style="color:#bd93f9">1</span>] <span style="color:#ff79c6">=</span> length <span style="color:#ff79c6">&gt;&gt;&gt;</span> <span style="color:#bd93f9">16</span>;
+</span></span><span style="display:flex;"><span>	frame[<span style="color:#bd93f9">2</span>] <span style="color:#ff79c6">=</span> length <span style="color:#ff79c6">&gt;&gt;&gt;</span> <span style="color:#bd93f9">8</span>;  frame[<span style="color:#bd93f9">3</span>] <span style="color:#ff79c6">=</span> length;
+</span></span><span style="display:flex;"><span>	frame.<span style="color:#ff79c6">set</span>(payload, FRAME_HEADER_LENGTH);
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">return</span> frame;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>FrameDecoder</code> 是增量式的：任意字节块 <code>push()</code> 进去，吐出完整帧，单帧默认上限 16MB，超限即抛 <code>FrameError</code>。所有 schema 由 TypeBox 定义（<code>schemas.ts</code>），编解码、校验、传输格式三位一体。这套栈目前支撑的是&quot;跨进程/跨机器复用同一套 Agent 会话&quot;的扩展方向。</p>
+<hr>
+<h2 id="八部署与使用方式">八、部署与使用方式</h2>
+<h3 id="81-安装与认证">8.1 安装与认证</h3>
+<p>Pi 通过 npm 分发，最快上手：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">cd</span> /path/to/project <span style="color:#ff79c6">&amp;&amp;</span> pi
+</span></span></code></pre></div><p>认证有两种入口：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span># 订阅类：Claude Pro/Max、ChatGPT Plus/Pro、GitHub Copilot
+</span></span><span style="display:flex;"><span>/login
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span># API Key 类：环境变量或写入 ~/.pi/agent/auth.json
+</span></span><span style="display:flex;"><span>export ANTHROPIC_API_KEY=sk-ant-...
+</span></span></code></pre></div><p>启动后即进入 TUI 交互模式。Pi 默认加载 <code>AGENTS.md</code>（从父目录向上找，<code>AGENTS.override.md</code> 可整体覆盖），用它声明项目级约束——这比把规则写死在系统提示里更符合&quot;仓库即规范&quot;的工程习惯。</p>
+<h3 id="82-沙箱化三模式">8.2 沙箱化三模式</h3>
+<p>需要隔离时，<code>containerization.md</code> 给出三条路径：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>隔离范围</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Gondolin 扩展</strong></td>
+<td>内置工具与 <code>!</code> 命令进本地 Linux 微 VM</td>
+<td>主机保留认证、工具进 VM，改动经 <code>/workspace</code> 写回宿主机</td>
+</tr>
+<tr>
+<td><strong>Plain Docker</strong></td>
+<td>整个 <code>pi</code> 进程进容器</td>
+<td>最简单的本地隔离（API Key 会进容器）</td>
+</tr>
+<tr>
+<td><strong>OpenShell</strong></td>
+<td>整个进程进策略沙箱</td>
+<td>需要文件/进程/网络/凭据全维度策略控制，支持本地或远端 Kubernetes 网关</td>
+</tr>
+</tbody>
+</table>
+<h3 id="83-构建与发布链路">8.3 构建与发布链路</h3>
+<ul>
+<li><strong>开发</strong>：<code>npm run build</code>（会先刷新模型数据）、<code>npm run check</code>（lint + 类型 + 依赖锁定检查）、<code>./test.sh</code>（跳过依赖 LLM 的用例）；</li>
+<li><strong>standalone 二进制</strong>：<code>packages/coding-agent</code> 的 <code>build:binary</code> 脚本用 <code>bun build --compile</code> 产出单文件可执行程序，并拷贝主题、资源、WASM 等运行资产；</li>
+<li><strong>供应链</strong>：发布前 <code>npm run prepublishOnly</code> 会 clean + build + 生成 shrinkwrap，npm 用户装的包自带 <code>npm-shrinkwrap.json</code>。</li>
+</ul>
+<hr>
+<h2 id="九设计模式总结与启发">九、设计模式总结与启发</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>模式</th>
+<th>落地位置</th>
+<th>一句话价值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Provider 适配器 + 工厂</strong></td>
+<td><code>pi-ai</code> <code>models.ts</code></td>
+<td>40+ 厂商 API 收敛为统一流式接口，模型按 <code>model.api</code> 自动分派</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>partial-json 增量解析</strong></td>
+<td><code>pi-ai</code> 各 provider</td>
+<td>流式 tool call 参数边收边解析，scratch 缓冲用完即删</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>事件流驱动的双层循环</strong></td>
+<td><code>agent-core</code> <code>agent-loop.ts</code></td>
+<td>UI / 遥测 / RPC 订阅同一份事件流，运行时与展示解耦</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>钩子式工具执行</strong></td>
+<td><code>agent-loop.ts</code> <code>before/afterToolCall</code></td>
+<td>权限、护栏、改写结果都挂在钩子上，不污染核心循环</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>差分渲染 TUI</strong></td>
+<td><code>pi-tui</code> <code>tui-main-screen.ts</code></td>
+<td>只重写变化行 + 同步输出防撕裂，整屏重绘被刻意收紧</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>扩展系统作为一等公民</strong></td>
+<td><code>pi-coding-agent</code> extensions</td>
+<td><code>defineTool</code> 十几行就能注入能力，Agent 可自扩展</td>
+</tr>
+</tbody>
+</table>
+<p>如果把这篇拆解浓缩成一句话：<strong>Pi 不是&quot;又一个 Claude Code 平替&quot;，而是一套把 Agent 主链路拆成可复用积木的工程样板</strong>——模型抽象、运行时循环、终端渲染、进程协议各司其职，中间全部用事件与钩子解耦。对想自研编码 Agent 或深度定制 AI 工作流的开发者来说，它的源码就是一份高质量的参考实现。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-08-11-prime-agent-code-analysis/" data-toggle="tooltip" data-placement="top" title="Prime Agent 源码深度解析：会自我改进的 RLM 编程智能体是如何构建的">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/loops" title="loops">
+                            loops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openai" title="openai">
+                            openai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1" title="产品设计">
+                            产品设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
