@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="DeepSeek Harness 源码深度解析：一切皆插件的 Agent 运行时如何组装" />
+    <meta property="og:title" content="DeepSeek Harness 源码深度解析：一切皆插件的 Agent 运行时如何组装" />
+    <meta property="twitter:title" content="DeepSeek Harness 源码深度解析：一切皆插件的 Agent 运行时如何组装" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>DeepSeek Harness 源码深度解析：一切皆插件的 Agent 运行时如何组装 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-08-13-deepseek-harness%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90" title="源码解析">
+                            源码解析
+                        </a>
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1" title="架构设计">
+                            架构设计
+                        </a>
+                        
+                    </div>
+                    <h1>DeepSeek Harness 源码深度解析：一切皆插件的 Agent 运行时如何组装</h1>
+                    <h2 class="subheading">从 Cordis 插件树、事件溯源会话日志到 fail-closed 沙箱的实现解剖</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Thursday, August 13, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="引言一个没有内核的-agent-框架">引言：一个&quot;没有内核&quot;的 Agent 框架</h2>
+<p>如果让我用一个词概括 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>（<code>dsh</code>），我会选<strong>可组合性</strong>。它是 DeepSeek AI 开源的 agent harness（MIT 协议，目前处于 developer preview，版本 <code>0.1.0-rc.5</code>），与 Claude Code、Codex 这类&quot;产品级&quot;编码 Agent 不同，dsh 的定位更接近<strong>框架</strong>：模型适配器、工具注册表、会话日志、审批策略、甚至 agent loop 本身，全部是插件。</p>
+<p>这种&quot;一切皆插件&quot;不是口号，而是架构约束——dsh 建立在 <a href="https://github.com/cordiverse/cordis">Cordis</a> 之上，其设计哲学来自论文 <em>A Programming Paradigm for Spatiotemporal Composability</em>（时空可组合性编程范式）。整棵树里<strong>不存在需要打补丁的特权内核</strong>：扩展 dsh 的方式就是把插件挂到其他插件旁边，而每项注册都是副作用，插件卸载时自动撤销。</p>
+<p>本文基于源码仓库（<code>/tmp/deepseek-harness</code>，pnpm monorepo，56 个子包、3700+ 文件）逐层拆解：插件树怎么叠起来、会话怎么做到&quot;模型可见即已记录&quot;、沙箱为什么 fail-closed。</p>
+<h3 id="本文导读">本文导读</h3>
+<ul>
+<li><strong>先建立全局认知</strong>：第二节用&quot;分层叠加 + 共享上下文 + 三类事件域&quot;总览图看清插件树，再用时序图讲透轮次（turn）与步骤（step）循环；</li>
+<li><strong>再抓核心模块</strong>：第三节逐包拆 session / system-prompt / tools / agent-loop / 上下文管理，配&quot;日志投影&quot;与&quot;压缩流程&quot;两张数据流图；</li>
+<li><strong>最后看设计决策</strong>：第四节提炼全仓 6 个可复用的设计模式，第五节给出部署与运行方式。</li>
+</ul>
+<h3 id="项目概貌">项目概貌</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>数据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>架构范式</strong></td>
+<td>一切皆插件（Cordis），无特权内核，注册即副作用、卸载即撤销</td>
+</tr>
+<tr>
+<td><strong>语言 / 构建</strong></td>
+<td>TypeScript 6.0，pnpm 11.7 monorepo（<code>packages/*/*</code> 二级分组，56 个子包），Node ≥ 22.19</td>
+</tr>
+<tr>
+<td><strong>打包</strong></td>
+<td>tsdown 双面构建（host / client），前端 React 18 + Vite 6</td>
+</tr>
+<tr>
+<td><strong>核心抽象</strong></td>
+<td>会话日志（事件溯源）· seam（服务定义/提供方/消费方）· profile + patch 分层</td>
+</tr>
+<tr>
+<td><strong>安全</strong></td>
+<td>fail-closed 沙箱（Linux bwrap→Landlock / macOS Seatbelt / Windows ACL）+ 审批 + 凭据引用</td>
+</tr>
+<tr>
+<td><strong>测试</strong></td>
+<td>vitest 多配置，单元测试 100% 覆盖门禁，snapshot 支持 record/refresh/replay 三态</td>
+</tr>
+<tr>
+<td><strong>发布形态</strong></td>
+<td><code>npx @deepseek-ai/dsh web</code>，Web UI 默认 <code>127.0.0.1:3080</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="一项目背景与目标">一、项目背景与目标</h2>
+<p>dsh 要解决的核心问题是：<strong>一个 Agent 产品里有太多东西在变化</strong>。模型厂商在变、工具集在变、权限策略在变、UI 形态在变。传统的做法是把这些写死在应用里，靠配置开关切换；dsh 的做法是把它们全部变成<strong>可以独立替换的插件</strong>，再靠一套分层叠加机制组装成最终产品。</p>
+<p>这一点从它的启动方式就能看出来。<code>dsh</code> CLI 只硬编码了两个子命令：<code>web</code>（等价于 <code>--profile web</code>）和 <code>plugin</code>。<code>headless</code>、<code>run</code> 都不是子命令，而是 <strong>profile 名</strong>——<code>dsh --profile headless &quot;fix the failing test&quot;</code> 里，<code>--profile</code> 之后的一切参数原样交给启动后的插件树，由注入的 app 插件自行解析。换句话说，CLI 自己不干活，它只负责<strong>把一棵插件树点起来</strong>。</p>
+<p>目标拆解下来有三条：</p>
+<ol>
+<li><strong>可替换性</strong>：换模型、换沙箱、换审批策略，不需要 fork 或打补丁；</li>
+<li><strong>可观察性</strong>：模型看到的每一条上下文都能从日志重建，这是运行时的不变量而非约定；</li>
+<li><strong>可分发性</strong>：第三方插件以 npm 包发布，通过 <code>cordis.patch.yml</code> 声明式挂载。</li>
+</ol>
+<hr>
+<h2 id="二技术架构概述插件树如何叠起来">二、技术架构概述：插件树如何叠起来</h2>
+<p>先看总览图，建立心智模型：</p>
+<p>
+  <img src="/img/deepseek-harness/architecture-layers.svg" alt="DeepSeek Harness 架构总览">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：自上而下三层——组合包（bundle）按序叠加成 profile，用户 patch 在最顶层可覆盖任意条目；中间是 Cordis 共享上下文（五个核心服务槽）；底部三类事件域是全部扩展点的入口。改动前先选对事件域，是 dsh 开发的第一决策。</p>
+</blockquote>
+<h3 id="21-无特权内核cordis">2.1 无特权内核：Cordis</h3>
+<p>Cordis 是 dsh 的底座。插件向共享上下文贡献三样东西：<strong>服务</strong>（如 <code>ctx.sessions</code>、<code>ctx.tools</code>）、<strong>类型化事件</strong>（如 <code>agent/pre-step</code>）和<strong>可逆副作用</strong>（如注册一个工具）。核心包在 <code>packages/core/</code> 下，各自通过 TypeScript 的模块声明扩展上下文：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#6272a4">// packages/core/agent-loop 中的依赖注入声明（简化）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">class</span> AgentLoop <span style="color:#ff79c6">extends</span> Service <span style="color:#ff79c6">implements</span> AgentFactory {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">static</span> inject <span style="color:#ff79c6">=</span> [<span style="color:#f1fa8c">&#39;agents&#39;</span>, <span style="color:#f1fa8c">&#39;sessions&#39;</span>, <span style="color:#f1fa8c">&#39;llm&#39;</span>, <span style="color:#f1fa8c">&#39;tools&#39;</span>, <span style="color:#f1fa8c">&#39;systemPrompt&#39;</span>]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>依赖由 Cordis 按名字注入，不存在任何&quot;内核代码路径&quot;——agent loop 也只是众多插件之一。</p>
+<h3 id="22-profile-与组合包分层叠加">2.2 profile 与组合包：分层叠加</h3>
+<p>运行中的 <code>dsh</code> 是一棵插件树，由启动时<strong>按序叠加的各层</strong>组合而成：</p>
+<ul>
+<li><strong>profile</strong> 是存放在 harness home 中的具名组装，列出自己叠放的组合包，并保存用户自己的 <code>cordis.patch.yml</code>；</li>
+<li><strong>组合包（bundle）</strong> 是 Cordis 配置项及其挂载代码的分发格式——它插入的内容始终可被其上各层 patch 覆盖。</li>
+</ul>
+<p>三者的声明都在各自 <code>package.json</code> 的 <code>dsh</code> 字段里：<code>dsh.profile</code> 列出一个 profile 的组合包，<code>dsh.bundle</code> 指向组合包的 patch 文件。<code>dsh-base</code> 是每个 profile 的第一层（模型适配器、工具、持久化、沙箱与审批、凭据、遥测，约 90 个插件），<code>dsh-web-app</code> 在其上叠加浏览器应用，<code>dsh-headless</code> 叠加一个完全不带服务器的一次性 runner。</p>
+<p>各层的应用顺序是：profile 列出的每个组合包 → profile 级 <code>cordis.patch.yml</code> → home 级 → 任意 <code>--patch</code> overlay。一条 patch <strong>按 id 定位某个条目并替换其整个 config</strong>，或插入新条目。想看你机器上实际启动的配置树，一条命令即可：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>dsh --profile web --dump-config
+</span></span></code></pre></div><p>它打印出的任何条目，都可以被你的 patch 替换——这就是&quot;一切皆插件&quot;落到可操作性上的样子。</p>
+<h3 id="23-三类事件域选对域是改动的第一步">2.3 三类事件域：选对域是改动的第一步</h3>
+<p>dsh 官方架构文档把事件明确分成三类，每类的语义边界非常清晰：</p>
+<table>
+<thead>
+<tr>
+<th>事件域</th>
+<th>生命周期</th>
+<th>用途</th>
+<th>例子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>会话事件 <code>session/event</code></td>
+<td><strong>持久</strong>，追加进日志并广播</td>
+<td>必须重载后仍存在的事实</td>
+<td><code>turn/start</code>、<code>user/message</code>、<code>tool/result</code></td>
+</tr>
+<tr>
+<td>Agent 事件 <code>agent/*</code></td>
+<td>实时，内存派发</td>
+<td>观察或拦截进行中的工作</td>
+<td><code>agent/pre-step</code>、<code>agent/request</code>、<code>agent/turn-stopping</code></td>
+</tr>
+<tr>
+<td>能力事件</td>
+<td>实时，seam 挂载点</td>
+<td>无需导入环附着策略与适配器</td>
+<td><code>tools/*</code>、<code>fs/*</code>、<code>telemetry/*</code></td>
+</tr>
+</tbody>
+</table>
+<p>监听器也分三种派发模式。前两类是 <strong>waterfall</strong>（洋葱中间件，监听器必须调用 <code>next()</code> 才能委托下去，用于可改写结果的把关点）；<code>agent/turn-stopping</code> 是 <strong>serial</strong>（顺序执行、无 <code>next()</code>）；通知类事件走自定义 <code>emit</code> 循环——逐个 catch 异常并 <code>Promise.resolve().catch()</code> 兜底，保证一个监听器抛错不会饿死后续监听器。这个细节很见功力：Cordis 原生 <code>emit</code> 用 <code>Array.map</code>，一个同步 throw 就会中断整条链。</p>
+<h3 id="24-轮次与步骤一次模型请求加上它调用的工具">2.4 轮次与步骤：一次模型请求加上它调用的工具</h3>
+<p>dsh 的最小执行单元定义得非常精确：<strong>一个步骤（step）= 一次模型请求 + 它调用的工具</strong>；<strong>一个轮次（turn）包含零个或多个步骤</strong>，在领取首条输入时打开，不再欠下任何工作时关闭。</p>
+<p>
+  <img src="/img/deepseek-harness/turn-step-loop.svg" alt="轮次与步骤循环">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：实线框是持久会话事件（写进日志），虚线框是 waterfall 实时扩展点（可拦截改写）。右侧回边是循环的关键——只要工具欠一个请求或新输入到达，就领取下一步；<code>agent/pre-step</code> 可以改写甚至拒绝已领取的消息。</p>
+</blockquote>
+<p>驱动器实现在 <code>packages/core/agent-loop/src/agent.ts</code> 的 <code>ReactLoopAgent</code> 中，结构非常直白：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#6272a4">// ReactLoopAgent 的主循环（简化）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">private</span> <span style="color:#ff79c6">async</span> kick() {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">while</span> (<span style="color:#ff79c6">await</span> <span style="color:#ff79c6">this</span>.turn()) {}
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">private</span> <span style="color:#ff79c6">async</span> turn()<span style="color:#ff79c6">:</span> Promise&lt;<span style="color:#ff79c6">boolean</span>&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">this</span>.session.append(<span style="color:#f1fa8c">&#39;turn/start&#39;</span>, { turn })
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">while</span> (<span style="color:#ff79c6">true</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> decision <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">await</span> <span style="color:#ff79c6">this</span>.preStep(target, { turn, step })  <span style="color:#6272a4">// agent/pre-step 瀑布
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">this</span>.session.append(<span style="color:#f1fa8c">&#39;step/start&#39;</span>, { turn, step })
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">await</span> <span style="color:#ff79c6">this</span>.step(decision.assembly)  <span style="color:#6272a4">// 模型调用 + 工具执行
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">this</span>.session.append(<span style="color:#f1fa8c">&#39;step/end&#39;</span>, { turn, step })
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 工具欠请求或新输入到达 → 继续；否则 break
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">this</span>.session.append(<span style="color:#f1fa8c">&#39;turn/end&#39;</span>, { turn, reason })
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>注意循环的每一拍都会<strong>先写日志再执行</strong>——这个顺序是后面&quot;模型可见即已记录&quot;不变量的根基。</p>
+<hr>
+<h2 id="三核心模块功能详解">三、核心模块功能详解</h2>
+<h3 id="31-session仅追加的会话日志">3.1 session：仅追加的会话日志</h3>
+<p>会话日志是整个系统的<strong>唯一事实来源</strong>（single source of truth），实现上是一个纯内存的 append-only 事件数组。每个事件是判别联合类型，<code>seq</code> 严格等于数组下标：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#6272a4">// packages/core/session/src/types.ts（简化）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#ff79c6">type</span> SessionEvent <span style="color:#ff79c6">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">type</span><span style="color:#ff79c6">:</span> SessionEventType
+</span></span><span style="display:flex;"><span>  seq: <span style="color:#8be9fd">number</span>
+</span></span><span style="display:flex;"><span>  time: <span style="color:#8be9fd">number</span>
+</span></span><span style="display:flex;"><span>  data: <span style="color:#8be9fd">SessionEventMap</span>[<span style="color:#ff79c6">typeof</span> <span style="color:#ff79c6">type</span>]
+</span></span><span style="display:flex;"><span>  ignorable?: <span style="color:#8be9fd">true</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>append()</code> 只追加、不修改：每个事件写入时经 lossless-JSON 快照校验并 <code>deepFreeze</code>，持久化由插件订阅 <code>session/event</code> 完成。模型历史不是另外存的一份数据，而是<strong>从日志投影</strong>出来的：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#6272a4">// deriveMessages()：增量投影（简化）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">for</span> (<span style="color:#ff79c6">const</span> seq <span style="color:#ff79c6">of</span> nodes.slice(<span style="color:#ff79c6">this</span>.derivedNodes)) {
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">const</span> msg <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">this</span>.deriveEventMessage(<span style="color:#ff79c6">this</span>.log[seq]<span style="color:#ff79c6">!</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">if</span> (msg) <span style="color:#ff79c6">this</span>.derived.push(msg)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>投影只认 <strong>surface</strong> 上的三类消息事件（<code>user/message</code>、<code>assistant/message</code>、<code>tool/result</code>），带缓存增量重建；而 <code>assistant/chunk</code> 这类流式事实留作回放与 UI 保真，不进入模型历史。</p>
+<p>
+  <img src="/img/deepseek-harness/session-log-projection.svg" alt="会话日志投影">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：左侧日志里只有蓝框（surface 消息事件）能投影进右侧的模型历史；chunk 事件用于回放保真但不进上下文。底部的&quot;不变量&quot;条是本节最核心的一句话——新增任何模型可见输入，必须先扩展 <code>SessionEventMap</code> 并从日志渲染。</p>
+</blockquote>
+<h3 id="32-system-prompt分层组装的提示词">3.2 system-prompt：分层组装的提示词</h3>
+<p>系统提示词同样不是一段写死的字符串。<code>ctx.systemPrompt</code> 接受三类贡献：带 <code>order</code> 的<strong>提示词片段</strong>（<code>PromptSection</code>）、运行时动态<strong>上下文</strong>、以及<strong>工具 schema</strong>。组装时按 <code>order</code> 稳定排序（约定 <code>-100</code> 为 harness 身份、<code>0</code> 为 persona），scoped 片段可遮蔽全局同名片段，变量插值后再拼接。工具 schema 则从所有 provider 收集，<code>structuredClone</code> 后按 <code>toolOrder</code>（含 <code>&lt;unlisted-tools&gt;</code> 占位）排序注入。</p>
+<p>这意味着&quot;某个会话有不同能力集&quot;这类需求不需要改循环代码——组装一个 agent preset，把服务行标成 <code>isolate</code> realm 即可。</p>
+<h3 id="33-tools作用域注册表--三阶段把关流水线">3.3 tools：作用域注册表 + 三阶段把关流水线</h3>
+<p>工具注册表是 scope 隔离的绝佳示范。<code>ToolRuntime</code> 内部持有 <code>ScopedLayers&lt;ToolLayer&gt;</code>，注册时按 <code>scopeOf(ctx)</code> 决定工具归属哪一层：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#6272a4">// packages/core/tools 注册逻辑（简化）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">private</span> <span style="color:#ff79c6">readonly</span> layers <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">new</span> ScopedLayers(
+</span></span><span style="display:flex;"><span>  scope <span style="color:#ff79c6">=&gt;</span> <span style="color:#ff79c6">new</span> ToolLayer(scope),
+</span></span><span style="display:flex;"><span>  () <span style="color:#ff79c6">=&gt;</span> { <span style="color:#ff79c6">this</span>.ctx.emit(<span style="color:#f1fa8c">&#39;tools/change&#39;</span>) },
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// register():
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">return</span> <span style="color:#ff79c6">this</span>.layers.effect(<span style="color:#ff79c6">this</span>.ctx, layer <span style="color:#ff79c6">=&gt;</span> layer.tools.insert(name, definition))
+</span></span></code></pre></div><p>查看工具时按&quot;global → 祖先链 → 自身层&quot;合并；<code>restrict()</code> 则强制要求当前上下文在某个 agent scope 内——<strong>把注册项限定到单个 agent，只需在该 agent 的 <code>agent.ctx</code> 里注册</strong>。</p>
+<p>执行端是经典的三阶段流水线：<code>tools/pre-execute</code>（waterfall 把关，审批服务在此询问、guard 在此拒绝）→ <code>execute</code>（真正执行，带 fuse 信号）→ <code>tools/post-execute</code>（结果后处理，spill 策略在此把超大结果替换成 locator）。</p>
+<h3 id="34-agent-loop默认驱动器">3.4 agent-loop：默认驱动器</h3>
+<p><code>ReactLoopAgent</code> 的职责只有一件：驱动 turn/step 循环。每步先跑 <code>agent/pre-step</code> 瀑布（监听器可改写或拒绝消息——首次领取被拒绝时仍会关闭一个不含步骤的持久轮次，因此日志记录了这次尝试），再 <code>buildRequest</code>（<code>agent/request</code> 瀑布）→ <code>llm.stream</code> → 组装 <code>assistant/message</code> → 有 tool call 则走工具流水线。驱动器自身不含任何模型或工具逻辑，全部经由上下文服务注入——这就是它可被整体替换的原因。</p>
+<h3 id="35-上下文管理三件套context--spill--compaction">3.5 上下文管理三件套：context / spill / compaction</h3>
+<p>长任务跑得久，上下文管理是 harness 的硬功夫。dsh 拆成三个各司其职的包：</p>
+<ul>
+<li><strong>context</strong>：负责&quot;注入什么&quot;——工作区指令（AGENTS.md）、跨会话引用（带字节预算截断）、时间上下文等；</li>
+<li><strong>spill</strong>：负责&quot;超大结果挪出去&quot;——工具结果超过 <code>maxInlineBytes</code> 时，存全文、只留 head/tail 预览 + locator 进上下文；</li>
+<li><strong>compaction</strong>：负责&quot;历史收缩&quot;——这是最有意思的一个，展开说。</li>
+</ul>
+<p>压缩引擎抽象在 <code>packages/compaction/compaction</code>，策略分两种：<code>summarize</code>（LLM 摘要替换）与 <code>prune</code>（无模型参与的删减）。触发条件也有两条：<code>pressure</code>（token 超过阈值）与 <code>context-overflow</code>（服务端返回窗口溢出错误）。</p>
+<p>
+  <img src="/img/deepseek-harness/compaction-flow.svg" alt="上下文压缩流程">
+
+</p>
+<blockquote>
+<p><strong>看图重点</strong>：五步流水线——先做免费的 prune 收缩，再决定是否动用 LLM 摘要；最后的&quot;替换&quot;不是改内存，而是以 <code>surfaceOp: replace</code> 追加新事件，让投影自然收缩。压缩前后对照展示 n 个事件如何变成 1 个摘要节点。</p>
+</blockquote>
+<p>关键点在于：压缩<strong>没有绕过日志</strong>。<code>compaction/start</code>、<code>summary</code>、<code>end</code> 以 log-only 事件记录锁与计量，摘要本身以 <code>surfaceOp: 'replace'</code> 的 <code>user/message</code> 事件落地。日志仍完整可回放，只是 surface 投影变了——这保证了&quot;可审计&quot;与&quot;可收缩&quot;同时成立。</p>
+<hr>
+<h2 id="四关键设计决策与亮点">四、关键设计决策与亮点</h2>
+<h3 id="41-模型可见即已记录不变量而非约定">4.1 模型可见即已记录：不变量而非约定</h3>
+<p>这是全仓最值得抄的设计。dsh 要求：<strong>抵达模型请求的一切都必须能从日志重建</strong>，并由一条运行时不变量断言。实现是双保险：</p>
+<ul>
+<li><strong>编译期</strong>：<code>append()</code> 对 message-producing 事件强制要求 <code>surfaceOp</code> 标记——类型系统在调用点就拦下&quot;忘了记录&quot;的代码；</li>
+<li><strong>运行时</strong>：surface 投影遇到缺失标记的事件直接报错。</li>
+</ul>
+<p>新增模型可见输入的唯一合法路径是：扩展 <code>SessionEventMap</code> → 从日志渲染 → 完成。一个看似&quot;限制开发效率&quot;的约束，换来的是 fork、恢复、transcript、遥测、持久化全部零成本派生自同一条事件流。</p>
+<h3 id="42-事件溯源贯穿始终">4.2 事件溯源贯穿始终</h3>
+<p>不止会话日志，<strong>目标（goal）</strong>、<strong>计划（plan）</strong>、**子代理（subagent）**全部采用&quot;事件溯源 + fold 投影&quot;模式。goal 是 CAS 式状态机：<code>goal/change</code> 事件 fold 出当前目标，mutation 必须 <code>expectCurrent</code> 校验 revision，杜绝 stale 写入。子代理 fork 会话更巧妙：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#6272a4">// subagent fork：取父会话&#34;已完成的 turn 前缀&#34;作为不可变 seed（简化）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">const</span> seed <span style="color:#ff79c6">=</span> parent.events.slice(<span style="color:#bd93f9">0</span>, boundary <span style="color:#ff79c6">+</span> <span style="color:#bd93f9">1</span>)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">const</span> child <span style="color:#ff79c6">=</span> ctx.agents.create({ seed, meta<span style="color:#ff79c6">:</span> { parentSession, seedLength } })
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 子代理的结果 = 边界后追加的自身事件流
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>child.session.events.slice(activationBoundary)
+</span></span></code></pre></div><p><code>seedLength</code> 持久化&quot;继承前缀长度&quot;边界，子会话以父前缀为<strong>不可变基座</strong>，之后事件只追加。同一机制同时服务 fork 与崩溃恢复——恢复不过是&quot;从持久化重建 seed 前缀&quot;。</p>
+<h3 id="43-scope每个-agent-一份能力视图">4.3 scope：每个 agent 一份能力视图</h3>
+<p>scope 原语（<code>packages/core/scope</code>）把&quot;作用域&quot;做成了库：<code>createScope</code> 建立层级注册表，工具、提示词片段、事件载体都能按 scope 分层。一个父 agent 派生子 agent 时，子 agent 的 <code>agent.ctx</code> 天然是其 scope 链的新节点——<strong>给子代理收窄工具集，就是在其 scope 层注册更少的工具</strong>，无需任何 if/else。</p>
+<h3 id="44-fail-closed-安全绝不裸跑">4.4 fail-closed 安全：绝不裸跑</h3>
+<p>安全设计统一遵循一条原则：<strong>默认拒绝，拿不到可用后端就直接失败</strong>。沙箱是典型：</p>
+<ul>
+<li><code>SandboxProvider.confine(argv, policy)</code> 返回&quot;包装后的 argv&quot;由调用方 spawn；<strong>无后端可用时抛 <code>SANDBOX_UNAVAILABLE</code>，绝不裸跑</strong>；</li>
+<li>平台链路：Linux <code>bwrap → landlock</code>、macOS <code>seatbelt</code>（sandbox-exec）、Windows ACL restricted-token；</li>
+<li>其中最硬核的是 <code>native/landlock-run</code>——约 300 行 C11 直接对接 Linux Landlock 内核 UAPI、静态链接 musl 的&quot;自限后 exec&quot;启动器，规则集跨 <code>execve</code> 继承，未授予的路径一律拒绝。</li>
+</ul>
+<p>配套的还有：凭据只存 env 变量名引用（<code>CredentialRef</code>），实际值按次从环境或 owner-only 文件解析，配置界面永远见不到值；审批（<code>user-approval</code>）的 outcome 是闭集（<code>allowed-once / rejected / cancelled / unavailable</code>），默认 <code>ask</code>、<code>never</code> 策略在 CI 场景确定性拒绝；沙箱升级必须 <code>approveEscalation</code> 严格 widen 检查 + 人工审批。Web 服务端甚至直接拒绝 <code>--host 0.0.0.0</code>——注释写得很直白：&ldquo;would expose remote code execution&rdquo;。</p>
+<h3 id="45-工程化把仓库健康做成-dag">4.5 工程化：把&quot;仓库健康&quot;做成 DAG</h3>
+<p>最后一个亮点在工程体系。tsdown 按 <code>DSH_BUILD_FACE</code> 分 host/client <strong>双面构建</strong>——同一套源码出 Node loader 与浏览器 bundle，两侧在 Cordis <code>Context</code> 上以相同 key 合并不同 service，因此类型检查拆成两个聚合项目（&ldquo;one program cannot see both&rdquo;）。测试分五层：单元（<strong>100% 覆盖率门禁</strong>）→ e2e（真实 API，无凭据自动 skip）→ snapshot（<code>record</code> 调真实 API 录制 / <code>refresh</code> 重放脚本 / <code>replay</code> 无 key 并行 diff）→ 浏览器 → perf/stress。</p>
+<p>最有特色的是 <strong>gen/verify 生成器闭环</strong>：<code>gen-module-graph</code> 从 <code>peerDependencies</code> 生成依赖图文档、<code>gen-tool-catalog</code> 运行时引导每个工具插件采集 JSON Schema、<code>gen-cordis-catalog</code> 从 Typert catalog 投影 service/event——每个 <code>gen-*</code> 都配一个 <code>verify-*</code>（即 <code>--check</code>），CI 里产物与源码不一致直接失败。文档不是人写的，是代码生成的；依赖治理上，Cordis 等上游框架直接 <strong>vendor 进仓库</strong>用 <code>link:</code> 强制指向 pinned 源码，补丁只有 1 个（node-pty）。</p>
+<h3 id="设计模式总结">设计模式总结</h3>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>落地位置</th>
+<th>解决的问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>分层叠加（layered patch）</td>
+<td>profile / bundle / <code>cordis.patch.yml</code></td>
+<td>组合优于继承，任意条目可被上层覆盖</td>
+</tr>
+<tr>
+<td>事件溯源 + 投影</td>
+<td>session 日志 / goal / plan / fork</td>
+<td>单一事实来源，派生视图零成本</td>
+</tr>
+<tr>
+<td>不变量双保险</td>
+<td><code>surfaceOp</code> 标记</td>
+<td>编译期 + 运行时共同守护关键约束</td>
+</tr>
+<tr>
+<td>seam 三段式</td>
+<td>Service Definition / Provider / Consumer</td>
+<td>换一个提供方即换整个产品行为</td>
+</tr>
+<tr>
+<td>fail-closed</td>
+<td>沙箱 / 凭据 / 审批</td>
+<td>拿不到安全后端就失败，不降级裸跑</td>
+</tr>
+<tr>
+<td>生成器闭环</td>
+<td>gen-* / verify-*</td>
+<td>文档与产物始终与源码同步</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="五部署与运行说明">五、部署与运行说明</h2>
+<h3 id="快速开始">快速开始</h3>
+<p>安装 Node.js 后，一行命令启动 Web UI：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>npx @deepseek-ai/dsh web
+</span></span></code></pre></div><p>服务默认监听 <code>127.0.0.1:3080</code>（仅回环，拒绝对外暴露）。从源码运行：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>git clone https://github.com/deepseek-ai/deepseek-harness.git
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">cd</span> deepseek-harness
+</span></span><span style="display:flex;"><span>pnpm install
+</span></span><span style="display:flex;"><span>pnpm run build
+</span></span><span style="display:flex;"><span>pnpm dsh web
+</span></span></code></pre></div><h3 id="headless一次性-runner">headless：一次性 runner</h3>
+<p>不需要 UI 时用 <code>headless</code> profile——它完全不带服务器，启动后创建一个 Agent、跑完任务、打印最后一条 assistant 文本、按完成状态退出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">export</span> <span style="color:#8be9fd;font-style:italic">DEEPSEEK_API_KEY</span><span style="color:#ff79c6">=</span>...
+</span></span><span style="display:flex;"><span>pnpm dsh --profile headless <span style="color:#f1fa8c">&#34;fix the failing test&#34;</span>
+</span></span></code></pre></div><p>流程是：解析位置参数作为任务 → <code>agent.followup(task)</code> → <code>whenIdle()</code> → flush 会话 → <code>io.exit(completed ? 0 : 1)</code>。CI 里做自动修 bug、批处理任务，这个形态最合适。</p>
+<h3 id="发布与打包">发布与打包</h3>
+<p>发布物是一组 npm 包（核心 <code>@deepseek-ai/dsh</code> 提供 <code>dsh</code> bin，前端 <code>dsh-web-frontend</code> 单独发包）。发布流程刻意拆成两阶段：<code>release:pack</code> 用 <code>pnpm pack</code> 把整个 family 的 tarball 打进 <code>dist/npm</code> 并记录拓扑顺序（<strong>这步无需凭据</strong>），<code>release:publish</code> 才接触 registry，按序发布、同版本同 integrity 跳过、冲突报错要求 bump，瞬态错误自动重试。</p>
+<h3 id="安全提示">安全提示</h3>
+<ul>
+<li>Web UI 仅监听回环地址，这是刻意的安全决策，不要试图改成 <code>0.0.0.0</code>；</li>
+<li>工具执行默认受审批策略约束；CI / 无头场景用 <code>never</code> 策略确定性拒绝交互式授权；</li>
+<li>沙箱升级与敏感工具调用都会触发人工审批，窄化授权（<code>allowed-once</code>）是唯一放行形态。</li>
+</ul>
+<hr>
+<h2 id="总结">总结</h2>
+<p>读完整个仓库，我最深的感受是：<strong>dsh 把&quot;框架&quot;两个字做到了语义层面</strong>。它没有在代码里留任何特权路径——agent loop 是插件、日志是插件、UI 是插件；它用&quot;模型可见即已记录&quot;这样的不变量代替了文档约定，用 gen/verify 生成器代替了&quot;文档靠人维护&quot;，用 fail-closed 代替了&quot;默认放行&quot;。</p>
+<p>对 Agent 框架开发者来说，这份源码是极好的研究对象：Cordis 的插件模型回答了&quot;怎么拆&quot;，事件溯源回答了&quot;怎么存&quot;，seam 回答了&quot;怎么换&quot;，scope 回答了&quot;怎么隔离&quot;。而对使用者来说，<code>npx @deepseek-ai/dsh web</code> 一行命令背后，是一棵可以逐层 patch 的插件树——你几乎可以为任何条目写一个覆盖层，这就是&quot;一切皆插件&quot;最终交到手里的东西。</p>
+<p>项目目前处于 developer preview，官方明确声明会有破坏兼容性变更。但架构本身已经足够清晰、足够有说服力——它值得每一个做 Agent 基础设施的人读一遍。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-08-11-pi-agent-harness%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Pi Agent Harness 源码深度技术解析：一个可自扩展编码 Agent 的架构全貌">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/loops" title="loops">
+                            loops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openai" title="openai">
+                            openai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1" title="产品设计">
+                            产品设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90" title="源码解析">
+                            源码解析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
