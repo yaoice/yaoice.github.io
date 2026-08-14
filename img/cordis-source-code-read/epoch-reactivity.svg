@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="130%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="1"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.08"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arr" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect width="960" height="560" fill="#f8fafc"/>
+
+  <text x="480" y="42" text-anchor="middle" font-size="18" font-weight="700" fill="#1e293b">服务变更 → 响应式重载（epoch 机制）</text>
+  <text x="480" y="66" text-anchor="middle" font-size="12" fill="#64748b">插件 B 重新 provide 同名服务 db，注入了 db 的插件 A 被自动卸载并重新加载</text>
+
+  <!-- lane headers -->
+  <rect x="60" y="92" width="200" height="40" rx="10" fill="#ffffff" stroke="#3b82f6" filter="url(#soft)"/>
+  <text x="160" y="117" text-anchor="middle" font-size="13" font-weight="700" fill="#1d4ed8">插件 B（服务提供者）</text>
+  <rect x="380" y="92" width="200" height="40" rx="10" fill="#ffffff" stroke="#8b5cf6" filter="url(#soft)"/>
+  <text x="480" y="117" text-anchor="middle" font-size="13" font-weight="700" fill="#6d28d9">ReflectService</text>
+  <rect x="700" y="92" width="200" height="40" rx="10" fill="#ffffff" stroke="#10b981" filter="url(#soft)"/>
+  <text x="800" y="117" text-anchor="middle" font-size="13" font-weight="700" fill="#047857">插件 A 的 Fiber</text>
+
+  <!-- lifelines -->
+  <line x1="160" y1="140" x2="160" y2="500" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <line x1="480" y1="140" x2="480" y2="500" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <line x1="800" y1="140" x2="800" y2="500" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+  <!-- 1 -->
+  <path d="M160 165 L470 165" stroke="#3b82f6" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <text x="320" y="155" text-anchor="middle" font-size="12" fill="#1d4ed8">① ctx.provide('db', v2)</text>
+
+  <!-- 2 self on Reflect -->
+  <rect x="310" y="185" width="340" height="46" rx="10" fill="#f5f3ff" stroke="#8b5cf6"/>
+  <text x="480" y="206" text-anchor="middle" font-size="12" font-weight="700" fill="#6d28d9">② store[key] = v2 → notify(['db'])</text>
+  <text x="480" y="222" text-anchor="middle" font-size="11" fill="#64748b">遍历 registry 中所有 fiber，筛选注入了 db 的插件</text>
+
+  <!-- 3 -->
+  <path d="M480 241 L790 241" stroke="#8b5cf6" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <text x="635" y="231" text-anchor="middle" font-size="12" fill="#6d28d9">③ _checkImpl('db') 通过 → _refresh()：epoch 改变</text>
+
+  <!-- 4 self on A -->
+  <rect x="640" y="261" width="320" height="46" rx="10" fill="#ecfdf5" stroke="#10b981"/>
+  <text x="800" y="282" text-anchor="middle" font-size="12" font-weight="700" fill="#047857">④ _unload()：逆序回收全部副作用</text>
+  <text x="800" y="298" text-anchor="middle" font-size="11" fill="#64748b">定时器、事件监听、子插件随 effect 一并销毁</text>
+
+  <!-- 5 self on A -->
+  <rect x="640" y="327" width="320" height="46" rx="10" fill="#ecfdf5" stroke="#10b981"/>
+  <text x="800" y="348" text-anchor="middle" font-size="12" font-weight="700" fill="#047857">⑤ _reload()：重新执行插件 callback</text>
+  <text x="800" y="364" text-anchor="middle" font-size="11" fill="#64748b">拿到 v2 的 db，回到 ACTIVE</text>
+
+  <!-- end marker -->
+  <circle cx="800" cy="405" r="6" fill="#10b981"/>
+  <text x="815" y="409" font-size="11" fill="#64748b">ACTIVE（新 epoch）</text>
+
+  <text x="480" y="458" text-anchor="middle" font-size="12" fill="#475569">对使用者而言：替换一个服务，所有依赖它的插件自动重启 —— 无需手动重启进程</text>
+  <text x="480" y="482" text-anchor="middle" font-size="11" fill="#94a3b8">inertia Promise 保证卸载/重载串行执行；check 函数返回 false 的插件会跳过，直接失效</text>
+</svg>

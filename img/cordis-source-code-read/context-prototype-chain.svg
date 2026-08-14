@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="130%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="1"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.08"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arr" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect width="960" height="540" fill="#f8fafc"/>
+
+  <text x="480" y="42" text-anchor="middle" font-size="18" font-weight="700" fill="#1e293b">上下文派生：原型链 + 符号隔离</text>
+  <text x="480" y="66" text-anchor="middle" font-size="12" fill="#64748b">每个插件拿到的是派生子上下文；同名服务靠 isolate 符号区分作用域</text>
+
+  <!-- left: prototype chain -->
+  <text x="190" y="100" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">左：三层派生的上下文（prototype chain）</text>
+
+  <rect x="60" y="116" width="320" height="64" rx="10" fill="#ffffff" stroke="#1e293b" filter="url(#soft)"/>
+  <text x="80" y="142" font-size="13" font-weight="700" fill="#1e293b">root Context</text>
+  <text x="80" y="162" font-size="11" fill="#64748b">isolate: {} · intercept: {} · 五个服务就位</text>
+
+  <rect x="60" y="210" width="320" height="64" rx="10" fill="#eff6ff" stroke="#3b82f6"/>
+  <text x="80" y="236" font-size="13" font-weight="700" fill="#1d4ed8">ctx.isolate('server') 派生</text>
+  <text x="80" y="256" font-size="11" fill="#64748b">isolate: { db: Symbol(db) } —— 同名服务隔离</text>
+
+  <rect x="60" y="304" width="320" height="64" rx="10" fill="#ecfdf5" stroke="#10b981"/>
+  <text x="80" y="330" font-size="13" font-weight="700" fill="#047857">插件 A 的 fiber ctx（extend 派生）</text>
+  <text x="80" y="350" font-size="11" fill="#64748b">fiber.store: { db: impl-v1 } · 附带 fiber 引用</text>
+
+  <path d="M180 180 L180 210" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <path d="M180 274 L180 304" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="196" y="200" font-size="11" fill="#64748b">Object.create() · O(1) 派生</text>
+  <text x="196" y="294" font-size="11" fill="#64748b">仅替换元数据，无深拷贝</text>
+
+  <text x="190" y="420" text-anchor="middle" font-size="11" fill="#64748b">没有模块树、没有字符串 token —— 作用域即原型链上的一层</text>
+
+  <!-- right: property resolution -->
+  <text x="660" y="100" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">右：访问 ctx.db 的解析路径（Proxy get 陷阱）</text>
+
+  <rect x="500" y="116" width="360" height="64" rx="10" fill="#ffffff" stroke="#3b82f6"/>
+  <text x="520" y="142" font-size="12" font-weight="700" fill="#1d4ed8">① 当前 fiber.store 里有没有 db？</text>
+  <text x="520" y="162" font-size="11" fill="#64748b">有 → 返回 getTraceable(ctx, impl.value)</text>
+
+  <rect x="500" y="210" width="360" height="64" rx="10" fill="#ffffff" stroke="#3b82f6"/>
+  <text x="520" y="236" font-size="12" font-weight="700" fill="#1d4ed8">② 没有 → 沿 fiber.parent.fiber 向上找</text>
+  <text x="520" y="256" font-size="11" fill="#64748b">同时校验 isolate 符号一致，跨作用域即抛错</text>
+
+  <rect x="500" y="304" width="360" height="64" rx="10" fill="#ecfdf5" stroke="#10b981"/>
+  <text x="520" y="330" font-size="12" font-weight="700" fill="#047857">③ 命中服务 → 返回代理</text>
+  <text x="520" y="350" font-size="11" fill="#64748b">代理把 this.ctx 重绑定到调用方上下文</text>
+
+  <path d="M680 180 L680 210" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="696" y="200" font-size="11" fill="#64748b">否</text>
+  <path d="M680 274 L680 304" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="696" y="294" font-size="11" fill="#64748b">否</text>
+
+  <text x="660" y="420" text-anchor="middle" font-size="11" fill="#64748b">若链上全无：抛 "cannot get property \"db\" without inject"，并增强堆栈</text>
+  <text x="660" y="444" text-anchor="middle" font-size="11" fill="#94a3b8">strict 模式下服务未 ACTIVE 也视为不存在 —— 依赖状态永远新鲜</text>
+
+  <text x="480" y="506" text-anchor="middle" font-size="11" fill="#475569">"时空可组合"：原型链是空间（作用域），epoch 重载是时间（服务新旧），getTraceable 让同一份代码在两者间自由移动</text>
+</svg>
