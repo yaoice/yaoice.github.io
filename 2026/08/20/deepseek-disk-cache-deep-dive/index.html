@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="DeepSeek 上下文硬盘缓存深度解析：KV Cache 如何把 API 成本打到一折以下" />
+    <meta property="og:title" content="DeepSeek 上下文硬盘缓存深度解析：KV Cache 如何把 API 成本打到一折以下" />
+    <meta property="twitter:title" content="DeepSeek 上下文硬盘缓存深度解析：KV Cache 如何把 API 成本打到一折以下" />
+    
+
+    
+    <meta name="description" content="基于 DeepSeek API 官方文档《上下文硬盘缓存》的逐段精读与技术溯源。文章从 Transformer 推理的 KV Cache 原理讲起，解释 MLA / CSA / HCA 如何把 KV 体积压缩到能搬进硬盘，拆解当前「缓存前缀单元 &#43; 完整匹配」机制（三条落盘时机与官方两个举例）、usage 计费字段与省钱演算，对比各家厂商的前缀缓存方案，并给出把命中率吃到 90% 的工程实践清单。">
+    <meta property="og:description" content="基于 DeepSeek API 官方文档《上下文硬盘缓存》的逐段精读与技术溯源。文章从 Transformer 推理的 KV Cache 原理讲起，解释 MLA / CSA / HCA 如何把 KV 体积压缩到能搬进硬盘，拆解当前「缓存前缀单元 &#43; 完整匹配」机制（三条落盘时机与官方两个举例）、usage 计费字段与省钱演算，对比各家厂商的前缀缓存方案，并给出把命中率吃到 90% 的工程实践清单。" />
+    <meta property="twitter:description" content="基于 DeepSeek API 官方文档《上下文硬盘缓存》的逐段精读与技术溯源。文章从 Transformer 推理的 KV Cache 原理讲起，解释 MLA / CSA / HCA 如何把 KV 体积压缩到能搬进硬盘，拆解当前「缓存前缀单元 &#43; 完整匹配」机制（三条落盘时机与官方两个举例）、usage 计费字段与省钱演算，对比各家厂商的前缀缓存方案，并给出把命中率吃到 90% 的工程实践清单。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>DeepSeek 上下文硬盘缓存深度解析：KV Cache 如何把 API 成本打到一折以下 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/08/20/deepseek-disk-cache-deep-dive/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/llm" title="LLM">
+                            LLM
+                        </a>
+                        
+                        <a class="tag" href="/tags/deepseek" title="DeepSeek">
+                            DeepSeek
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96" title="推理优化">
+                            推理优化
+                        </a>
+                        
+                        <a class="tag" href="/tags/api-%E5%B7%A5%E7%A8%8B" title="API 工程">
+                            API 工程
+                        </a>
+                        
+                    </div>
+                    <h1>DeepSeek 上下文硬盘缓存深度解析：KV Cache 如何把 API 成本打到一折以下</h1>
+                    <h2 class="subheading">从 KV Cache、MLA 到滑动窗口下的完整前缀匹配，逐段拆解 DeepSeek 的省钱引擎</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Thursday, August 20, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言一个不用改一行代码的成本革命">一、引言：一个&quot;不用改一行代码&quot;的成本革命</h2>
+<blockquote>
+<p>原文链接：<a href="https://api-docs.deepseek.com/zh-cn/guides/kv_cache">上下文硬盘缓存 | DeepSeek API Docs</a>
+关联公告：<a href="https://api-docs.deepseek.com/zh-cn/news/news0802/">DeepSeek API 创新采用硬盘缓存，价格再降一个数量级</a>（2024 年 8 月）</p>
+</blockquote>
+<p>DeepSeek 官方文档里有一篇看起来毫不起眼的短文——《上下文硬盘缓存》。它的第一句话是：</p>
+<blockquote>
+<p>DeepSeek API 上下文硬盘缓存技术对所有用户默认开启，用户无需修改代码即可享用。</p>
+</blockquote>
+<p>没有新参数、没有新接口、没有 opt-in 开关。但就是这一个功能，撑起了三个数字：</p>
+<ul>
+<li><strong>成本</strong>：缓存命中部分的输入，按未命中价的约 <strong>1/30</strong> 计费（2024 年首发时是 1/10）；</li>
+<li><strong>延迟</strong>：官方实测，128K 输入且大部分重复的请求，<strong>首 token 延迟从 13 秒降到 500 毫秒</strong>；</li>
+<li><strong>规模</strong>：按 2024 年公告的说法，DeepSeek 可能是<strong>全球第一家</strong>在 API 服务中大范围采用硬盘缓存的大模型厂商。</li>
+</ul>
+<p>这篇文档每句话背后都挂着一条技术线：<code>KV Cache</code> 挂着 Transformer 推理原理，<code>MLA</code> 挂着 V2 的架构创新，<code>Sliding Window Attention</code> 挂着 V3.2 的稀疏注意力与 V4 的 CSA/HCA，&ldquo;完整匹配&quot;挂着一套和 2024 年完全不同的新机制。本文要做的事，就是把每条线都拉出来讲透。</p>
+<p>还有一个值得提醒的背景：<strong>网上大量讲&quot;DeepSeek 缓存&quot;的文章，讲的是 2024 年那套 64-token 块前缀匹配的旧机制</strong>。而当前文档已经改成了&quot;缓存前缀单元 + 完整匹配&rdquo;，两者的可观测行为并不相同（后文详述）。读完这篇，你能分清自己看到的是哪个版本。</p>
+<p>先把全文的地基画成一张图：</p>
+<p>
+  <img src="/img/deepseek-disk-cache/01-kv-cache-principle.svg" alt="KV Cache 原理示意">
+
+</p>
+<p><strong>图注</strong>：本文配图均为作者基于官方文档与公开技术资料整理的概念示意，并非 DeepSeek 官方架构图。</p>
+<hr>
+<h2 id="二地基kv-cache-到底在缓存什么">二、地基：KV Cache 到底在缓存什么</h2>
+<h3 id="21-自回归推理的两个阶段">2.1 自回归推理的两个阶段</h3>
+<p>Transformer 的自注意力可以写成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Attention(Q, K, V) = softmax(Q · Kᵀ / √d) · V
+</span></span></code></pre></div><p>大模型生成文本是<strong>自回归</strong>的：一次请求分为两个阶段。</p>
+<p><strong>Prefill（预填充）</strong>：把整段 prompt 一次性并行喂入模型，计算每个 token 的 Q、K、V，产出第一个输出 token。计算量约 <code>O(L²)</code>——上下文翻倍，计算量接近四倍。首 token 延迟（TTFT）主要耗在这里。</p>
+<p><strong>Decode（解码）</strong>：此后每一步只新算一个 token。新 token 只需要自己的 <code>Q</code>，去和<strong>全部历史 token 的 K/V</strong> 做注意力；算完把自己的 K/V 追加进缓存。</p>
+<p>注意 Decode 阶段的一个不对称性：<strong>每步计算量很小，但每步都要读一遍完整的 KV Cache</strong>。所以长上下文解码的瓶颈往往不是算力，而是显存容量和显存带宽。</p>
+<h3 id="22-为什么-kv-可以缓存">2.2 为什么 K/V 可以缓存</h3>
+<p>因果掩码（causal mask）规定 token <code>i</code> 只能看到位置 <code>≤ i</code> 的 token。因此：</p>
+<ul>
+<li><code>Kᵢ</code>、<code>Vᵢ</code> 只由前缀（token 1..i）决定，<strong>和后面出现什么内容无关</strong>；</li>
+<li>生成过程中它们永不改变——<strong>算一次就够了</strong>。</li>
+</ul>
+<p>这就是一切 prefix caching（不管哪家厂商）的物理基础。想想多轮对话的浪费：第二轮请求把第一轮的 system、问题、回答全部重新输入，如果没有缓存，模型要把第一轮的 prefill <strong>原样重算一遍</strong>——而这些 token 的 K/V 其实和上一轮分毫不差。</p>
+<h3 id="23-kv-cache-有多大显存才是第一瓶颈">2.3 KV Cache 有多大：显存才是第一瓶颈</h3>
+<p>做一个量级演算（示意）。对一个 32 头、head_dim=128、BF16 精度的 MHA 模型，每 token 每层的 KV 缓存为：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>2 (K和V) × 32 (头数) × 128 (维度) × 2 (字节) = 16 KB / token / 层
+</span></span></code></pre></div><p>乘以 61 层，约 <strong>1 MB / token</strong>。128K 上下文就是约 <strong>128 GB</strong>——单卡 H100（80GB）连一个请求的缓存都装不下。这解释了为什么长上下文推理必须做两件事之一：</p>
+<ol>
+<li><strong>压缩 KV 体积</strong>（MLA、GQA、V4 的 CSA/HCA）；</li>
+<li><strong>分层存储</strong>（HBM → 主机内存 → 硬盘）。</li>
+</ol>
+<p>DeepSeek 的答案是：两个都做，而且做到了业界独一份的深度。</p>
+<hr>
+<h2 id="三为什么-deepseek-敢把-kv-缓存放到硬盘上">三、为什么 DeepSeek 敢把 KV 缓存放到硬盘上</h2>
+<h3 id="31-mlav2把-kv-cache-压缩-933">3.1 MLA（V2）：把 KV Cache 压缩 93.3%</h3>
+<p>DeepSeek-V2 提出的 MLA（Multi-head Latent Attention）是整个故事的第一块基石。它的思路是<strong>联合压缩</strong>：不再为每个注意力头单独缓存 K/V，而是把 KV 投影到一个低维 latent 向量 <code>c_KV</code>（512 维），再加一个解耦的 RoPE 键（64 维）——推理时<strong>只缓存这份 latent 表示</strong>，需要时再&quot;升维&quot;还原成各头的 K/V。</p>
+<p>每 token 每层的缓存从 16 KB 量级降到约 <code>(512 + 64) × 2 B ≈ 1.1 KB</code>，V2 论文给出的数字是 <strong>KV cache 削减 93.3%</strong>。</p>
+<p>2024 年 8 月的公告把因果链说得很直白：</p>
+<blockquote>
+<p>这得益于 DeepSeek V2 提出的 MLA 结构，在提高模型效果的同时，大大压缩了上下文 KV Cache 的大小，使得存储所需要的传输带宽和存储容量均大幅减少，因此可以缓存到低成本的硬盘上。</p>
+</blockquote>
+<p><strong>体积每降一个数量级，&ldquo;把前缀放进更便宜的存储&quot;就从不可行变成可行。</strong></p>
+<h3 id="32-从-dsa-到-csa--hcav32--v4再压一个量级">3.2 从 DSA 到 CSA + HCA（V3.2 → V4）：再压一个量级</h3>
+<p>V3.2 引入 DSA（DeepSeek Sparse Attention）：Lightning Indexer 用低秩、小头数（可用 FP8）的轻量打分器为每个历史位置算一个 index score，只取 <strong>top-k（k=2048）</strong> 个 KV 条目进入正式注意力，把主注意力的 <code>O(L²)</code> 降到 <code>O(Lk)</code>。为了让模型适应稀疏访问，DeepSeek 做了两阶段继续训练：dense warm-up（1000 步、约 2.1B tokens，只训 indexer 去模仿 dense 注意力分布）+ 稀疏训练（15000 步、约 943.7B tokens，全参数适应）。</p>
+<p>V4 更进一步，用 <strong>CSA + HCA 混合注意力</strong>替代 MLA+DSA：</p>
+<ul>
+<li><strong>CSA（压缩稀疏注意力）</strong>：每 <code>m=4</code> 个连续 token 的 KV 压缩成 1 个条目 + Lightning Indexer top-k 选择 + 共享 KV 的 MQA 执行 + <strong>滑动窗口（n_win=128）保留局部未压缩 KV</strong>；</li>
+<li><strong>HCA（重压缩注意力）</strong>：<code>m'=128</code> 的极端压缩，压缩后序列足够短，直接做<strong>稠密</strong>注意力——100 万 token 的 KV 被压到约 7800 个条目，提供&quot;鸟瞰式&quot;全局视野；</li>
+<li><strong>前 2 层纯滑动窗口注意力</strong>，其余层 CSA 与 HCA 交替堆叠。</li>
+</ul>
+<p>结果：按 V4 技术报告口径，1M 上下文设定下 V4-Flash 的 KV Cache 约为 V3.2 的 7%、V4-Pro 约为 10%；相对传统 GQA 配置，官方甚至给出&quot;综合约 2%&ldquo;的表述。</p>
+<p>
+  <img src="/img/deepseek-disk-cache/02-kv-size-evolution.svg" alt="KV Cache 体积演进">
+
+</p>
+<h3 id="33-不可变性kv-能下硬盘的架构前提">3.3 不可变性：KV 能下硬盘的架构前提</h3>
+<p>V4 推理框架把 KV Cache 分成了两类，这个划分直接决定了&quot;什么能落盘&rdquo;：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>内容</th>
+<th>特性</th>
+<th>位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Classical KV Cache</strong></td>
+<td>CSA/HCA 压缩后的 KV 条目</td>
+<td><strong>生成后不可变</strong></td>
+<td>可下沉到硬盘</td>
+</tr>
+<tr>
+<td><strong>State Cache</strong></td>
+<td>滑动窗口的未压缩 KV + 尚未压缩的尾部 token</td>
+<td>热度高、频繁更新</td>
+<td>GPU HBM</td>
+</tr>
+</tbody>
+</table>
+<p>&ldquo;不可变&quot;三个字是关键：不可变意味着可以安全落盘、可以被后续任意请求复用而不必担心一致性。这和数据库领域&quot;append-only 数据适合冷存&quot;是同一个工程直觉。而滑窗 KV 因为始终随生成位置滚动更新，必须留在 HBM（或按周期 checkpoint）。</p>
+<hr>
+<h2 id="四逐段精读当前的缓存机制到底怎么工作">四、逐段精读：当前的缓存机制到底怎么工作</h2>
+<p>以下进入正题，把官方文档逐段拆开。</p>
+<blockquote>
+<p>用户的每一个请求都会触发硬盘缓存的构建。若后续请求与之前的请求在前缀上存在重复，则重复部分只需要从缓存中拉取，计入&quot;缓存命中&rdquo;。</p>
+</blockquote>
+<h3 id="41-默认开启每个请求都在构建缓存">4.1 默认开启，每个请求都在构建缓存</h3>
+<p>两句话两个信息点：</p>
+<ol>
+<li><strong>没有开关</strong>。缓存对所有人默认开启，你即使完全不知道它的存在，也已经在为它付费（享受它的折扣）；</li>
+<li><strong>构建是被动且持续的</strong>。不是&quot;你声明要缓存&quot;才缓存，而是每个请求结束都会自动沉淀缓存材料。你唯一能做的是<strong>把 prompt 组织得更容易命中</strong>——这是第七节的主题。</li>
+</ol>
+<h3 id="42-完整匹配缓存前缀单元与三条落盘时机">4.2 完整匹配：缓存前缀单元与三条落盘时机</h3>
+<p>文档的核心规则：</p>
+<blockquote>
+<p>缓存命中的前提是相应前缀已被&quot;落盘&rdquo;。受 <strong>Sliding Window Attention</strong> 机制的影响，缓存前缀的存取与判别与之前有所不同。<strong>每条缓存前缀是一个独立的完整单元。后续请求只有在完整匹配缓存前缀单元时，才能命中缓存。</strong></p>
+</blockquote>
+<p>落盘发生在三个时机（官方原文三条规则）：</p>
+<ol>
+<li><strong>请求结束位置落盘</strong>：每次请求的用户输入结束位置与模型输出结束位置，各产生一个缓存前缀单元；</li>
+<li><strong>公共前缀检测落盘</strong>：系统检测到多次请求间存在公共前缀时，把该公共前缀作为独立单元落盘；</li>
+<li><strong>固定 token 间隔落盘</strong>：长输入/长输出中按一定 token 数量为间隔截取单元，避免长前缀因迟迟达不到结束位置而完全无法缓存。</li>
+</ol>
+<p>这三条分别覆盖三类场景：<strong>对话延伸</strong>（多轮对话天然在前缀上追加）、<strong>共享前缀</strong>（多个请求引用同一份长文档/系统提示词）、<strong>超长输入</strong>（防止&quot;全有或全无&quot;）。</p>
+<p>
+  <img src="/img/deepseek-disk-cache/03-prefix-unit-matching.svg" alt="缓存前缀单元与完整匹配">
+
+</p>
+<p>官方两个举例值得逐字读：</p>
+<p><strong>举例 1（能命中）</strong>：第一轮输入 <code>A + B</code>，第二轮输入 <code>A + B + C</code>。第二轮能完整匹配 <code>[A+B]</code> 这个单元 → A、B 计入缓存命中，只有 C 需要计算。</p>
+<p><strong>举例 2（先不能、后能）</strong>：第一轮 <code>A + B</code>，第二轮 <code>A + C</code>。第二轮<strong>无法命中</strong>——因为 <code>A + C</code> 不能完整匹配 <code>[A+B]</code>。但系统此时识别出两轮存在公共前缀 A，把 <code>[A]</code> 落盘为新单元。于是第三轮 <code>A + D</code> 到来时，能完整匹配 <code>[A]</code>，命中。</p>
+<p><strong>多轮对话</strong>的例子更直观——第二次请求就是第一次请求原样加上几条消息：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span><span style="color:#6272a4">// 第一次请求
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>{<span style="color:#ff79c6">&#34;messages&#34;</span>: [
+</span></span><span style="display:flex;"><span>    {<span style="color:#ff79c6">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;system&#34;</span>, <span style="color:#ff79c6">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;你是一位乐于助人的助手&#34;</span>},
+</span></span><span style="display:flex;"><span>    {<span style="color:#ff79c6">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;user&#34;</span>, <span style="color:#ff79c6">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;中国的首都是哪里？&#34;</span>}
+</span></span><span style="display:flex;"><span>]}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 第二次请求：前两条消息逐字复用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>{<span style="color:#ff79c6">&#34;messages&#34;</span>: [
+</span></span><span style="display:flex;"><span>    {<span style="color:#ff79c6">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;system&#34;</span>, <span style="color:#ff79c6">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;你是一位乐于助人的助手&#34;</span>},
+</span></span><span style="display:flex;"><span>    {<span style="color:#ff79c6">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;user&#34;</span>, <span style="color:#ff79c6">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;中国的首都是哪里？&#34;</span>},
+</span></span><span style="display:flex;"><span>    {<span style="color:#ff79c6">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;assistant&#34;</span>, <span style="color:#ff79c6">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;中国的首都是北京。&#34;</span>},
+</span></span><span style="display:flex;"><span>    {<span style="color:#ff79c6">&#34;role&#34;</span>: <span style="color:#f1fa8c">&#34;user&#34;</span>, <span style="color:#ff79c6">&#34;content&#34;</span>: <span style="color:#f1fa8c">&#34;美国的首都是哪里？&#34;</span>}
+</span></span><span style="display:flex;"><span>]}
+</span></span></code></pre></div><p><strong>长文本问答（财报）<strong>的例子则揭示了公共前缀检测的价值：前两次请求（&ldquo;总结关键信息&rdquo;、&ldquo;分析盈利情况&rdquo;）都</strong>不命中</strong>——它们的前缀相同，但第一轮结束时落盘的单元是&quot;第一轮的完整输入&quot;，第二轮的尾部问题不同，无法完整匹配。但两轮过后，系统检测出 <code>system + &lt;财报内容&gt;</code> 是公共前缀，将其落盘为独立单元——<strong>第三次请求（&ldquo;分析收入与支出占比&rdquo;）就能命中了</strong>。</p>
+<p>这个例子对工程上的启示是：<strong>同一份长文档上连发多个问题，从第三个问题开始享受缓存折扣</strong>；如果你的应用只问两个问题就换文档，命中率必然难看。</p>
+<h3 id="43-为什么滑动窗口让匹配变成整单元机制推断">4.3 为什么滑动窗口让匹配变成&quot;整单元&quot;？（机制推断）</h3>
+<p>官方文档只给了一句&quot;受 Sliding Window Attention 机制的影响&quot;，没有展开。以下是基于 V4 架构公开信息的推断，<strong>属于笔者的分析，非官方表述</strong>：</p>
+<p>严格来说，因果性保证了前缀的 KV 本身与后续 token 无关——单看数学，从任意位置截断复用都&quot;正确&quot;。真正发生变化的是<strong>工程组织方式</strong>：</p>
+<ol>
+<li><strong>滑窗状态是&quot;位置相对&quot;的</strong>。滑动窗口只保留最近 n_win 个未压缩 KV，某段窗口状态只对特定生成位置有意义。若允许从单元中间恢复推理，截断点之后的窗口内容与当初落盘时并不对齐，系统必须重建对齐状态；</li>
+<li><strong>V4 的 KV 以&quot;单元&quot;为组织粒度</strong>（压缩条目 + 窗口状态 + 对齐信息一起构成快照）。从中途恢复意味着快照边界和请求边界不一致，与其做昂贵的部分恢复，不如整单元命中或整单元重算。</li>
+</ol>
+<p>对照旧机制就明白差异从哪来：2024 年公告明确写着&quot;缓存系统以 <strong>64 tokens</strong> 为一个存储单元&quot;。在 MLA（无滑窗）时代，块 <code>i</code> 的 K/V 只依赖 ≤ 块尾的 token，与切分位置无关，所以<strong>任意 64-token 边界截断复用都是正确的</strong>——这正是 vLLM 的 Automatic Prefix Caching 用 block hash 做 64-token 粒度匹配的原理。而滑窗 + 压缩 + 稀疏选择进来之后，&ldquo;块&quot;变成了&quot;快照&rdquo;，粒度被迫升到整单元。</p>
+<p>行为差异总结：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>旧机制（64-token 块）</th>
+<th>当前机制（完整单元）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>A+C</code> 紧跟 <code>A+B</code></td>
+<td>A 部分直接命中</td>
+<td><strong>不命中</strong>，但催生 <code>[A]</code> 落盘</td>
+</tr>
+<tr>
+<td><code>A+C</code> 之后再发 <code>A+D</code></td>
+<td>命中 A</td>
+<td>命中 <code>[A]</code></td>
+</tr>
+<tr>
+<td>首个请求</td>
+<td>不命中</td>
+<td>不命中</td>
+</tr>
+<tr>
+<td>部分匹配一个长单元</td>
+<td>按块部分命中</td>
+<td>只有整单元才算命中</td>
+</tr>
+</tbody>
+</table>
+<p>所以如果你观察到&quot;明明前缀大部分一样却没命中&quot;，先检查是否只匹配了某个落盘单元的一部分——<strong>等一两个请求让公共前缀被检测落盘，命中就来了</strong>。</p>
+<h3 id="44-输出随机性与-best-effort两条容易被忽略的说明">4.4 输出随机性与 best-effort：两条容易被忽略的说明</h3>
+<p>文档最后两条说明常被忽略，但很重要：</p>
+<ol>
+<li><strong>缓存只匹配输入前缀，输出仍靠推理得到</strong>。<code>temperature</code> 等参数的随机性不受影响——&ldquo;其输出效果与不使用硬盘缓存相同&rdquo;。换句话说，命中缓存不会让模型变笨或变呆；</li>
+<li><strong>缓存是尽力而为（best-effort）</strong>：不保证 100% 命中；构建耗时秒级；不再使用后自动清空，一般为几小时到几天。加上 2024 公告补充的隔离性——每个用户的缓存独立、逻辑上相互不可见、不用于其他用途——可以得出结论：<strong>缓存是纯性能/成本优化，永远不要把正确性押在它上面</strong>。</li>
+</ol>
+<hr>
+<h2 id="五计费模型与真实省钱幅度">五、计费模型与真实省钱幅度</h2>
+<h3 id="51-怎么观察命中usage-的两个字段">5.1 怎么观察命中：usage 的两个字段</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;usage&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;prompt_cache_hit_tokens&#34;</span>: <span style="color:#bd93f9">6000</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;prompt_cache_miss_tokens&#34;</span>: <span style="color:#bd93f9">4000</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;completion_tokens&#34;</span>: <span style="color:#bd93f9">500</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><ul>
+<li><code>prompt_cache_hit_tokens</code>：本次输入中<strong>命中</strong>缓存的 token 数（按命中价计费）；</li>
+<li><code>prompt_cache_miss_tokens</code>：<strong>未命中</strong>、需要现场计算的 token 数（按未命中价计费）。</li>
+</ul>
+<p><strong>命中率 = hit / (hit + miss)</strong>。这是长上下文应用最值得放进监控大盘的第一个指标。</p>
+<h3 id="52-价格从-110-到-130">5.2 价格：从 1/10 到 1/30</h3>
+<table>
+<thead>
+<tr>
+<th>输入单价（元 / 百万 tokens）</th>
+<th>2024-08 首发</th>
+<th>V4-Flash 空闲</th>
+<th>V4-Flash 高峰</th>
+<th>V4-Pro 空闲</th>
+<th>V4-Pro 高峰</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>缓存命中</td>
+<td>0.1</td>
+<td>0.05</td>
+<td>0.10</td>
+<td>0.15</td>
+<td>0.30</td>
+</tr>
+<tr>
+<td>缓存未命中</td>
+<td>1.0</td>
+<td>1.5</td>
+<td>3.0</td>
+<td>4.5</td>
+<td>9.0</td>
+</tr>
+<tr>
+<td>输出</td>
+<td>—（另见当时价格页）</td>
+<td>4.5</td>
+<td>9.0</td>
+<td>13.5</td>
+<td>27.0</td>
+</tr>
+<tr>
+<td><strong>命中折扣</strong></td>
+<td><strong>1/10</strong></td>
+<td>1/30</td>
+<td>1/30</td>
+<td>1/30</td>
+<td>1/30</td>
+</tr>
+</tbody>
+</table>
+<p>注：高峰时段为北京时间 9:00–12:00、14:00–18:00，其余为空闲（半价）。两个时代值得注意的事实：<strong>折扣从 1/10 加深到了 1/30</strong>，而缓存存储本身始终<strong>免费</strong>（公告原文：&ldquo;缓存占用存储无需付费&rdquo;），构建也无额外费用。</p>
+<h3 id="53-一笔账">5.3 一笔账</h3>
+<p>
+  <img src="/img/deepseek-disk-cache/04-billing-model.svg" alt="三档计费模型">
+
+</p>
+<p>以 V4-Flash 高峰价、10,000 token 输入为例：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>无缓存:     10,000 × 3.0 / 1M          = 0.0300 元
+</span></span><span style="display:flex;"><span>命中率 60%:  6,000×0.1 + 4,000×3.0 (/1M) = 0.0126 元  → 省 58%
+</span></span><span style="display:flex;"><span>命中率 90%:  9,000×0.1 + 1,000×3.0 (/1M) = 0.0039 元  → 省 87%
+</span></span></code></pre></div><p>反解一下官方口径的&quot;最高降低 87.5%&quot;：成本降到 1/8 时，对应的命中率约为 90%。也就是说，<strong>省多少钱几乎完全由命中率决定</strong>——这就是第七节工程实践的价值所在。第三方博客的实测案例也印证这个量级：一个金融风控问答接口（单次输入 8600 tokens、62% 为重复的合规声明），接入缓存后命中率稳定在 73.5%，单次调用成本从 1.82 元降到 0.49 元。</p>
+<h3 id="54-延迟收益13-秒--500-毫秒的物理含义">5.4 延迟收益：13 秒 → 500 毫秒的物理含义</h3>
+<p>官方实测数字：128K 输入且大部分重复的请求，TTFT 从 13 秒降到 500 毫秒。做个量级演算（示意）：</p>
+<ul>
+<li>重算路径：128K prefill 的计算量在万亿 FLOPs 量级（671B 模型），单请求 13 秒合理；</li>
+<li>缓存路径：MLA 压缩后 128K 前缀的 KV 约 9 GB（70 KB/token × 128K），从<strong>分布式硬盘阵列</strong>并行顺序读回——多盘 NVMe 聚合带宽几十 GB/s 起步，半秒内完成完全说得通。</li>
+</ul>
+<p>本质上是<strong>把 O(L²) 的计算换成了顺序 I/O</strong>。这也是&quot;硬盘缓存&quot;这个词的精确含义：不是 HTTP 那种响应缓存，而是把推理的中间状态（KV）当数据落盘。</p>
+<hr>
+<h2 id="六横向对比各家的前缀缓存长什么样">六、横向对比：各家的前缀缓存长什么样</h2>
+<table>
+<thead>
+<tr>
+<th>厂商</th>
+<th>触发方式</th>
+<th>匹配粒度</th>
+<th>命中计价</th>
+<th>生命周期</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DeepSeek</strong></td>
+<td>全自动，默认开启</td>
+<td>缓存前缀单元，<strong>完整匹配</strong></td>
+<td>未命中的约 1/30，存储免费</td>
+<td>几小时到几天，best-effort</td>
+</tr>
+<tr>
+<td><strong>Anthropic</strong></td>
+<td>显式 <code>cache_control</code> 标记</td>
+<td>断点前缀</td>
+<td>写入 1.25×，读取 0.1×</td>
+<td>5 分钟滑动刷新</td>
+</tr>
+<tr>
+<td><strong>OpenAI</strong></td>
+<td>自动（≥1024 tokens 起）</td>
+<td>1024-token 块</td>
+<td>自动 50% 折扣</td>
+<td>分钟级到 1 小时</td>
+</tr>
+<tr>
+<td><strong>Google Gemini</strong></td>
+<td>隐式自动 + 显式声明两种</td>
+<td>token 前缀</td>
+<td>缓存 token 折扣（隐式/显式不同），显式另收存储费</td>
+<td>隐式数小时；显式可自定义</td>
+</tr>
+<tr>
+<td><strong>vLLM / SGLang 自建</strong></td>
+<td>自动（<code>enable_prefix_caching</code>）</td>
+<td>64-token block hash</td>
+<td>免费（自担显存/内存）</td>
+<td>进程内 radix 树，重启即失</td>
+</tr>
+</tbody>
+</table>
+<p>注：各家策略持续调整，具体以官方文档为准。三点观察：</p>
+<ol>
+<li><strong>只有 DeepSeek 把缓存放到了&quot;硬盘&quot;这一层</strong>。其他家的前缀缓存本质上是显存/内存级的（TTL 分钟级），DeepSeek 的 TTL 是天级且跨请求、跨节点——这依赖 MLA 以来的体积压缩，别家短期难以复制；</li>
+<li><strong>显式 vs 自动是两种产品哲学</strong>：Claude 给你控制权但要付写入溢价（1.25×）且要操心 5 分钟 TTL；DeepSeek 全自动免费但不可控——你甚至无法主动失效一段缓存，只能等它自然过期；</li>
+<li><strong>匹配粒度在收敛</strong>：大家都是&quot;token 前缀匹配&quot;，差异在边界语义——OpenAI 按 1024-token 块、Claude 按显式断点、DeepSeek 按落盘单元。写跨厂商应用时，prompt 布局原则是通用的（稳定在前、动态在后）。</li>
+</ol>
+<hr>
+<h2 id="七工程实践把命中率吃到-90">七、工程实践：把命中率吃到 90%</h2>
+<p>缓存机制你控制不了，但 prompt 布局完全在你手里。所有原则都源自一条约束：<strong>完整匹配 + 从第一个 token 开始</strong>。</p>
+<p>
+  <img src="/img/deepseek-disk-cache/05-prompt-layout.svg" alt="Prompt 布局最佳实践">
+
+</p>
+<p>具体清单：</p>
+<ol>
+<li><strong>system 提示词逐字节固定</strong>。完整匹配是全字符串精确匹配——<strong>末尾多一个空格、换行符从 <code>\n</code> 变 <code>\n\n</code>，整个前缀全部失效</strong>。把 system prompt 当基础设施做版本管理，别在代码里动态拼接；</li>
+<li><strong>动态内容一律后置</strong>。时间戳、请求 ID、用户名、&ldquo;当前是第 N 轮&quot;这类每轮必变的内容，放到消息末尾。经典反例：<code>[当前时间 10:32] + [system] + [知识库] + [问题]</code>——命中率直接归零；</li>
+<li><strong>多轮对话模板逐字一致</strong>。messages 的 role 顺序、分隔符、工具定义的序列化顺序都要稳定——Anthropic 在 Claude Code 的经验总结里把这叫作 &ldquo;Static content first, dynamic content last&rdquo;，同一个原则；</li>
+<li><strong>长文档场景连发请求</strong>。同一份文档上的多个问题连续发送（参考财报例子）：前两次请求负责&quot;喂&quot;出公共前缀单元，从第三次开始吃折扣。只问一两个问题就换文档的应用，天然吃不到缓存；</li>
+<li><strong>few-shot 示例、知识库、工具定义全部前置</strong>。它们越靠前、越稳定，可复用前缀越长——官方列出的受益场景（长预设提示词问答、角色扮演、固定文本集数据分析、代码仓库级分析、few-shot）全部符合这个模式；</li>
+<li><strong>监控命中率并设告警</strong>。用 <code>usage</code> 字段算 <code>hit / (hit + miss)</code>：第三方经验值是 <strong>&gt; 40% 健康，&lt; 20% 说明 prompt 结构需要整改</strong>。把它做成和错误率同级的业务指标；</li>
+<li><strong>不要把正确性押在缓存上</strong>。best-effort、秒级构建、几小时到几天过期——缓存没命中时应用必须同样正确，只是更贵更慢；</li>
+<li><strong>输出质量不用担心</strong>。缓存只作用于输入前缀，<code>temperature</code> 的随机性原样保留，输出效果与不使用缓存相同。</li>
+</ol>
+<hr>
+<h2 id="八总结">八、总结</h2>
+<p>把两年多的演进压缩成三句话：</p>
+<ol>
+<li><strong>MLA（V2）让硬盘缓存成为可能</strong>——KV Cache 压缩 93.3%，传输带宽和存储容量降到&quot;低成本的硬盘也装得下、读得动&rdquo;；</li>
+<li><strong>V3.2/V4 的稀疏与压缩架构重塑了缓存语义</strong>——滑动窗口 + 压缩条目让 KV 以&quot;不可变单元&quot;组织，匹配从 64-token 块升级为<strong>完整前缀单元匹配</strong>，部分匹配不再计费；</li>
+<li><strong>计费随之演进</strong>——命中折扣从 1/10 加深到 1/30，存储免费、构建免费、不限并发；你唯一需要做的是把 prompt 布局成&quot;稳定在前、动态在后&quot;，然后盯住 <code>usage</code> 里的命中率。</li>
+</ol>
+<p>对长期运行的 Agent 应用（ system prompt + 工具定义 + 项目上下文动辄数万 token）来说，这块&quot;看不见的基础设施&quot;往往就是成本结构里最大的一根杠杆。读懂这篇文档，等于读懂了自己账单的一半。</p>
+<hr>
+<h2 id="参考资料">参考资料</h2>
+<ul>
+<li><a href="https://api-docs.deepseek.com/zh-cn/guides/kv_cache">上下文硬盘缓存 | DeepSeek API Docs</a>（本文精读对象）</li>
+<li><a href="https://api-docs.deepseek.com/zh-cn/news/news0802/">DeepSeek API 创新采用硬盘缓存，价格再降一个数量级</a>（2024-08 公告，旧机制与首发价格）</li>
+<li><a href="https://api-docs.deepseek.com/zh-cn/quick_start/pricing">模型 &amp; 价格 | DeepSeek API Docs</a>（V4 现行价格）</li>
+<li><a href="https://arxiv.org/abs/2405.04434">DeepSeek-V2: A Strong, Economical and Efficient Mixture-of-Experts Language Model</a>（MLA，KV cache 削减 93.3%）</li>
+<li><a href="https://arxiv.org/html/2512.02556">DeepSeek-V3.2 技术报告</a>（DSA / Lightning Indexer / top-k）</li>
+<li><a href="https://chang-wenbin.github.io/AIbin-Note/MLA_DSA/2026-04-24_deepseek-v4-technical-analysis.html">DeepSeek-V4 技术报告深度解读</a>（CSA/HCA、异构 KV Cache）</li>
+<li><a href="https://charlestar.github.io/2026/05/18/deepseek-v3-2-sparse-attention/">DeepSeek V3.2 稀疏注意力：Lightning Indexer 与 Top-k 选择</a></li>
+<li><a href="https://docs.vllm.ai/en/latest/features/automatic_prefix_caching.html">vLLM Automatic Prefix Caching 文档</a></li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/08/19/claude-code-session-value/" data-toggle="tooltip" data-placement="top" title="Claude Code 会话效率指南：别让无关上下文偷走你的 Token">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ci/cd" title="ci/cd">
+                            ci/cd
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/loops" title="loops">
+                            loops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openai" title="openai">
+                            openai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1" title="产品设计">
+                            产品设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90" title="源码解析">
+                            源码解析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
