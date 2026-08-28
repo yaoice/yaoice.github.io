@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Codex CLI 源码深度技术解析：OpenAI 开源编码 Agent 的 Rust 架构全貌" />
+    <meta property="og:title" content="Codex CLI 源码深度技术解析：OpenAI 开源编码 Agent 的 Rust 架构全貌" />
+    <meta property="twitter:title" content="Codex CLI 源码深度技术解析：OpenAI 开源编码 Agent 的 Rust 架构全貌" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Codex CLI 源码深度技术解析：OpenAI 开源编码 Agent 的 Rust 架构全貌 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-08-23-codex-cli%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/codex" title="Codex">
+                            Codex
+                        </a>
+                        
+                        <a class="tag" href="/tags/rust" title="Rust">
+                            Rust
+                        </a>
+                        
+                    </div>
+                    <h1>Codex CLI 源码深度技术解析：OpenAI 开源编码 Agent 的 Rust 架构全貌</h1>
+                    <h2 class="subheading">从 SQ/EQ 事件循环、三平台沙箱到 Skills/Hooks 扩展体系的实现剖析</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Sunday, August 23, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一项目背景openai-的官方开源编码-agent">一、项目背景：OpenAI 的官方开源编码 Agent</h2>
+<p>如果说 2025 年是 AI 编码 Agent 的爆发年，那么 OpenAI 的 <a href="https://github.com/openai/codex">Codex CLI</a> 就是这场竞赛中最值得细读的开源样本之一：它由 OpenAI 官方维护、以 Apache-2.0 协议开源，是一个<strong>运行在本地计算机上的编码 Agent</strong>——模型推理在云端，但读文件、改代码、跑命令全部发生在你自己的机器上，通过 ChatGPT 订阅（Plus/Pro/Business/Enterprise）或 API Key 认证。</p>
+<p>这个项目有一条颇具代表性的演进路线：<strong>早期版本是 TypeScript 写的 Node.js CLI，如今已经完整重写为 Rust</strong>。仓库根目录下的 <code>codex-cli/</code> 如今只剩一个纯粹的 npm 安装壳——<code>bin/codex.js</code> 只做一件事：根据平台和架构选择对应的原生二进制包（如 <code>@openai/codex-darwin-arm64</code>）并拉起真正的 Rust 可执行文件。所有 Agent 逻辑都沉淀在 <code>codex-rs/</code> 这个庞大的 Cargo workspace 里。</p>
+<p>为什么要重写？从源码里能读出几个直接答案：启动速度与分发体积（单一静态二进制，<code>musl</code> 静态编译 Linux 包）、类型系统对协议层的强约束（下文会看到 Rust 类型如何直接生成 TypeScript 定义）、以及并发安全（Agent 的异步事件循环正是 Rust + tokio 的主场）。</p>
+<h3 id="项目概貌">项目概貌</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>数据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>核心语言</strong></td>
+<td>Rust（workspace edition 2024）+ TypeScript（SDK / 协议类型）</td>
+</tr>
+<tr>
+<td><strong>Workspace 规模</strong></td>
+<td><code>codex-rs/</code> 下 90+ crates，含 138 个 workspace 成员</td>
+</tr>
+<tr>
+<td><strong>模型接口</strong></td>
+<td>OpenAI Responses API（SSE 流式）</td>
+</tr>
+<tr>
+<td><strong>终端 UI</strong></td>
+<td>ratatui 0.30 + crossterm（OpenAI 维护 fork）</td>
+</tr>
+<tr>
+<td><strong>持久化</strong></td>
+<td>SQLite（sqlx，61 个迁移 SQL）+ rollout 会话文件</td>
+</tr>
+<tr>
+<td><strong>沙箱</strong></td>
+<td>macOS Seatbelt / Linux bubblewrap+seccomp / Windows RestrictedToken+WFP</td>
+</tr>
+<tr>
+<td><strong>规则引擎</strong></td>
+<td>Starlark（execpolicy）</td>
+</tr>
+<tr>
+<td><strong>脚本运行时</strong></td>
+<td>内嵌 V8（code-mode，跑 TypeScript 工具）</td>
+</tr>
+<tr>
+<td><strong>构建体系</strong></td>
+<td>Bazel + Cargo 双构建，CI 校验 lockfile 漂移</td>
+</tr>
+<tr>
+<td><strong>可观测</strong></td>
+<td>OpenTelemetry（OTLP）+ Sentry</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>本文基于当前 main 分支源码快照分析，涉及文件路径均相对 <code>codex-rs/</code>。文中观点仅代表个人技术解读。</p>
+</blockquote>
+<h3 id="本文导读">本文导读</h3>
+<ul>
+<li><strong>第二节</strong>先用一张分层架构图建立全局认知：五种前端形态如何共享同一套 Rust 内核；</li>
+<li><strong>第三、四节</strong>是主执行链路：SQ/EQ 事件循环、工具系统、纵深防御的沙箱体系、扩展机制与提示词工程；</li>
+<li><strong>第五、六节</strong>看多端接入形态、工程治理实践与完整技术栈；</li>
+<li>适合关注 AI Coding Agent、终端工程、权限治理或 Rust 工程化的读者。</li>
+</ul>
+<h2 id="二架构概览一套内核五种前端">二、架构概览：一套内核，五种前端</h2>
+<p>
+  <img src="/img/codex-cli-source-analysis/architecture-overview.svg" alt="Codex CLI 分层架构总览">
+
+</p>
+<p>整个 <code>codex-rs</code> workspace 可以归纳为六层：</p>
+<p><strong>接入层</strong>是最令人印象深刻的设计——同一个 Agent 内核对外的五种形态，全部是可插拔的薄壳：</p>
+<ul>
+<li><strong>TUI</strong>：<code>tui/</code> crate，ratatui 驱动的终端交互界面，<code>codex</code> 默认入口；</li>
+<li><strong>exec</strong>：<code>exec/</code> crate，非交互一次性执行，输出 JSONL 事件流，是脚本/CI 与 SDK 的底层驱动；</li>
+<li><strong>app-server</strong>：<code>app-server/</code> crate，JSON-RPC 2.0 服务，VS Code 扩展等富客户端的标准接口；</li>
+<li><strong>MCP Server</strong>：<code>mcp-server/</code> crate，把 Codex 本身暴露为两个 MCP 工具（<code>codex</code> / <code>codex-reply</code>），供其他 Agent 调用；</li>
+<li><strong>TS SDK</strong>：<code>sdk/typescript/</code> 的 <code>@openai/codex-sdk</code>，<code>Codex → Thread → Turn</code> 三级 API，底层 spawn <code>codex exec</code>。</li>
+</ul>
+<p><strong>协议层</strong>（<code>protocol/</code> crate）定义了所有跨层数据结构：<code>Op</code> 提交与 <code>Event</code> 事件的双队列（下文详述）、<code>Thread/Turn/Item</code> 会话语汇、权限与沙箱策略类型。这一层通过 <code>ts-rs</code> 直接生成 TypeScript 类型，保证 Rust 与 TS 客户端的 wire format 永不漂移。</p>
+<p><strong>核心层</strong>（<code>core/</code> crate）是 Agent 的大脑：<code>Session</code> 状态机、Turn 循环、工具路由、上下文组装与压缩、Hooks 运行时、MCP 管理器。值得注意的是，AGENTS.md 里专门写了一条治理红线：</p>
+<blockquote>
+<p><strong>resist adding code to codex-core!</strong> —— 新功能优先考虑其他 crate，必要时为新概念开一个新 crate，而不是往最大的 <code>codex-core</code> 里继续堆代码。</p>
+</blockquote>
+<p><strong>能力层</strong>把每个扩展点做成独立 crate：<code>apply-patch</code>（补丁应用）、<code>skills</code>（技能发现与注入）、<code>hooks</code>（生命周期钩子）、<code>plugins</code>、<code>codex-mcp</code>（MCP 客户端连接管理）、<code>code-mode</code>（内嵌 V8 执行 TS 工具逻辑）。</p>
+<p><strong>安全层</strong>是本文重点之一：<code>sandboxing</code>（跨平台沙箱管理）、<code>linux-sandbox</code> / <code>windows-sandbox-rs</code>（平台辅助二进制）、<code>network-proxy</code>（网络管控）、<code>execpolicy</code>（Starlark 规则）、<code>guardian</code>（LLM 自动审批）。</p>
+<p><strong>基础层</strong>则是 <code>state</code>（SQLite）、<code>rollout</code>（会话持久化/resume）、<code>otel</code>、<code>config</code>、30 多个 <code>utils/*</code> 小 crate（绝对路径、流解析、模糊匹配、模板等）——小 crate 策略让依赖关系始终单向、可测。</p>
+<h2 id="三核心机制解析">三、核心机制解析</h2>
+<h3 id="31-sqeq事件驱动的-turn-循环">3.1 SQ/EQ：事件驱动的 Turn 循环</h3>
+<p>Codex 的内核并发模型非常干净，<code>protocol/src/protocol.rs</code> 开头注释一锤定音：</p>
+<blockquote>
+<p>Uses a SQ (Submission Queue) / EQ (Event Queue) pattern to asynchronously communicate between user and agent.</p>
+</blockquote>
+<p>
+  <img src="/img/codex-cli-source-analysis/turn-loop.svg" alt="一次 Turn 的完整生命周期">
+
+</p>
+<p>用户侧的一切动作被建模为 <code>Op</code>（提交进 SQ），Agent 的一切产出被建模为 <code>Event</code>（广播进 EQ）。<code>Submission</code> 结构体除了携带 <code>op</code> 载荷，还带 <code>trace</code>（W3C trace context，跨异步交接传播链路追踪）以及 <code>parent_turn_id</code> / <code>root_turn_id</code>——后者是<strong>多 Agent 编排</strong>的基础，子 Agent 的提交可以追溯到直接发起者和顶层因果根：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#6272a4">// codex-rs/protocol/src/protocol.rs
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">struct</span> <span style="color:#50fa7b">Submission</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">pub</span> id: <span style="color:#8be9fd;font-style:italic">String</span>,                    <span style="color:#6272a4">// 关联 Event 的唯一 ID
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">pub</span> op: <span style="color:#50fa7b">Op</span>,                        <span style="color:#6272a4">// 载荷
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">pub</span> trace: <span style="color:#8be9fd;font-style:italic">Option</span><span style="color:#ff79c6">&lt;</span>W3cTraceContext<span style="color:#ff79c6">&gt;</span>,<span style="color:#6272a4">// 跨异步交接的链路追踪
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">pub</span> parent_turn_id: <span style="color:#8be9fd;font-style:italic">Option</span><span style="color:#ff79c6">&lt;</span><span style="color:#8be9fd;font-style:italic">String</span><span style="color:#ff79c6">&gt;</span>,<span style="color:#6272a4">// 直接发起本提交的父 turn（Agent 间通信）
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">pub</span> root_turn_id: <span style="color:#8be9fd;font-style:italic">Option</span><span style="color:#ff79c6">&lt;</span><span style="color:#8be9fd;font-style:italic">String</span><span style="color:#ff79c6">&gt;</span>,  <span style="color:#6272a4">// 因果链上的顶层 turn
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p><code>Op</code> 枚举覆盖了打断（<code>Interrupt</code>）、后台终端清理、实时语音会话（<code>RealtimeConversationStart/Audio/Text/...</code>）、以及最核心的 <code>TurnInput</code>。而执行侧的 <code>Session</code> 有一条硬约束：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#6272a4">// codex-rs/core/src/session/session.rs
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#f1fa8c">/// A session has at most 1 running task at a time,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">/// and can be interrupted by user input.
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c"></span><span style="color:#ff79c6">pub</span>(<span style="color:#ff79c6">crate</span>) <span style="color:#ff79c6">struct</span> <span style="color:#50fa7b">Session</span> { <span style="color:#ff79c6">..</span>. }
+</span></span></code></pre></div><p>一次 Turn 在 <code>core/src/session/turn.rs</code> 里的完整流程是：</p>
+<ol>
+<li><strong>上下文组装</strong>：运行 <code>SessionStart</code> 等 hooks、注入 skills 目录与显式技能内容、读取 <code>AGENTS.md</code> 项目说明、拼装环境上下文（时间、OS、git 状态、目录结构）；</li>
+<li><strong>模型请求</strong>：向 Responses API 发起 SSE 流式请求，支持按模型路由与重试（<code>responses_retry.rs</code>）；</li>
+<li><strong>流式解析</strong>：<code>AssistantTextStreamParser</code> 增量解析响应，delta（正文/推理摘要）实时流入 EQ 供前端渲染，同时识别 <code>function_call</code> 响应项；</li>
+<li><strong>工具分发</strong>：<code>ToolRouter</code>（由 <code>tools/spec_plan.rs</code> 按模型能力构建）把调用路由到注册表中的处理器，支持并行工具调用（<code>tools/parallel.rs</code>）；</li>
+<li><strong>审批闸门</strong>：经策略矩阵裁决（详见 3.3），放行则在沙箱内执行，结果作为工具输出回填上下文，<strong>回到第 2 步循环</strong>，直到模型不再产生工具调用；</li>
+<li><strong>收尾</strong>：发出 <code>TurnCompleted</code>，附带 turn diff 汇总（<code>turn_diff_tracker.rs</code>）与 token 用量，全量写入 rollout 文件支持 <code>resume</code>。</li>
+</ol>
+<p>两条容易被忽略的精妙设计：</p>
+<ul>
+<li><strong>上下文治理成文</strong>。AGENTS.md 里&quot;Model visible context&quot;一节规定：历史<strong>只增不改</strong>（保证前缀缓存命中）、注入片段必须有硬上限（单项不超过 10K token）、所有注入必须实现为 <code>core/context</code> 里的 <code>ContextualUserFragment</code> 结构体。逼近预算时，<code>compact.rs</code> 会触发 auto-compact 自动压缩历史（还支持服务端远程压缩的 v2 协议）。</li>
+<li><strong>可转向（steering）</strong>。Turn 运行中用户的新输入不是排队等下一轮，而是作为 <code>SteerSubmission</code> 参与当前任务的改向，配合 <code>Interrupt</code> 构成完整的中断语义。</li>
+</ul>
+<h3 id="32-工具系统与-apply_patch">3.2 工具系统与 apply_patch</h3>
+<p>工具子系统的骨架在 <code>core/src/tools/</code>：<code>registry.rs</code>（注册表）→ <code>router.rs</code>（按名字空间路由，工具名形如 <code>namespace.tool</code>）→ <code>orchestrator.rs</code>（编排）→ <code>handlers/</code>（各工具实现）。所有需要审批的动作统一收敛为一个枚举：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#6272a4">// codex-rs/core/src/tools/approvals.rs
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">pub</span> <span style="color:#ff79c6">enum</span> <span style="color:#50fa7b">ApprovalAction</span> {
+</span></span><span style="display:flex;"><span>    ExecCommand,        <span style="color:#6272a4">// shell 命令
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    Execve,             <span style="color:#6272a4">// 直接 execve
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    ApplyPatch,         <span style="color:#6272a4">// 文件补丁
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    McpToolCall,        <span style="color:#6272a4">// MCP 工具调用
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    NetworkAccess,      <span style="color:#6272a4">// 网络访问提权
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    RequestPermissions, <span style="color:#6272a4">// 权限申请
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>}
+</span></span></code></pre></div><p>文件修改走的是自研的 <code>apply_patch</code> 而非通用 shell：模型输出一种类似 git diff 的 V4A 补丁格式（heredoc 包裹），<code>apply-patch/</code> crate 提供<strong>流式解析器</strong>（<code>StreamingPatchParser</code>，边生成边解析）与确定性应用逻辑（<code>derive_new_contents_from_chunks</code>），并能把应用结果反向渲染成 unified diff 展示。两个细节值得玩味：</p>
+<ul>
+<li><strong>单二进制自调用</strong>：补丁还可以作为独立命令执行——Codex 主程序通过 <code>arg0</code> 分发，以 <code>--codex-run-as-apply-patch</code> 特殊参数自我调用进入 <code>apply_patch</code> 模式，省去多带一个二进制；</li>
+<li><strong>换行符策略</strong>可配置：<code>NormalizeToLf</code>（默认，行为兼容历史）或 <code>PreserveLineEndings</code>（保留文件既有换行风格），这类边角正确性正是生产级 Agent 与 demo 的分水岭。</li>
+</ul>
+<h3 id="33-纵深防御沙箱网络与审批">3.3 纵深防御：沙箱、网络与审批</h3>
+<p>安全体系是 Codex 源码里最&quot;豪华&quot;的部分，四层递进、全链路 fail-closed：</p>
+<p>
+  <img src="/img/codex-cli-source-analysis/sandbox-stack.svg" alt="纵深防御安全栈">
+
+</p>
+<p><strong>第一层：三平台 OS 级沙箱</strong>。<code>sandboxing/</code> crate 的 <code>SandboxManager</code> 是统一入口，<code>SandboxType</code> 枚举三种实现：macOS 走 <code>/usr/bin/sandbox-exec</code> + SBPL 策略（<code>deny default</code> 起步、仿 Chrome 白名单，策略文件 <code>include_str!</code> 编译进二进制，运行时按可写根/只读例外/代理端口动态拼接）；Linux 默认走独立辅助二进制 <code>codex-linux-sandbox</code>——bubblewrap 做文件系统隔离（user namespace）+ <code>no_new_privs</code> + seccomp 网络过滤（Landlock 仅作 legacy 回退），沙箱内网络命名空间的流量经 UNIX socket 桥回宿主机代理；Windows 则创建专用沙箱用户，用 <code>CreateRestrictedToken</code>（<code>DISABLE_MAX_PRIVILEGE | LUA_TOKEN | WRITE_RESTRICTED</code> + capability SID）降权执行，文件系统靠 ACL/DACL，网络靠 WFP（Windows Filtering Platform）过滤器硬断直连。</p>
+<p><strong>第二层：网络管控不靠 iptables</strong>。<code>network-proxy/</code> 的思路是把沙箱内的出网流量<strong>全部赶到 127.0.0.1 的环回代理</strong>上：沙箱内只放行 loopback，通过注入 <code>HTTP_PROXY/HTTPS_PROXY/ALL_PROXY</code> 环境变量强制进程走代理；代理基于 rama 实现 HTTP CONNECT / SOCKS5，按域名白名单<strong>逐连接裁决</strong>（deny 优先），<code>TargetCheckedTcpConnector</code> 还会拦截非公网 IP 直连，可选 TLS MITM 模式提供凭据代理。这套设计跨平台一致，不依赖宿主机 root 权限改防火墙。</p>
+<p><strong>第三层：审批策略矩阵</strong>。<code>AskForApproval</code>（untrusted / on-request / granular / never）与 <code>SandboxMode</code>（read-only 默认 / workspace-write / danger-full-access）两个正交维度，在 <code>core/src/exec_policy.rs</code> 中合成 <code>Allow / Prompt / Forbidden</code> 三态裁决。核心规则很克制：<strong>沙箱兜底成立时尽量不打扰用户</strong>——on-request 策略下，受控沙箱内的普通命令直接放行，只有请求沙箱提权或命中危险模式才升级为 Prompt；而危险命令或无沙箱保护时，连 never 也强制 Forbidden。</p>
+<p><strong>第四层：规则引擎 + LLM 自动审批</strong>。<code>execpolicy/</code> 用 Starlark 写命令规则（<code>prefix_rule</code> 支持 allow/prompt/forbidden 三态与 <code>justification</code> 说明，<code>host_executable</code> 锁定可执行文件绝对路径防同名劫持，<code>match/not_match</code> 示例在加载期即被校验——相当于策略自带单测）。而 <code>guardian/</code> 则是一个 LLM 安全评审子代理：收到审批请求时重建精简 transcript，独立会话输出严格 JSON 的风险评估（风险等级/授权范围/结论/理由），90 秒超时或解析异常一律 fail-closed 拒绝，同一 turn 连续拒绝达到阈值还会熔断中断。</p>
+<h3 id="34-可扩展性体系mcpskillshooks">3.4 可扩展性体系：MCP、Skills、Hooks</h3>
+<p><strong>MCP 双向打通</strong>。作为客户端，<code>codex-mcp/</code> 基于 rmcp 管理外部 MCP server 连接（<code>mcp_connection_manager.rs</code> 统一处理工具变更与调用，支持 elicitation 交互）；作为服务端，<code>mcp-server/</code> 仅暴露两个工具——<code>codex</code>（新开会话）与 <code>codex-reply</code>（按 threadId 续会话），审批请求通过 MCP elicitation 回传给宿主 Agent，等于让任何 MCP 宿主都能&quot;雇佣&quot;Codex 干活。</p>
+<p><strong>Skills 采用渐进式披露</strong>。技能就是一个带 <code>SKILL.md</code>（YAML frontmatter 写 name/description）的目录，可附 <code>references/</code>、<code>scripts/</code>、<code>assets/</code>。发现路径覆盖四层：项目 <code>.codex/skills/</code>、用户 <code>~/.agents/skills/</code>（与业界 <code>$SKILL</code> 约定对齐）、系统内置（<code>include_dir!</code> 嵌入二进制、按指纹增量安装，预置 skill-creator、review-agent 等六个）、管理员层。注入策略分两级：目录（名称+描述+使用规则）常驻系统提示，正文则只在被 <code>$SkillName</code> 显式点名或任务匹配时按 turn 注入并截断——<strong>先读目录再按需加载全文</strong>，天然控制上下文膨胀。</p>
+<p><strong>Hooks 覆盖 11 个生命周期事件</strong>：<code>PreToolUse / PermissionRequest / PostToolUse / PreCompact / PostCompact / SessionStart / SessionEnd / UserPromptSubmit / SubagentStart / SubagentStop / Stop</code>，支持命令行式与 MCP 式两种 runner，每个事件的输入/输出都有生成的 JSON Schema。企业可以在不改 Codex 代码的前提下插拔自己的合规检查。</p>
+<h3 id="35-提示词与上下文工程">3.5 提示词与上下文工程</h3>
+<p>提示词全部是<strong>编译期内嵌</strong>的：<code>prompts/templates/</code> 下按用途分组（compact 压缩、goals 目标管理、permissions 策略说明、realtime 语音、review 评审），经 <code>include_str!</code> 进二进制，需要变量的模板（如 compact 的 token 预算）用轻量 <code>Template</code> 运行时渲染。基础系统提示词维护在 <code>models-manager/prompt.md</code>，并按模型套用专属 instructions 模板（<code>{{ personality }}</code> 占位符渲染），用户可用 config 覆盖——<strong>提示词即代码</strong>，纳入版本控制与代码评审。</p>
+<h2 id="四多前端形态与-sdk">四、多前端形态与 SDK</h2>
+<ul>
+<li><strong>TUI</strong>（<code>tui/</code>，约 1500 个文件）：<code>chatwidget.rs</code> 是编排中枢——消费 app-server 事件、维护已提交 transcript 与流式活动单元、驱动审批弹窗与 transcript 回放 overlay。配色规范固化在 <code>tui/styles.md</code>（cyan=用户交互、green=成功、red=错误、magenta=品牌色）。质量手段相当硬核：<strong>600+ 张 insta 快照测试</strong>锁定每一次 UI 渲染回归。</li>
+<li><strong>exec</strong>：<code>codex exec &quot;...&quot;</code> 一次性执行，<code>--json</code> 输出 JSONL 事件流，<code>--output-schema</code> 约束最终消息结构，支持 resume 与 ephemeral 会话。它还是 SDK 的底层通道。</li>
+<li><strong>app-server</strong>：JSON-RPC 2.0（wire 上省略 <code>&quot;jsonrpc&quot;</code> 头），支持 stdio / WebSocket / Unix socket 三种传输；<code>initialize</code> 握手后以 <code>thread/start → turn/start → item/* → turn/completed</code> 驱动会话，<code>thread/fork</code> 支持从既有对话分叉。入站过载时返回 <code>-32001</code> 要求客户端退避重试——工程细节拉满。类型契约用 <code>ts-rs</code> 从 Rust 导出（<code>just write-app-server-schema</code> 生成 JSON Schema fixtures），Rust 改一个字段，TS 侧类型与 schema 同步更新。</li>
+<li><strong>TS SDK</strong>：<code>Codex → startThread() → thread.run() / runStreamed()</code>，<code>ThreadEvent</code> 覆盖 <code>thread.started / turn.started|completed|failed / item.*</code>，item 类型包括 agent_message、reasoning、command_execution、file_change、mcp_tool_call、web_search、todo_list 等。</li>
+</ul>
+<h2 id="五实现亮点与工程实践">五、实现亮点与工程实践</h2>
+<p>抛开功能，这个仓库本身就是一份大型 Rust 工程的参考实现：</p>
+<ol>
+<li><strong>类型全链路同步</strong>：<code>serde + schemars + ts-rs</code> 三件套，Rust 单一事实源同时产出 JSON Schema（config、hooks、app-server API）与 TypeScript 类型，前后端协议永不漂移；</li>
+<li><strong>Bazel + Cargo 双构建</strong>：日常开发用 <code>just</code>（fmt/test/fix/bench），CI 用 Bazel 保证可复现构建，<code>MODULE.bazel.lock</code> 与 <code>Cargo.lock</code> 联动，CI 校验漂移；</li>
+<li><strong>激进的 lint 文化</strong>：workspace 级 clippy <code>deny</code> 了 <code>unwrap_used / expect_used</code>，<code>codex-core</code> 的 lib.rs 甚至 <code>deny</code> <code>print_stdout/print_stderr</code>——库代码禁止直接碰标准输出，一切用户可见输出必须走 TUI 或 tracing 抽象；</li>
+<li><strong>规模预算成文</strong>：模块目标 &lt;500 行、超 800 行必须拆分；单次变更复杂逻辑 &lt;500 行、机械变更 &lt;800 行；写进 AGENTS.md 并在评审中强制执行；</li>
+<li><strong>测试分层</strong>：Agent 逻辑改动强制要求集成测试（<code>core/suite</code>，用 wiremock 挂载 SSE mock 断言出站请求体）；TUI 用 insta 快照；性能用 divan 基准（<code>just bench</code>）；</li>
+<li><strong>单二进制多路复用</strong>：通过 <code>arg0</code> 分发，同一个 <code>codex</code> 二进制按调用名切换为 TUI、<code>codex-linux-sandbox</code> 沙箱执行器或 <code>apply_patch</code> 独立命令；</li>
+<li><strong>上游 fork 自持</strong>：crossterm、tungstenite 等以 <code>openai-oss-forks</code> 维护 fork 并锁定 rev，需要的补丁不必等上游；</li>
+<li><strong>前沿运行时试验田</strong>：<code>code-mode</code> 系列 crate 内嵌 V8（<code>v8 = &quot;=150.4.0&quot;</code>）在本地执行 TypeScript 工具逻辑，配合 tree-sitter（bash/PowerShell 语法解析做命令理解）构成传统 shell 之外的另一种工具执行路径。</li>
+</ol>
+<h2 id="六技术栈说明">六、技术栈说明</h2>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>选型</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>异步运行时</td>
+<td>tokio + futures + async-channel</td>
+<td>SQ/EQ、工具并发</td>
+</tr>
+<tr>
+<td>终端 UI</td>
+<td>ratatui 0.30 + crossterm（fork）</td>
+<td>TUI 渲染与事件</td>
+</tr>
+<tr>
+<td>序列化/类型</td>
+<td>serde / serde_json / ts-rs / schemars</td>
+<td>协议、schema、TS 代码生成</td>
+</tr>
+<tr>
+<td>模型接口</td>
+<td>reqwest + eventsource-stream</td>
+<td>Responses API SSE 流</td>
+</tr>
+<tr>
+<td>数据库</td>
+<td>sqlx + bundled SQLite</td>
+<td>会话状态（61 个迁移）</td>
+</tr>
+<tr>
+<td>规则引擎</td>
+<td>starlark</td>
+<td>execpolicy 命令策略</td>
+</tr>
+<tr>
+<td>沙箱</td>
+<td>landlock / seccompiler / 系统调用</td>
+<td>三平台 OS 沙箱</td>
+</tr>
+<tr>
+<td>MCP</td>
+<td>rmcp 3.1.3</td>
+<td>MCP 客户端与服务端</td>
+</tr>
+<tr>
+<td>代码解析</td>
+<td>tree-sitter（bash/PowerShell）</td>
+<td>shell 命令结构化理解</td>
+</tr>
+<tr>
+<td>脚本运行时</td>
+<td>v8</td>
+<td>code-mode 执行 TS 工具</td>
+</tr>
+<tr>
+<td>可观测</td>
+<td>tracing + OpenTelemetry（OTLP）+ Sentry</td>
+<td>遥测与错误上报</td>
+</tr>
+<tr>
+<td>测试</td>
+<td>wiremock / insta / divan / pretty_assertions</td>
+<td>集成/快照/基准测试</td>
+</tr>
+<tr>
+<td>构建</td>
+<td>Bazel + Cargo + just + pnpm workspace</td>
+<td>多语言统一构建</td>
+</tr>
+</tbody>
+</table>
+<h2 id="七总结与展望">七、总结与展望</h2>
+<p>把 Codex CLI 的源码通读下来，最能带走的是三条架构判断：</p>
+<ul>
+<li><strong>事件驱动内核 + 可插拔前端</strong>是编码 Agent 的正确骨架。SQ/EQ 双队列把&quot;用户意图&quot;与&quot;Agent 产出&quot;彻底解耦，于是终端、IDE、SDK、MCP 五种形态共享同一套经过打磨的 Turn 循环，新前端只需实现协议层即可；</li>
+<li><strong>安全必须是纵深防御的默认值</strong>。OS 沙箱划硬边界、环回代理管网络、策略矩阵定裁决、Starlark 规则与 LLM guardian 减少人工打扰——四层每一层都 fail-closed，&ldquo;默认最小权限&quot;不是口号而是可验证的代码路径；</li>
+<li><strong>上下文是被治理的稀缺资源</strong>。只增不改的历史、硬上限的注入片段、成文的 token 预算规则、自动压缩兜底——在长会话 Agent 里，上下文管理的工程化程度直接决定产品上限。</li>
+</ul>
+<p>与同为顶流的 Claude Code（TypeScript + Ink，React 式终端渲染）相比，Codex 的 Rust 重写换来了启动速度、静态分发的单二进制、以及编译期类型对协议的强约束；而两者在&quot;沙箱优先、审批分级、技能渐进披露&quot;上的趋同，或许正标记着编码 Agent 领域工程范式的收敛。</p>
+<p>展望后续，仓库里已经埋好了几条演进线：<code>multi_agents</code> 多 Agent 协作与 <code>codex_delegate</code> 委派、<code>cloud-tasks</code> 云端任务、<code>exec-server</code> 远程执行环境、<code>realtime_conversation</code> 实时语音，以及 <code>external-agent-migration</code> 从其他 Agent 导入配置的互操作层。对于想深入 AI Agent 工程化的开发者，这个仓库的 AGENTS.md（工程规约）、<code>core/src/session/</code>（Agent 循环）和 <code>sandboxing/</code>（安全实现）是三块最值得精读的矿区。</p>
+<blockquote>
+<p>参考：<a href="https://github.com/openai/codex">openai/codex</a> · <a href="https://developers.openai.com/codex">Codex 官方文档</a> · 本文图表 SVG 源文件位于本站 <code>/img/codex-cli-source-analysis/</code></p>
+</blockquote>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/08/20/deepseek-disk-cache-deep-dive/" data-toggle="tooltip" data-placement="top" title="DeepSeek 上下文硬盘缓存深度解析：KV Cache 如何把 API 成本打到一折以下">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2026-08-24-grok-build%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="Grok Build 源码深度技术解析：xAI 开源编码 Agent 的 Rust 架构全貌">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent-skills" title="agent skills">
+                            agent skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/anthropic" title="anthropic">
+                            anthropic
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ci/cd" title="ci/cd">
+                            ci/cd
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/loops" title="loops">
+                            loops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openai" title="openai">
+                            openai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rust" title="rust">
+                            rust
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1" title="产品设计">
+                            产品设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E7%A8%8B%E6%95%88%E8%83%BD" title="工程效能">
+                            工程效能
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90" title="源码解析">
+                            源码解析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>

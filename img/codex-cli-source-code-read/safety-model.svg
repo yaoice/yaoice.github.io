@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="130%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="1"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.08"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arr" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect width="960" height="620" fill="#f8fafc"/>
+
+  <text x="480" y="42" text-anchor="middle" font-size="18" font-weight="700" fill="#1e293b">命令执行的四层防御</text>
+  <text x="480" y="66" text-anchor="middle" font-size="12" fill="#64748b">模型生成的命令不被信任：策略规则、危险启发式、用户审批、平台沙箱逐层把关，最严格裁决生效</text>
+
+  <!-- 入口 -->
+  <rect x="360" y="92" width="240" height="48" rx="10" fill="#ffffff" stroke="#3b82f6" filter="url(#soft)"/>
+  <text x="480" y="114" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">模型生成 exec_command</text>
+  <text x="480" y="130" text-anchor="middle" font-size="11" fill="#64748b">core/src/exec_policy.rs 入口</text>
+
+  <!-- L1 -->
+  <rect x="60" y="176" width="840" height="84" rx="10" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="84" y="200" font-size="12" font-weight="700" fill="#3b82f6">L1 · 策略引擎（execpolicy crate）</text>
+  <text x="84" y="220" font-size="12" fill="#1e293b">.codexpolicy 规则文件 · Starlark 语法求值：prefix_rule / host_executable / network_rule</text>
+  <text x="84" y="240" font-size="11" fill="#475569">按程序首 token 前缀匹配，命中多规则时取最严：forbidden &gt; prompt &gt; allow（Policy / Decision）</text>
+
+  <!-- L2 -->
+  <rect x="60" y="292" width="840" height="84" rx="10" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="84" y="316" font-size="12" font-weight="700" fill="#d97706">L2 · 危险命令启发式</text>
+  <text x="84" y="336" font-size="12" fill="#1e293b">未命中任何规则的命令，用内置高危前缀表兜底：rm -f、sudo、bash -c、python -c、curl|sh …</text>
+  <text x="84" y="356" font-size="11" fill="#475569">dangerous_command_match 判定 → 依据 approval_policy 升级为 Prompt 或 Forbidden</text>
+
+  <!-- L3 -->
+  <rect x="60" y="408" width="840" height="84" rx="10" fill="#fef2f2" stroke="#fca5a5"/>
+  <text x="84" y="432" font-size="12" font-weight="700" fill="#ef4444">L3 · 用户审批（approval_policy）</text>
+  <text x="84" y="452" font-size="12" fill="#1e293b">Never / OnRequest / UnlessTrusted / Granular 四档策略</text>
+  <text x="84" y="472" font-size="11" fill="#475569">turn 挂起在 TurnState.pending_approvals 的 oneshot 通道，TUI 展示命令 diff 等待确认</text>
+
+  <!-- L4 -->
+  <rect x="60" y="524" width="840" height="56" rx="10" fill="#ecfdf5" stroke="#86efac"/>
+  <text x="84" y="546" font-size="12" font-weight="700" fill="#065f46">L4 · 平台沙箱（SandboxManager::transform 改写命令）</text>
+  <text x="84" y="566" font-size="11" fill="#475569">Linux：bwrap 只读根 + user/pid/net 命名空间 + seccomp · macOS：sandbox-exec + Seatbelt SBPL · Windows：受限令牌 + WFP 防火墙</text>
+
+  <!-- 出口 -->
+  <g stroke="#94a3b8" stroke-width="1.2" fill="none" marker-end="url(#arr)">
+    <line x1="480" y1="140" x2="480" y2="172"/>
+    <line x1="480" y1="260" x2="480" y2="288"/>
+    <line x1="480" y1="376" x2="480" y2="404"/>
+    <line x1="480" y1="492" x2="480" y2="520"/>
+  </g>
+  <text x="480" y="596" text-anchor="middle" font-size="11" fill="#1e293b">放行后经 PTY / 管道执行，输出流式回传模型（ExecToolCallOutput）</text>
+</svg>

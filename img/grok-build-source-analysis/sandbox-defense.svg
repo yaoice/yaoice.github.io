@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 580" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.08"/>
+    </filter>
+    <marker id="aa" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect width="960" height="580" fill="#f8fafc" rx="10"/>
+  <text x="480" y="38" text-anchor="middle" font-size="18" fill="#1e293b" font-weight="600">沙箱纵深防御：不可逆内核沙箱 + bwrap 再执行 + 子进程断网</text>
+
+  <rect x="60" y="66" width="840" height="98" rx="10" fill="#ffffff" stroke="#ef4444" filter="url(#s)"/>
+  <text x="84" y="94" font-size="13" fill="#ef4444" font-weight="600">① 进程级内核沙箱（nono）</text>
+  <text x="84" y="116" font-size="10" fill="#475569">Landlock（Linux）/ Seatbelt（macOS）内核强制 · 进程启动时应用一次，不可逆（irreversible）</text>
+  <text x="84" y="134" font-size="10" fill="#475569">覆盖进程内 tokio::fs 与全部子进程 · 进程级网络保持开放（Agent 自身需访问 LLM API）</text>
+  <text x="84" y="152" font-size="10" fill="#475569">SandboxManager::apply() 后 install() 全局记录，违规事件立即落盘</text>
+
+  <line x1="480" y1="164" x2="480" y2="176" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#aa)"/>
+
+  <rect x="60" y="176" width="840" height="98" rx="10" fill="#ffffff" stroke="#f59e0b" filter="url(#s)"/>
+  <text x="84" y="204" font-size="13" fill="#f59e0b" font-weight="600">② Linux bwrap 再执行（deny 计划）</text>
+  <text x="84" y="226" font-size="10" fill="#475569">--cap-drop ALL · deny_write 路径 --ro-bind 只读挂载 · __GROK_INSIDE_BWRAP 防重复再执行</text>
+  <text x="84" y="244" font-size="10" fill="#475569">deny_read 用 chmod 000 占位符 bind-over（读取即 EPERM）· hooks 目录写保护计划</text>
+  <text x="84" y="262" font-size="10" fill="#475569">deny 计划构建失败 → 拒绝启动（resolve_failure_must_refuse）</text>
+
+  <line x1="480" y1="274" x2="480" y2="286" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#aa)"/>
+
+  <rect x="60" y="286" width="840" height="80" rx="10" fill="#ffffff" stroke="#3b82f6" filter="url(#s)"/>
+  <text x="84" y="312" font-size="13" fill="#3b82f6" font-weight="600">③ 子进程网络管控</text>
+  <text x="84" y="334" font-size="10" fill="#475569">已知 Linux 子进程启动路径安装 seccomp 网络过滤（should_restrict_child_network）</text>
+  <text x="84" y="352" font-size="10" fill="#475569">按子进程逐个断网 · Agent 主进程 API 流量不受影响</text>
+
+  <line x1="480" y1="366" x2="480" y2="378" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#aa)"/>
+
+  <rect x="60" y="378" width="840" height="80" rx="10" fill="#ffffff" stroke="#8b5cf6" filter="url(#s)"/>
+  <text x="84" y="404" font-size="13" fill="#8b5cf6" font-weight="600">④ 策略与审批</text>
+  <text x="84" y="426" font-size="10" fill="#475569">.grok/sandbox.toml profiles：workspace / strict / devbox / custom（extends 继承）</text>
+  <text x="84" y="444" font-size="10" fill="#475569">沙箱激活时 bash 自动放行（should_auto_allow_bash，减少打扰）· 违规日志立即刷盘</text>
+
+  <line x1="480" y1="458" x2="480" y2="470" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#aa)"/>
+
+  <rect x="60" y="470" width="840" height="76" rx="10" fill="#fef2f2" stroke="#ef4444" filter="url(#s)"/>
+  <text x="480" y="492" text-anchor="middle" font-size="12" fill="#ef4444" font-weight="600">Fail-closed 原则</text>
+  <text x="480" y="514" text-anchor="middle" font-size="10" fill="#475569">约束判定以「请求的 profile」为准（requested_confinement_profile），而非「成功应用」——请求即受限</text>
+  <text x="480" y="532" text-anchor="middle" font-size="10" fill="#475569">deny 解析失败必须拒绝启动 · env overlay 仅限软配置白名单 · TOML 报错不回显源行（防密钥泄漏）</text>
+</svg>

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="130%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="1"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.08"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arr" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect width="960" height="600" fill="#f8fafc"/>
+
+  <text x="480" y="42" text-anchor="middle" font-size="18" font-weight="700" fill="#1e293b">一次 Turn 的事件循环</text>
+  <text x="480" y="66" text-anchor="middle" font-size="12" fill="#64748b">「采样 → 工具 → 回传」的闭环由事件驱动：Op 提交请求，EventMsg 流回进度，oneshot 通道挂起等待用户</text>
+
+  <!-- 用户输入 -->
+  <rect x="380" y="96" width="200" height="56" rx="10" fill="#ffffff" stroke="#3b82f6" filter="url(#soft)"/>
+  <text x="480" y="118" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">用户输入</text>
+  <text x="480" y="136" text-anchor="middle" font-size="11" fill="#64748b">Op::TurnInput → InputQueue</text>
+
+  <!-- run_turn -->
+  <rect x="360" y="192" width="240" height="72" rx="10" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="480" y="216" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">Session.run_turn</text>
+  <text x="480" y="234" text-anchor="middle" font-size="11" fill="#475569">组装 Prompt：历史 + 工具清单 + 指令</text>
+  <text x="480" y="250" text-anchor="middle" font-size="11" fill="#475569">（TurnContext / StepContext 注入依赖）</text>
+
+  <!-- 模型采样 -->
+  <rect x="360" y="304" width="240" height="64" rx="10" fill="#f5f3ff" stroke="#c4b5fd"/>
+  <text x="480" y="328" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">POST /responses（SSE 流式）</text>
+  <text x="480" y="346" text-anchor="middle" font-size="11" fill="#64748b">ModelClient 双通道：SSE / WebSocket</text>
+  <text x="480" y="360" text-anchor="middle" font-size="11" fill="#64748b">自动重试 · zstd 压缩 · prompt 缓存</text>
+
+  <!-- 事件分流 -->
+  <rect x="36" y="408" width="888" height="56" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="56" y="430" font-size="12" fill="#94a3b8">ResponseEvent 分流</text>
+  <g text-anchor="middle" font-size="11" fill="#475569">
+    <text x="240" y="448">OutputTextDelta → 增量渲染</text>
+    <text x="480" y="448">ToolCall → 工具执行 → 结果回传</text>
+    <text x="700" y="448">ReasoningSummary → 思考摘要</text>
+  </g>
+
+  <!-- 工具执行 -->
+  <rect x="150" y="500" width="250" height="60" rx="10" fill="#ecfdf5" stroke="#86efac"/>
+  <text x="275" y="522" text-anchor="middle" font-size="12" font-weight="700" fill="#065f46">工具执行</text>
+  <text x="275" y="538" text-anchor="middle" font-size="11" fill="#475569">exec_command / apply_patch / MCP</text>
+  <text x="275" y="553" text-anchor="middle" font-size="11" fill="#475569">审批 → 策略 → 沙箱（详见安全模型）</text>
+  <rect x="560" y="500" width="250" height="60" rx="10" fill="#ecfdf5" stroke="#86efac"/>
+  <text x="685" y="522" text-anchor="middle" font-size="12" font-weight="700" fill="#065f46">用户挂起点</text>
+  <text x="685" y="538" text-anchor="middle" font-size="11" fill="#475569">TurnState 中的 oneshot 通道</text>
+  <text x="685" y="553" text-anchor="middle" font-size="11" fill="#475569">pending_approvals / pending_user_input</text>
+
+  <!-- 连接线 -->
+  <g stroke="#94a3b8" stroke-width="1.2" fill="none" marker-end="url(#arr)">
+    <line x1="480" y1="152" x2="480" y2="188"/>
+    <line x1="480" y1="264" x2="480" y2="300"/>
+    <line x1="480" y1="368" x2="480" y2="404"/>
+    <path d="M470 440 L275 440 L275 496" stroke-dasharray="5 4"/>
+    <path d="M430 464 L300 464 L300 496" stroke-dasharray="5 4"/>
+    <path d="M275 560 L275 576 L480 576 L480 470" stroke-dasharray="5 4"/>
+    <path d="M360 340 L320 340 L320 452 L240 452" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#arr)"/>
+  </g>
+  <text x="350" y="330" font-size="10" fill="#8b5cf6" transform="rotate(0 350 330)">function call</text>
+  <text x="240" y="594" text-anchor="middle" font-size="10" fill="#94a3b8">工具输出作为 FunctionCallOutput 追加进下一轮采样请求</text>
+</svg>
