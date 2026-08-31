@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#94a3b8"/>
+    </marker>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+  <rect x="0" y="0" width="960" height="560" rx="10" fill="#f8fafc"/>
+  <text x="480" y="42" text-anchor="middle" font-size="18" fill="#1e293b" font-weight="600">索引管线：增量更新，分批嵌入</text>
+  <text x="480" y="64" text-anchor="middle" font-size="12.5" fill="#94a3b8">左：主流程六步；右：两个关键机制</text>
+
+  <!-- left flow -->
+  <rect x="30" y="96" width="500" height="50" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="50" y="117" font-size="13" fill="#1e293b" font-weight="600">① 扫描工作区</text>
+  <text x="50" y="136" font-size="12" fill="#475569">glob / ignore / type 过滤，跳过空·二进制·超大文件</text>
+
+  <path d="M 280 146 L 280 160" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)" fill="none"/>
+
+  <rect x="30" y="164" width="500" height="50" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="50" y="185" font-size="13" fill="#1e293b" font-weight="600">② 增量 diff</text>
+  <text x="50" y="204" font-size="12" fill="#475569">added · modified · pending · deleted · unchanged</text>
+
+  <path d="M 280 214 L 280 228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)" fill="none"/>
+
+  <rect x="30" y="232" width="500" height="50" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="50" y="253" font-size="13" fill="#1e293b" font-weight="600">③ 结构抽取</text>
+  <text x="50" y="272" font-size="12" fill="#475569">tree-sitter 符号/签名 · Markdown 标题 · 纯文本 chunk</text>
+
+  <path d="M 280 282 L 280 296" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)" fill="none"/>
+
+  <rect x="30" y="300" width="500" height="50" rx="10" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="50" y="321" font-size="13" fill="#1e293b" font-weight="600">④ 分批 embed</text>
+  <text x="50" y="340" font-size="12" fill="#475569">按 maxBatchSize 分批，自适应并发调度</text>
+
+  <path d="M 280 350 L 280 364" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)" fill="none"/>
+
+  <rect x="30" y="368" width="500" height="50" rx="10" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="50" y="389" font-size="13" fill="#1e293b" font-weight="600">⑤ commit</text>
+  <text x="50" y="408" font-size="12" fill="#475569">fragment + vector 写入存储，记录截断</text>
+
+  <path d="M 280 418 L 280 432" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)" fill="none"/>
+
+  <rect x="30" y="436" width="500" height="50" rx="10" fill="#ffffff" stroke="#10b981" stroke-width="1.5"/>
+  <text x="50" y="457" font-size="13" fill="#1e293b" font-weight="600">⑥ optimize</text>
+  <text x="50" y="476" font-size="12" fill="#475569">finalizeWrites 最终化写入，收尾落盘</text>
+
+  <!-- right cards -->
+  <rect x="560" y="96" width="370" height="206" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="580" y="122" font-size="13.5" fill="#1e293b" font-weight="600">增量 diff：哈希省掉重复索引</text>
+  <text x="580" y="148" font-size="12" fill="#475569">size + mtime + contentHash 三者一致</text>
+  <text x="580" y="168" font-size="12" fill="#10b981">→ unchanged，跳过，不重 embed</text>
+  <text x="580" y="194" font-size="12" fill="#475569">contentHash 变化 → modified，重抽重 embed</text>
+  <text x="580" y="216" font-size="12" fill="#475569">索引无记录 → added；上次未完 → pending</text>
+  <text x="580" y="238" font-size="12" fill="#475569">索引有但扫描不到 → deleted，删除记录</text>
+  <text x="580" y="266" font-size="12" fill="#94a3b8">只对新增/变更文件重 embed，其余跳过</text>
+
+  <rect x="560" y="318" width="370" height="168" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="580" y="344" font-size="13.5" fill="#1e293b" font-weight="600">自适应并发：越顺越快，出错就退</text>
+  <text x="580" y="368" font-size="12" fill="#475569">成功连击 ≥ max(4, 2×并发) → 并发 +1</text>
+  <text x="580" y="390" font-size="12" fill="#475569">限流 / 瞬时错误 → 并发减半（≥ min）</text>
+  <text x="580" y="412" font-size="12" fill="#475569">限流设 cooldown，指数退避 + 抖动</text>
+  <text x="580" y="434" font-size="12" fill="#475569">transient 重试 ≤ 3 次 · rate-limit ≤ 6 次</text>
+  <text x="580" y="456" font-size="12" fill="#3b82f6">批量失败回退为逐条 embed</text>
+</svg>

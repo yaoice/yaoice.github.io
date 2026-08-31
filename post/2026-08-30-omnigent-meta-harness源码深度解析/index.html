@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Omnigent 源码拆解：一个把 Claude Code、Codex、Pi 统一起来的 Meta-Harness" />
+    <meta property="og:title" content="Omnigent 源码拆解：一个把 Claude Code、Codex、Pi 统一起来的 Meta-Harness" />
+    <meta property="twitter:title" content="Omnigent 源码拆解：一个把 Claude Code、Codex、Pi 统一起来的 Meta-Harness" />
+    
+
+    
+    <meta name="description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。">
+    <meta property="og:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    <meta property="twitter:description" content="iceyao，程序员, 开源爱好者，生活探险家 | 这里是iceyao的博客，与你一起发现更大的世界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Omnigent 源码拆解：一个把 Claude Code、Codex、Pi 统一起来的 Meta-Harness | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/post/2026-08-30-omnigent-meta-harness%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent-harness" title="Agent Harness">
+                            Agent Harness
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E5%BC%80%E6%BA%90" title="开源">
+                            开源
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E5%B7%A5%E7%A8%8B%E6%95%88%E8%83%BD" title="工程效能">
+                            工程效能
+                        </a>
+                        
+                    </div>
+                    <h1>Omnigent 源码拆解：一个把 Claude Code、Codex、Pi 统一起来的 Meta-Harness</h1>
+                    <h2 class="subheading">从统一接口抽象到状态化策略与凭证代理：读完 omnigent 仓库，看 meta-harness 这一层到底在解决什么</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                    爱折腾的工程师
+                             
+                            on 
+                            Sunday, August 30, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <p>
+  <img src="/img/omnigent-meta-harness-source-analysis/cover.svg" alt="Omnigent：架在 harness 之上的那一层">
+
+</p>
+<p>Databricks 在 2026 年开源了 <a href="https://github.com/omnigent-ai/omnigent">Omnigent</a>，配套博文是 <a href="https://www.databricks.com/blog/introducing-omnigent-meta-harness-combine-control-and-share-your-agents">Introducing Omnigent: A Meta-Harness to Combine, Control and Share Your Agents</a>。博文不长，主张也很清楚：<strong>agent 能力的战场正在上移一层</strong>——最好的结果不再来自&quot;单个 harness 里的单个模型&quot;，而是来自跨 harness、跨模型、跨人的组合。</p>
+<p>这句话在行业里已经被说了很多遍。真正值得关心的是它的工程落地：所谓 meta-harness，代码上到底长什么样？</p>
+<p>所以这篇不复述博文，而是把仓库源码翻一遍，回答四个问题：</p>
+<ol>
+<li>统一接口抽象到底是什么，凭什么能同时包住 Claude Code 的终端 TUI 和 OpenAI Agents SDK？</li>
+<li>native 与 SDK 两条适配路径的差别在哪，为什么两种都要？</li>
+<li>&ldquo;状态化策略&quot;比 <code>allow X / deny Y</code> 强在哪，代码怎么实现？</li>
+<li>&ldquo;让 agent 永远看不到你的 GitHub token&quot;是怎么做到的？</li>
+</ol>
+<p>版本基线：<code>v0.11.0</code>（2026-08-24），README 自称 alpha。</p>
+<h2 id="一为什么要多出这一层">一、为什么要多出这一层</h2>
+<p>博文给出的动机很实在，两条：</p>
+<p><strong>作为使用者</strong>：同时开着 4-5 个 agent（coding agent、Gemini 搜索……），在它们和 Docs、Slack 之间反复复制粘贴。</p>
+<p><strong>作为构建者</strong>：为了跟上最新能力，不停把新 harness、新 SDK、新模型组合进来——但 LLM 能力被包在各自 harness 里，接口互不兼容，组合和替换都很难。</p>
+<p>关键在于后半句。<strong>问题不是某个 harness 不够强，而是许多问题本质上跨越 harness</strong>：组合、治理、协作，这三件事没有任何单个 harness 会替你解决。Omnigent 的答案是加一层，而不是再造一个 agent。</p>
+<p>代码里这个定位非常克制——它没有试图重新实现 agent 循环，而是把&quot;跑一个 agent&quot;这件事拆成了五层。</p>
+<h2 id="二五层切面控制面与数据面分离">二、五层切面：控制面与数据面分离</h2>
+<p>
+  <img src="/img/omnigent-meta-harness-source-analysis/architecture.svg" alt="五层切面：Client / Server / Host / Runner / Harness">
+
+</p>
+<ul>
+<li><strong>Client</strong>：终端 CLI、Web SPA、iOS / Android、桌面 App、Python SDK。只说 REST + SSE，不持有状态。</li>
+<li><strong>Server（控制面）</strong>：<code>omnigent server</code>。持有会话表、鉴权授权、策略、共享与权限、主机注册表、成本账本。</li>
+<li><strong>Host（可选）</strong>：<code>omnigent host</code>。跑在你自己机器上的守护进程，负责拉起和回收 Runner。</li>
+<li><strong>Runner（数据面）</strong>：一个会话一个进程，管 harness 子进程、沙箱环境、MCP 连接、终端、文件、子 agent 路由。</li>
+<li><strong>Harness 子进程</strong>：把 Claude Code / Codex / Pi / 自定义 agent 适配成统一 HTTP 接口的那一个进程。</li>
+</ul>
+<p>这个分层最实用的推论是最后一句：<strong>换 harness 只动最底一层</strong>。上面四层——你的会话历史、你的策略、你的权限、你的客户端——全部不动。</p>
+<p>需要先破除一个术语歧义：这份代码里 &ldquo;harness&rdquo; 有两个含义，混着看会彻底看不懂。一个是<strong>被包裹的 agent 后端</strong>（<code>claude-native</code>、<code>codex</code>、<code>pi</code>），也就是 meta-harness 语境下那个 harness；另一个是<strong>每个会话一个的适配子进程</strong>。下文用&quot;后端 harness&quot;和&quot;harness 子进程&quot;区分。</p>
+<h2 id="三统一接口一个-5-行签名的协议">三、统一接口：一个 5 行签名的协议</h2>
+<p>Omnigent 的核心洞察，博文里说得极准：</p>
+<blockquote>
+<p>无论每个 agent harness 内部怎么调 LLM，它对<strong>用户</strong>的接口是同一个：消息和文件进，文本流和工具调用出。</p>
+</blockquote>
+<p>这不是比喻，是 <code>omnigent/inner/executor.py:603</code> 的字面实现：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Executor</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;&#34;&#34;Abstract interface for LLM backends and agent harnesses.&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">run_turn</span>(
+</span></span><span style="display:flex;"><span>        self,
+</span></span><span style="display:flex;"><span>        messages: <span style="color:#8be9fd;font-style:italic">list</span>[Message],
+</span></span><span style="display:flex;"><span>        tools: <span style="color:#8be9fd;font-style:italic">list</span>[ToolSpec],
+</span></span><span style="display:flex;"><span>        system_prompt: <span style="color:#8be9fd;font-style:italic">str</span>,
+</span></span><span style="display:flex;"><span>        config: ExecutorConfig <span style="color:#ff79c6">|</span> <span style="color:#ff79c6">None</span> <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">None</span>,
+</span></span><span style="display:flex;"><span>    ) <span style="color:#ff79c6">-&gt;</span> AsyncIterator[ExecutorEvent]:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;&#34;&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        Yields ExecutorEvent instances (TextChunk, ToolCallRequest,
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        TurnComplete, or ExecutorError).
+</span></span></span><span style="display:flex;"><span><span style="color:#f1fa8c">        &#34;&#34;&#34;</span>
+</span></span></code></pre></div><p>进：消息列表、工具 JSON Schema、system prompt。出：一个异步事件流——<code>TextChunk</code>、<code>ReasoningChunk</code>、<code>ToolCallRequest</code>、<code>ToolCallComplete</code>、<code>TurnComplete</code>、<code>CompactionStarted/Complete</code>、<code>SubAgentStarted/Completed</code>、<code>ExecutorError</code>。</p>
+<p>值得注意的是<strong>能力协商本身就是接口的一部分</strong>。<code>Executor</code> 除了 <code>run_turn</code> 还声明了一组探针：<code>supports_streaming()</code>、<code>handles_tools_internally()</code>、<code>supports_live_message_queue()</code>、<code>supports_tool_boundary_interrupt()</code>、<code>interrupt_session()</code>。上层不假设任何 harness 具备某种能力，而是先问。这件事很关键——它意味着&quot;某个 harness 不能中断&quot;不是 bug，而是一个被显式建模的事实。</p>
+<p>再往上包一层就是跨进程的边界：<code>omnigent/runtime/harnesses/__init__.py:38</code> 只有一行</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>_HARNESS_MODULES <span style="color:#ff79c6">=</span> harness_modules()   <span style="color:#6272a4"># 内置 + 已安装的 entry-point 插件</span>
+</span></span></code></pre></div><p>名字到模块的查表。每个模块导出一个零参数 <code>create_app() -&gt; FastAPI</code>。也就是说，<strong>native 和 SDK 的差别只存在于子进程内部；Runner 和 Server 用同一个 REST/SSE 契约跟两者对话</strong>。这个设计是整个 meta-harness 能成立的支点——它把&quot;适配一个 harness&quot;变成了&quot;写一个 FastAPI app&rdquo;，而不是&quot;改 Runner 的核心循环&rdquo;。</p>
+<p>未知的 harness 名字会回落到 <code>acp</code>，或者提示安装对应的插件包。</p>
+<h2 id="四同一份契约三条适配路径">四、同一份契约，三条适配路径</h2>
+<p>
+  <img src="/img/omnigent-meta-harness-source-analysis/adapter-families.svg" alt="同一份契约，三条适配路径">
+
+</p>
+<p>三条路径在 <code>omnigent/harness_capabilities.py</code> 里被声明成 <code>IntegrationMode</code> 枚举，各有权衡：</p>
+<p><strong>① Native TUI（<code>NATIVE_TUI</code>）</strong>——tmux / PTY 包裹现有 CLI。起一个 tmux 会话跑 <code>claude</code> / <code>codex</code>，用 bridge 解析终端输出流，用 forwarder 转成统一事件，权限走 hook 或审批镜像。</p>
+<p>保真度最高：订阅登录、斜杠命令、厂商的所有原生行为全部可用。代价是靠解析终端——脆弱，而且慢。</p>
+<p><strong>② SDK 进程内（<code>SDK_IN_PROCESS</code>）</strong>——<code>omnigent/inner/*_executor.py</code> 直接调 Agent SDK，原生工具调用和流式输出都是结构化对象，子 agent 事件可以直接归一化，usage 与成本能精确取到。结构最稳，代价是只覆盖有官方 SDK 的厂商。</p>
+<p><strong>③ ACP 子进程（<code>ACP_SUBPROCESS</code>）</strong>——走 <a href="https://agentclientprotocol.com">Agent Client Protocol</a>，厂商 CLI over stdio，自带登录，Omnigent 不存凭证。生态最广，代价是能力以对方实现为准。</p>
+<p><strong>为什么要同时支持 ① 和 ②？</strong> 因为它们是两种不同的赌注。SDK 路径赌的是&quot;厂商会持续提供稳定的编程接口&quot;，native 路径赌的是&quot;CLI 的交互界面短期不会大改&quot;。前者给你结构，后者给你保真。对 Claude Code、Codex 这种既有 SDK 又有 CLI 的，Omnigent 两套都留着（<code>claude-sdk</code> vs <code>claude-native</code>），让你按场景选。</p>
+<p>三条路共用一张能力表：<code>omnigent/harness_capabilities.py</code> 里每个 harness 声明能否中断、能否流式、恢复方式（冷启动 / 热重连）、模型族、权限通道类型、指令投递方式。仓库里还有个 harness 测试台（<code>tests/harness_bench</code>），用真实交互去<strong>验证</strong>这些声明，而不是相信它们。</p>
+<h2 id="五组合一行换-harness跨厂商交叉评审">五、组合：一行换 harness，跨厂商交叉评审</h2>
+<p>
+  <img src="/img/omnigent-meta-harness-source-analysis/agent-composition.svg" alt="组合：一行换 harness，跨厂商交叉评审">
+
+</p>
+<h3 id="两种写法">两种写法</h3>
+<p>仓库里并存两套 agent 定义语法。博文和 README 展示的是单文件 YAML：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">name</span>: my_agent
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">prompt</span>: You are a helpful data analyst.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">executor</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">harness</span>: claude-sdk
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">tools</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">word_count</span>:                      <span style="color:#6272a4"># 本地 Python 函数，schema 从签名自动生成</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">type</span>: function
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">callable</span>: mypackage.mymodule.word_count
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">docs</span>:                            <span style="color:#6272a4"># MCP 服务器</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">type</span>: mcp
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">url</span>: https://example.com/mcp
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">researcher</span>:                      <span style="color:#6272a4"># 可委派的子 agent</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">type</span>: agent
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">prompt</span>: Search for relevant information and summarize it.
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">tools</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">word_count</span>: inherit
+</span></span></code></pre></div><p>实际 <code>examples/</code> 里用的是更完整的<strong>agent 镜像目录规范</strong>（<code>omnigent/spec/AGENTSPEC.md</code>）：<code>config.yaml</code> + <code>AGENTS.md</code> + <code>skills/</code> + <code>tools/{python,typescript,mcp}/</code> + <code>agents/</code>。子 agent 就是 <code>agents/&lt;dir&gt;/</code> 下的一个嵌套目录，递归解析。</p>
+<h3 id="一行换-harness是真的">&ldquo;一行换 harness&quot;是真的</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">executor</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">type</span>: omnigent
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">config</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">harness</span>: claude-sdk     <span style="color:#6272a4"># → codex-native，只改这一行</span>
+</span></span></code></pre></div><p><code>prompt</code>、<code>tools</code>、<code>policies</code>、<code>os_env</code>、<code>terminals</code> 一行不动。等价写法是 <code>omnigent run agent.yaml --harness codex</code>，连文件都不用改。</p>
+<p>Polly 的四个 worker 就是这句话的证明：它们的 prompt 几乎一样，唯一实质差别就是 executor 块——<code>agents/claude_code</code> 是 <code>claude-native</code>，<code>agents/codex</code> 是 <code>codex-native</code>，<code>agents/pi</code> 是 <code>pi</code>，<code>agents/agy</code> 是 <code>antigravity-native</code>。</p>
+<h3 id="委派sys_session_send">委派：<code>sys_session_send</code></h3>
+<p><code>omnigent/tools/builtins/spawn.py:120</code> 定义的 <code>sys_session_send</code> 是组合的中枢。它的 <code>agent</code> 参数枚举是<strong>动态生成</strong>的——从父 spec 声明的子 spec 键推导，所以 LLM 只看得到它真能派活的那些子 agent。</p>
+<p>一次 response 里发多个 <code>sys_session_send</code> 会<strong>并发</strong>执行。参数支持 <code>{input, purpose, model, harness, cost_budget, file_ids, reasoning_effort}</code>，其中 <code>purpose</code> 是个有意思的设计：<code>implement</code> / <code>review</code> / <code>explore</code> / <code>search</code>——同一个 worker，按用途路由到不同模型。</p>
+<p>子 agent 从<strong>自己的 spec</strong> 启动，所以它的 harness 天然可以与父不同。每次派发还可以用 <code>args.harness</code> 临时改，但必须落在该子 spec 声明的 <code>allowed_harnesses</code> 白名单里——不是随便换的。</p>
+<h3 id="polly跨厂商评审是目的本身">Polly：跨厂商评审是目的本身</h3>
+<p>仓库自带的三个例子里，<code>examples/polly/</code> 最能说明 meta-harness 的价值。Polly 是个不写代码的 tech lead：规划 → 把活派给不同厂商的 coding 子 agent（各自在独立 git worktree 里）→ 把每个 diff 交给<strong>另一家厂商</strong>评审 → 由人合并。</p>
+<p><code>examples/polly/config.yaml:174</code> 把动机写死了：</p>
+<blockquote>
+<p>Cross-vendor verification is the point: review is ALWAYS done by a DIFFERENT vendor than the implementer — e.g. <code>claude_code</code>&rsquo;s PR is reviewed by any of <code>codex</code> / <code>opencode</code> / <code>cursor</code> / <code>hermes</code> / <code>agy</code> / <code>pi</code>, and vice versa. Give the reviewer ONLY the diff + contract; never point it at the implementer&rsquo;s worktree.</p>
+</blockquote>
+<p>两个细节很讲究：评审者只拿到 diff 和契约，<strong>不看实现者的 transcript 或 worktree</strong>——交叉独立性就是全部意义所在；只有实现者开 PR，评审者只报告不编辑，所以评审者的误操作永远到不了交付物。</p>
+<p>这个 pattern 在单个 harness 里几乎无法实现。它需要的正是&quot;不同后端可以出现在同一棵 agent 树里&quot;这一层能力。</p>
+<p>另外两个例子：<code>examples/debby/</code> 是双头头脑风暴（Claude + GPT 并行回答同一个问题，<code>/debate</code> 让两个头互相批判几轮再收敛）；<code>examples/deep-research/</code> 是最简单的模板——一个 agent 加一个 <code>tools/mcp/*.yaml</code>，<code>tools/mcp/</code> 下的 MCP 服务器会被自动发现，连 <code>tools:</code> 块都不用写。</p>
+<h2 id="六控制策略引擎">六、控制：策略引擎</h2>
+<p>
+  <img src="/img/omnigent-meta-harness-source-analysis/policy-engine.svg" alt="策略引擎：六个检查点，三种判定，三级叠加">
+
+</p>
+<h3 id="策略是无状态纯函数">策略是无状态纯函数</h3>
+<p><code>omnigent/policies/base.py:31</code> 的 <code>Policy</code> 抽象基类只有一个抽象方法：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Policy</span>(ABC):
+</span></span><span style="display:flex;"><span>    @abstractmethod
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">async</span> <span style="color:#ff79c6">def</span> <span style="color:#50fa7b">evaluate</span>(self, ctx: EvaluationContext, context: <span style="color:#8be9fd;font-style:italic">dict</span>) <span style="color:#ff79c6">-&gt;</span> PolicyResult: <span style="color:#ff79c6">...</span>
+</span></span></code></pre></div><p>它被刻意设计成<strong>纯求值器</strong>：不跨调用持有可变状态，不碰数据库，不知道会话的存在。所有状态都住在 <code>omnigent/runtime/policies/engine.py</code>。</p>
+<p>这个拆分是&quot;状态化策略&quot;能成立的原因。策略负责&quot;给定当前事实，该怎么做决定&rdquo;；引擎负责&quot;记住发生了什么&quot;。于是策略可测试、可复用、可组合，而状态仍然跨轮次连续。</p>
+<h3 id="六个检查点三种判定">六个检查点、三种判定</h3>
+<p><code>omnigent/spec/types.py:1126</code> 定义了六个 <code>Phase</code>：<code>request</code>、<code>llm_request</code>、<code>tool_call</code>、<code>tool_result</code>、<code>llm_response</code>、<code>response</code>。注意 <code>llm_request</code> / <code>llm_response</code> 是<strong>每次 LLM 往返</strong>都触发，不是每个 turn 一次——这让策略能在 agent 循环的每一圈都介入。</p>
+<p>判定只有三种（<code>omnigent/spec/types.py:1168</code>）：<code>ALLOW</code>、<code>ASK</code>、<code>DENY</code>。</p>
+<p><strong><code>ASK</code> 就是&quot;暂停&quot;</strong>，没有第四个状态。批准转 <code>ALLOW</code>，拒绝或超时转 <code>DENY</code>。</p>
+<p><code>PolicyResult</code> 能带回来的东西比想象中多：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>action, reason
+</span></span><span style="display:flex;"><span>set_labels        <span style="color:#6272a4"># 写标签状态</span>
+</span></span><span style="display:flex;"><span>data              <span style="color:#6272a4"># 替换负载（ALLOW 也能改写，比如脱敏后的参数）</span>
+</span></span><span style="display:flex;"><span>state_updates     <span style="color:#6272a4"># set / increment / delete / append</span>
+</span></span></code></pre></div><p><code>data</code> 这一项很关键——策略不只是闸门，它可以在放行时<strong>改写</strong>传给模型的参数。</p>
+<h3 id="策略能看见什么">策略能看见什么</h3>
+<p><code>EvaluationContext</code> 注入的信息里，最关键的是 <code>session_state</code>：<strong>每个会话可变的 KV</strong>。这就是博文说的&quot;跟踪每个会话的动态状态&quot;。加上累计 token 与 <code>total_cost_usd</code>、按 UTC 日聚合的 <code>user_daily_cost</code>、当前 <code>model</code> / <code>harness</code> / <code>labels</code>、<code>actor</code>（谁在跑），以及 <code>tool_result</code> 阶段回带的原始 <code>request_data</code>。</p>
+<p>有了 <code>session_state</code> + <code>state_updates</code>，&ldquo;装了新 npm 包之后 git push 需要人工批准&quot;这类规则就不是 allow/deny 表能表达的，而是一个小型状态机：某次工具调用写入一个状态位，后续判定读取它。</p>
+<h3 id="三级叠加">三级叠加</h3>
+<p>server-wide（管理员定底线）→ per-agent（开发者随 agent 发布，写进 YAML）→ per-session（使用者在对话里说一句话就加上）。<strong>越靠近会话越优先</strong>，最严的规则赢。</p>
+<h3 id="内置策略清单">内置策略清单</h3>
+<p><code>omnigent/policies/builtins/</code> 下 13 个模块，值得一读的几个：</p>
+<table>
+<thead>
+<tr>
+<th>内置策略</th>
+<th>位置</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ask_on_os_tools</code></td>
+<td><code>safety.py:225</code></td>
+<td>shell / 文件写入前先问</td>
+</tr>
+<tr>
+<td><code>max_tool_calls_per_session</code></td>
+<td><code>safety.py:93</code></td>
+<td>限制单次会话的工具调用次数</td>
+</tr>
+<tr>
+<td><code>detect_loop</code></td>
+<td><code>safety.py:145</code></td>
+<td>检测循环行为</td>
+</tr>
+<tr>
+<td><code>enforce_sandbox</code></td>
+<td><code>safety.py:466</code></td>
+<td>强制沙箱</td>
+</tr>
+<tr>
+<td><code>deny_pii_in_llm_request</code></td>
+<td><code>safety.py:578</code></td>
+<td>PII 直接拒</td>
+</tr>
+<tr>
+<td><code>cost_budget</code></td>
+<td><code>cost.py:416</code></td>
+<td>硬性花费上限 + 软性阈值提醒</td>
+</tr>
+<tr>
+<td><code>user_daily_cost_budget</code></td>
+<td><code>cost.py:610</code></td>
+<td>按人按天聚合的花费上限</td>
+</tr>
+<tr>
+<td><code>subagent_cost_budget</code></td>
+<td><code>cost.py:770</code></td>
+<td>子树成本封顶</td>
+</tr>
+<tr>
+<td><code>github_policy</code></td>
+<td><code>github.py:942</code></td>
+<td>按 repo / branch 限制 GitHub 操作</td>
+</tr>
+<tr>
+<td><code>block_working_dir_changes</code></td>
+<td><code>working_dir.py:252</code></td>
+<td>只能改自己创建的目录</td>
+</tr>
+<tr>
+<td><code>cel_policy</code></td>
+<td><code>cel.py:81</code></td>
+<td>用 CEL 表达式写策略</td>
+</tr>
+<tr>
+<td><code>detect_task_switch</code> / <code>detect_thrashing</code></td>
+<td><code>context.py:122 / :347</code></td>
+<td>上下文层面的异常检测</td>
+</tr>
+</tbody>
+</table>
+<p><code>context.py</code> 那两个尤其能体现&quot;meta-harness 层独有的能力&rdquo;：检测 agent 是不是在反复横跳、是不是已经偏离了原始任务。这些判断需要看到跨轮次的完整轨迹，单个 harness 里做不出来。</p>
+<p>成本这一块值得单独说：Omnigent 要在 Claude Code、Codex、Pi 这些<strong>异构 harness</strong> 上都算出每会话 LLM 花费，才能做 <code>cost_budget</code>。这件事本身就是统一接口带来的红利——成本采集在 meta-harness 层做一次，而不是每个 harness 各做一遍。</p>
+<h2 id="七控制沙箱与凭证代理">七、控制：沙箱与凭证代理</h2>
+<p>
+  <img src="/img/omnigent-meta-harness-source-analysis/credential-proxy.svg" alt="凭证代理：让真 secret 从不进入沙箱">
+
+</p>
+<p>博文里那句&quot;不要让 agent 看到你的 GitHub security token，改成只在出口代理里对批准的请求注入&quot;，在仓库里是一份完整的设计文档：<code>designs/SANDBOX_CREDENTIAL_PROXY.md</code>，开头标着 <strong>IMPLEMENTED</strong>。</p>
+<h3 id="问题">问题</h3>
+<p>沙箱里的工具经常需要向外认证：<code>gh api</code>、<code>git clone https://github.com/...</code>、带 Bearer token 的 SaaS API。朴素做法是把真 token 注入沙箱环境（或写进沙箱能读的配置文件）——但那基本抵消了沙箱的意义：<strong>任何 agent 跑起来的代码，包括被网页里的 prompt injection 骗着跑的代码，都能从 <code>os.environ</code> 里把 token 读走</strong>，再往一个恰好在出网白名单里的攻击者主机传出去。</p>
+<h3 id="解法">解法</h3>
+<p>L7 egress 代理已经是所有出网流量的强制中间人。把它扩展成凭证注入点，默认模型是 <strong>swap-on-access（访问时替换）</strong>：</p>
+<ol>
+<li><strong>父进程解析真 secret</strong>（父进程不在沙箱里）。真值只留在父进程和代理的内存重写表里。</li>
+<li><strong>沙箱里的工具直接发请求，不带 <code>Authorization</code></strong>。<code>git clone</code>、<code>curl</code>、<code>python</code>、<code>node</code>——任何 HTTP 客户端都行，零 in-sandbox 接线。沙箱里没有任何可泄漏的东西。</li>
+<li><strong>代理识别绑定主机，在出网时注入</strong>。</li>
+<li><strong>不覆盖</strong>：客户端自己设的真 <code>Authorization</code> 头原样透传，代理从不覆盖工具故意发的凭证。</li>
+</ol>
+<p>少数客户端不看到本地凭证就不发请求——最典型的是 <code>gh</code>，它在碰网络之前就用 &ldquo;authentication required&rdquo; 短路了。对这些，可选开启占位符注入：父进程铸造一个随机、一次性的 <code>oa_cred_</code> 前缀占位符，<strong>只把占位符</strong>注入 <code>GH_TOKEN</code>。<code>gh</code> 以为自己已登录，发出携带占位符的请求，代理再换真值。</p>
+<p>泄漏防线在占位符路径上：一个占位符被拿到它没绑定的主机上使用（也就是外传尝试）会收到 HTTP 403；任何未知的 <code>oa_cred_*</code> 形状的值同样被拒。所以即便工具把自己环境变量里的占位符读出来重放到攻击者主机，代理也不会附上真凭证。</p>
+<p>配置长这样：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">os_env</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">sandbox</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">type</span>: linux_bwrap
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">egress_rules</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f1fa8c">&#34;* github.com/**&#34;</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#f1fa8c">&#34;* api.github.com/**&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">credential_proxy</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#ff79c6">type</span>: gh_basic
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">source</span>: {<span style="color:#ff79c6">command</span>: gh auth token}
+</span></span><span style="display:flex;"><span>      - <span style="color:#ff79c6">type</span>: git_https
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">target</span>: github.com/databricks-eng/agent-framework.git
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">source</span>: {<span style="color:#ff79c6">env</span>: OA_TEST_GITHUB_PAT}
+</span></span><span style="display:flex;"><span>      - <span style="color:#ff79c6">type</span>: https_bearer
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">target</span>: mycorp.atlassian.net/rest/**
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">source</span>: {<span style="color:#ff79c6">env</span>: JIRA_PAT}
+</span></span></code></pre></div><p>几个约束很硬：这个块<strong>要求</strong> <code>egress_rules</code> 存在，且 backend 必须是 <code>linux_bwrap</code> 或 <code>darwin_seatbelt</code>——只有这两个能保证 MITM 代理是唯一出网路径（工具没法绕过它开裸 socket）。真 secret 永不进 argv、永不落盘到沙箱、不参与 <code>SandboxPolicy</code> 序列化（避免泄进日志和转储）。</p>
+<p>沙箱后端本身是三选一：Linux <code>bwrap</code>、macOS <code>seatbelt</code>、Windows Job Object（进程树 containment，但不隔离文件系统和网络——Windows 是降级模式）。</p>
+<h2 id="八协作一个会话多端同步四级权限">八、协作：一个会话，多端同步，四级权限</h2>
+<p>
+  <img src="/img/omnigent-meta-harness-source-analysis/collaboration.svg" alt="协作：一个会话，多端同步，四级权限">
+
+</p>
+<h3 id="权限是数字等级不是枚举">权限是数字等级，不是枚举</h3>
+<p><code>omnigent/server/auth.py:110</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>LEVEL_READ <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>LEVEL_EDIT <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">2</span>
+</span></span><span style="display:flex;"><span>LEVEL_MANAGE <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">3</span>
+</span></span><span style="display:flex;"><span>LEVEL_OWNER <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">4</span>
+</span></span></code></pre></div><p>用数字而不是枚举，好处是&quot;至少要有多少级&quot;这类判断变成整数比较。各级别能做什么：</p>
+<ul>
+<li><strong>READ(1)</strong>：订阅 SSE 流、读消息与文件、只读终端。</li>
+<li><strong>EDIT(2)</strong>：给 agent 发新指令、评论文件、响应审批。</li>
+<li><strong>MANAGE(3)</strong>：授予与回收他人权限。</li>
+<li><strong>OWNER(4)</strong>：删除会话、拉起主机、写 PTY。创建时给定，<strong>不可转让</strong>。</li>
+</ul>
+<p>有两个保留标记：<code>&quot;local&quot;</code>（单用户）和 <code>&quot;__public__&quot;</code>（有链接即可读）。公共只读分享还有独立的总开关，以及一个贴心的保护——当工作目录是 <code>$HOME</code> 或 <code>/</code> 时直接禁止分享。</p>
+<h3 id="扇出靠-sse">扇出靠 SSE</h3>
+<p><code>GET /v1/sessions/{id}/stream</code> 是协作的技术核心，只需要 <code>LEVEL_READ</code>。连上时先发一份快照，结束时发 <code>[DONE]</code>，并在连接期间注册 presence（按会话树根记录在线者）。</p>
+<p>终端交互式 attach 走 WebSocket，但<strong>写入需要 owner</strong>，只读只需要读权限。</p>
+<p>六种客户端（终端 CLI、Web、iOS、Android、桌面 App、编辑插件）加 Python SDK，都消费同一条流——这就是&quot;在终端开始，在浏览器继续，在手机上接起来&quot;的实现方式：不是同步聊天记录，是同一条会话流扇出给多个客户端。</p>
+<h3 id="从同一会话派生的四种动作">从同一会话派生的四种动作</h3>
+<table>
+<thead>
+<tr>
+<th>动作</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Share link</td>
+<td>发一个链接，对方实时旁观，可在文件上留评论</td>
+</tr>
+<tr>
+<td><code>/comments/send</code></td>
+<td>评论直接变成给 agent 的指令，不必抢占会话</td>
+</tr>
+<tr>
+<td><code>omnigent attach &lt;id&gt;</code></td>
+<td><strong>共同驾驶</strong>：对方的消息在你的机器上执行</td>
+</tr>
+<tr>
+<td><code>omnigent run --fork &lt;id&gt;</code></td>
+<td>克隆到自己的机器，从分叉点独立继续</td>
+</tr>
+</tbody>
+</table>
+<p>共同驾驶（co-drive）是最值得注意的那个：它是纯客户端行为，不会重新拉起 server / runner / harness，而是派发到主机已经绑定的那个 runner——对方的键盘直接落在你的机器上。适合结对，也适合中途把键盘交给领域专家。</p>
+<p>鉴权侧是三选一：<code>accounts</code>（内置用户名密码 + 管理员生成的一次性邀请链接，不需要邮件服务器）、<code>oidc</code>（Google / GitHub / Okta / Microsoft，带域名白名单）、<code>header</code>（仅用于前置代理之后）。一个环境变量 <code>OMNIGENT_AUTH_ENABLED=1</code> 开关。</p>
+<h2 id="九什么时候该上什么时候别上">九、什么时候该上，什么时候别上</h2>
+<p>读完代码之后，我的判断是这样。</p>
+<p><strong>该上的信号：</strong></p>
+<ul>
+<li><strong>你已经在同时用 2 个以上 harness</strong>，并且在它们之间手动搬运上下文。这是最直接的痛点，meta-harness 的价值随 harness 数量超线性增长。</li>
+<li><strong>你需要跨 harness 的多 agent 编排</strong>。Polly 那个&quot;不同厂商交叉评审&quot;的 pattern 在单 harness 里做不出来，或者要做出来得自己写一遍会话管理。</li>
+<li><strong>你需要组织级的治理</strong>：成本上限、工具白名单、审计。这类需求在 meta-harness 层做一遍，比在每个 harness 各配一遍（并且随版本漂移）可靠得多。</li>
+<li><strong>协作是刚需</strong>：让同事旁观、评论、共同驾驶一个正在跑的 agent 会话。</li>
+</ul>
+<p><strong>别上的信号：</strong></p>
+<ul>
+<li><strong>你只用一个 harness，且没有治理需求</strong>。那这一层就是纯粹的额外复杂度和额外故障点。</li>
+<li><strong>你要求极致稳定的终端体验</strong>。native 路径靠解析 tmux 输出，这个脆弱性是结构性的——仓库自己也用 <code>tests/harness_bench</code> 持续验证能力矩阵，说明这层确实会漂。</li>
+<li><strong>你在 Windows 上需要真正的沙箱隔离</strong>。Job Object 只做进程树 containment，不隔离文件系统和网络。</li>
+</ul>
+<p><strong>当前的边界</strong>：README 自称 alpha，<code>v0.11.0</code> 的 changelog 里大量条目仍是 bug fix 与 UI 打磨。agent 镜像目录规范明确标注 &ldquo;Tool inheritance is not supported in v1&rdquo;。这些不是劝退，但意味着你今天接入的话，要接受接口还会动。</p>
+<h2 id="小结">小结</h2>
+<p>Omnigent 让我觉得有意思的地方，不是它支持了多少个 harness，而是它<strong>非常清楚自己不做什么</strong>：</p>
+<ul>
+<li>不重新实现 agent 循环——只定义 <code>Executor</code> 协议（5 行签名）让各家接入。</li>
+<li>不要求 harness 具备某种能力——把能力做成可查询的声明表，再用测试台去验证。</li>
+<li>不把策略写成配置语言——策略是无状态纯函数，状态交给引擎。</li>
+<li>不把凭证塞进沙箱——改成在唯一出网路径上做替换。</li>
+</ul>
+<p>博文最后那句话，代码是对得上的：</p>
+<blockquote>
+<p>模型和 harness 会一直变，你工作的那一层不该跟着变。</p>
+</blockquote>
+<p><strong>相关链接</strong></p>
+<ul>
+<li>仓库：https://github.com/omnigent-ai/omnigent</li>
+<li>博文：https://www.databricks.com/blog/introducing-omnigent-meta-harness-combine-control-and-share-your-agents</li>
+<li>文档：https://omnigent.ai/</li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/post/2026-08-28-anthropic-ai%E6%95%99%E5%AD%A6%E6%B3%95%E6%B7%B1%E5%BA%A6%E8%A7%A3%E8%AF%BB/" data-toggle="tooltip" data-placement="top" title="Anthropic 的 AI 教学法深度解读：Claude Academy 背后的四大设计原则">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/post/2026-08-31-zvec-grep%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/" data-toggle="tooltip" data-placement="top" title="zvec-grep 源码拆解：一个把 ripgrep、BM25 和向量检索统一起来的 local-first 检索层">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent-skills" title="agent skills">
+                            agent skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/anthropic" title="anthropic">
+                            anthropic
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ci/cd" title="ci/cd">
+                            ci/cd
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/loops" title="loops">
+                            loops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openai" title="openai">
+                            openai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rust" title="rust">
+                            rust
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1" title="产品设计">
+                            产品设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E7%A8%8B%E6%95%88%E8%83%BD" title="工程效能">
+                            工程效能
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E6%BA%90" title="开源">
+                            开源
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90" title="源码解析">
+                            源码解析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
