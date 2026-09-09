@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="电商 Agent 解剖学：Anthropic 如何设计可上线的交易型 Agent" />
+    <meta property="og:title" content="电商 Agent 解剖学：Anthropic 如何设计可上线的交易型 Agent" />
+    <meta property="twitter:title" content="电商 Agent 解剖学：Anthropic 如何设计可上线的交易型 Agent" />
+    
+
+    
+    <meta name="description" content="深度解读 Anthropic 官方指南《The anatomy of effective commerce agents》：交易型 Agent 的架构决策、时延与缓存优化、生产化三件套（记忆/安全/Eval），并归纳六条可复用的工程判断标准。">
+    <meta property="og:description" content="深度解读 Anthropic 官方指南《The anatomy of effective commerce agents》：交易型 Agent 的架构决策、时延与缓存优化、生产化三件套（记忆/安全/Eval），并归纳六条可复用的工程判断标准。" />
+    <meta property="twitter:description" content="深度解读 Anthropic 官方指南《The anatomy of effective commerce agents》：交易型 Agent 的架构决策、时延与缓存优化、生产化三件套（记忆/安全/Eval），并归纳六条可复用的工程判断标准。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>电商 Agent 解剖学：Anthropic 如何设计可上线的交易型 Agent | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/09/10/claude-commerce-agents-anatomy/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude" title="Claude">
+                            Claude
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent-skills" title="Agent Skills">
+                            Agent Skills
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E7%94%B5%E5%95%86" title="电商">
+                            电商
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1" title="架构设计">
+                            架构设计
+                        </a>
+                        
+                    </div>
+                    <h1>电商 Agent 解剖学：Anthropic 如何设计可上线的交易型 Agent</h1>
+                    <h2 class="subheading">从「Skills 而非子代理」到「安全在 Harness 而非 Prompt」：一份架构、时延与生产化的完整工程手册</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Thursday, September 10, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <p>
+  <img src="/img/claude-commerce-agents-anatomy/cover.svg" alt="电商 Agent 解剖学">
+
+</p>
+<p>Anthropic 在 2026 年 9 月 2 日发布了工程指南 <a href="https://claude.com/blog/the-anatomy-of-effective-commerce-agents">The anatomy of effective commerce agents</a>，作者 Matthew Koen 与 Ali Shazal。过去一年，他们与零售、电商平台、旅行、娱乐和电信行业的团队一起，把 commerce agent 送上了生产环境——企业客户看到了更大的购物车和更高效的卖家运营。而这些上线的 agent 共享一个&quot;简单到不像架构&quot;的架构：</p>
+<blockquote>
+<p>Claude 跑在标准 Agent Loop 里，配一组 Skills、一组工具，以及一套足够强的 Eval。</p>
+</blockquote>
+<p>这篇文章就是这套架构的解剖报告：Part 1 讲架构（只决定一次），Part 2 讲时延与成本，Part 3 讲生产化——记忆、安全、Eval，以及如何在大组织里协作。配套参考实现 <a href="https://github.com/anthropics/commerce-agents">anthropics/commerce-agents</a> 包含购物与商户两个 agent，覆盖零售、旅行、电信、票务四个垂直。同一天 Anthropic 还发了产品侧公告《Building commerce agents with Claude》，而这篇是工程侧的操作手册——可执行性更强。</p>
+<p>几天前我从源码角度拆过这个仓库（见 <a href="/2026/09/04/claude-commerce-agents-architecture/">《Claude Commerce Agents 源码解析》</a>），今天换个角度：从官方设计指南出发，把&quot;为什么这么设计&quot;讲清楚。</p>
+<h2 id="一架构一次决定长期受益">一、架构：一次决定，长期受益</h2>
+<h3 id="11-什么是-commerce-agent">1.1 什么是 Commerce Agent</h3>
+<p>定义朴素：<strong>一个简化线上目录中买与卖的 agent</strong>。面向消费者的那类负责搜索、比较、替代和拼装订单——可能是零售购物车、旅行行程、手机套餐变更，或一场演出扣住的座位；面向商家那类回答销售问题、跑促销活动、管理库存与定价。</p>
+<p>核心架构是&quot;一个模型跑标准 Agent Loop&quot;：推理目标、探索上下文、通过工具行动、通过 Skills 学习流程、必要时提问澄清、观察结果直到目标完成。<strong>没有</strong>前置的意图路由器，<strong>没有</strong>后面的领域子代理群。</p>
+<h3 id="12-skills-not-subagents为什么不做子代理">1.2 Skills, not Subagents：为什么不做子代理</h3>
+<p>Commerce agent 要覆盖大量类目和意图，最诱人的做法是每个领域一个子代理。Anthropic 的结论是：<strong>实践上这是次优解</strong>。原因有三：</p>
+<ol>
+<li><strong>电商对话是跨多意图多轮的紧耦合会话</strong>，需要大量共享上下文。子代理架构里，购物车、用户偏好、对话历史都握在 orchestrator 手里，每一次交接都是有损状态操作——交接本身还要多花几倍 token 和几秒时延。</li>
+<li><strong>领域很少能干净切分</strong>。一个退货流程同时需要订单历史、当前购物车和商品目录。子代理方案要么在每个域复制访问权限，要么任务做到一半交接出去。</li>
+<li><strong>模型在变聪明</strong>。每一代模型都能处理更长上下文、更多 Skills 和工具——今天的&quot;放不下的东西&quot;明天就放得下，placement 规则随代际松动。</li>
+</ol>
+<p>Skills 提供了按领域的模块化与上下文控制，但<strong>没有交接税</strong>：技能指令按需载入进主 Agent，而主 Agent 本来就持有完整历史。作者给出的数据是：</p>
+<blockquote>
+<p>在多次企业部署对比中，单 Agent + Skills 在质量上稳定优于「一个 Prompt 打天下」和「子代理群」两种设计，且单任务成本与时延通常更低。</p>
+</blockquote>
+<p>那子代理什么时候用？两个例外，判断标准是<strong>对话的所有权</strong>：</p>
+<ul>
+<li><strong>作为工具被调用</strong>：窄而自包含的任务，值得拥有自己的上下文窗口。典型是深度研究子代理——搜索、读文档、写代码、遍历数据模型、撞死胡同，所有这些发生在子代理内部，只把一份紧凑答案返回 orchestrator。</li>
+<li><strong>整体交接（hand-off）</strong>：领域已经有自己的专用 Agent。比如药房或金融服务体验跑着一个带自己合规面的专用 Agent，正确做法是让它接管任务，用自己的 loop 直接和用户工作到任务完成。</li>
+</ul>
+<p>两种模式的差别一句话：hand-off 让领域 Agent 成为用户的对端；delegation 让 orchestrator 保留主导，领域 Agent 在一个 turn 内被弹进弹出、每次交换都在降质。</p>
+<p>
+  <img src="/img/claude-commerce-agents-anatomy/skills-vs-subagents.svg" alt="Skills, not Subagents">
+
+</p>
+<h3 id="13-system-prompt-还是-skill按频率划分">1.3 System Prompt 还是 Skill：按频率划分</h3>
+<p>放指令的第一个问题是频率：<strong>加载一个 Skill 要花一个模型 turn</strong>，所以大多数 turn 都用得到的东西应该进系统 Prompt。</p>
+<p>经验起点（作者给的锚点）：<strong>约 1/3 以上流量相关</strong>的指令进系统 Prompt，其余进 Skills——无论这个相关性是上线前预判的，还是上线后在 evals 里观察到的。如果某个 Skill 可以从已有信号预测（比如用户从哪个页面进来），建议由 harness 在第一次模型调用前注入，省掉加载 turn。</p>
+<p><strong>关键指令永远在系统 Prompt</strong>：安全与法律规则、品牌约束，以及关键用户事实（比如过敏信息）。</p>
+<p>在参考实现里，购物 agent 把 grounding、购物车与结账语义、呈现规则和商品搜索放进 Prompt——因为几乎每个会话都会碰到搜索；五个 Skill 覆盖长尾：<code>search-discovery</code>、<code>purchase-research</code>、<code>planning-goals</code>、<code>customer-care</code>、<code>memory-personalization</code>。商户 agent 同样切分：<code>performance-insights</code>、<code>catalog-listings</code>、<code>inventory-operations</code>、<code>pricing-promotions</code>、<code>marketing-campaigns</code>，每个运营域一个。</p>
+<h3 id="14-工具工程调用已有系统结果就是上下文">1.4 工具工程：调用已有系统，结果就是上下文</h3>
+<p>Anthropic 的通用工具设计指南之外，电商场景里最重要的两点：</p>
+<p><strong>第一，Agent 工具必须构建在核心系统之上，而不是重实现它们。</strong> 一家电商公司已经有了搜索与排序、购物车、偏好档案、库存、促销引擎、销售分析——这些系统编码了多年调优的逻辑，看着模型永远看不到的信号。工具的边界就是&quot;系统逻辑结束、模型判断开始&quot;的地方：调用 <code>search_products</code> 时结果应该已经排好序，模型的工作是决定哪些结果服务用户目标、展示几个、怎么呈现。</p>
+<p><strong>第二，工具结果就是上下文。</strong> 只返回模型推理需要的字段，其余全部丢弃——每行搜索结果都带图片 URL 是最常见的&quot;罪魁&quot;。在工具内部重塑原始响应，必要时补上&quot;下一步&quot;提示。错误场景尤其重要：给模型<strong>指令而不是错误码</strong>。比如&quot;查询可用性时请带上商品 ID&quot;，而不是一个干巴巴的 403。</p>
+<h3 id="15-ui-组件也是工具">1.5 UI 组件也是工具</h3>
+<p>Commerce agent 的大多数响应不是散文，而是 UI 组件——商品轮播、旅行行程、座位图、图表。这意味着 agent 要输出的是 <strong>schema 而不是文本</strong>。</p>
+<p>团队常从&quot;让模型输出自定义标签、客户端解析&quot;起步，但界面一旦长大就会崩：</p>
+<ul>
+<li>模型对自定义 markup 的训练远不如对工具调用的训练，嵌套组件一多可靠性就掉；</li>
+<li>标签定义住在系统 Prompt 里，每个新组件都膨胀上下文，每次修改都可能回归 Prompt 其他部分；</li>
+<li>历史对话存成只有你自己的 parser 能读的格式，重载历史要么客户端解析原始消息，要么维护一份非原生格式的副本。</li>
+</ul>
+<p>经受住考验的模式：<strong>每个 UI 组件一个工具</strong>。模型调用 <code>present_products</code>、<code>present_itinerary</code>、<code>present_plan_comparison</code>，带 typed 参数；服务端校验并 enrich，发事件；客户端渲染。组件作为工具调用已经以原生格式躺在 messages 数组里，重载旧对话无需重新解析。</p>
+<p>两个细节值得记：</p>
+<ul>
+<li><strong>流式粒度的取舍</strong>：工具调用的每个顶层参数会在服务端缓冲校验，所以即使开了流式，presentation 工具的子组件也是分批到达。要 token 级流式就设 <code>eager_input_streaming: true</code>——代价是失去服务端 schema 保证。Eval 显示 Sonnet 级以上 schema 违反非常罕见，包一层 retry 兜底即可。</li>
+<li><strong>参数要反映渲染布局</strong>。当顾客说&quot;第一家酒店&quot;或&quot;左边第三个&quot;，agent 能答上来的前提是：布局就在 messages 数组里——在最后一次 presentation 调用的参数里。所以参数要按 UI 的结构组织成有序的行和轮播，而不是一个客户端再重排的扁平列表。</li>
+</ul>
+<h2 id="二时延与成本攻两头靠缓存">二、时延与成本：攻两头，靠缓存</h2>
+<p>电商场景里时延重要，消费侧最不宽容。但 Anthropic 的观察值得先摆出来：</p>
+<blockquote>
+<p>在 agentic 界面上，稳定驱动留存、参与度和购物车大小的，是<strong>结果质量</strong>——答案是否相关、任务是否真的完成——而不是边际时延收益。</p>
+</blockquote>
+<p>所以策略是攻两个战线：用工程手段压缩端到端时延，同时降低<strong>感知时延</strong>——因为看着 agent 干活，读起来像进度。</p>
+<h3 id="21-三个杠杆更少轮次更快工具更快-token">2.1 三个杠杆：更少轮次、更快工具、更快 token</h3>
+<p>任务完成时延 = 各模型轮次的&quot;末 token 时间 + 工具处理时间&quot;之和。三个杠杆有时互相竞争，要最小化的是<strong>总和</strong>而不是单项：</p>
+<table>
+<thead>
+<tr>
+<th>杠杆</th>
+<th>具体手段</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>更少轮次</td>
+<td>预加载可能上下文（从商品页打开就把页面数据放进会话上下文）；提升模型智能；并行调用独立工具</td>
+</tr>
+<tr>
+<td>更快工具</td>
+<td>优化工具自身后端；参数一完成就派发执行</td>
+</tr>
+<tr>
+<td>更快 token</td>
+<td>模型与 effort 配置按 Eval 扫描选择</td>
+</tr>
+</tbody>
+</table>
+<p>几个反直觉的判断：</p>
+<ul>
+<li><strong>上下文前置能白赚轮次</strong>：用户从商品页打开助手，这段对话大概率就是关于这个商品的，从上下文里回答不花额外轮次。</li>
+<li><strong>更快模型常常是更聪明的那个</strong>：智能模型规划工具调用更高效，总轮次更少，往往抵消更慢的 token 速度。经验阈值：查询偏复杂、或生产环境显示每任务超过约 5 轮，就值得换更聪明的模型。</li>
+<li><strong>工具边界别变成&quot;拼接缺失后端逻辑&quot;的地方</strong>：一个可用性检查工具如果在自己的代码里拼目录查询、多店库存、履约截止、替代规则，它已经过载了领域知识。发现自己在工具里写这种逻辑时，正确的修法是一个能回答这个问题的后端 endpoint。</li>
+<li><strong>工具派发要贪心</strong>：工具参数像 token 一样流式产出，harness 可以在参数完成的那一刻就执行——多秒级的间隙能降到几百毫秒。Claude Agent SDK 默认这么做；让模型先发最慢的调用收益最大。</li>
+</ul>
+<h3 id="22-感知时延让等待看起来像进展">2.2 感知时延：让等待看起来像进展</h3>
+<p>两招，都不碰模型：</p>
+<ol>
+<li><strong>组件边生成边渲染</strong>。一次 commerce 响应通常 500–700 个输出 token，不流式就是五秒以上的 spinner。把 presentation 工具的每个参数流式发给客户端，页面渐进渲染。</li>
+<li><strong>展示工作进度</strong>。Agent 收集上下文时，每步渲染一行进度——&ldquo;正在寻找滨水酒店…&quot;。这行文字可以从工具参数（搜索 query）构建，也可以加一个 <code>user_facing_message</code> 参数让模型自己写。</li>
+</ol>
+<p>原文有个精彩的对比：两个面板跑同一个 agent、同样的工具和 Prompt，只有 harness 不同——总耗时几乎一样，但用户看到东西的时间完全不同。</p>
+<h3 id="23-prompt-caching三段式前缀缓存">2.3 Prompt Caching：三段式前缀缓存</h3>
+<p>缓存是<strong>最大的成本削减项</strong>，而电商流量天生适合：面向消费者的应用量大，用默认的 5 分钟过期就能做到极高的缓存水平。作者给的数字：</p>
+<ul>
+<li>缓存输入读的价格是新鲜的 1/10；缓存写有约 1.25x 溢价，但<strong>第二次使用就回本</strong>；</li>
+<li>最好的部署跑在 <strong>90–99% 缓存命中率</strong>，这是应该从一开始就按它设计的区间；</li>
+<li>约 100k token 时缓存读快 1.5–2x，且随 token 数近似线性扩展。</li>
+</ul>
+<p>缓存是<strong>前缀式</strong>的：请求从第一个与之前请求不同的字节开始失效，所以重要的不只是上下文里有什么，还有<strong>顺序</strong>。把请求想成三段，按变化频率排：</p>
+<ol>
+<li><strong>Global 全局段</strong>：大部分系统 Prompt 和工具定义，跨会话完全一致。这是最热的缓存，规模上去后基本不过期。保持逐字节一致，段尾放一个缓存断点。</li>
+<li><strong>Session 会话段</strong>：用户级上下文和对话历史，跨会话不同、会话内稳定，排在全局段之后。</li>
+<li><strong>Volatile 易变段</strong>：会话内也会变的东西——当前时间、当前页面。放在请求最后（新用户轮里的 tagged block，或支持中途系统消息的模型上以 system-role 消息追加）。</li>
+</ol>
+<blockquote>
+<p>最常见的错误：把时间戳或当前页面放在系统 Prompt 顶部——这会静默破坏每一次请求的缓存。</p>
+</blockquote>
+<p>两个实现细节：Skills 要作为<strong>工具结果</strong>加载，而不是追加进系统 Prompt，这样技能体会落在会话前缀里、跟着前缀一起被缓存；断点要<strong>每轮前移</strong>——请求允许的断点数有限，把最新的断点移到每轮用户消息末尾，每一轮都能从缓存读到累积历史（包括搜索响应这类长工具结果）。</p>
+<h3 id="24-选模型让-eval-扫描说话">2.4 选模型：让 Eval 扫描说话</h3>
+<p>模型尺寸与 effort 设置是同一个权衡——智能 vs 时延与成本——都应该按测量决定：</p>
+<ol>
+<li><strong>定指标与底线</strong>：业务运行所依赖的质量指标（任务完成率、答案相关性、grounded 准确率）、不能低于的 eval 分数、以及 p50/p99 时延与成本预算。</li>
+<li><strong>扫描</strong>：把整套 eval 跑遍每一个候选模型与 effort。起点建议：商户 agent 从 Opus 起步（任务偏分析），消费 agent 从 Sonnet 起步（时延权重更大）；有生产流量就按真实 query 分布加权。让数字决定——有时 Opus 5 在驱动购物车的任务上的提升值回差价，有时不值。</li>
+<li><strong>细读结果</strong>，两个经常让团队意外的点：其一，<strong>Prompt 是给某个模型调过音的</strong>，一次扫描里其他模型可能因为没有为它写指令而被低估——小模型通常需要大模型自己就能推断的指令，大模型会字面执行小模型一直忽略的指令，淘汰任何模型前先对它的失败 case 做几轮迭代；其二，更聪明的配置有时<strong>在 p90/p99 上赢时延</strong>——token 虽慢，但规划更好、复杂请求轮次更少。</li>
+</ol>
+<p>最后按<strong>每完成任务的成本</strong>衡量，而不是每次调用：一个更便宜但需要更多轮次、或更容易失败的模型并不便宜。结果接近时，选智能——质量驱动采纳与留存，也为未来六个月的模型进步留出空间。</p>
+<p>
+  <img src="/img/claude-commerce-agents-anatomy/latency-caching.svg" alt="时延与成本">
+
+</p>
+<h2 id="三生产化记忆安全与-eval">三、生产化：记忆、安全与 Eval</h2>
+<h3 id="31-记忆住在你的系统里">3.1 记忆：住在你的系统里</h3>
+<p>长期记忆的定义朴素：<strong>让 agent 从上一次对话停下的地方继续，而不是从零开始</strong>。三月提过坚果过敏的购物者六月不该重复一遍；每周一查同样三个 campaign 的商户不该每次点名。这是一个要自己构建的系统，三部分：怎么存、怎么写、怎么读。</p>
+<p><strong>存储：记忆属于你的系统，不属于模型。</strong> 扁平 Markdown 档案只在规模小、且 agent 是唯一读者时可行；生产环境的务实替代就是你已在运营的数据库。一条事实是一个小型 typed record：key（<code>shoe_size</code>、<code>default_store</code>、<code>preferred_report_cadence</code>）、短 value、category、来源会话。有些 key 提前定好人人都有，其余由 extractor 发现。数据库保持可查询，能让你在特定属性上构建确定性行为，也能 join 已有的用户数据。</p>
+<p>商户侧有个容易踩的坑：<strong>按人而不是按账号记</strong>。商户登录常被多位运营共享，每个 operator 要有自己的 profile，读取要尊重权限——店长的 agent 不该想起区域经理说过的某条事实。</p>
+<p>电商的记忆装的是个人数据，往往还是最受监管的那类。四件事必须在工程上落实：决定愿意持有哪些记忆类型（用写入路径上的 validator 强制，而不是只写进 Prompt）；给用户查看、更正、删除的途径（接入账号删除与数据请求流程）；设保留期；把记忆做成<strong>按部署开关</strong>，让无法承担合规义务的区域可以关掉。</p>
+<p><strong>写入：异步。</strong> 每轮末尾（或长会话里每几轮），一个独立线程/进程里的 agent 读对话，创建、更新、删除事实。它不给对话加时延，且在 Anthropic 内部 commerce memory eval 上取得了 <strong>13% 更高的事实召回率</strong>。明显替代方案——让 agent 调一个保存工具——是错的：每次保存都是用户可见轮次里的一次工具调用；store 不在上下文时还得先读一次来更新去重；还让 agent 每轮多一个决策，在 evals 里表现为<strong>漏记</strong>。分离 extractor 还能精确 prompt：只读用户与助手的文本、<strong>从不读工具结果</strong>——商品描述或评论不能变成关于用户的事实。</p>
+<p><strong>读取：三层。</strong> 固定小集事实每轮进上下文（默认门店、履约偏好、运营的门店与角色）；与当前请求相关的事实按轮预取（用预加载 Skill 的同一批信号：搜鞋就拉尺码与品牌偏好）；其余全部躲在一个查询工具后面。记忆是 per-user 上下文，全部放在 Session 段（全局断点之下）——顺带呼应 2.3 的缓存布局。</p>
+<h3 id="32-安全执行点在-harness不在-prompt">3.2 安全：执行点在 Harness，不在 Prompt</h3>
+<p>这部分是全篇最硬核的一节，也最能解释&quot;参考实现&quot;四个字的分量：</p>
+<blockquote>
+<p>Prompt 是安全行为的起点，但在商业场景里不能是安全的执行点——失败是财务性的、常常不可逆，而一条 Prompt 规则距离一次注入或一个坏样本只有一步之遥。</p>
+</blockquote>
+<p>每条规则都<strong>在代码里执行</strong>（消费侧与商户侧双份），且只定义一次、所有运行时共享。</p>
+<p><strong>第一，模型只 stage，人或政策来 apply。</strong> 没有任何模型工具调用能动钱或改业务：下单、支付、退款、改价、活动上线，全部终结在 harness 控制的 action 上。消费侧是结构性的——checkout 工具只渲染带下单按钮的购物车，后端接口<strong>根本没有 charge 方法</strong>。商户侧每个写工具产出一个带服务端生成 ID 的 staged change，<code>apply_change</code> 只对通过真实界面批准的 ID 成功：portal 里的按钮、CLI 里的确认、或平台自己的工具审批。Guardrail 在 apply 时按<strong>当前</strong>限额重查，而不是 stage 时的限额。无论什么界面，形态一致：<strong>模型最危险的动作也只是提案</strong>，审批走业务已有的 maker-checker 流程。</p>
+<p><strong>第二，写与渲染只认服务端签发过的 ID。</strong> Harness 按会话记录服务端发给模型的每一个 ID，这份记录是任何写或渲染接受的唯一 key。购物车只收本会话服务器返回过的 product ID；商户工具只收 agent 实际读过的 listing/campaign ID。其他任何途径来的 ID——幻觉出来的、用户粘贴的、种在评论里的——在后端看到之前就被拒。UI 同理：presentation 工具只收 ID，服务器自己填充记录，卡片只渲染服务器自己填过的记录。费用、披露这类受监管内容，模型只决定&quot;披露哪个产品&rdquo;，服务器从批准文案里<strong>逐字</strong>提供；同样的费用字段也在商户侧受保护列表上——柜台两侧都不能改一个字，evals 逐字节校验渲染字符串。</p>
+<p><strong>第三，封顶规则要扛得住反复请求。</strong> 大多数交易面限制单人购买数量（票务分配、促销定价、风控），而 agent 会重试、换措辞、并行——人类点按钮永远不会这么干。所以封顶在<strong>写入后的结果状态</strong>上执行：&ldquo;再加两个&quot;第二次来就超限、直接拒绝；同一会话的购物车写串行化，单轮并行调用不能组合超限。商户变更同样检查价格变动、折扣深度、补货量、活动预算，外加一张受保护字段清单。规则可以推广成一句话：<strong>对结果状态执行每个限额，按会话串行化所有写。</strong></p>
+<p><strong>第四，第三方内容一律 sanitize。</strong> 电商上下文里大部分文字不是你的人写的——卖家、评论者、竞争对手。所以每个后端读取都是不可信输入，过一个 sanitizer：剥控制字符与双向字符、移除模仿 fence 标记的内容、解除模仿对话轮次或工具调用的文本、限制大小，最后包进带固定标签的 fence。Prompt 承担合约的另一半：<strong>fenced text 是报告对象，不是行动依据</strong>——一条敌意 listing 冒充不了系统，也填不满上下文。</p>
+<p>
+  <img src="/img/claude-commerce-agents-anatomy/safety-harness.svg" alt="安全模型">
+
+</p>
+<h3 id="33-eval给非确定系统上确定性">3.3 Eval：给非确定系统上确定性</h3>
+<p>从一次小 Prompt 改动到一个新工具，都可能以难以预测的方式改变 agent 行为——而且出问题的往往不是你 ship 的那个改动。Eval 就是在部署前把它找出来的办法。电商场景的四个要点：</p>
+<p><strong>评快照，不评对话。</strong> 模型 API 无状态，agent 输出是（系统 Prompt、工具、消息数组）的函数——意味着任何可达状态都能直接构造。所以一条 eval case = 构造测试状态 + 追加测试用户消息 + 让 agent 从这里跑。然后评<strong>结果</strong>：最终状态与渲染响应（含最后一次写操作的参数）。大多数情况下<strong>不评路径</strong>——那样的用例脆弱且限制性强。simulated-user eval（第二个模型扮用户、judge 评整段对话）是差的度量工具：两个非确定系统交互，样本要更大、单次更贵、更难判、失败难归因。它的正确用途是发现覆盖缺口、做整体 vibe check，然后把每个 case 写成快照。</p>
+<p><strong>测恶劣条件，不是干净开局。</strong> 一个 case 应该编码<strong>失败的前提条件</strong>，而不只是任务。如果一个行为只在忙碌的第一轮多次工具调用之后、或会话早期出现矛盾之后才浮现，那么从干净状态开局的 case 在每个配置上都通过，提供不了任何数据。大多数套件都太重干净状态——确保你的 case 里有一部分从长、乱、矛盾的 history 开局。</p>
+<p><strong>五类 case，每个正例配反例。</strong> 缺反例是套件最常见的缺口：每个&quot;应该服务&quot;配一个&quot;应该拒绝&rdquo;，每个&quot;直接做&quot;配一个&quot;应该先问&quot;。五类：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>要点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>核心请求</td>
+<td>占流量大头；每个价格、可用性、属性都必须 trace 回返回数据；数据缺失要明说，不编造</td>
+</tr>
+<tr>
+<td>上下文相关</td>
+<td>屏幕引用、前轮约束、对已有购物车的写；记忆是否提取、检索、且改变了答案</td>
+</tr>
+<tr>
+<td>安全与品牌</td>
+<td>注入分两种：用户注入 vs 数据面注入（种进商品名、评论、网页片段）；越权读他人数据；受监管文案逐字节</td>
+</tr>
+<tr>
+<td>界面</td>
+<td>渲染正确组件、上限生效、用户可见文本无内部标识符；超时与空结果</td>
+</tr>
+<tr>
+<td>跨能力组合</td>
+<td>&ldquo;降价 15%，库存够覆盖需求吗？&quot;——定价 + 库存两半都要答，单能力 eval 各评一半、抓不住</td>
+</tr>
+</tbody>
+</table>
+<p><strong>与一线专家共建，用真实事故喂料。</strong> 找最先看到失败的人——Product、Legal、Merchant Ops、Customer Care、Category Management——一起设计 case。真实失败是最好的 eval，每个用户流 <strong>50–100 条</strong>起步。生产 transcript 是新 case 的富矿（尤其棘手的那些）；coding agent 擅长生成额外 case 和对抗变体。参考仓库自带一个 Claude Code 插件和按这套方法写的 eval-authoring skill。</p>
+<p>
+  <img src="/img/claude-commerce-agents-anatomy/evals-system.svg" alt="Eval 体系">
+
+</p>
+<h3 id="34-大组织怎么不让彼此踩脚">3.4 大组织：怎么不让彼此踩脚</h3>
+<p>电商企业里，agent 由许多工程团队共建：搜索、结账、定价、营销技术、客服、目录平台，各自拥有 agent 依赖的系统、各按自己的节奏发布、各自想加改一个工具、一个 Skill、一条 Prompt 规则。和一个服务不同，agent <strong>没有严格的模块边界保护彼此</strong>——定价团队的改动和结账共享同一个上下文窗口。</p>
+<p>诱惑的修法是把系统拆成一堆子代理、一个业务单元一个——第一节已经论证了为什么不要。取而代之的是三条去风险流程：</p>
+<ul>
+<li><strong>Ownership follows the systems</strong>：每个 Skill 和工具有一个 owner 团队——定价拥有促销工具和定价 Skill，客服拥有订单/退货工具和客服 Skill；共享 Prompt 有一个平台级 owner 管公共部分、领域 owner 管各自段落。</li>
+<li><strong>改动带着它的 case 一起 ship</strong>：贡献 Skill 的团队同时贡献 case（含反例和对邻接 Skill 的边界 case）。全量套件每 PR 跑太慢太贵，所以从它构建 CI set：最高流量请求的核心集 + 全部安全 case，再加上改动触及的部分——改 Skill 跑它自己的和邻居的边界 case，改工具跑所有调用它的 case，改共享 Prompt 跑全量（因为什么都读系统 Prompt）。通过门槛设为多次试验的通过率，加上缓存命中率与每轮成本；全量套件 nightly 和每次 release 前跑。</li>
+<li><strong>Agent 也要进 release calendar</strong>：它是一个部署单元，坏改动一次到达所有用户。Prompt/Skill 改动先 roll 到 canary 人群；留一个不发版就能关掉某个 Skill 的开关；高峰期前 freeze agent，和其他系统一样。</li>
+</ul>
+<h2 id="四展望架构会活得比模型久">四、展望：架构会活得比模型久</h2>
+<p>文章的结尾值得完整转述一遍（意译）：</p>
+<blockquote>
+<p>这篇文章的大部分内容与模型无关。工具调用的是你已在运行的系统，Skills 编码的是你已在遵循的流程，Eval 是你的产品需求文档写成的测试，harness 执行的是你对任何客户端都会执行的政策。模型会继续进步，当更好的模型发布时，这套架构只需一次配置变更和一轮 eval 扫描——其余一切照常工作。</p>
+</blockquote>
+<p>还有两层更远的判断：这套架构会<strong>活过聊天面板</strong>——同一个 agent 可以走语音，可以在用户开口前主动对票价下降行动，对已有 evals 和工具的团队，这些只是 presentation-layer 项目；再往后，你的 storefront 的一部分流量会来自<strong>替用户购物的 agents</strong>——约束你自己 agent 的同一套 provenance、staging、approval 规则，正是你安全地向那些 agents 开放工具的规则。</p>
+<h2 id="五总结六条可复用判断标准">五、总结：六条可复用判断标准</h2>
+<p>如果只从这篇指南里带走一套东西，我建议是这六条（作者归纳，非原文编号）：</p>
+<p>
+  <img src="/img/claude-commerce-agents-anatomy/principles.svg" alt="六条可复用判断标准">
+
+</p>
+<ol>
+<li><strong>架构默认单 Agent + Skills</strong>。子代理只留给自包含窄任务（作为工具），或已有专用 Agent 的领域（整体交接）。判断标准是对话的所有权。</li>
+<li><strong>Prompt 与 Skill 按频率划分</strong>：约 1/3 流量相关的进 Prompt；安全、品牌、用户事实永远在 Prompt；可预测的 Skill 由 harness 预注入。</li>
+<li><strong>工具调用已有系统，结果即上下文</strong>：别在工具里重写业务逻辑；只回模型推理需要的字段；错误给指令不给错误码。</li>
+<li><strong>UI 组件就是工具</strong>：typed 参数 + 服务端校验 enrich；参数反映渲染布局；<code>eager_input_streaming</code> 换 token 级流式。</li>
+<li><strong>时延攻两头，成本靠前缀</strong>：三杠杆最小化总和；感知时延靠渐进渲染与进度行；缓存按 Global/Session/Volatile 三段排布，命中率 90–99% 是设计起点；按每完成任务算成本。</li>
+<li><strong>记忆、安全、Eval 各有归宿</strong>：记忆住进数据库、异步写入；安全执行在 harness，模型只提案；Eval 用快照、配反例、脏状态开局，与 SME 共建。</li>
+</ol>
+<p>对照源码再看这六条，会更有意思：<code>commerce-common</code> 的 fencing、memory、presentation 模块，商户侧的 staged change 状态机，购物侧的 provenance gate——指南里的每一条原则，都能在 <a href="https://github.com/anthropics/commerce-agents">anthropics/commerce-agents</a> 的代码里找到对应落点。方法论的归宿永远是代码。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/09/04/claude-commerce-agents-architecture/" data-toggle="tooltip" data-placement="top" title="Claude Commerce Agents 源码解析：从双角色 Agent 到可审计的电商执行框架">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/09/10/claude-commerce-agents-blueprint/" data-toggle="tooltip" data-placement="top" title="Claude Commerce Agents 发布解读：两个 Agent、一条信任主轴">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent-skills" title="agent skills">
+                            agent skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/anthropic" title="anthropic">
+                            anthropic
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ci/cd" title="ci/cd">
+                            ci/cd
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/loops" title="loops">
+                            loops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openai" title="openai">
+                            openai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rust" title="rust">
+                            rust
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1" title="产品设计">
+                            产品设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E7%A8%8B%E6%95%88%E8%83%BD" title="工程效能">
+                            工程效能
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E6%BA%90" title="开源">
+                            开源
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1" title="架构设计">
+                            架构设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90" title="源码解析">
+                            源码解析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
