@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="会话越长越省钱：拆解 Opus 5.5 的三层成本设计" />
+    <meta property="og:title" content="会话越长越省钱：拆解 Opus 5.5 的三层成本设计" />
+    <meta property="twitter:title" content="会话越长越省钱：拆解 Opus 5.5 的三层成本设计" />
+    
+
+    
+    <meta name="description" content="解读 Claude 官方博客《Coding sessions are longer and use more context》：从 Claude Code 六个月使用形态变化出发，把「成本低约 40%」拆成定价降幅、缓存命中率、任务轮数三层，逐层用列表价算清各自贡献，并给出保护缓存读的三条操作规则与收益适用边界。">
+    <meta property="og:description" content="解读 Claude 官方博客《Coding sessions are longer and use more context》：从 Claude Code 六个月使用形态变化出发，把「成本低约 40%」拆成定价降幅、缓存命中率、任务轮数三层，逐层用列表价算清各自贡献，并给出保护缓存读的三条操作规则与收益适用边界。" />
+    <meta property="twitter:description" content="解读 Claude 官方博客《Coding sessions are longer and use more context》：从 Claude Code 六个月使用形态变化出发，把「成本低约 40%」拆成定价降幅、缓存命中率、任务轮数三层，逐层用列表价算清各自贡献，并给出保护缓存读的三条操作规则与收益适用边界。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>会话越长越省钱：拆解 Opus 5.5 的三层成本设计 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/09/25/opus-5-5-long-context-coding-sessions/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E6%88%90%E6%9C%AC%E4%BC%98%E5%8C%96" title="成本优化">
+                            成本优化
+                        </a>
+                        
+                        <a class="tag" href="/tags/prompt-caching" title="Prompt Caching">
+                            Prompt Caching
+                        </a>
+                        
+                        <a class="tag" href="/tags/opus-5.5" title="Opus 5.5">
+                            Opus 5.5
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                    </div>
+                    <h1>会话越长越省钱：拆解 Opus 5.5 的三层成本设计</h1>
+                    <h2 class="subheading">把官方那句「成本低约 40%」拆成定价层、缓存框架层、模型行为层三笔账，并给出可自己复现的核对方法</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Friday, September 25, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <p>
+  <img src="/img/opus-5-5-long-context-coding-sessions/cover.svg" alt="三层成本下压：从 $3.50 到更低">
+
+</p>
+<p>2026 年 9 月 24 日，Michael Segner 在 Claude 官方博客发了一篇只有 4 分钟阅读量的短文：<a href="https://claude.com/blog/claude-opus-5-5-built-for-coding-sessions-that-use-more-context">Coding sessions are longer and use more context. Claude Opus 5.5 is built with that in mind.</a></p>
+<p>标题里那句「built with that in mind」很容易被读成公关话术。但这篇文章真正有意思的地方不是「新模型更便宜了」这个结论，而是它<strong>先给出一组使用行为数据，再解释为什么降价要打在那几个特定位置</strong>。换句话说，它是一篇倒着写的成本设计说明书：先说用户变成了什么样，再说产品为此改了什么。</p>
+<p>对于按 token 付费、每天在 Claude Code 里跑长会话的人来说，这里面有一个值得较真的问题：官方给的是「典型按 token 计费负载下比 Opus 5 便宜约 40%」，而公开定价的降幅明明只有输入输出 −20%、缓存读取 −60%。这两个数字之间的差额从哪来？</p>
+<p>这篇文章就顺着这个差额往下拆。</p>
+<hr>
+<h2 id="一先看行为prompt-数没变prompt-里的东西全变了">一、先看行为：prompt 数没变，prompt 里的东西全变了</h2>
+<p>原文最有价值的部分是一组 Claude Code 聚合数据，覆盖 2026 年 3 月到 9 月这半年。它的前提条件必须先说清楚：</p>
+<blockquote>
+<p><strong>每个会话的 prompt 数量保持稳定。</strong></p>
+</blockquote>
+<p>这个前提很重要。它意味着用户的「交互频次」没变——你还是每天跟它对话差不多那么多次。但同一批 prompt 内部发生的事情，已经完全不是半年前那回事了。</p>
+<p>
+  <img src="/img/opus-5-5-long-context-coding-sessions/usage-shift.svg" alt="使用形态变化：会话变重，上下文变厚">
+
+</p>
+<p>这七个数字可以分成两组来读。</p>
+<p><strong>第一组是「会话变重」</strong>：每个 prompt 的工作时长延长 3.3 倍，每个 prompt 触发的模型调用增加 40% 以上，而人工打断次数减少了 68%。三个数字指向同一件事：用户从「站在旁边看着它一步步做」变成了「把任务整段扔过去，回来看结果」。工具服务器与 skill 的使用比例提高约 2 倍，进一步印证这点——委派任务的前提是它手上有能自己取信息、自己调工具的能力。</p>
+<p><strong>第二组是「上下文变厚」</strong>：每个请求携带的上下文量增长 2.6 倍，输入与输出的 token 比从 189:1 变成 324:1，而直接往 prompt 里粘贴文本的比例减少了约三分之一。</p>
+<p>第二组里那个「粘贴减少」的数字，我认为是整篇文章最容易被跳过、但信息量最大的一条。它说明上下文的<strong>来源变了</strong>：以前是人把代码片段复制进对话框，现在是 Agent 自己用 grep、read、MCP 工具去取。人不再是上下文的搬运工，Agent 自己是。</p>
+<p>这两组数字合在一起，得到一个对成本结构的判断：<strong>账单的重心正在从输出侧向输入侧转移，而输入侧的绝大部分是「被反复重读的同一批上下文」</strong>。原文那句话说得很克制但很准：</p>
+<blockquote>
+<p>同样的降价，对今天的 Claude Code 流量比半年前更省钱——因为账单里现在更多是被重复读取的上下文。</p>
+</blockquote>
+<p>这就是后面所有设计的出发点。</p>
+<hr>
+<h2 id="二第一层定价把降价打在账单占比最大的那一段上">二、第一层：定价——把降价打在账单占比最大的那一段上</h2>
+<p>Opus 5.5 公布的定价变化只有两条：</p>
+<ul>
+<li>输入与输出 token 价格下调 <strong>20%</strong></li>
+<li>缓存读取（cache read）token 价格下调 <strong>60%</strong></li>
+</ul>
+<p>这两个数字的不对称，就是整个设计意图。</p>
+<p>结合<a href="/2026/09/23/task-cost-on-opus-5-5/">上一篇关于任务成本的拆解</a>里用到的列表价，可以反推出两代模型每百万 token 的单价（输入 / 输出 / 缓存读）：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>输入</th>
+<th>输出</th>
+<th>缓存读</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Opus 5</td>
+<td>$5</td>
+<td>$25</td>
+<td>$0.50（= 输入价 10%）</td>
+</tr>
+<tr>
+<td>Opus 5.5</td>
+<td>$4</td>
+<td>$20</td>
+<td>$0.20（= 输入价 5%）</td>
+</tr>
+</tbody>
+</table>
+<p>注意最右一列的变化：缓存读取从「输入价的 10%」压到了「输入价的 5%」。也就是说，官方不只是把绝对价格砍了 60%，还把<strong>缓存相对于新输入的折扣力度翻了一倍</strong>。这是一个非常明确的信号——它在用价格逼你去做缓存友好的上下文工程。</p>
+<p>拿一个具体会话来核对。假设一次会话消耗 2.0M 缓存读 + 200K 新输入 + 60K 输出（这是上一篇里用过的示例结构，比例上接近今天 Claude Code 的典型形态）：</p>
+<p>
+  <img src="/img/opus-5-5-long-context-coding-sessions/price-decomposition.svg" alt="降价打在哪一段上，决定了它值多少钱">
+
+</p>
+<p>按 Opus 5 列表价：<code>2.0 × 0.50 + 0.2 × 5 + 0.06 × 25 = 1.00 + 1.00 + 1.50 = $3.50</code>。</p>
+<p>三段占比是 29% / 29% / 43%。然后两种降价分别落在不同的段上：</p>
+<ul>
+<li>缓存读那 $1.00 降 60%，省 <strong>$0.60</strong></li>
+<li>新输入 + 输出那 $2.50 降 20%，省 <strong>$0.50</strong></li>
+</ul>
+<p>合计省 $1.10，新账单 $2.40，降幅 <strong>−31%</strong>。</p>
+<p><strong>这就是第一个关键结论：纯定价只能给你 −31%，离官方的「约 40%」还差一截。</strong> 而且降价之后的结构变得更刺眼了——缓存读只剩 17%，「新输入 + 输出」占到 83%。缓存读已经便宜到快要不构成问题，真正贵的是<strong>没进缓存的输入</strong>和<strong>模型吐出来的字</strong>。</p>
+<p>这也解释了原文顺带提的那句竞品对比：截至发布日，Opus 5.5 的缓存 token 价格只有竞品模型的五分之一，且性能更优。缓存价是这一代 Agent 编码工作负载的主战场，官方显然认为自己在这一项上拉开了差距。</p>
+<hr>
+<h2 id="三第二层框架让-claude-code-自己少丢缓存">三、第二层：框架——让 Claude Code 自己少丢缓存</h2>
+<p>上一节的结构分析留下一个明显的杠杆：既然未命中缓存的输入按 $4/M 计费、而缓存读只要 $0.20/M，那么<strong>命中率每提高一点，都相当于给那部分 token 打了 95 折以上</strong>。二十倍的价差，比任何一次降价都凶。</p>
+<p>原文在这里给出了一个很有说服力的反趋势数据：</p>
+<blockquote>
+<p>按趋势推测，缓存未命中率本应上升（因为上下文量涨了 2.6 倍），实际却相反：<strong>未命中缓存的输入减少了超过 50%</strong>。</p>
+</blockquote>
+<p>上下文翻了 2.6 倍、未命中反而腰斩，这只能是工程干预的结果。原文列了四类改动：</p>
+<p>
+  <img src="/img/opus-5-5-long-context-coding-sessions/cache-miss.svg" alt="未命中缓存的输入，按 20 倍价钱重新买一遍">
+
+</p>
+<ol>
+<li><strong>修掉「小痛点」导致的意外失效</strong>，典型例子是刷新登录态。这类失效对用户完全无感——你根本不知道自己刚刚把一整条缓存扔掉了，账单上却实实在在多了一笔。</li>
+<li><strong>修掉「大动作」导致的失效</strong>，比如对话中途追加指令、按需加载工具。prompt cache 的本质是前缀匹配，任何插在已缓存前缀中间的内容都会让后面全部重算。</li>
+<li><strong>effort level 可以会话中途切换而不重置缓存</strong>（Opus 5.5 与 Fable 5.1 等新一代模型支持）。这一条的产品意义比听起来大：它把「思考深度」从一个需要提前押注的决策，变成了可以随时微调的旋钮。</li>
+<li><strong>分叉出去的 subagent 直接从父级缓存启动</strong>，相同上下文不再重复付费。对于 fan-out 式的多 Agent 编排，这几乎是结构性的成本变化——以前 N 个 subagent 就是 N 份上下文钱。</li>
+</ol>
+<p>同时，<strong>1 小时的缓存生命周期（TTL）现在对 API key 与云服务商用户开放</strong>（订阅用户此前已有）。这一条配合的是真实工作节奏：你去开个会、吃个饭，回来会话还在缓存里。</p>
+<p>把这一层叠回刚才那个示例会话。如果未命中的新输入从 200K 降到 100K：</p>
+<p><code>2.0 × 0.20 + 0.1 × 4 + 0.06 × 20 = 0.40 + 0.40 + 1.20 = $2.00</code></p>
+<p>相对 Opus 5 的 $3.50，累计降幅 <strong>−43%</strong>。</p>
+<p><strong>官方那句「约 40%」到这里才对得上。</strong> 它不是一个定价数字，是「定价降幅 + 框架侧命中率改善」的合成结果。这也解释了为什么官方用的是「估算」和「典型负载」这种措辞——第二层的收益取决于你的会话形态，不可能给一个精确值。</p>
+<hr>
+<h2 id="四第三层模型行为少走一轮比省一个缓存-token-值得多">四、第三层：模型行为——少走一轮比省一个缓存 token 值得多</h2>
+<p>前两层都还在「同一条执行轨迹上省钱」。第三层换了维度：<strong>让轨迹本身变短</strong>。</p>
+<p>原文引了 Zeta Labs 的实测：相比 Opus 5，Opus 5.5 在完成同一批任务时轮次与工具调用更少、<strong>每任务成本接近减半</strong>，而且<strong>最难那一档任务的完成数量翻了一倍</strong>。</p>
+<p>然后是全文我最认同的一句判断：</p>
+<blockquote>
+<p><strong>少走一轮，比省下一个缓存 token 更省成本。</strong>（A reduced turn is even more cost efficient than a cached token.）</p>
+</blockquote>
+<p>这句话值得换算成具体量级，因为它的差距大得反直觉：</p>
+<p>
+  <img src="/img/opus-5-5-long-context-coding-sessions/turn-vs-token.svg" alt="少走一轮，等于省下 30 万个缓存 token">
+
+</p>
+<p>按 Opus 5.5 列表价，一个缓存 token 是 $0.0000002。而在一条上下文已经涨到 100K 的会话里，多走一轮的成本是：</p>
+<ul>
+<li>重读 100K 上下文（缓存命中）：<code>0.1 × $0.20 = $0.02</code></li>
+<li>吐出 2K 输出（含 thinking）：<code>0.002 × $20 = $0.04</code></li>
+<li>合计约 <strong>$0.06</strong></li>
+</ul>
+<p>$0.06 ÷ $0.0000002 = <strong>30 万个缓存 token</strong>。</p>
+<p>也就是说，<strong>模型少绕一个弯，等价于你省掉 30 万个缓存 token 的钱</strong>。而这一轮里贵的部分甚至不是重读上下文，是那 2K 输出——输出单价是缓存读的 100 倍。轮数之所以是最强的放大器，因为它同时放大了输入重读和输出生成两边。</p>
+<p>顺带说一句原文提到的「输出生成速度比 Opus 5 快 30% 以上」。这一条要诚实地归类：它既不提高缓存命中率、也不减少 token，<strong>省的是你的时间，不是你的钱</strong>。在长时间运行的无人值守任务里，它的价值体现在别处——迭代节奏变快，你一天能跑完的实验数量变多。</p>
+<hr>
+<h2 id="五落到操作保护缓存读的三条规则">五、落到操作：保护缓存读的三条规则</h2>
+<p>原文在「Protect your cached reads」一节给了三条建议。它们看起来简单到不像建议，但每一条都对应着前面某个真实的失效路径：</p>
+<p>
+  <img src="/img/opus-5-5-long-context-coding-sessions/protect-cache.svg" alt="一条长会话上的三个决策点">
+
+</p>
+<p><strong>① 在会话开始时就把模型定下来，不要中途切换。</strong>
+中途换模型会让整条缓存作废，从头重读一遍。要调，就调 effort level——那个现在不重置缓存。这是把「可变的」和「不可变的」分清楚：模型是会话级决策，effort 是轮级决策。</p>
+<p><strong>② 在离开之前 compact，而不是回来之后再 compact。</strong>
+这条最反直觉，也最容易做错。回来后再压缩，意味着你先要为读完那条又长又旧的上下文付一次钱，然后才把它压掉。走之前压，下一段会话直接从瘦上下文起步。</p>
+<p><strong>③ 用 API key 或云服务商时，为长会话把缓存 TTL 设成 1 小时。</strong>
+这一条基本是纯收益：只要你的工作节奏里存在「离开半小时再回来」的情况，它就在替你省钱。</p>
+<p>原文还建议在 Claude Code 里用 <code>/usage</code> 看一眼自己的用量中缓存读取占多大比例。这个动作的意义不在于那个数字本身，而在于<strong>它决定了上面三条规则对你有多值钱</strong>：如果缓存读只占你账单的 5%，那你该关心的根本不是缓存，是输出 token 和轮数。</p>
+<hr>
+<h2 id="六边界谁能拿到-40谁只拿到降价">六、边界：谁能拿到 −40%，谁只拿到降价</h2>
+<p>这篇文章最克制的地方，是它没有把 −40% 说成人人有份。原文引了 Addy Osmani 的判断：</p>
+<blockquote>
+<p>范围清晰的任务上，两个模型轮次差不多，你得到的只有降价。差距最大的是开放式任务——模型可能在错误思路上耗费大量轮次。没有哪个数字适用于所有代码库，所以请自行测量。</p>
+</blockquote>
+<p>
+  <img src="/img/opus-5-5-long-context-coding-sessions/where-it-pays.svg" alt="收益不是均匀发放的">
+
+</p>
+<p>这个区分的逻辑很硬：<strong>第三层（轮数）的收益只在模型有机会走错路的地方才存在。</strong></p>
+<p>改一个函数、补一处测试、按模板重构——这类任务的轮数几乎由任务本身决定，两代模型跑出来都是那么多轮。你拿到的就是定价那 −31%，一分不多。而且说实话，这类任务本来就该往更便宜的模型上路由，讨论 Opus 之间的差价意义不大。</p>
+<p>跨模块排障、架构迁移、无人值守的长跑就完全不同了。这类任务的成本方差主要来自「模型在错误方向上烧掉多少轮」。Zeta Labs 那个「最难任务完成量翻倍」的数据点尤其值得注意——它说的不是「同样的事更便宜」，是<strong>有些事从「跑到预算耗尽也做不完」变成了「做完了」</strong>。这种变化没法用百分比表达。</p>
+<p>所以官方那句「最适合长时运行、高上下文会话」不是营销话术，它是在准确地划定适用边界。</p>
+<hr>
+<h2 id="七我的几点判断">七、我的几点判断</h2>
+<p><strong>第一，这篇文章的真正主题是上下文工程的经济学，不是模型发布。</strong> 它把降价、框架修复、模型行为三件事写在一起，隐含的论点是：<strong>Agent 的成本不是一个定价问题，是一个系统问题</strong>。定价层能给 −31%，框架层再给十几个点，行为层给的收益则取决于你的任务长什么样。三层里只有第一层是官方单方面送你的，后两层需要你配合。</p>
+<p><strong>第二，「缓存读只剩 17%」这个结构变化，会重新排列优化优先级。</strong> 当缓存价格被压到输入价的 5%，缓存优化的边际收益就在下降；账单的重心已经移到「未命中的输入」和「输出 token」上。下一阶段的上下文工程重点，我认为会从「怎么让上下文进缓存」转向「怎么让不必要的上下文根本不进来」——原文那句「必须确保所提供的上下文都是必要的」放在第一条，顺序不是随便排的。</p>
+<p><strong>第三，价格结构正在教育使用方式。</strong> 缓存相对折扣翻倍、effort 切换不再毁缓存、subagent 继承父级缓存、1 小时 TTL——这四件事凑在一起，描绘的是一种被鼓励的工作方式：<strong>一条长会话、一个固定模型、上下文尽量少动、并行分叉复用同一份前缀</strong>。反过来，那些高频切模型、反复粘贴大段代码、频繁打断重启的用法，会在账单上被持续惩罚。</p>
+<p><strong>第四，也是最该照做的一条：自己测。</strong> 从 $3.50 到 $2.40 到 $2.00，这条链路我在上面一步步算了出来，但每一步都依赖那个示例会话的结构假设。你的仓库有多大、上下文多厚、输出多长、缓存命中多少，都会让结果偏移。原文引的那句「No single number holds for every codebase」值得当成结论本身——它比任何一个百分比都更可靠。</p>
+<p>原文最后那句话，大概是这半年行业变化最简洁的概括：</p>
+<blockquote>
+<p>组织已经从要求开发者「不计代价地扩张」，转向要求开发者「高效地扩张」。</p>
+</blockquote>
+<p>会话变长了，Agent 变能干了，账单也变厚了。下一个门槛不是「AI 能不能做完这件事」，而是「做完这件事花了多少钱，以及这笔钱花得值不值」。</p>
+<hr>
+<h2 id="延伸阅读">延伸阅读</h2>
+<ul>
+<li>原文：<a href="https://claude.com/blog/claude-opus-5-5-built-for-coding-sessions-that-use-more-context">Coding sessions are longer and use more context. Claude Opus 5.5 is built with that in mind.</a>（2026-09-24，Michael Segner）</li>
+<li>姐妹篇成本测算：<a href="https://claude.com/blog/what-a-task-costs-on-opus-5-5">What a task costs on Opus 5.5</a>（2026-09-22，Addy Osmani）</li>
+<li>本站解读：<a href="/2026/09/23/task-cost-on-opus-5-5/">一次任务到底花多少钱：Opus 5.5 成本模型深度解读</a></li>
+<li>官方文档：1 小时缓存 TTL 与 prompt caching 配置（code.claude.com/docs/en/prompt-caching）</li>
+</ul>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/09/23/task-cost-on-opus-5-5/" data-toggle="tooltip" data-placement="top" title="一次任务到底花多少钱：Opus 5.5 成本模型深度解读">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/09/27/google-ax-agent-orchestration-runtime/" data-toggle="tooltip" data-placement="top" title="Agent 是一种新的工作负载：Google AX 的声明式编排拆解">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent-skills" title="agent skills">
+                            agent skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/anthropic" title="anthropic">
+                            anthropic
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ci/cd" title="ci/cd">
+                            ci/cd
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/loops" title="loops">
+                            loops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openai" title="openai">
+                            openai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/opus-5.5" title="opus 5.5">
+                            opus 5.5
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-caching" title="prompt caching">
+                            prompt caching
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rust" title="rust">
+                            rust
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1" title="产品设计">
+                            产品设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E7%A8%8B%E6%95%88%E8%83%BD" title="工程效能">
+                            工程效能
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E6%BA%90" title="开源">
+                            开源
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%88%90%E6%9C%AC%E4%BC%98%E5%8C%96" title="成本优化">
+                            成本优化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%8A%80%E6%9C%AF%E8%A7%A3%E8%AF%BB" title="技术解读">
+                            技术解读
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1" title="架构设计">
+                            架构设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90" title="源码解析">
+                            源码解析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
