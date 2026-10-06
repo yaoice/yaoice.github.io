@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="Claude Code Mods 解读：把扩展装进进程里" />
+    <meta property="og:title" content="Claude Code Mods 解读：把扩展装进进程里" />
+    <meta property="twitter:title" content="Claude Code Mods 解读：把扩展装进进程里" />
+    
+
+    
+    <meta name="description" content="基于 Claude Code 官方文档《Mods overview》的中文解读。mod 是一种特殊的 plugin，由 JavaScript/TypeScript 编写的事件处理函数组成，运行在 Claude Code 进程内部，因此能做到 settings hook、skill、MCP server 都做不到的事：绘制可交互界面、重绘自带界面、介入工具调用、即时执行 /command、在 hooks 之间共享状态。文章逐行拆解官方的工具调用计数示例，讲清 Observe / Rewrite / Answer 三种处理方式和“一切外部动作必须经过 mods API”的设计用意；再梳理安装与审查流程、运行环境矩阵、安全边界与内置 mods，最后给出四种扩展机制的选型顺序。">
+    <meta property="og:description" content="基于 Claude Code 官方文档《Mods overview》的中文解读。mod 是一种特殊的 plugin，由 JavaScript/TypeScript 编写的事件处理函数组成，运行在 Claude Code 进程内部，因此能做到 settings hook、skill、MCP server 都做不到的事：绘制可交互界面、重绘自带界面、介入工具调用、即时执行 /command、在 hooks 之间共享状态。文章逐行拆解官方的工具调用计数示例，讲清 Observe / Rewrite / Answer 三种处理方式和“一切外部动作必须经过 mods API”的设计用意；再梳理安装与审查流程、运行环境矩阵、安全边界与内置 mods，最后给出四种扩展机制的选型顺序。" />
+    <meta property="twitter:description" content="基于 Claude Code 官方文档《Mods overview》的中文解读。mod 是一种特殊的 plugin，由 JavaScript/TypeScript 编写的事件处理函数组成，运行在 Claude Code 进程内部，因此能做到 settings hook、skill、MCP server 都做不到的事：绘制可交互界面、重绘自带界面、介入工具调用、即时执行 /command、在 hooks 之间共享状态。文章逐行拆解官方的工具调用计数示例，讲清 Observe / Rewrite / Answer 三种处理方式和“一切外部动作必须经过 mods API”的设计用意；再梳理安装与审查流程、运行环境矩阵、安全边界与内置 mods，最后给出四种扩展机制的选型顺序。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>Claude Code Mods 解读：把扩展装进进程里 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/10/06/claude-code-plugin-mods/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                        <a class="tag" href="/tags/plugin" title="Plugin">
+                            Plugin
+                        </a>
+                        
+                        <a class="tag" href="/tags/mods" title="Mods">
+                            Mods
+                        </a>
+                        
+                        <a class="tag" href="/tags/ai-coding" title="AI Coding">
+                            AI Coding
+                        </a>
+                        
+                    </div>
+                    <h1>Claude Code Mods 解读：把扩展装进进程里</h1>
+                    <h2 class="subheading">从进程外到进程内：读懂 Claude Code 的 mod 能做什么、在哪里生效、要付出多少信任</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Tuesday, October 6, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <h2 id="一引言hook-这个词换了意思">一、引言：hook 这个词换了意思</h2>
+<blockquote>
+<p>原文链接：<a href="https://code.claude.com/docs/en/plugins/mods/overview">Mods overview</a></p>
+<p>来源：Claude Code 官方文档 · Plugins / Mods 章节</p>
+</blockquote>
+<p>如果你写过 Claude Code 的 hook，脑子里的画面大概是这样：在 <code>settings.json</code> 里配一条规则，事件发生时 Claude Code 去跑一个 shell 命令、发一个 HTTP 请求，或者塞一段 prompt，然后根据返回值决定放行还是拦截。</p>
+<p>Mods 文档一上来就把这个词重新定义了一遍：</p>
+<ul>
+<li>在 Mods 文档里，<strong>hook 指 mod 的处理函数</strong>，它运行在 Claude Code <strong>进程内部</strong>；</li>
+<li>原来那种配在 settings 文件里的 hook，改名叫 <strong>settings hook</strong>。</li>
+</ul>
+<p>改名本身不重要，重要的是背后的位置变化。settings hook、skill、status line、MCP server 都在工具<strong>外面</strong>工作，通过文件、子进程或协议和 Claude Code 交互；mod 在工具<strong>里面</strong>运行，和事件循环共享同一个进程。</p>
+<p>
+  <img src="/img/claude-code-plugin-mods/cover.svg" alt="Claude Code Mods：把扩展装进进程里">
+
+</p>
+<p>这张图左右两块的差别，就是整篇文档的主线。左边那五项能力只有进程内才拿得到，代价也写在底部那行字里：拿到这些能力，就要对它付出完整的信任。后面几节都是在展开这两件事。</p>
+<hr>
+<h2 id="二mod-是什么一个装着事件处理函数的-plugin">二、Mod 是什么：一个装着事件处理函数的 plugin</h2>
+<p>先看定义。mod 是一种特殊的 <strong>plugin</strong>，用来改变 Claude Code 的外观和行为。它由 JavaScript 或 TypeScript 写的<strong>事件处理函数</strong>组成：工具调用、提交提示词、绘制界面的某一部分，这些事件发生时，Claude Code 会调用你的函数，函数可以<strong>观察、修改或接管</strong>这个事件。</p>
+<h3 id="21-五项进程内独有的能力">2.1 五项进程内独有的能力</h3>
+<p>因为运行在进程内，mod 可以做到下面五件事：</p>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>具体含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>绘制可交互界面</td>
+<td>在对话旁边加面板，或在输入框上方加横条，支持标签页、按钮和文本框</td>
+</tr>
+<tr>
+<td>重绘自带界面</td>
+<td>替换或重新设计工具调用行、spinner、提问对话框等</td>
+</tr>
+<tr>
+<td>介入工具调用或请求</td>
+<td>暂停工具调用去询问用户；不执行工具，直接返回结果；把某个请求转给其他模型</td>
+</tr>
+<tr>
+<td>即时执行 <code>/command</code></td>
+<td>命令直接运行你的函数，不经过模型轮次，模型正在工作时也能用</td>
+</tr>
+<tr>
+<td>hooks 之间共享数据</td>
+<td>同一文件里的变量对所有 hook 共享，一个 hook 计数，另一个 hook 显示</td>
+</tr>
+</tbody>
+</table>
+<p>这五项里，第 1、2 项是&quot;画&quot;，第 3 项是&quot;拦&quot;，第 4 项是&quot;绕开模型&quot;，第 5 项是&quot;有状态&quot;。settings hook 每次都起一个新进程，天然没有状态；skill 只是给模型读的文字；MCP server 只能给模型加工具，碰不到界面。这几块空白，mod 一次性补上了。</p>
+<h3 id="22-它仍然是-plugin">2.2 它仍然是 plugin</h3>
+<p>mod 没有另起一套分发体系，<strong>它就是 plugin</strong>，通过 marketplace 安装。文档明确说，关于 marketplace、作用域、VS Code 扩展、桌面应用、更新的那些说明，对带 mod 的 plugin 同样适用，不需要改动。</p>
+<p>一个 plugin 可以同时装着 mod、skill、MCP server、commands 和 agents。这带来一个值得留意的细节：<code>disableAllHooks</code> 和组织层面的 <code>allowManagedModsOnly</code> <strong>只停用 mod 那一部分</strong>，plugin 本身仍保持安装，里面的 skills、commands、agents、MCP servers 照常加载。关掉 mod，不等于卸掉整个 plugin。</p>
+<hr>
+<h2 id="三拆一个最小-mod三个文件两个-hook">三、拆一个最小 mod：三个文件、两个 hook</h2>
+<h3 id="31-目录结构">3.1 目录结构</h3>
+<p>一个最小的 mod 只有三个文件：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>first-mod/
+</span></span><span style="display:flex;"><span>├── .claude-plugin/
+</span></span><span style="display:flex;"><span>│   └── plugin.json
+</span></span><span style="display:flex;"><span>└── hooks/
+</span></span><span style="display:flex;"><span>    ├── hooks.json
+</span></span><span style="display:flex;"><span>    └── register.js
+</span></span></code></pre></div><table>
+<thead>
+<tr>
+<th>文件</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>plugin.json</code></td>
+<td>plugin 的清单（manifest）</td>
+</tr>
+<tr>
+<td><code>hooks.json</code></td>
+<td>指向你的代码文件</td>
+</tr>
+<tr>
+<td><code>register.js</code></td>
+<td>你的代码，称为 <strong>hooks module</strong>，告诉 Claude Code 在哪些事件上运行哪些函数</td>
+</tr>
+</tbody>
+</table>
+<p><code>plugin.json</code> 和 <code>hooks.json</code> 的具体字段，概览页没有展开，分别放在 manifest reference 和 mods reference 的 files 部分。这里只需要记住分工：清单声明&quot;我是谁&quot;，<code>hooks.json</code> 声明&quot;代码在哪&quot;，hooks module 声明&quot;我管哪些事件&quot;。</p>
+<h3 id="32-官方示例给-spinner-加一个工具调用计数">3.2 官方示例：给 spinner 加一个工具调用计数</h3>
+<p>下面这段 <code>register.js</code> 统计工具调用次数，并在 Claude 工作时显示在 spinner 后面，效果类似 <code>Thinking · tool calls: 3…</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-js" data-lang="js"><span style="display:flex;"><span><span style="color:#6272a4">// The count, shared by the two hooks below
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#8be9fd;font-style:italic">let</span> calls <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// Claude Code calls this once when the mod loads
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span><span style="color:#ff79c6">export</span> <span style="color:#8be9fd;font-style:italic">function</span> register(on) {
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// Runs each time Claude is about to use a tool
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  on(<span style="color:#f1fa8c">&#39;tool.call&#39;</span>, <span style="color:#ff79c6">async</span> ($, e, next) =&gt; {
+</span></span><span style="display:flex;"><span>    calls <span style="color:#ff79c6">+=</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// Ask Claude Code to draw the interface again, so the new count shows
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    $.ui.invalidate(<span style="color:#f1fa8c">&#39;ui.render&#39;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// Let the tool run as usual
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">return</span> next(e)
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#6272a4">// Runs each time Claude Code draws the spinner
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>  on(<span style="color:#f1fa8c">&#39;ui.render&#39;</span>, { component<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39;Spinner&#39;</span> }, <span style="color:#ff79c6">async</span> ($, e, next) =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// Keep Claude Code&#39;s spinner, with the count added after its word
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4"></span>    <span style="color:#ff79c6">return</span> next({ ...e, props<span style="color:#ff79c6">:</span> { ...e.props, suffix<span style="color:#ff79c6">:</span> <span style="color:#f1fa8c">&#39; · tool calls: &#39;</span> <span style="color:#ff79c6">+</span> calls <span style="color:#ff79c6">+</span> <span style="color:#f1fa8c">&#39;…&#39;</span> } })
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>逐段看：</p>
+<ol>
+<li><strong><code>let calls = 0</code> 写在模块顶层。</strong> 这就是第 2.1 节说的&quot;hooks 之间共享数据&quot;。两个 hook 都闭包引用同一个变量，不需要任何外部存储。</li>
+<li><strong><code>register(on)</code> 是入口。</strong> mod 加载时 Claude Code 调用它一次，你在里面用 <code>on(事件名, [过滤条件], 处理函数)</code> 注册 hook。</li>
+<li><strong>处理函数的签名是 <code>($, e, next)</code>。</strong> <code>e</code> 是事件本身；<code>next</code> 把事件交给后续处理（最终是 Claude Code 的原有行为）；<code>$</code> 是 mods API 的入口，示例里用到的 <code>$.ui.invalidate('ui.render')</code> 就是请求重绘界面。</li>
+<li><strong><code>tool.call</code> hook 只观察。</strong> 计数加一、请求重绘，然后 <code>return next(e)</code>，工具照常运行。</li>
+<li><strong><code>ui.render</code> hook 带过滤条件 <code>{ component: 'Spinner' }</code>。</strong> 它只在绘制 spinner 时触发，把 <code>e.props.suffix</code> 改成带计数的字符串，再交给 <code>next</code>。原来的 spinner 保留，只是多了一截后缀。</li>
+</ol>
+<h3 id="33-三种处理方式observerewriteanswer">3.3 三种处理方式：Observe、Rewrite、Answer</h3>
+<p>这个示例恰好覆盖了 hook 对事件的前两种处理方式，文档还给了第三种：</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>做法</th>
+<th>示例中的对应</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Observe（观察）</td>
+<td>记录信息，事件原样继续</td>
+<td><code>tool.call</code> hook</td>
+</tr>
+<tr>
+<td>Rewrite（改写）</td>
+<td>修改事件后再继续</td>
+<td><code>ui.render</code> hook 加计数</td>
+</tr>
+<tr>
+<td>Answer（接管）</td>
+<td>自己处理事件，原有行为不再执行</td>
+<td>例如拒绝某条命令</td>
+</tr>
+</tbody>
+</table>
+<p>
+  <img src="/img/claude-code-plugin-mods/hook-three-modes.svg" alt="一个事件经过 mod hook 的三种走向">
+
+</p>
+<p>图里的分界线落在 <code>next</code> 上：Observe 和 Rewrite 都调用 <code>next</code>，区别只是传进去的是原事件还是改过的副本，最后都汇到&quot;原有行为执行&quot;；Answer 不调用 <code>next</code>，事件在 hook 里就结束了，原有行为被跳过。写 mod 时，一个 hook 到底是&quot;旁观者&quot;还是&quot;拦截者&quot;，看它有没有、以及怎样调用 <code>next</code> 就能判断。</p>
+<h3 id="34-一切外部动作都要经过-mods-api">3.4 一切外部动作都要经过 mods API</h3>
+<p>文档里有一句容易被略过的话：hook 想做自身代码以外的任何事，比如绘制、添加命令、调用模型、读文件、启动进程、发网络请求，<strong>都必须通过 mods API</strong>。</p>
+<p>这条约束的价值在安装前。因为所有对外动作都走同一套 API，Claude Code 可以在<strong>不运行</strong> mod 的情况下静态列出它会做什么。第四节的 <code>claude plugin validate</code> 正是建立在这一点上。换个角度说，mods API 既是能力的入口，也是审计的抓手。</p>
+<hr>
+<h2 id="四怎么拿到一个-mod怎么在装之前看清它">四、怎么拿到一个 mod，怎么在装之前看清它</h2>
+<h3 id="41-三种来源">4.1 三种来源</h3>
+<ul>
+<li><strong>用内置的</strong>：Claude Code 自带的部分功能本身就是 mod，例如 <code>/diff</code>；</li>
+<li><strong>自己写</strong>：在会话里描述需求，让 Claude 借助内置的 <code>plugin-authoring</code> skill 帮你写，或者手写；</li>
+<li><strong>装现成的</strong>：从 marketplace 安装。</li>
+</ul>
+<h3 id="42-安装与更新">4.2 安装与更新</h3>
+<p>格式是 <code>插件名@marketplace名</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>/plugin install token-chart@your-org        <span style="color:#6272a4"># 会话内</span>
+</span></span><span style="display:flex;"><span>claude plugin install token-chart@your-org  <span style="color:#6272a4"># shell 中</span>
+</span></span></code></pre></div><p>如果会话开着的时候你在 shell 里安装或更新了 mod，需要在那个会话里执行 <code>/reload-plugins</code>，否则要等下次启动才会加载。</p>
+<h3 id="43-先试官方示例">4.3 先试官方示例</h3>
+<p>官方在 <code>anthropics/claude-code-playground</code> 仓库的 <code>claude-code/mods</code> 目录放了几个示例，按原样提供，<strong>不提供支持</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>示例</th>
+<th>功能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>token-weather</code></td>
+<td>在输入框上方画一个上下文窗口&quot;天气预报&quot;</td>
+</tr>
+<tr>
+<td><code>blast-radius</code></td>
+<td>拦截高风险 shell 命令（如 <code>rm -rf</code>、force push），展示影响范围，给出继续 / 取消按钮</td>
+</tr>
+<tr>
+<td><code>replay-theater</code></td>
+<td>添加 <code>/replay</code> 命令，逐步回放上一轮的文件编辑</td>
+</tr>
+</tbody>
+</table>
+<p>这三个示例分别对应三类能力：横条绘制、工具调用介入（Answer 方式的典型用法）、即时命令。试用流程是：克隆仓库，用 <code>--plugin-dir</code> 让单个会话临时加载，再用 <code>/plugin</code> 确认已加载。想长期使用，就把克隆下来的 <code>claude-code/mods</code> 目录添加为 marketplace，从 <code>claude-code-playground-mods</code> 安装。要注意，这种方式依赖本地目录，克隆目录一旦移动或删除，mod 就不再加载。</p>
+<h3 id="44-装之前先审查">4.4 装之前先审查</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>claude plugin validate ./some-mod
+</span></span></code></pre></div><p>输出里的 <code>hooks:</code> 行列出这个 mod 处理哪些事件，<code>calls:</code> 行列出它请求哪些操作。这个命令<strong>不会运行</strong> mod。对来路不明的 mod，这一步应该是必选项：一个只声明了 <code>ui.render</code> 的计数器，和一个声明了网络请求、读文件、启动进程的&quot;计数器&quot;，风险完全不同。</p>
+<h3 id="45-查看开关与版本">4.5 查看、开关与版本</h3>
+<p>会话里运行 <code>/plugin</code>，标签下方的灰色文字会显示已加载 mod 的数量和名称，例如 <code>1 mod active · first-mod</code>。</p>
+<p>mod <strong>默认开启</strong>。版本要求：终端需要 <strong>v2.1.287</strong> 及以上，桌面应用自带的版本从 <strong>v2.1.286</strong> 起支持。终端里用 <code>claude --version</code> 查看；桌面应用在 Code 标签的本地会话里输入 <code>/status</code> 查看。</p>
+<p>关闭方式按范围分三档：</p>
+<table>
+<thead>
+<tr>
+<th>关闭范围</th>
+<th>方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>单个 mod</td>
+<td>在 <code>/plugin</code> 的 <strong>Installed</strong> 标签里禁用或卸载</td>
+</tr>
+<tr>
+<td>所有已安装 mod，仅本次会话</td>
+<td>用 <code>--safe-mode</code> 启动（其他自定义项也会一并禁用）</td>
+</tr>
+<tr>
+<td>所有自装 mod，所有会话</td>
+<td>在 <code>~/.claude/settings.json</code> 里设置 <code>&quot;disableAllHooks&quot;: true</code>；settings hook 和自定义 status line 也会停用，组织托管的内容照常运行</td>
+</tr>
+</tbody>
+</table>
+<p>如果你在早期测试时设置过 <code>CLAUDE_CODE_ENABLE_FUNCTION_HOOKS</code>，请删掉它。从 v2.1.287 起这个变量被忽略，<strong>设成 <code>0</code> 也关不掉 mod</strong>。</p>
+<hr>
+<h2 id="五运行在哪里画在哪里">五、运行在哪里，画在哪里</h2>
+<p>mod 的逻辑和它画出来的界面是两回事。前者跟着 Claude Code 进程走，后者要看当前前端能不能渲染。</p>
+<p>
+  <img src="/img/claude-code-plugin-mods/runtime-matrix.svg" alt="同一个 mod，在不同运行位置的表现">
+
+</p>
+<p>从这张矩阵可以读出三条规律：</p>
+<ol>
+<li><strong>hooks 几乎处处运行。</strong> 除了桌面应用里的 WSL 会话（WSL 会话不支持 plugin），终端、桌面应用、VS Code 聊天面板、<code>claude -p</code>、Agent SDK、Remote Control、云端会话都会跑 hook。云端会话有前提：plugin 得被带到云端会话里。</li>
+<li><strong>界面只在有终端渲染的地方显示。</strong> 终端 <code>claude</code>（包括编辑器内置终端和 JetBrains 插件）完整显示；桌面应用 Code 标签也能显示，但 elements 表里标为仅终端的元素除外；Remote Control 的 hook 在本机会话里跑，画出来的东西显示在本机终端。</li>
+<li><strong>无头场景只剩逻辑。</strong> VS Code 聊天面板、<code>claude -p</code> 和 Agent SDK 里，hook 照跑，但画的东西没人看得见。</li>
+</ol>
+<p>所以文档给了一个明确建议：<strong>会画界面的 mod 应该检测当前运行环境，画不出来时退回成在对话记录里输出一行文字，或者通过命令的文本回复展示。</strong></p>
+<p>这一点对 Answer 类 mod 尤其要紧。像 <code>blast-radius</code> 这种&quot;拦下命令、弹按钮让你选&quot;的设计，如果放到 <code>claude -p</code> 的流水线里，按钮画不出来，拦截逻辑却还在执行。写这类 mod 时，要提前想好无界面时的默认行为。这是作者的判断，原文没有展开，但从矩阵本身可以直接推出来。</p>
+<hr>
+<h2 id="六安全边界mod-拿到的是你的权限">六、安全边界：mod 拿到的是你的权限</h2>
+<p>进程内运行的另一面，是 mod 拿到了和你一样的权限，而且没有隔离层。</p>
+<p>
+  <img src="/img/claude-code-plugin-mods/trust-boundary.svg" alt="mod 拿到的是你的权限，不是一个沙箱">
+
+</p>
+<h3 id="61-它能做什么">6.1 它能做什么</h3>
+<p>文档列得很直白：mod 运行时拥有你的权限，可以以你的身份读写文件、启动程序、发送网络请求；读取环境变量和设置文件，包括其中的 API key；看到每条提示词和每次工具调用；改写提示词或工具调用、代你提交提示词、给你的其他会话发消息；在询问你之前自动批准工具调用；消耗你的套餐额度或 API key。</p>
+<h3 id="62-三条硬边界">6.2 三条硬边界</h3>
+<ul>
+<li><strong>没有沙箱。</strong> 即使开了 sandboxing，被隔离的也只是模型执行的 Bash 命令，mod 启动的进程在沙箱之外运行。</li>
+<li><strong>能越过部分权限规则。</strong> 会批准工具调用的 mod，可以批准本该由 <code>ask</code> 规则提示的调用，或者被你自己的 <code>PreToolUse</code> hook 拦下的调用，某些情况下甚至能批准被 <code>deny</code> 规则拒绝的调用。</li>
+<li><strong>改不了权限提示框。</strong> mod 可以重画大部分界面，但不能改动权限提示，也不能改变提示框里显示的内容。</li>
+</ul>
+<p>第三条是整个设计里唯一一处&quot;界面不可被 mod 接管&quot;的地方。可以这样理解：权限提示是用户做最终判断时看到的东西，如果它也能被重画，前两条边界就连最后的知情权都保不住了。</p>
+<h3 id="63-你手里的开关">6.3 你手里的开关</h3>
+<p>把第四节的开关和这里对照着看：装前用 <code>claude plugin validate</code> 看清 <code>hooks:</code> 和 <code>calls:</code>；单个 mod 在 <code>/plugin</code> 里禁用或卸载；<code>--safe-mode</code> 关闭本次会话的所有 mod；<code>disableAllHooks</code> 关闭所有会话里的自装 mod；组织层面，管理员可以通过 managed settings 控制 mod 是否运行、允许哪些 mod，例如 <code>allowManagedModsOnly</code>。</p>
+<p>图右下角那条注意事项值得单独说一句：这些开关<strong>对内置 mod 无效</strong>。下一节展开。</p>
+<hr>
+<h2 id="七内置-mods已经在你会话里跑着的那几个">七、内置 mods：已经在你会话里跑着的那几个</h2>
+<p>在 <code>/plugin</code> 的 <strong>Installed</strong> 标签里，有一个 <strong>Built-in</strong> 分组。内置 mod 不能更新或卸载，也<strong>不计入</strong> <code>mods active</code> 的数量。</p>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>功能</th>
+<th>关闭方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cc-plugin-agents-md</code></td>
+<td>把 <code>AGENTS.md</code> 作为项目指令加载</td>
+<td>在 <code>/plugin</code> 中禁用，或选择要加载哪些指令文件</td>
+</tr>
+<tr>
+<td><code>cc-plugin-diff</code></td>
+<td>接管 <code>/diff</code> 并绘制面板，仅交互式终端会话</td>
+<td>在 <code>/plugin</code> 中禁用，之后 <code>/diff</code> 由内置版本响应</td>
+</tr>
+<tr>
+<td><code>cc-plugin-plugin-authoring</code></td>
+<td>提供编写 mod 的 <code>plugin-authoring</code> skill（只含 skill，没有 mod 代码）</td>
+<td>在 <code>/plugin</code> 中禁用</td>
+</tr>
+<tr>
+<td><code>cc-plugin-sec-default</code></td>
+<td>防止用户自装的 mod 干扰组织托管内容</td>
+<td>用户无法关闭，由管理员在 managed settings 中设定顺序</td>
+</tr>
+<tr>
+<td><code>cc-plugin-telemetry</code></td>
+<td>发送工具和内置 mod 记录的分析数据</td>
+<td>在 <code>/plugin</code> 中禁用，或关闭分析（如 <code>DISABLE_TELEMETRY</code>）</td>
+</tr>
+<tr>
+<td><code>cc-plugin-you-should-know</code></td>
+<td>运行一个旁路 agent，长任务中发现你可能漏掉的信息时，在输入框上方提示</td>
+<td>默认禁用；用 <code>/plugin enable cc-plugin-you-should-know@builtin</code> 开启</td>
+</tr>
+</tbody>
+</table>
+<p><code>disableAllHooks</code>、<code>--bare</code>、<code>--safe-mode</code> <strong>都不会</strong>停用内置 mod。要关某个内置 mod，只能逐个到 <code>/plugin</code> 里处理。</p>
+<p>这张表能看出 Anthropic 自己在用 mod 做什么。<code>AGENTS.md</code> 支持、<code>/diff</code> 面板、遥测、安全默认值，这些过去可能是硬编码在 Claude Code 里的功能，现在都被拆成了 mod。其中四个的源码开源在 <code>anthropics/claude-code</code> 仓库的 <code>mods</code> 目录，每个都附带 hooks module 和测试，适合当参考实现：</p>
+<ul>
+<li><code>diff</code>：按钮绑定键盘操作，滚动由 mod 自己处理，可参考如何画一个完整面板；</li>
+<li><code>agents-md</code>：带 <code>userConfig</code> 配置项，可参考如何让用户配置 mod；</li>
+<li><code>sec-default</code>：策略类 mod 的参考范例；</li>
+<li><code>telemetry</code>：提供供其他 mod 调用的方法，并附带类型定义，可参考 mod 之间如何协作。</li>
+</ul>
+<p>想写 mod 的话，与其从零摸索 API，不如先读这四份源码。</p>
+<hr>
+<h2 id="八总结四种扩展机制怎么选">八、总结：四种扩展机制怎么选</h2>
+<p>文档最后给了一张对比表，整理如下：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Mod</th>
+<th>Settings hook</th>
+<th>Skill</th>
+<th>MCP server</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>是什么</td>
+<td>plugin 中由 Claude Code 在自身进程内调用的函数</td>
+<td>在生命周期事件上运行的 shell 命令、HTTP 请求或 prompt</td>
+<td>模型读取的 <code>SKILL.md</code> 指令文件</td>
+<td>为模型提供工具的外部进程或服务</td>
+</tr>
+<tr>
+<td>能改变什么</td>
+<td>工具调用、提示词、命令、轮次、界面绘制</td>
+<td>工具调用或提示词是否继续、工具参数与结果、追加给模型的上下文</td>
+<td>模型知道什么、做什么</td>
+<td>模型拥有哪些工具</td>
+</tr>
+<tr>
+<td>能否绘制界面</td>
+<td>能</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+</tr>
+<tr>
+<td>编写语言</td>
+<td>JavaScript / TypeScript</td>
+<td>脚本加一条 <code>settings.json</code> 配置</td>
+<td>Markdown</td>
+<td>任意语言实现的服务</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>需要面板、输入框上方横条、自定义命令或改写事件</td>
+<td>用已有脚本拦截、放行或记录事件</td>
+<td>反复粘贴同样的指令时</td>
+<td>模型需要访问外部系统时</td>
+</tr>
+</tbody>
+</table>
+<p>把表格的&quot;适用场景&quot;一行竖过来，就是一条选型顺序：</p>
+<p>
+  <img src="/img/claude-code-plugin-mods/choose-mechanism.svg" alt="四种扩展机制怎么选">
+
+</p>
+<p>这张图的排序是作者的判断，依据是&quot;能力越大，需要的信任越多&quot;：skill 只影响模型读到的文字；MCP server 给模型加工具，但调用仍然走权限规则；settings hook 能拦截事件，但它是一次性的外部进程；mod 常驻进程、能改写事件、能自动批准工具调用，还能画界面。能在上面一层解决的问题，就不必下沉到 mod。</p>
+<p>回到开头那张图。Mods 带来的变化，是 Claude Code 的扩展点从&quot;进程外的若干接口&quot;变成&quot;进程内的一整条事件链&quot;。对插件作者，这意味着界面、命令、工具调用、状态第一次可以放进同一个文件里统一编排；对使用者，这意味着装一个 mod 之前，<code>claude plugin validate</code> 那两行 <code>hooks:</code> 和 <code>calls:</code> 值得认真读一遍。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/10/06/asana-coachable-agents/" data-toggle="tooltip" data-placement="top" title="可教练的 agent：Asana 如何用 Claude 组建人机团队">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent-skills" title="agent skills">
+                            agent skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/anthropic" title="anthropic">
+                            anthropic
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ci/cd" title="ci/cd">
+                            ci/cd
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/loops" title="loops">
+                            loops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openai" title="openai">
+                            openai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/opus-5.5" title="opus 5.5">
+                            opus 5.5
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-caching" title="prompt caching">
+                            prompt caching
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rust" title="rust">
+                            rust
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1" title="产品设计">
+                            产品设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E7%A8%8B%E6%95%88%E8%83%BD" title="工程效能">
+                            工程效能
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E6%BA%90" title="开源">
+                            开源
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%88%90%E6%9C%AC%E4%BC%98%E5%8C%96" title="成本优化">
+                            成本优化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%8A%80%E6%9C%AF%E8%A7%A3%E8%AF%BB" title="技术解读">
+                            技术解读
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1" title="架构设计">
+                            架构设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90" title="源码解析">
+                            源码解析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
