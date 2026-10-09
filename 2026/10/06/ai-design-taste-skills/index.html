@@ -1,0 +1,2137 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    
+    
+
+    
+    <meta property="og:site_name" content="爱折腾的工程师">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="og:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg">
+    <meta property="twitter:image" content="https://www.iceyao.com.cn//img/post-bg-unix-linux.jpg" />
+    
+
+    
+    <meta name="title" content="从「能生成 UI」到「有设计品味」：Minimal Gallery × Taste Skill × Impeccable 的 AI 前端实践" />
+    <meta property="og:title" content="从「能生成 UI」到「有设计品味」：Minimal Gallery × Taste Skill × Impeccable 的 AI 前端实践" />
+    <meta property="twitter:title" content="从「能生成 UI」到「有设计品味」：Minimal Gallery × Taste Skill × Impeccable 的 AI 前端实践" />
+    
+
+    
+    <meta name="description" content="AI 生成的前端页面为什么越来越像？本文不把 Minimal Gallery、taste-skill、Impeccable 当成三款工具来介绍，而是拆成设计能力的三层：Minimal Gallery 提供参考（什么是好的）、taste-skill 提供判断规则（应该怎么做）、Impeccable 提供评审与修正动作（做得够不够好）。文章逐个拆它们的运行机制——SKILL.md 规则文件如何被加载、61 条确定性规则与 LLM 评审如何分工、24 个命令按什么阶段组织、PRODUCT.md 存什么；再用 3 个模型 × 3 次采样 × 4 档共 36 次运行的真实验证给出可测量的差异（装饰痕迹如何在加参考后稳定归零、哪一条结论没能复现、为什么最贵的一档在首屏上看不出来，以及同一份 Skill 的执行成本为何差 8 倍）；最后回到 Agent 工程视角：同一份 Skill 在不同 harness 上的能力并不等价（hooks、子代理、占位符、字段支持各不相同），Skill 的可移植性本质上是能力可降级，并给出判断「哪些专家经验可以被 Skill 化」的四条判据。">
+    <meta property="og:description" content="AI 生成的前端页面为什么越来越像？本文不把 Minimal Gallery、taste-skill、Impeccable 当成三款工具来介绍，而是拆成设计能力的三层：Minimal Gallery 提供参考（什么是好的）、taste-skill 提供判断规则（应该怎么做）、Impeccable 提供评审与修正动作（做得够不够好）。文章逐个拆它们的运行机制——SKILL.md 规则文件如何被加载、61 条确定性规则与 LLM 评审如何分工、24 个命令按什么阶段组织、PRODUCT.md 存什么；再用 3 个模型 × 3 次采样 × 4 档共 36 次运行的真实验证给出可测量的差异（装饰痕迹如何在加参考后稳定归零、哪一条结论没能复现、为什么最贵的一档在首屏上看不出来，以及同一份 Skill 的执行成本为何差 8 倍）；最后回到 Agent 工程视角：同一份 Skill 在不同 harness 上的能力并不等价（hooks、子代理、占位符、字段支持各不相同），Skill 的可移植性本质上是能力可降级，并给出判断「哪些专家经验可以被 Skill 化」的四条判据。" />
+    <meta property="twitter:description" content="AI 生成的前端页面为什么越来越像？本文不把 Minimal Gallery、taste-skill、Impeccable 当成三款工具来介绍，而是拆成设计能力的三层：Minimal Gallery 提供参考（什么是好的）、taste-skill 提供判断规则（应该怎么做）、Impeccable 提供评审与修正动作（做得够不够好）。文章逐个拆它们的运行机制——SKILL.md 规则文件如何被加载、61 条确定性规则与 LLM 评审如何分工、24 个命令按什么阶段组织、PRODUCT.md 存什么；再用 3 个模型 × 3 次采样 × 4 档共 36 次运行的真实验证给出可测量的差异（装饰痕迹如何在加参考后稳定归零、哪一条结论没能复现、为什么最贵的一档在首屏上看不出来，以及同一份 Skill 的执行成本为何差 8 倍）；最后回到 Agent 工程视角：同一份 Skill 在不同 harness 上的能力并不等价（hooks、子代理、占位符、字段支持各不相同），Skill 的可移植性本质上是能力可降级，并给出判断「哪些专家经验可以被 Skill 化」的四条判据。" />
+    
+
+    
+    <meta property="twitter:card" content="summary" />
+    
+    
+
+    <meta name="keyword"  content="iceyao, IceYao&#39;s Blog, 博客, 个人网站, 互联网, Web, 云原生, PaaS, Istio, Kubernetes, 微服务, Microservice">
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>从「能生成 UI」到「有设计品味」：Minimal Gallery × Taste Skill × Impeccable 的 AI 前端实践 | 爱折腾的工程师 | IceYao&#39;s Blog</title>
+
+    <link rel="canonical" href="/2026/10/06/ai-design-taste-skills/">
+
+    
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+
+    
+    <link rel="stylesheet" href="/css/hugo-theme-cleanwhite.min.css">
+
+    
+    <link rel="stylesheet" href="/css/zanshang.css">
+
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+
+    
+    
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+
+    
+    <script src="/js/hux-blog.min.js"></script>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js"></script>
+
+    
+    
+
+</head>
+
+
+
+  
+    
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-9J7CKFVPPM"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9J7CKFVPPM');
+        }
+      </script>
+    
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+
+    <div class="container-fluid">
+        
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">爱折腾的工程师</a>
+        </div>
+
+        
+        
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">All Posts</a>
+                    </li>
+                    
+                        
+                        
+                        
+                        
+                        
+                    
+                    
+		    
+                        <li><a href="/archive//">ARCHIVE</a></li>
+                    
+                        <li><a href="/notes//">NOTES</a></li>
+                    
+                        <li><a href="/about//">ABOUT</a></li>
+                    
+		            <li>
+                        <a href="/search"><i class="fa fa-search"></i></a>
+		           </li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+</nav>
+<script>
+    
+    
+    
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        
+            $navbar.className = " ";
+            
+            setTimeout(function(){
+                
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+
+
+<style type="text/css">
+    header.intro-header {
+        background-image: url('/img/post-bg-unix-linux.jpg')
+    }
+</style>
+
+<header class="intro-header" >
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/ai-agent" title="AI Agent">
+                            AI Agent
+                        </a>
+                        
+                        <a class="tag" href="/tags/agent-skills" title="Agent Skills">
+                            Agent Skills
+                        </a>
+                        
+                        <a class="tag" href="/tags/harness" title="Harness">
+                            Harness
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E5%89%8D%E7%AB%AF%E8%AE%BE%E8%AE%A1" title="前端设计">
+                            前端设计
+                        </a>
+                        
+                        <a class="tag" href="/tags/claude-code" title="Claude Code">
+                            Claude Code
+                        </a>
+                        
+                        <a class="tag" href="/tags/codex-cli" title="Codex CLI">
+                            Codex CLI
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E8%AE%BE%E8%AE%A1%E7%B3%BB%E7%BB%9F" title="设计系统">
+                            设计系统
+                        </a>
+                        
+                        <a class="tag" href="/tags/%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE" title="开源项目">
+                            开源项目
+                        </a>
+                        
+                    </div>
+                    <h1>从「能生成 UI」到「有设计品味」：Minimal Gallery × Taste Skill × Impeccable 的 AI 前端实践</h1>
+                    <h2 class="subheading">三个设计资产分别回答「什么是好的」「应该怎么做」「做得够不够好」，接进 Agent Loop 之后，瓶颈就不在模型身上了</h2>
+                    <span class="meta">
+                        
+                            Posted by 
+                            
+                                iceyao
+                             
+                            on 
+                            Tuesday, October 6, 2026
+                            
+                            
+                            
+                            
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+
+
+<article>
+    <div class="container">
+        <div class="row">
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                
+                <blockquote>
+<p><strong>本文对象</strong>：三款公开的设计资产——<a href="https://minimal.gallery/">Minimal Gallery</a>（手工策展的极简网页设计参考库）、<a href="https://github.com/hunger-Eric/taste-skill">taste-skill</a>（面向 AI Agent 的前端设计规则技能包）、<a href="https://github.com/pbakaus/impeccable">Impeccable</a>（跨 harness 的 AI 前端设计技能包）。</p>
+<p>文中的 star 数、命令清单、harness 适配细节均来自 2026 年 10 月前后的公开页面与仓库文档（<code>docs/HARNESSES.md</code> 自述为 point-in-time 快照），会随项目演进而变化，引用时请以仓库实时状态为准。本文自己的判断会明确标注。</p>
+</blockquote>
+<p>
+  <img src="/img/ai-design-taste-skills/cover.svg" alt="从「能生成 UI」到「有设计品味」">
+
+</p>
+<p>这张封面的重点在左右两块。左边四张页面骨架是完全相同的——它们代表&quot;模型默认会给出的那个答案&quot;，也就是训练集众数；右边三层能力不是三份素材，而是三种不同性质的约束：一层收敛方向、一层定义边界、一层约束决策。底部那排方块里，真正新的是最后两个：<strong>评审</strong>和<strong>修正</strong>——它们构成了一条能回到生成的边。</p>
+<p>这条回边是全文的主线。</p>
+<hr>
+<h2 id="一为什么-ai-生成的页面越来越像了">一、为什么 AI 生成的页面越来越像了？</h2>
+<p>聊&quot;AI 做设计&quot;很容易写成一串工具安利。本文换一个思路：先把&quot;设计能力&quot;拆成可安装、可执行、可评估的三层，再看每层对应什么样的资产，最后回答一个工程问题——<strong>把它们接进 Agent Loop 之后，还差什么。</strong></p>
+<h3 id="11-一个典型现象">1.1 一个典型现象</h3>
+<p>AI 现在能一口气生成完整页面：结构合理、响应式正常、交互齐备。但&quot;完整&quot;和&quot;有辨识度&quot;是两件事。把十几个不同产品、都由模型裸生成的落地页摆在一起，你会看到同一套视觉词汇反复出现：</p>
+<ul>
+<li>字体用 Inter / Arial / 系统默认栈；</li>
+<li>背景是蓝紫渐变；</li>
+<li>大圆角，卡片套卡片；</li>
+<li>标题上方一个圆角方块图标（tile）；</li>
+<li>三列 Features + 底部 CTA 收尾；</li>
+<li>动效用 bounce / elastic 缓动。</li>
+</ul>
+<p>这份清单不是我总结的，它是 Impeccable 的反模式清单里的条目——颜色上避免灰底白字（对比度不足）、避免纯黑纯灰（永远加一点色调），布局上避免到处套卡片，动效上避免 2015 年味道的弹跳缓动。<strong>一个开源项目专门把&quot;AI 味&quot;逐条写下来，这件事本身说明：问题不是随机的，是系统性的。</strong>（第 8 节会跑一次真实的裸生成——那份产出几乎逐条撞上了这张清单。）</p>
+<h3 id="12-问题真的出在代码能力吗">1.2 问题真的出在&quot;代码能力&quot;吗？</h3>
+<p>不是。HTML / CSS、Flex 与 Grid、响应式断点、动画、甚至一整套 Tailwind 设计系统，模型全都写得出。真正缺的是 <strong>Design Decision——设计判断</strong>：在几个都&quot;能跑&quot;的方案里选哪一个，以及为什么选它。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>AI 会&#34;做&#34;，
+</span></span><span style="display:flex;"><span>但不知道&#34;为什么这么做&#34;。
+</span></span></code></pre></div><p>值得注意的是，这些反模式并非能力缺陷，而是<strong>训练集众数</strong>。模型默认落在出现频率最高的那套 SaaS 模板上，因为那正是&quot;最安全&quot;的输出。要让输出偏离众数，只有两条路：给它更具体的上下文（品牌、参考、约束），或者给它一个能够判错的反馈信号。这两条路，恰好对应后文的三层资产。</p>
+<h3 id="13-从-ui-generation-到-design-decision">1.3 从 UI Generation 到 Design Decision</h3>
+<p>
+  <img src="/img/ai-design-taste-skills/generation-vs-decision.svg" alt="传统生成链路与设计决策链路">
+
+</p>
+<p>上半条是大多数 Agent 的现状：Prompt 进，代码出，<code>Done</code>。下半条是设计任务真正的形状——参考在前，方向在中，评审在后，而且<strong>评审之后必须能回到生成</strong>。</p>
+<p>两条链路的差别不在中间那一步（生成），而在两端：入口处多了&quot;从参考里提取方向&quot;，出口处多了&quot;评审并修正&quot;。<strong>传统链路在生成处结束，设计链路在生成处才开始。</strong></p>
+<hr>
+<h2 id="二设计能力到底包含什么">二、设计能力到底包含什么？</h2>
+<p>如果把&quot;有设计能力&quot;当成一个笼统的整体，就永远只能靠&quot;把 prompt 写得更长&quot;来逼近它。可以把它拆成三层，每层回答一个不同的问题。</p>
+<p>
+  <img src="/img/ai-design-taste-skills/three-layers.svg" alt="设计能力的三层结构">
+
+</p>
+<h3 id="21-reference什么是好的">2.1 Reference：什么是好的？</h3>
+<blockquote>
+<p>Agent 应该参考什么？</p>
+</blockquote>
+<p>对应 <strong>Minimal Gallery</strong>。</p>
+<p>它由设计师 Piet Terheyden 创建并维护，按&quot;干净、极简、现代感强&quot;的标准手工搜集网页设计案例。它的价值不是让你抄，而是——<strong>给 Agent 建立一个审美坐标系</strong>。从工程角度说，这是把一个开放搜索空间（&ldquo;所有可能的网页&rdquo;）收缩成一个有界的邻域（&ldquo;这一族视觉语言&rdquo;）。</p>
+<h3 id="22-taste应该怎么做">2.2 Taste：应该怎么做？</h3>
+<blockquote>
+<p>面对多个都&quot;能跑&quot;的方案，Agent 应该如何取舍？</p>
+</blockquote>
+<p>对应 <strong>taste-skill</strong>。</p>
+<p>它覆盖的正是设计判断的组成部分：Typography、Color、Layout、Spacing、Visual Hierarchy、Motion、Density、Composition、Anti-patterns。写成公式就是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Design Taste
+</span></span><span style="display:flex;"><span>=
+</span></span><span style="display:flex;"><span>Principles
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Preferences
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Constraints
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>References
+</span></span></code></pre></div><h3 id="23-quality怎么判断做得够不够好">2.3 Quality：怎么判断做得够不够好？</h3>
+<blockquote>
+<p>生成结果出来以后，谁来判断它到底好不好？</p>
+</blockquote>
+<p>对应 <strong>Impeccable</strong>。</p>
+<p>它提供的是<strong>可执行的动作</strong>，而不只是评价：Critique、Audit、Polish、Distill、Typography Review、Layout Review、Accessibility / Hardening、Visual Anti-pattern Detection。落到流水线上，它把 <code>Generate → Done</code> 改写成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Generate
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Review
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Detect
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Fix
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Review again
+</span></span></code></pre></div><h3 id="24-三层对照">2.4 三层对照</h3>
+<table>
+<thead>
+<tr>
+<th>能力层</th>
+<th>核心问题</th>
+<th>对应资产</th>
+<th>在流水线中的位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reference</td>
+<td>什么是好的？</td>
+<td>Minimal Gallery</td>
+<td>生成之前，收敛方向</td>
+</tr>
+<tr>
+<td>Taste</td>
+<td>应该怎么做？</td>
+<td>taste-skill</td>
+<td>生成之中，约束决策</td>
+</tr>
+<tr>
+<td>Quality</td>
+<td>做得好不好？</td>
+<td>Impeccable</td>
+<td>生成之后，检测与修正</td>
+</tr>
+<tr>
+<td>Agent Loop</td>
+<td>怎么持续迭代？</td>
+<td>三者组合</td>
+<td>贯穿全程的反馈环</td>
+</tr>
+</tbody>
+</table>
+<p>这张表是全文的骨架：<strong>后面每一节都是在拆其中一层，最后一节讲它们怎么被一个 harness 串起来。</strong></p>
+<hr>
+<h2 id="三minimal-gallery给-agent-一个参考世界">三、Minimal Gallery：给 Agent 一个&quot;参考世界&quot;</h2>
+<h3 id="31-为什么纯-prompt-不够">3.1 为什么纯 Prompt 不够？</h3>
+<p>最常见的失败 prompt 长这样：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>帮我做一个高级、现代、有科技感的官网
+</span></span></code></pre></div><p>问题不在模型不努力，而在于：</p>
+<blockquote>
+<p>&ldquo;高级&quot;到底是什么？</p>
+</blockquote>
+<p>&ldquo;高级&quot;是一个<strong>评价词</strong>，不是<strong>描述词</strong>。不同 Agent 对它的理解完全不同：有的读成&quot;大留白 + 细字重&rdquo;，有的读成&quot;深色背景 + 霓虹光效&rdquo;。评价词无法约束生成空间，只会被模型翻译成它训练集里最常见的那个形象——也就是你已经在二十个页面上见过的那一个。</p>
+<h3 id="32-reference-的真正价值">3.2 Reference 的真正价值</h3>
+<p>Reference 并不是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Copy Website A
+</span></span></code></pre></div><p>而是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Reference
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Extract Design Patterns
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Reduce Design Search Space
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Generate
+</span></span></code></pre></div><p>可以把它理解为：<strong>Reference 是 Agent 的视觉上下文。</strong> 上下文的作用不是给答案，是缩小解空间。搜索空间从&quot;所有网页设计&quot;收缩到&quot;一组同族视觉语言&quot;之后，模型不需要每次重新发明排版节奏，它只需要在这族语言里做局部决策。</p>
+<h3 id="33-如何让-agent-使用-reference">3.3 如何让 Agent 使用 Reference？</h3>
+<p>一段可以直接复用的指令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Analyze these references:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>- Typography
+</span></span><span style="display:flex;"><span>- Layout
+</span></span><span style="display:flex;"><span>- Spacing
+</span></span><span style="display:flex;"><span>- Color
+</span></span><span style="display:flex;"><span>- Visual hierarchy
+</span></span><span style="display:flex;"><span>- Interaction
+</span></span><span style="display:flex;"><span>- Motion
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Do not copy the page.
+</span></span><span style="display:flex;"><span>Extract the underlying design principles.
+</span></span></code></pre></div><p>注意 <code>Do not copy</code> 这一句是必需品而不是客套。没有它，模型倾向做像素级复刻；有了它，任务才从&quot;抄一个页面&quot;变成&quot;抽一套规则&quot;。最终链条是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Reference
+</span></span><span style="display:flex;"><span>→ Pattern Extraction
+</span></span><span style="display:flex;"><span>→ Design Principles
+</span></span><span style="display:flex;"><span>→ New Design
+</span></span></code></pre></div><p>这里有个容易忽略的细节：抽出来的&quot;设计原则&quot;必须是<strong>可复述的短句</strong>，比如&quot;正文行高 1.7 以上、字号层级不超过四级、强调色只出现在一个位置&quot;。抽成&quot;要显得高级&quot;等于没抽。</p>
+<hr>
+<h2 id="四branding先告诉-agent我是谁">四、Branding：先告诉 Agent&quot;我是谁&quot;</h2>
+<h3 id="41-为什么-branding-比漂亮更重要">4.1 为什么 Branding 比&quot;漂亮&quot;更重要？</h3>
+<p>一个页面可能很好看，但：</p>
+<blockquote>
+<p>不一定属于这个品牌。</p>
+</blockquote>
+<p>同一个&quot;生成一个官网&quot;的任务，落到三类产品上应该是三套完全不同的设计语言：</p>
+<table>
+<thead>
+<tr>
+<th>产品类型</th>
+<th>设计语言</th>
+<th>具体表现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>金融产品</td>
+<td>稳定、克制、专业</td>
+<td>高信息密度、低对比装饰、密集表格、弱动效</td>
+</tr>
+<tr>
+<td>AI 创业产品</td>
+<td>前沿、实验性</td>
+<td>高对比、强动效、非常规栅格、深色为主</td>
+</tr>
+<tr>
+<td>高端消费品牌</td>
+<td>大留白、Editorial</td>
+<td>大字号、强视觉、极简配色、图片主导</td>
+</tr>
+</tbody>
+</table>
+<p>三张页面都可以&quot;好看&quot;，但它们的取舍方向是相反的——金融产品要压装饰，AI 产品要加张力，消费品牌要让位给图。<strong>没有 Branding 这一层，模型只能取三者的平均值</strong>，而平均值就是&quot;AI 味&quot;。</p>
+<h3 id="42-branding-可以被结构化">4.2 Branding 可以被结构化</h3>
+<p>关键在于：品牌不用写成散文，可以写成约束。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">Brand Personality</span>:
+</span></span><span style="display:flex;"><span>  - Minimal
+</span></span><span style="display:flex;"><span>  - Precise
+</span></span><span style="display:flex;"><span>  - Technical
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">Typography</span>:
+</span></span><span style="display:flex;"><span>  - Neutral Sans
+</span></span><span style="display:flex;"><span>  - Strong hierarchy
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">Color</span>:
+</span></span><span style="display:flex;"><span>  - Low saturation
+</span></span><span style="display:flex;"><span>  - Limited accent colors
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">Layout</span>:
+</span></span><span style="display:flex;"><span>  - Large whitespace
+</span></span><span style="display:flex;"><span>  - Strong alignment
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">Motion</span>:
+</span></span><span style="display:flex;"><span>  - Subtle
+</span></span><span style="display:flex;"><span>  - Purposeful
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">Avoid</span>:
+</span></span><span style="display:flex;"><span>  - Generic gradients
+</span></span><span style="display:flex;"><span>  - Excessive cards
+</span></span><span style="display:flex;"><span>  - Heavy shadows
+</span></span></code></pre></div><p>注意 <code>Avoid</code> 段的权重——<strong>负向约束比正向形容词有效得多</strong>。正向词（&ldquo;现代&quot;&ldquo;优雅&rdquo;）要靠模型解释，负向词（&ldquo;不要通用渐变&quot;&ldquo;不要卡片套卡片&rdquo;）是可判定的。这也解释了为什么 taste-skill 和 Impeccable 都把反模式清单放在那么显眼的位置。</p>
+<h3 id="43-branding-是-agent-的设计边界">4.3 Branding 是 Agent 的&quot;设计边界&rdquo;</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Brand
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Define Design Space
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Taste
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Make Design Decisions
+</span></span></code></pre></div><p>Impeccable 把这个想法做成了具体机制：<code>/impeccable init</code> 会检查项目、询问受众/用途/约束/调性/证据，然后写入一份 <code>PRODUCT.md</code>。这份文件存的是**&ldquo;产品真相&quot;而不是视觉指令**——受众是谁、跑在什么场景、什么绝对不能做。之后所有命令都会读它。</p>
+<p>这个设计里有一个值得学的地方：<strong>它的质量决定了后续所有命令的效果上限。</strong> 初始化时随手填，后面再怎么 polish 也 polish 不出品牌感。换句话说，Branding 不是视觉素材，而是 <strong>Agent 的 Design Context</strong>——它定义的是设计空间，不是设计结果。</p>
+<hr>
+<h2 id="五taste-skill把审美变成机器可执行规则">五、Taste Skill：把&quot;审美&quot;变成机器可执行规则</h2>
+<h3 id="51-什么是-taste-skill">5.1 什么是 Taste Skill？</h3>
+<p>先看它的物理形态：taste-skill <strong>不是框架，也不是 npm 包</strong>，它就是一组 <code>SKILL.md</code> 规则文件。丢进项目里，AI 编码工具在生成前端代码时读取这些规则，从而收敛自己的审美。项目自述是 &ldquo;Anti-Slop Frontend Framework for AI Agents&rdquo;，GitHub star 数从 2026 年中的三万余涨到七月的五万余（快照数据）。</p>
+<p>传统 Prompt 与 Skill 的差别在这里最能看清：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>传统 Prompt：
+</span></span><span style="display:flex;"><span>Make it look premium.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Skill：
+</span></span><span style="display:flex;"><span>Premium
+</span></span><span style="display:flex;"><span>=
+</span></span><span style="display:flex;"><span>Typography hierarchy
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Spacing discipline
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Controlled contrast
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Intentional motion
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Strong composition
+</span></span></code></pre></div><p>左边是一个<strong>形容词</strong>，右边是一组<strong>可检查的量</strong>。&ldquo;premium&rdquo; 无法验证，但&quot;字号层级清晰、间距有节奏、对比受控、动效有意图、构图成立&quot;每一条都可以被逐项看过去。</p>
+<h3 id="52-skill-解决的是判断规则">5.2 Skill 解决的是&quot;判断规则&rdquo;</h3>
+<p>以 Typography 为例：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>不要：
+</span></span><span style="display:flex;"><span>- 默认全页面同字号
+</span></span><span style="display:flex;"><span>- 过度使用粗体
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>应该：
+</span></span><span style="display:flex;"><span>- 建立明确的字号层级
+</span></span><span style="display:flex;"><span>- 控制标题与正文的视觉重量
+</span></span><span style="display:flex;"><span>- 保持统一的垂直节奏
+</span></span></code></pre></div><p>以 Layout 为例：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>不要：
+</span></span><span style="display:flex;"><span>- 所有内容都放进 Card
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>应该：
+</span></span><span style="display:flex;"><span>- 使用空间建立层级
+</span></span><span style="display:flex;"><span>- 让 Section 本身成为视觉单元
+</span></span></code></pre></div><p>这些规则单看都很朴素，但它们的作用是<strong>把隐性的专业直觉显性化为可执行条目</strong>。人类设计师不写这些，因为他们已经内化；模型没有内化过程，所以必须写下来。</p>
+<h3 id="53-从-prompt-engineering-到-skill-engineering">5.3 从 Prompt Engineering 到 Skill Engineering</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Prompt
+</span></span><span style="display:flex;"><span>= Instructions
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Skill
+</span></span><span style="display:flex;"><span>=
+</span></span><span style="display:flex;"><span>Knowledge
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Principles
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Constraints
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Decision Rules
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Workflow
+</span></span></code></pre></div><p>核心变化：<strong>不是让 Prompt 变长，而是让专家经验结构化。</strong></p>
+<p>结构化带来的是工程属性，这一点常被忽略：</p>
+<ul>
+<li><strong>可版本化</strong>：规则文件进 Git，设计规范的变更可以被 review、被回滚；</li>
+<li><strong>可参数化</strong>：taste-skill v2 带一套&quot;三旋钮&quot;系统，可以在文件顶部用 1–10 的数值调节强度，同一套规则能适配不同项目；</li>
+<li><strong>可组合</strong>：官方还派生了 <code>gpt-tasteskill</code>（面向 GPT / Codex 的强化版，动效约束更严、布局方差更大、反模板策略更激进）与 <code>image-to-code-skill</code>（上传参考图 → 分析视觉语言 → 生成风格匹配的代码，而非像素复制）；</li>
+<li><strong>可交付</strong>：<code>SKILL.md</code> 是跨工具的通用载具，不绑定某一个编辑器。</li>
+</ul>
+<p>顺带说一句，<code>image-to-code-skill</code> 那条路径尤其实用——它把&quot;参考图&quot;变成了 <code>SKILL.md</code> 之外的第二类参考输入，和第三章讲的 Reference 是同一件事的另一种形态。</p>
+<hr>
+<h2 id="六impeccable让-agent-学会自我否定">六、Impeccable：让 Agent 学会&quot;自我否定&rdquo;</h2>
+<h3 id="61-为什么一次生成远远不够">6.1 为什么一次生成远远不够？</h3>
+<p>代码生成型 Agent 的心智模型是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Prompt
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Code
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Success
+</span></span></code></pre></div><p>但设计不是&quot;一次生成&quot;问题，而是&quot;反复观察&quot;问题：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Design
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Observe
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Judge
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Adjust
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Observe again
+</span></span></code></pre></div><p>两者对&quot;完成&quot;的定义不同：代码生成里，能跑就算完成；设计任务里，能跑只是开始。</p>
+<h3 id="62-24-个命令与它的组织方式">6.2 24 个命令与它的组织方式</h3>
+<p>Impeccable 把设计过程编成了 24 个命令，按设计阶段分五组：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>命令</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>建立设计系统</td>
+<td><code>init</code>、<code>document</code>、<code>extract</code>、<code>shape</code></td>
+</tr>
+<tr>
+<td>细化质量</td>
+<td><code>polish</code>、<code>audit</code>、<code>critique</code>、<code>harden</code></td>
+</tr>
+<tr>
+<td>调整风格</td>
+<td><code>bolder</code>、<code>quieter</code>、<code>distill</code>、<code>colorize</code>、<code>typeset</code>、<code>layout</code></td>
+</tr>
+<tr>
+<td>添加细节</td>
+<td><code>animate</code>、<code>delight</code>、<code>overdrive</code>、<code>onboard</code></td>
+</tr>
+<tr>
+<td>浏览器实时</td>
+<td><code>live</code>、<code>generate</code></td>
+</tr>
+</tbody>
+</table>
+<p>用法是&quot;命令 + 目标&quot;，也可以直接用自然语言描述意图：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>/impeccable audit blog
+</span></span><span style="display:flex;"><span>/impeccable polish settings
+</span></span><span style="display:flex;"><span>/impeccable harden checkout
+</span></span><span style="display:flex;"><span>/impeccable redo this hero section
+</span></span></code></pre></div><p>这里最有工程价值的设计是<strong>命令的语义粒度</strong>。<code>bolder</code> / <code>quieter</code> 这种命令把&quot;太无聊了&quot;&ldquo;太嗨了&quot;这类模糊判断压缩成了一个动词——<strong>它不要求使用者会描述设计，只要求他能表达感受</strong>。这是一次很聪明的接口设计：把专业门槛从&quot;描述&quot;挪到了&quot;判断&rdquo;。</p>
+<h3 id="63-核心架构决策规则检测与-llm-评审分开">6.3 核心架构决策：规则检测与 LLM 评审分开</h3>
+<p>
+  <img src="/img/ai-design-taste-skills/impeccable-detection.svg" alt="Impeccable 的两条检测通道">
+
+</p>
+<p>Impeccable 有一条我认为最值得学的架构决策——<strong>把「规则检测」和「LLM 检测」拆开</strong>：</p>
+<ul>
+<li><strong>确定性规则</strong>：61 条，不需要 LLM、不需要 API Key，CLI 与浏览器扩展直接跑，毫秒级返回，可离线、可嵌进 CI；</li>
+<li><strong>LLM 评审</strong>：只跑在真正需要主观判断的地方——视觉层级是否成立、信息是否清晰、有没有情感共鸣。</li>
+</ul>
+<p>分工的原则很清楚：<strong>能用规则判定的，不要浪费模型。</strong></p>
+<p>这条原则的外推空间比它本身大得多。它其实在回答一个通用问题：一个 Skill 里，哪些部分应该是&quot;可枚举的检查&quot;，哪些部分才需要&quot;模型理解&quot;？答案是有稳定失败模式的部分全部规则化——检查是否存在渐变、字号层级是否少于三级、间距是否落在 4px 网格、对比度是否达标。剩下那些&quot;这个 hero 有没有说服力&quot;的问题，才交给 LLM。</p>
+<p>顺带一提它的安装形态，因为它和下一章直接相关：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>npx impeccable install                <span style="color:#6272a4"># 自动检测本机 harness</span>
+</span></span><span style="display:flex;"><span>npx impeccable link --source<span style="color:#ff79c6">=</span>.impeccable --providers<span style="color:#ff79c6">=</span>claude,cursor
+</span></span></code></pre></div><p>它自己不写代码——<strong>Impeccable 是跨 harness 的指导框架，实际代码由你选用的 AI 生成</strong>。这也意味着它的一个已知上限：效果好坏取决于 <code>PRODUCT.md</code> 的质量，以及 harness 能不能把它的能力完整加载进去。</p>
+<hr>
+<h2 id="七把三个能力组合成一个-design-agent">七、把三个能力组合成一个 Design Agent</h2>
+<p>前面三节分别拆了三层。这一节把它们拼起来——这也是全文的核心。</p>
+<p>
+  <img src="/img/ai-design-taste-skills/design-agent-pipeline.svg" alt="三层设计能力串成的 Design Agent 流水线">
+
+</p>
+<h3 id="71-三层加一个环">7.1 三层加一个环</h3>
+<p>流水线的形状是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Minimal Gallery  →  参考层：收敛方向
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Branding         →  身份层：定义边界
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Taste Skill      →  判断层：约束决策
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Agent Coding     →  执行层：产出实现
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Render           →  观察：拿到真实视觉输出
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Impeccable       →  评审层：检测、批评、修正
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Production UI
+</span></span><span style="display:flex;"><span>        ↺ 回到生成
+</span></span></code></pre></div><h3 id="72-每一层分别解决什么问题">7.2 每一层分别解决什么问题？</h3>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>核心问题</th>
+<th>输入</th>
+<th>输出</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Minimal Gallery</td>
+<td>什么是好的？</td>
+<td>一个模糊需求</td>
+<td>一族参考与可复述原则</td>
+</tr>
+<tr>
+<td>Branding</td>
+<td>什么属于我？</td>
+<td>产品事实（受众/场景/禁区）</td>
+<td>设计空间边界</td>
+</tr>
+<tr>
+<td>Taste Skill</td>
+<td>应该怎么做？</td>
+<td>边界 + 原则</td>
+<td>可执行的判断规则</td>
+</tr>
+<tr>
+<td>Impeccable</td>
+<td>怎么判断做得好不好？</td>
+<td>渲染出来的结果</td>
+<td>问题清单 + 修正动作</td>
+</tr>
+<tr>
+<td>Agent Loop</td>
+<td>怎么持续迭代？</td>
+<td>以上全部</td>
+<td>收敛的产物</td>
+</tr>
+</tbody>
+</table>
+<p>有两个结构性的点值得强调：</p>
+<p><strong>第一，三层缺一不可，而且顺序不能换。</strong> 没有 Reference，方向是空的；没有 Branding，方向是别人的；没有 Taste，规则是散的；没有 Impeccable，产出无法证伪。倒过来说也成立——<strong>任何一层单独使用，收益都远小于三层串联</strong>。</p>
+<p><strong>第二，最后一环是回边而不是终点。</strong> 流水线的价值在于它有一个能返回的边：评审发现了问题，问题变成下一次生成的约束。这也是下一节要讲的重点。</p>
+<hr>
+<h2 id="八实战让-agent-从-0-到-1-生成一个官网">八、实战：让 Agent 从 0 到 1 生成一个官网</h2>
+<p>前面七节都在讲机制，这一节换成实测。</p>
+<p>先把实验设置说清楚，避免误读：</p>
+<ul>
+<li>用本机 <code>codebuddy</code> CLI 的 headless 模式（<code>-p</code>）执行四次调用，四次都是<strong>同一个模型</strong> <code>claude-opus-4.6</code>，每个条件各自是独立会话、互不继承上下文；</li>
+<li>四个条件的<strong>输出约束完全相同</strong>：在当前目录写一个自包含的 <code>index.html</code>，CSS 内联，不引用任何外部资源（无 CDN、无外链字体、无图片文件），禁止读取目录外文件；<code>Bash</code> / <code>WebFetch</code> / <code>WebSearch</code> / <code>Task</code> 工具全部禁用；</li>
+<li>V1、V2 是重新生成；V3 <strong>不是</strong>重新生成，而是在 V2 的产物上跑一轮 audit → critique → polish；</li>
+<li>截图由 Chrome headless 在 1280×900 视口下渲染，未做任何后期修饰。</li>
+</ul>
+<p>必须强调：<strong>这是一次 n=1 的单样本对照。</strong> 它能说明的是&quot;上下文差异在单次生成上确实留下了可测量的痕迹&quot;，不能说明模型普遍如此——要支撑更强的结论，需要多轮采样、跨模型复现和不看条件标签的盲评。</p>
+<p>四档各自留下的痕迹：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>V0 裸 Agent</th>
+<th>V1 + Reference</th>
+<th>V2 + Branding / Taste</th>
+<th>V3 + 评审修正</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>产物大小 / 行数</td>
+<td>33.9 KB / 914</td>
+<td>8.8 KB / 369</td>
+<td>7.4 KB / 312</td>
+<td>9.2 KB / 379</td>
+</tr>
+<tr>
+<td><code>gradient()</code> 出现</td>
+<td><strong>17</strong></td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>box-shadow</code></td>
+<td><strong>12</strong></td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>border-radius</code> 取值</td>
+<td>8 种（含 100px、50%）</td>
+<td>2 种（6/8px）</td>
+<td>2 种（3/5px）</td>
+<td>2 种（4/6px）</td>
+</tr>
+<tr>
+<td>出现 <code>card</code></td>
+<td><strong>41</strong></td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>transition</code></td>
+<td>25</td>
+<td>2</td>
+<td>5</td>
+<td>8</td>
+</tr>
+<tr>
+<td><code>@media</code> 断点</td>
+<td>2</td>
+<td>1</td>
+<td>1</td>
+<td><strong>3</strong></td>
+</tr>
+<tr>
+<td><code>&lt;section&gt;</code> 数</td>
+<td>7</td>
+<td>4</td>
+<td>4</td>
+<td>4</td>
+</tr>
+<tr>
+<td>生成耗时</td>
+<td>4.3 s</td>
+<td>3.5 s</td>
+<td>3.8 s</td>
+<td><strong>143.8 s</strong></td>
+</tr>
+</tbody>
+</table>
+<p>
+  <img src="/img/ai-design-taste-skills/v0-to-v3.svg" alt="V0 到 V3 的四档实测痕迹">
+
+</p>
+<h3 id="81-v0裸-agent">8.1 V0：裸 Agent</h3>
+<p>提示词只有一句：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Build an AI developer platform landing page.
+</span></span></code></pre></div><p>
+  <img src="/img/ai-design-taste-skills/v0.jpg" alt="V0 的首屏">
+
+</p>
+<p>结果值得逐条对照第一节那份反模式清单：</p>
+<ul>
+<li>背景 <code>#09090b</code>（近黑），强调色 <code>#7c5cfc</code>（蓝紫），并且定义了 <code>--accent-glow: rgba(124, 92, 252, 0.15)</code> 这种&quot;发光&quot;变量，在样式里被用了 4 次；</li>
+<li>H1 被包在 <code>&lt;span class=&quot;gradient&quot;&gt;</code> 里，第二行 &ldquo;Ship Faster.&rdquo; 是渐变色文字；</li>
+<li>主按钮 <code>background: linear-gradient(135deg, var(--accent), var(--accent-light))</code>，副按钮是描边胶囊；</li>
+<li>导航下方一枚 &ldquo;Now in Public Beta&rdquo; 胶囊徽章；</li>
+<li>代码演示区套了一个 macOS 三色圆点的窗口壳；</li>
+<li>全页 41 处 <code>card</code>、12 处 <code>box-shadow</code>、8 种不同的圆角取值。</li>
+</ul>
+<p><strong>第一节那张清单不是总结出来的，它就是一次真实裸生成的逐条复现。</strong> 这一档也确立了基线：模型的默认输出就是训练集众数。</p>
+<h3 id="82-v1加入-reference">8.2 V1：加入 Reference</h3>
+<p>V1 在同样的提示词前加了一段参考方向。这里要交代一个实验取舍：<strong>参考是以文字形式给出的</strong>——从极简设计站点的共性里抽出的七条：单栏居中、留白占比高、标题与正文字号差 3 倍以上、只用一套中性无衬线字体、几乎不用卡片边框与阴影、强调色只出现在一个位置、首屏只讲一件事。它并不是把原始页面截图直接喂给模型；这样做是为了让四个条件共享同一份文本输入、保持可比——换成图片会同时引入“视觉输入”这个新变量。</p>
+<p>
+  <img src="/img/ai-design-taste-skills/v1.jpg" alt="V1 的首屏">
+
+</p>
+<p>测量结果几乎是断崖式的：</p>
+<ul>
+<li><code>gradient()</code> 从 17 降到 <strong>0</strong>；</li>
+<li><code>box-shadow</code> 从 12 降到 <strong>0</strong>；</li>
+<li><code>card</code> 从 41 降到 <strong>1</strong>；</li>
+<li>圆角从 8 种收敛到 <strong>2 种</strong>；</li>
+<li>产物从 33.9 KB 压到 8.8 KB。</li>
+</ul>
+<p>也就是说，<strong>&ldquo;AI 味&quot;里那些最刺眼的视觉特征，绝大部分是&quot;没有方向&quot;造成的</strong>，而不是模型不会做——给一段方向，它立刻就放弃了整套模板。</p>
+<p>但这一档有明确代价：<code>&lt;section&gt;</code> 数从 7 个掉到 4 个，首屏只剩下一个标题、一句副标题、一个按钮。<strong>参考方向不区分&quot;该删的装饰&quot;和&quot;该留的内容&rdquo;，它把文字量也一起收掉了。</strong>（8.5 节的复现实验会把这个说法再收窄一次：文字量下降在三个模型上都成立，而结构是否塌缩因模型而异。） 而且它只能保证&quot;不像所有其他页面&quot;，不能保证&quot;属于这个品牌&quot;。</p>
+<h3 id="83-v2加入-branding--taste-skill">8.3 V2：加入 Branding + Taste Skill</h3>
+<p>V2 在 V1 的基础上继续加入品牌定义（Minimal / Precise / Technical，以及排版、颜色、布局、动效四组规则）和一份反模式清单：禁止通用蓝紫渐变、灰底白字、纯黑纯灰、卡片套卡片、标题上方放圆角方块图标、把 Inter / Arial / system-ui 当主角、bounce / elastic 缓动、三列 Features + 底部 CTA。</p>
+<p>
+  <img src="/img/ai-design-taste-skills/v2.jpg" alt="V2 的首屏">
+
+</p>
+<p>变化比上一档细微得多，但方向很清楚：</p>
+<ul>
+<li><code>card</code> 归零，圆角进一步收到 3px / 5px，<code>box-shadow</code> 保持 0；</li>
+<li>强调色收敛为一个陶土色 <code>#c4553d</code>，全页只有这一个强调色；</li>
+<li>底色从纯白系换成带暖调的 <code>#f7f6f3</code>，正文色 <code>#1c1b18</code> 也不是纯黑；</li>
+<li><code>&lt;section&gt;</code> 数没有变（仍是 4 个）——<strong>这一层的作用不是&quot;删&quot;，而是&quot;定&quot;</strong>。</li>
+</ul>
+<p>同样是 4 个 section，V1 的观感是&quot;一个还没填内容的模板&quot;，V2 的观感是&quot;一个已经决定了自己长什么样的页面&quot;。这正是第四节那句&quot;品牌是设计边界&quot;在实测里的样子：它不改变组件数量，只改变取舍方向。</p>
+<h3 id="84-v3加入-impeccable-闭环">8.4 V3：加入 Impeccable 闭环</h3>
+<p>V3 不是重新生成，而是在 V2 的产物上跑一轮 audit → critique → polish：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>audit     可访问性、对比度、字号层级、间距网格、响应式
+</span></span><span style="display:flex;"><span>critique  信息层级、清晰度、像不像模板
+</span></span><span style="display:flex;"><span>polish    把具体问题直接改掉
+</span></span></code></pre></div><p>
+  <img src="/img/ai-design-taste-skills/v3.jpg" alt="V3 的首屏">
+
+</p>
+<p>首屏截图几乎看不出区别——但这一档花了 <strong>143.8 秒</strong>，是前三档的 35 倍以上，共改动 14 处，其中没有一处是&quot;审美&quot;调整：</p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>实际改动</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>对比度</td>
+<td>5 处灰字从 <code>#85847e</code> / <code>#6b6a65</code> 加深到 <code>#64635e</code> / <code>#52514c</code>，补到 4.5:1</td>
+</tr>
+<tr>
+<td>强调色</td>
+<td>CTA 背景 <code>#c4553d</code> → <code>#b5432c</code>，文字改纯白；hover 从降透明度改为变深</td>
+</tr>
+<tr>
+<td>网格</td>
+<td>所有间距对齐 8px 倍数，清掉 52 / 100 / 152 / 160 等孤立值</td>
+</tr>
+<tr>
+<td>响应式</td>
+<td>新增 <code>@media (max-width: 900px)</code> 平板断点，断点从 1 个变 3 个</td>
+</tr>
+<tr>
+<td>无障碍</td>
+<td>为 <code>.reveal</code> 动画补 <code>prefers-reduced-motion</code> 查询</td>
+</tr>
+<tr>
+<td>排版</td>
+<td>去掉 H1 的 <code>&lt;br&gt;</code> 硬断行改自然换行；11 / 13.5 / 68px 这类非标准字号清理为 12 / 13 / 64px</td>
+</tr>
+<tr>
+<td>文案结构</td>
+<td>把塞了功能列表的副标题拆为主句 + 辅助行；50 词长句拆成两段</td>
+</tr>
+</tbody>
+</table>
+<p>对比 V0 的 4.3 秒：<strong>同样一份产出，前三档改变的是&quot;它看起来像什么&quot;，第四档改变的是&quot;它能不能被检查&quot;。</strong></p>
+<h3 id="85-复现实验换两个模型结论还成立吗">8.5 复现实验：换两个模型，结论还成立吗？</h3>
+<p>单样本最大的问题是：它可能只是那一次生成的运气。所以我把同一套四档流程在三个模型上各跑了 3 次——<strong>3 模型 × 3 采样 × 4 档 = 36 次运行</strong>，每个采样内部 V0 / V1 / V2 的执行顺序随机打乱，V3 固定跑在该采样自己的 V2 产物上。</p>
+<p>顺带交代一件事：8.1–8.4 走查的那个样本其实偏重——它的装饰痕迹是 70，而同一个模型在复现实验里的中位数只有 38。<strong>单样本确实会偏，这正是要跑复现实验的原因。</strong></p>
+<p>
+  <img src="/img/ai-design-taste-skills/replication.svg" alt="三个模型的复现实验">
+
+</p>
+<p>跨模型合并后（中位数 <code>[最小–最大]</code>）：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>V0 裸 Agent</th>
+<th>V1 + Reference</th>
+<th>V2 + Branding / Taste</th>
+<th>V3 + 评审</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>装饰痕迹（渐变+阴影+card）</td>
+<td><strong>19 [9–47]</strong></td>
+<td><strong>0 [0–1]</strong></td>
+<td>0 [0–2]</td>
+<td>0 [0–2]</td>
+</tr>
+<tr>
+<td><code>border-radius</code> 取值数</td>
+<td>5 [1–16]</td>
+<td>1 [0–3]</td>
+<td>1 [0–1]</td>
+<td>1 [0–2]</td>
+</tr>
+<tr>
+<td>字体种类数</td>
+<td>2 [1–3]</td>
+<td>2 [1–3]</td>
+<td>2 [1–4]</td>
+<td>2 [1–4]</td>
+</tr>
+<tr>
+<td><code>@media</code> 断点</td>
+<td>2 [1–3]</td>
+<td>1 [0–2]</td>
+<td>2 [0–3]</td>
+<td><strong>3 [0–4]</strong></td>
+</tr>
+<tr>
+<td><code>&lt;h2&gt;</code> 数</td>
+<td>3 [0–6]</td>
+<td>3 [0–4]</td>
+<td>3 [0–4]</td>
+<td>3 [<strong>2</strong>–4]</td>
+</tr>
+<tr>
+<td>可见文本量</td>
+<td>2575 [715–4871]</td>
+<td>962 [454–1616]</td>
+<td>680 [489–1405]</td>
+<td>680 [516–1597]</td>
+</tr>
+<tr>
+<td>产物字节</td>
+<td>28066</td>
+<td>6864</td>
+<td>6362</td>
+<td>9501</td>
+</tr>
+</tbody>
+</table>
+<p><strong>复现了：装饰痕迹在 V1 归零。</strong> 三个模型的裸生成装饰痕迹中位数分别是 claude-opus-4.6 的 38 [36–47]、gemini-3.1-pro 的 19 [12–24]、gpt-5.6-sol 的 11 [9–11]；加入参考方向之后，27 次运行（3 模型 × 3 采样 × V1/V2/V3）里装饰痕迹几乎全部落到 0，最差一次是 2。</p>
+<p>
+  <img src="/img/ai-design-taste-skills/v0-gemini.jpg" alt="gemini-3.1-pro 的 V0 首屏">
+
+</p>
+<p>
+  <img src="/img/ai-design-taste-skills/v1-gemini.jpg" alt="gemini-3.1-pro 的 V1 首屏">
+
+</p>
+<p>gemini 的这两张是同一套模板的另一个实例：V0 是深色底、“Thought” 一词的蓝到品红渐变、发光胶囊按钮、macOS 窗口代码块；V1 之后这些特征全部退场。<strong>结构没变，装饰全部消失</strong>——说明参考方向的作用点在装饰层，不在内容层。</p>
+<p><strong>复现了：可见文本量一致下降；但“结构塌缩”没有复现。</strong> 三个模型的可见文本量都降了 55%–73%（3999→1079、1165→526、2575→1116）。但 <code>&lt;h2&gt;</code> 条目数只在 claude 上塌（5→1），gemini 反而从 1 增到 3，gpt 保持 3。所以 8.2 节那句“信息密度一起被收掉”要收窄：<strong>被收掉的是文字量，不一定是结构。</strong></p>
+<p><strong>复现了：字体不是变量。</strong> 四个档位的字体种类数中位数始终是 2——从 V0 到 V3，没有一次是靠“换字体”改掉 AI 味的。</p>
+<p><strong>没有复现的，是“默认模板只有一套”这个隐含假设。</strong></p>
+<p>
+  <img src="/img/ai-design-taste-skills/v0-gpt.jpg" alt="gpt-5.6-sol 的 V0 首屏">
+
+</p>
+<p>
+  <img src="/img/ai-design-taste-skills/v1-gpt.jpg" alt="gpt-5.6-sol 的 V1 首屏">
+
+</p>
+<p>gpt-5.6-sol 的裸生成一上手就不是蓝紫 SaaS 那一族：暖白底、荧光绿高亮、超大标题、真实产品界面，属于 Linear / Vercel 式的克制模板，装饰痕迹只有 11，是三个模型里最低的。相应的是——<strong>参考方向对它的改动也最小</strong>：V0 与 V1 的首屏结构几乎一样（eyebrow + 大标题 + 副标题 + 两个 CTA），差别只在装饰细节。</p>
+<p>所以“模型的默认输出是训练集众数”这句话要补一句：<strong>众数不止一个，落在哪一族取决于模型。</strong> 这直接影响预期收益——<strong>默认离目标越远，给参考的收益越大</strong>。</p>
+<p><strong>评审档的成本差异，比效果差异更大。</strong> 同一份评审提示词、同一份产物，三个模型的耗时是：gemini 63 秒、claude 128 秒、gpt 517 秒——<strong>相差 8 倍</strong>；而且 gpt 在 25 轮工具调用预算下三次都没跑完（<code>Max turns (25) exceeded</code>），把预算提到 60 轮才完成。</p>
+<p>这是本节最“工程”的一条观察：<strong>Skill 的可移植性不只是文件格式，还包括执行预算。</strong> 一份 Skill 在一个 harness 上三轮干完的活，在另一个 harness 上可能要十倍时间和十倍工具轮次。第 9.3 节的 harness 差异，在这里有了具体的价格标签。</p>
+<p><strong>最后是效果方向：V3 从不回加装饰，只做补齐。</strong> 9 次评审运行里装饰痕迹始终是 0，而产物字节 9 次里 8 次增加，<code>@media</code> 断点中位数从 2 升到 3，<code>&lt;h2&gt;</code> 的下界从 0 提到 2。这与 8.4 节单样本的结论一致：<strong>评审档改的是可检查性（对比度、网格、断点、结构），不是观感。</strong></p>
+<p>最后照旧声明边界：36 次运行足以支撑“加参考会稳定消掉装饰层”这个结论，但仍不足以支撑更细的排序（例如“V2 比 V1 好多少”）——那需要盲评和更多采样。</p>
+<h3 id="86-四档连起来看">8.6 四档连起来看</h3>
+<p>三个结论值得记下来：</p>
+<p><strong>第一，视觉上最大的跳跃发生在 V0→V1，而不是最后一档。</strong> 只要给方向，模型立刻离开默认模板；后面两档做的是收敛与加固——36 次运行的复现里，这一点每次都成立。这和直觉相反——人们通常以为关键在&quot;模型更强&quot;或&quot;prompt 更长&quot;，而实测里最关键的一步是<strong>让 Agent 知道往哪个方向走</strong>。</p>
+<p><strong>第二，最贵的一档在首屏截图上几乎看不出来。</strong> V3 的价值不在这一版的观感，而在&quot;这一版是被检查过的&quot;：对比度有数值、间距有网格、断点有覆盖、动效有降级路径。这些不会让第一眼变好，但会让它以可复现的方式稳定下来。</p>
+<p><strong>第三，这一档也暴露了 Skill 的真实边界。</strong> V3 能自动做完 audit 和 polish，是因为这些动作有明确判据（对比度阈值、8px 网格、断点覆盖）；而&quot;这个 hero 到底有没有说服力&quot;，它只能在 critique 里给出文字判断，无法自己验证闭环。<strong>能被规则化的部分可以自动化，不能被规则化的部分仍然需要人。</strong></p>
+<p>最后再声明一次边界：以上是单样本对照，样本量 1、模型 1 个、每个条件只跑一次。它足以支撑&quot;上下文会显著改变默认输出&quot;这个弱结论，不足以支撑任何强结论。</p>
+<hr>
+<h2 id="九真正重要的变化skill-正在进入-agent-loop">九、真正重要的变化：Skill 正在进入 Agent Loop</h2>
+<p>这一节把话题从&quot;设计工具&quot;抬到 Agent 工程。因为真正的新东西不是审美可以被描述，而是<strong>审美可以被装载、被执行、被评估</strong>。</p>
+<h3 id="91-skill-不再只是-prompt">9.1 Skill 不再只是 Prompt</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>传统理解：
+</span></span><span style="display:flex;"><span>Skill = Prompt
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>新的理解：
+</span></span><span style="display:flex;"><span>Skill
+</span></span><span style="display:flex;"><span>=
+</span></span><span style="display:flex;"><span>Context
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Rules
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Actions
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>Evaluation
+</span></span></code></pre></div><p>区别在最后一项。Prompt 是单向的：我告诉你，你执行。Skill 是闭环的：里面既有&quot;什么算对&quot;，也有&quot;怎么检查对不对&quot;，还有&quot;不对的时候怎么改&quot;。Impeccable 之所以能跨 harness 工作，正是因为它把这四件事都写成了文件。</p>
+<h3 id="92-skill--agent--harness--feedback-loop">9.2 Skill / Agent / Harness / Feedback Loop</h3>
+<p>
+  <img src="/img/ai-design-taste-skills/skill-harness-loop.svg" alt="Skill、Agent、Harness、Feedback Loop 的分工">
+
+</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Skill
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Agent
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Harness
+</span></span><span style="display:flex;"><span>  ↓
+</span></span><span style="display:flex;"><span>Feedback Loop
+</span></span></code></pre></div><p>四者的职责边界：</p>
+<ul>
+<li><strong>Skill</strong> 负责&quot;我知道怎么做&quot;——专家经验的载体，声明式、可版本化；</li>
+<li><strong>Agent</strong> 负责&quot;我来执行&quot;——把 Skill 的声明翻译成具体的工具调用；</li>
+<li><strong>Harness</strong> 负责&quot;我来组织整个过程&quot;——它决定 Skill 能不能被加载、hooks 能不能挂上、子代理能不能 spawn；</li>
+<li><strong>Feedback Loop</strong> 负责&quot;我来判断做得够不够好&quot;——规则检测 + 主观评审，输出下一次迭代的输入。</li>
+</ul>
+<p>注意第三项。<strong>Harness 是这条链上最容易被忽略的一环</strong>，因为它在多数讨论里只是一个&quot;运行环境&quot;。但对 Skill 来说，harness 直接决定能力的上限。</p>
+<h3 id="93-harness-差异同一份-skill-并不等价">9.3 Harness 差异：同一份 Skill 并不等价</h3>
+<p>Impeccable 在仓库里维护了一份 <code>docs/HARNESSES.md</code>，逐项标注了各 harness 的能力差异，并明说这是 point-in-time 快照、任何&quot;仅 X 支持 Y&quot;的结论都需实时复核。摘几条最关键的：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>差异</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Skill 安装路径</td>
+<td>Claude Code 读 <code>.claude/skills/</code>；Codex CLI 主路径是 <code>.agents/skills/</code>；Cursor 读 <code>.cursor/skills/</code> 并回退到 <code>.agents/skills/</code>、<code>.claude/skills/</code></td>
+</tr>
+<tr>
+<td>事实通用路径</td>
+<td><code>.agents/skills/</code> 被 Cursor、Gemini、Copilot、OpenCode、Pi、Mistral Vibe、Antigravity 等共同读取，但 Claude Code 与 Codex 各走原生路径</td>
+</tr>
+<tr>
+<td>编辑 hook</td>
+<td>只有 4 个 harness 有：Claude Code（PostToolUse）、Codex（PostToolUse）、Cursor（<strong>preToolUse，在坏写入落盘前拦截</strong>）、Grok Build</td>
+</tr>
+<tr>
+<td>子代理</td>
+<td>Claude Code 可在 skill 流程内程序化触发；Grok Build 有内置 <code>spawn_subagent</code>；Codex 需用户已允许，否则 skill 必须先问一次再停止；Cursor 无法被 skill 可靠触发</td>
+</tr>
+<tr>
+<td>Frontmatter 字段</td>
+<td><code>name</code> / <code>description</code> 全支持；<code>model</code> / <code>effort</code> 仅 Claude 与 Grok；<code>context</code> / <code>agent</code> 仅 Claude；<code>hooks</code> 仅 Claude / Codex / Grok</td>
+</tr>
+<tr>
+<td>占位符替换</td>
+<td>运行时 <code>$ARGUMENTS</code>、<code>${CLAUDE_SKILL_DIR}</code> 等仅 Claude Code 支持，其余 harness 靠构建期替换</td>
+</tr>
+<tr>
+<td>未知字段</td>
+<td>所有 harness 静默忽略——这反而让&quot;全量发射字段&quot;成为安全策略</td>
+</tr>
+</tbody>
+</table>
+<p>从这张表能读出三条对写 Skill 的人有用的结论：</p>
+<p><strong>第一，可移植性不等于文件可移植，而是能力可降级。</strong> 同一份 <code>SKILL.md</code> 在 A 上能挂 hook 拦截坏写入，在 B 上只能生成完再扫一遍，在 C 上连扫描都没有。写得好的 skill 会把&quot;没有 hook 时怎么办&quot;也写进去——Codex 上&quot;先问一次再停止&quot;就是一种显式的降级路径，而不是静默失效。</p>
+<p><strong>第二，编辑时机决定了拦截能力。</strong> Cursor 的 <code>preToolUse</code> 是在落盘前拦截，其余多是落盘后再扫。同样是&quot;检测到问题&quot;，一个能阻止、一个只能修复。skill 的修复策略必须按 hook 时机分别设计。</p>
+<p><strong>第三，构建期转换是多 harness 的现实解法。</strong> Impeccable 的做法是：以 Agent Skills 规范为共同基线，再用构建期转换生成各 provider 的产物。这跟&quot;为每个 harness 维护一份 fork&quot;是完全不同的维护成本量级。</p>
+<p>换个角度看，这份文档其实是一份<strong>生态成熟度报告</strong>：Skill 是规范层的统一，Harness 是能力层的碎片化。写 Skill 的人一定会撞上这件事。</p>
+<hr>
+<h2 id="十从-design-skill-推演哪些专家能力都可以-skill-化">十、从 Design Skill 推演：哪些专家能力都可以 Skill 化？</h2>
+<p>如果&quot;审美&quot;可以被做成一组可加载、可执行、可检查的规则，那么其他专家经验呢？</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Design Taste
+</span></span><span style="display:flex;"><span>Writing Style
+</span></span><span style="display:flex;"><span>Architecture Pattern
+</span></span><span style="display:flex;"><span>Security Review
+</span></span><span style="display:flex;"><span>Code Review
+</span></span><span style="display:flex;"><span>Product Sense
+</span></span><span style="display:flex;"><span>Domain Knowledge
+</span></span><span style="display:flex;"><span>Research Method
+</span></span></code></pre></div><p>从本文的几个案例里，可以抽出几条判断标准——一个能力适合被 Skill 化，大致需要满足：</p>
+<ol>
+<li><strong>有可复述的规则</strong>：专家能把它写成清单，而不是&quot;你多看看就懂了&quot;；</li>
+<li><strong>有可观察的产物</strong>：产物是文本、代码、页面这类可以被检查的东西，而不是&quot;感觉&quot;；</li>
+<li><strong>有稳定的失败模式</strong>：反模式可枚举。Impeccable 的反模式清单、taste-skill 的&quot;不许&quot;段落，都是这一条的直接应用；</li>
+<li><strong>有可执行的修正动作</strong>：不只是&quot;不好&quot;，而是有 <code>bolder</code>、<code>quieter</code>、<code>distill</code> 这样的动词能落到下一步。</li>
+</ol>
+<p>四条里缺任何一条，Skill 都会退化成&quot;一段更长的 Prompt&quot;——规则无法检查，产物无法观察，失败无法复现，修正无从下手。</p>
+<p>按这个标准回看，安全评审（有明确规则、有扫描产物、有已知漏洞模式）和代码评审（有 lint 层 + 主观层，天然适合&quot;确定性规则 + LLM 判断&quot;的分工）恰好是最适合的两类；而&quot;产品品味&quot;这类更靠情境判断的能力，眼下更像 Branding 那一层——<strong>它更像边界声明，而不是判断规则。</strong></p>
+<blockquote>
+<p>Skill 的本质，是把隐性的专家经验转化为 Agent 可以加载、执行和评估的能力。</p>
+</blockquote>
+<hr>
+<h2 id="十一未来从-coding-agent-到-expert-agent">十一、未来：从 Coding Agent 到 Expert Agent</h2>
+<p>
+  <img src="/img/ai-design-taste-skills/expert-agent-ladder.svg" alt="Agent 能力的五级演进">
+
+</p>
+<p>把 Agent 的演进排成一条线：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Code Generation      ← 会写代码
+</span></span><span style="display:flex;"><span>      ↓
+</span></span><span style="display:flex;"><span>Task Execution       ← 会完成任务
+</span></span><span style="display:flex;"><span>      ↓
+</span></span><span style="display:flex;"><span>Skill-driven Agent   ← 会按专家规则做
+</span></span><span style="display:flex;"><span>      ↓
+</span></span><span style="display:flex;"><span>Feedback-driven Agent← 会自己判断做得好不好
+</span></span><span style="display:flex;"><span>      ↓
+</span></span><span style="display:flex;"><span>Expert Agent         ← 会在一个领域持续做得对
+</span></span></code></pre></div><p>关键在于每一级新增的能力是什么：第一级加的是<strong>生成</strong>，第二级加的是<strong>工具</strong>，第三级加的是<strong>规则</strong>，第四级加的是<strong>评估</strong>，第五级加的是<strong>领域内的长期一致性</strong>。</p>
+<p>所以最关键的变化并不是：</p>
+<blockquote>
+<p>Model 变得更大。</p>
+</blockquote>
+<p>而是：</p>
+<blockquote>
+<p><strong>Agent 开始拥有越来越丰富的 Skill、工具和反馈闭环。</strong></p>
+</blockquote>
+<p>这也是为什么&quot;设计品味&quot;这件事值得单独写一篇：它是最难被规则化的能力之一，而它已经被拆成了可安装的资产——那么这个拆解方法本身，就是可以复用到别处的。</p>
+<hr>
+<h2 id="十二结语ai-coding-的下一阶段是品味工程">十二、结语：AI Coding 的下一阶段，是&quot;品味工程&quot;</h2>
+<p>回到文章主题：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Reference
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Brand
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Taste
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Generate
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Critique
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Polish
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Verify
+</span></span></code></pre></div><p>AI Coding 的三个阶段，其实是三个不同的追问：</p>
+<ul>
+<li>第一阶段问：<strong>能不能做出来？</strong></li>
+<li>第二阶段问：<strong>做得对不对？</strong></li>
+<li>下一阶段问：<strong>做得有没有品味？</strong></li>
+</ul>
+<p>所以一个真正成熟的 Design Agent，不应该只是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Text → Code
+</span></span></code></pre></div><p>而应该是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Reference
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Understand
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Decide
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Generate
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Observe
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Evaluate
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Refine
+</span></span><span style="display:flex;"><span>   ↓
+</span></span><span style="display:flex;"><span>Verify
+</span></span></code></pre></div><p>这两条链路的差别，不在于哪一步更快，而在于后半条<strong>可以被检查</strong>。能被检查的东西，才能被迭代；能被迭代的东西，才能被信任。</p>
+<blockquote>
+<p><strong>当&quot;审美&quot;也开始进入 Skill、进入 Agent Loop，AI Coding 才真正从代码生成走向产品创造。</strong></p>
+</blockquote>
+<hr>
+<h3 id="参考与延伸">参考与延伸</h3>
+<ul>
+<li><a href="https://minimal.gallery/">Minimal Gallery</a> — 手工策展的极简网页设计参考库</li>
+<li><a href="https://github.com/hunger-Eric/taste-skill">taste-skill</a> — 面向 AI Agent 的前端设计规则技能包（含 <code>gpt-tasteskill</code>、<code>image-to-code-skill</code> 派生技能）</li>
+<li><a href="https://github.com/pbakaus/impeccable">Impeccable</a> — 跨 harness 的 AI 前端设计技能包；harness 能力对照见仓库 <code>docs/HARNESSES.md</code></li>
+<li>本仓库相关文章：<a href="/2026/08/08/claude-design-explore-before-build/">在动手之前先把想法跑起来：Claude Design 作者的 10 条工作方法</a></li>
+</ul>
+<p>第 8 节的实验可复现：四个条件的提示词、四份 <code>index.html</code> 产物与统计脚本归档在仓库 <code>.codebuddy/experiments/design-taste-v0-v3/</code>，统计口径见其中的 <code>analyze.py</code>；8.5 节的复现实验归档在 <code>.codebuddy/experiments/design-taste-replication/</code>，其中 <code>driver.sh</code> 是完整运行参数，<code>runs.csv</code> 是 36 次运行的逐条指标，<code>summary.txt</code> 是统计输出。</p>
+
+
+                
+                
+<div class="entry-shang text-center">
+    
+	    <p>「真诚赞赏，手留余香」</p>
+	
+	<button class="zs show-zs btn btn-bred">赞赏支持</button>
+</div>
+<div class="zs-modal-bg"></div>
+<div class="zs-modal-box">
+	<div class="zs-modal-head">
+		<button type="button" class="close">×</button>
+		<span class="author"><a href="https://www.iceyao.com.cn/"><img src="/img/favicon.png" />爱折腾的工程师</a></span>
+        
+	        <p class="tip"><i></i><span>真诚赞赏，手留余香</span></p>
+		
+ 
+	</div>
+	<div class="zs-modal-body">
+		<div class="zs-modal-btns">
+			<button class="btn btn-blink" data-num="2">2元</button>
+			<button class="btn btn-blink" data-num="5">5元</button>
+			<button class="btn btn-blink" data-num="10">10元</button>
+			<button class="btn btn-blink" data-num="50">50元</button>
+			<button class="btn btn-blink" data-num="100">100元</button>
+			<button class="btn btn-blink" data-num="1">任意金额</button>
+		</div>
+		<div class="zs-modal-pay">
+			<button class="btn btn-bred" id="pay-text">2元</button>
+			<p>使用<span id="pay-type">微信</span>扫描二维码完成支付</p>
+			<img src="/img/reward/wechat-2.png"  id="pay-image"/>
+		</div>
+	</div>
+	<div class="zs-modal-footer">
+		<label><input type="radio" name="zs-type" value="wechat" class="zs-type" checked="checked"><span ><span class="zs-wechat"><img src="/img/reward/wechat-btn.png"/></span></label>
+		<label><input type="radio" name="zs-type" value="alipay" class="zs-type" class="zs-alipay"><img src="/img/reward/alipay-btn.png"/></span></label>
+	</div>
+</div>
+<script type="text/javascript" src="/js/reward.js"></script>
+
+                
+
+                
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2026/10/06/asana-coachable-agents/" data-toggle="tooltip" data-placement="top" title="可教练的 agent：Asana 如何用 Claude 组建人机团队">&larr;
+                            Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2026/10/06/claude-code-plugin-mods/" data-toggle="tooltip" data-placement="top" title="Claude Code Mods 解读：把扩展装进进程里">Next
+                            Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+
+                
+
+
+<script src="https://giscus.app/client.js"
+        data-repo="yaoice/yaoice.github.io"
+        data-repo-id="R_kgDOJnxqVg"
+        data-category="General"
+        data-category-id="DIC_kwDOJnxqVs4CWwUs"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+            </div>
+
+            
+            
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+            
+
+            
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent" title="agent">
+                            agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/agent-skills" title="agent skills">
+                            agent skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai" title="ai">
+                            ai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/ai-agent" title="ai agent">
+                            ai agent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ai-infra" title="ai infra">
+                            ai infra
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/anthropic" title="anthropic">
+                            anthropic
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/api" title="api">
+                            api
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/ci/cd" title="ci/cd">
+                            ci/cd
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/claude" title="claude">
+                            claude
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/claude-code" title="claude code">
+                            claude code
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/devops" title="devops">
+                            devops
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/devtools" title="devtools">
+                            devtools
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/evaluation" title="evaluation">
+                            evaluation
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/go" title="go">
+                            go
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/gpu/npu" title="gpu/npu">
+                            gpu/npu
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/helm" title="helm">
+                            helm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/html" title="html">
+                            html
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/k8s" title="k8s">
+                            k8s
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E5%AD%98%E5%82%A8" title="k8s 存储">
+                            k8s 存储
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E7%BD%91%E7%BB%9C" title="k8s 网络">
+                            k8s 网络
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/k8s-%E8%B0%83%E5%BA%A6" title="k8s 调度">
+                            k8s 调度
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/kubelet" title="kubelet">
+                            kubelet
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/linux/%E7%B3%BB%E7%BB%9F" title="linux/系统">
+                            linux/系统
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/llm" title="llm">
+                            llm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/loops" title="loops">
+                            loops
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/mcp" title="mcp">
+                            mcp
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/openai" title="openai">
+                            openai
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/openstack" title="openstack">
+                            openstack
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/opus-5.5" title="opus 5.5">
+                            opus 5.5
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/prompt-caching" title="prompt caching">
+                            prompt caching
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/prompt-engineering" title="prompt engineering">
+                            prompt engineering
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/python" title="python">
+                            python
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/rag" title="rag">
+                            rag
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/rust" title="rust">
+                            rust
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/skills" title="skills">
+                            skills
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/subagent" title="subagent">
+                            subagent
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/vllm" title="vllm">
+                            vllm
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/workbuddy" title="workbuddy">
+                            workbuddy
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B" title="上下文工程">
+                            上下文工程
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%B9%B3%E5%8F%B0" title="云原生平台">
+                            云原生平台
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%91%E8%AE%A1%E7%AE%97" title="云计算">
+                            云计算
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81/%E9%9A%8F%E7%AC%94" title="产品/随笔">
+                            产品/随笔
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E5%AE%9E%E8%B7%B5" title="产品实践">
+                            产品实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1" title="产品设计">
+                            产品设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%9B%BD%E4%BA%A7%E5%8C%96" title="国产化">
+                            国产化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93" title="多智能体">
+                            多智能体
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%AE%B9%E5%99%A8" title="容器">
+                            容器
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81" title="工作流">
+                            工作流
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%B7%A5%E7%A8%8B%E6%95%88%E8%83%BD" title="工程效能">
+                            工程效能
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7" title="开发工具">
+                            开发工具
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%80%E6%BA%90" title="开源">
+                            开源
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9" title="弹性伸缩">
+                            弹性伸缩
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%88%90%E6%9C%AC%E4%BC%98%E5%8C%96" title="成本优化">
+                            成本优化
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%8A%80%E6%9C%AF%E8%A7%A3%E8%AF%BB" title="技术解读">
+                            技术解读
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%8E%A7%E5%88%B6%E5%99%A8" title="控制器">
+                            控制器
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" title="故障排查">
+                            故障排查
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1" title="架构设计">
+                            架构设计
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90" title="源码分析">
+                            源码分析
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90" title="源码解析">
+                            源码解析
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%9B%91%E6%8E%A7" title="监控">
+                            监控
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E5%85%B3" title="网关">
+                            网关
+                        </a>
+                        
+                        
+                        
+                        <a href="/tags/%E7%BD%91%E7%BB%9C" title="网络">
+                            网络
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96" title="自动化">
+                            自动化
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F" title="设计模式">
+                            设计模式
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E8%AF%84%E4%BC%B0" title="评估">
+                            评估
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        <a href="/tags/%E9%83%A8%E7%BD%B2%E5%AE%9E%E8%B7%B5" title="部署实践">
+                            部署实践
+                        </a>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                </section>
+                
+
+                
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+
+
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">                  
+                    
+                    <li>
+                        <a href="mailto:yao3690093@gmail.com">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fas fa-envelope fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		           
+                    
+                    
+                    
+                    
+
+		            
+                    
+                    <li>
+                        <a target="_blank" href="/img/wechat.jpeg">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-weixin fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/yaoice">
+                            <span class="fa-stack fa-lg">
+                                <i class="fas fa-circle fa-stack-2x"></i>
+                                <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+		            
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+            
+            
+            
+           
+                   <li>
+                       <a href="/index.xml" rel="alternate" type="application/rss+xml" title="爱折腾的工程师" >
+                           <span class="fa-stack fa-lg">
+                               <i class="fas fa-circle fa-stack-2x"></i>
+                               <i class="fas fa-rss fa-stack-1x fa-inverse"></i>
+                           </span>
+                       </a>
+                   </li>
+            
+             </ul>
+		<p class="copyright text-muted">
+                    Copyright &copy; 爱折腾的工程师 2026
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+
+
+<script>
+    function loadAsync(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+
+
+
+
+
+<script>
+    
+    if($('#tag_cloud').length !== 0){
+        loadAsync("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+
+<script>
+    loadAsync("https://cdn.jsdelivr.net/npm/fastclick@1.0.6/lib/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https'){
+       bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+      }
+      else{
+      bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+
+<script>
+    
+    var _baId = '92c175994ded75a3cd2074bc1123e2be';
+
+    
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog(selector) {
+
+        
+        
+        
+        
+            _containerSelector = 'div.post-container'
+        
+
+        
+        var P = $(_containerSelector), a, n, t, l, i, c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+
+        
+        $(selector).html('')
+
+        
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#" + $(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="' + i + '" rel="nofollow">' + t + '</a>');
+            l = $('<li class="' + n + '_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;
+    }
+
+    generateCatalog(".catalog-body");
+
+    
+    $(".catalog-toggle").click((function (e) {
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    
+
+
+    loadAsync("\/js\/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+
+
+</body>
+</html>
